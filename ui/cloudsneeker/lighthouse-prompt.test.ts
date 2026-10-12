@@ -33,6 +33,16 @@ describe("brandSystemPrompt", () => {
     expect(prompt).toContain(BRAND.supportUrl);
   });
 
+  it("renames the assistant", () => {
+    const prompt = brandSystemPrompt(
+      "Ask Lighthouse AI. Lighthouse can help.",
+    );
+
+    expect(prompt).toContain(`Ask ${BRAND.assistantName}.`);
+    expect(prompt).toContain(`${BRAND.assistantName} can help.`);
+    expect(prompt).not.toMatch(/Lighthouse/);
+  });
+
   it("appends sources when the template has none", () => {
     const prompt = brandSystemPrompt("Hello from Prowler.");
 

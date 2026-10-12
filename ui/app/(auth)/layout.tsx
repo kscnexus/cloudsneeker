@@ -1,4 +1,6 @@
 import "@/styles/globals.css";
+// cloudsneeker-hook: product chrome
+import "@/cloudsneeker/theme.css";
 
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Metadata, Viewport } from "next";
@@ -8,6 +10,7 @@ import { ReactNode, Suspense } from "react";
 import { RuntimePublicConfig } from "@/components/runtime-config/runtime-public-config";
 import { NavigationProgress, Toaster } from "@/components/shadcn";
 import { fontMono, fontSans } from "@/config/fonts";
+import { BRAND } from "@/cloudsneeker/brand";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib";
 import { readGatedEnv } from "@/lib/integrations";
@@ -21,7 +24,7 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   icons: {
-    icon: "/favicon.ico",
+    icon: BRAND.faviconPath,
   },
 };
 

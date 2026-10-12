@@ -4,6 +4,8 @@
 
 export const BRAND = {
   name: "Cloudsneeker",
+  // In-app assistant. Chat routes and component names stay unchanged.
+  assistantName: "Seeker",
   shortName: "Cloudsneeker",
   vendor: "Cloudsneeker",
   tagline: "Cloud security posture, continuously.",
@@ -17,7 +19,7 @@ export const BRAND = {
   // Served from ui/public; replace the files with the final artwork.
   logoMarkPath: "/brand/cloudsneeker-mark.svg",
   logoWordmarkPath: "/brand/cloudsneeker-wordmark.svg",
-  faviconPath: "/favicon.ico",
+  faviconPath: "/brand/cloudsneeker-mark.svg",
   // CloudFormation template used by the AWS quick-create links.
   cloudformationTemplateUrl:
     "https://docs.cloudsneeker.example/templates/cloudsneeker-scan-role.yml",

@@ -10,16 +10,45 @@ interface BrandWordmarkProps {
   className?: string;
 }
 
+const MarkPaths = () => (
+  <>
+    <rect width="32" height="32" rx="8" fill="#0B1F33" />
+    <circle
+      cx="14"
+      cy="14"
+      r="6"
+      fill="none"
+      stroke="#67E8F9"
+      strokeWidth="2"
+    />
+    <path
+      d="M18.8 18.8 L25 25"
+      stroke="#67E8F9"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </>
+);
+
 export const BrandWordmark = ({ className }: BrandWordmarkProps) => {
   return (
     <span
       role="img"
       aria-label={BRAND.name}
       className={cn(
-        "inline-flex items-center text-lg font-semibold tracking-tight text-slate-900 dark:text-white",
+        "inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white",
         className,
       )}
     >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 32 32"
+        width="28"
+        height="28"
+        aria-hidden="true"
+      >
+        <MarkPaths />
+      </svg>
       {BRAND.name}
     </span>
   );
@@ -27,7 +56,7 @@ export const BrandWordmark = ({ className }: BrandWordmarkProps) => {
 
 export const BrandWordmarkSvg: React.FC<IconSvgProps> = ({
   size,
-  width = 216,
+  width = 248,
   height,
   ...props
 }) => {
@@ -35,7 +64,7 @@ export const BrandWordmarkSvg: React.FC<IconSvgProps> = ({
     <svg
       className="text-black dark:text-white"
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 216 40"
+      viewBox="0 0 248 32"
       fill="none"
       height={size || height}
       width={size || width}
@@ -43,7 +72,8 @@ export const BrandWordmarkSvg: React.FC<IconSvgProps> = ({
       aria-label={BRAND.name}
       {...props}
     >
-      <text x="0" y="28" fontSize="24" fontWeight="700" fill="currentColor">
+      <MarkPaths />
+      <text x="40" y="23" fontSize="18" fontWeight="700" fill="currentColor">
         {BRAND.name}
       </text>
     </svg>
@@ -57,34 +87,14 @@ export const BrandMark: React.FC<IconSvgProps> = ({
   ...props
 }) => (
   <svg
-    className="text-black dark:text-white"
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 32 32"
     fill="none"
     height={size || height}
     width={size || width}
-    // Decorative unless the caller names it (e.g. an owner badge).
     aria-hidden={props["aria-label"] ? undefined : true}
     {...props}
   >
-    <rect
-      x="1"
-      y="1"
-      width="30"
-      height="30"
-      rx="8"
-      fill="currentColor"
-      opacity="0.08"
-    />
-    <text
-      x="16"
-      y="23"
-      textAnchor="middle"
-      fontSize="20"
-      fontWeight="700"
-      fill="currentColor"
-    >
-      {BRAND.shortName.charAt(0)}
-    </text>
+    <MarkPaths />
   </svg>
 );

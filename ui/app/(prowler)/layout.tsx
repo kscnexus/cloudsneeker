@@ -1,4 +1,6 @@
 import "@/styles/globals.css";
+// cloudsneeker-hook: product chrome
+import "@/cloudsneeker/theme.css";
 
 import * as Sentry from "@sentry/nextjs";
 import { Metadata, Viewport } from "next";
@@ -20,6 +22,7 @@ import { TaskPollingWatcher } from "@/components/shared/task-polling-watcher";
 import { GlobalSidePanel } from "@/components/side-panel";
 import { FeedbackSurvey } from "@/components/survey/feedback-survey";
 import { fontMono, fontSans } from "@/config/fonts";
+import { BRAND } from "@/cloudsneeker/brand";
 import { siteConfig } from "@/config/site";
 import { REGISTRY_ACCESS } from "@/lib/registry/access";
 import { evaluateRegistryAccess } from "@/lib/registry/access.server";
@@ -37,7 +40,7 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   icons: {
-    icon: "/favicon.ico",
+    icon: BRAND.faviconPath,
   },
   other: {
     ...Sentry.getTraceData(),

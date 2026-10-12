@@ -19,6 +19,8 @@ class Brand:
     """Display names, URLs, and identifiers that clients can see."""
 
     name: str = "Cloudsneeker"
+    # In-app assistant. Routes and code identifiers stay as they are.
+    assistant_name: str = "Seeker"
     short_name: str = "Cloudsneeker"
     vendor: str = "Cloudsneeker"
     slug: str = "cloudsneeker"

@@ -64,6 +64,21 @@ text_targets = [
   "mcp_server/**/*.md",
 ]
 
+# Assistant display name. The phrase runs first so "Lighthouse AI" does not
+# become "<assistant> AI". Paths and identifiers use a lowercase spelling
+# and are left alone.
+[[rule]]
+id = "assistant-phrase"
+pattern = 'Lighthouse AI'
+replacement = "{assistant_name}"
+include = "text_targets"
+
+[[rule]]
+id = "assistant-word"
+pattern = '\bLighthouse\b'
+replacement = "{assistant_name}"
+include = "text_targets"
+
 # Product tier and sister-product names collapse to the product name so no
 # sentence advertises a hosted edition that Cloudsneeker does not sell.
 [[rule]]

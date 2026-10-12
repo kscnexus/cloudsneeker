@@ -1,0 +1,43 @@
+/* Product chrome. Imported after the upstream theme so accents change and
+   status colors (pass, fail, severity) stay as they are. */
+
+:root {
+  --bg-button-primary: #67e8f9;
+  --bg-button-primary-hover: #a5f3fc;
+  --bg-button-primary-press: #22d3ee;
+  --sidebar-active-bar: #0891b2;
+  --sidebar-active-icon: #0891b2;
+  --text-lighthouse: #0e7490;
+  --border-lighthouse: rgba(8, 145, 178, 0.45);
+  --bg-feature-new: #0891b2;
+  --bg-sidebar-subitem-active: rgba(8, 145, 178, 0.1);
+  --gradient-feature-cloud: linear-gradient(
+    112deg,
+    #22d3ee 3.5%,
+    #6366f1 98.8%
+  );
+  --gradient-sidebar-halo: radial-gradient(
+    circle,
+    rgba(34, 211, 238, 0.16) 0%,
+    rgba(99, 102, 241, 0.08) 40%,
+    transparent 72%
+  );
+}
+
+.dark {
+  --bg-button-primary: #67e8f9;
+  --bg-button-primary-hover: #a5f3fc;
+  --bg-button-primary-press: #22d3ee;
+  --bg-button-secondary-press: #cffafe;
+  --sidebar-active-bar: #67e8f9;
+  --sidebar-active-icon: #67e8f9;
+  --text-lighthouse: #67e8f9;
+  --border-lighthouse: rgba(103, 232, 249, 0.45);
+  --bg-sidebar-subitem-active: rgba(103, 232, 249, 0.1);
+  --gradient-sidebar-halo: radial-gradient(
+    circle,
+    rgba(103, 232, 249, 0.16) 0%,
+    rgba(99, 102, 241, 0.08) 40%,
+    transparent 72%
+  );
+}
