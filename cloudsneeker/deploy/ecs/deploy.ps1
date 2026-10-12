@@ -29,8 +29,10 @@ $ArtifactBucket = "cloudsneeker-cfn-$Account-$Region"
 $Aws = @("--profile", $Profile, "--region", $Region, "--output", "json")
 
 function Invoke-Aws {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$AwsArgs)
-    $command = @($Aws + $AwsArgs)
+    param([string[]]$AwsArgs)
+    $command = @()
+    $command += $Aws
+    $command += $AwsArgs
     & aws @command
     if ($LASTEXITCODE -ne 0) { throw "aws $($AwsArgs -join ' ') failed" }
 }
