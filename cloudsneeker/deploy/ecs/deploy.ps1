@@ -21,6 +21,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $EcsDir = $PSScriptRoot
 $Account = "352285844868"
@@ -99,7 +102,7 @@ with open(out_path, "w", encoding="ascii") as handle:
 
 Write-Host "==> Template bucket"
 $bucketExists = $true
-& aws @Aws s3api head-bucket --bucket $ArtifactBucket 2>$null
+cmd /c "aws --profile $Profile --region $Region s3api head-bucket --bucket $ArtifactBucket >nul 2>&1"
 if ($LASTEXITCODE -ne 0) { $bucketExists = $false }
 if (-not $bucketExists) {
     Invoke-Aws @("s3api", "create-bucket", "--bucket", $ArtifactBucket) | Out-Null
