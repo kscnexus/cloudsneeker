@@ -30,15 +30,18 @@ $Aws = @("--profile", $Profile, "--region", $Region, "--output", "json")
 
 function Invoke-Aws {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$AwsArgs)
-    & aws @Aws @AwsArgs
+    $command = @($Aws + $AwsArgs)
+    & aws @command
     if ($LASTEXITCODE -ne 0) { throw "aws $($AwsArgs -join ' ') failed" }
 }
 
 function Invoke-AwsText {
     param([string[]]$AwsArgs)
-    $textAws = $Aws.Clone()
-    $textAws[-1] = "text"
-    $value = & aws @textAws @AwsArgs
+    $command = @()
+    $command += $Aws[0..($Aws.Length - 2)]
+    $command += "text"
+    $command += $AwsArgs
+    $value = & aws @command
     if ($LASTEXITCODE -ne 0) { throw "aws $($AwsArgs -join ' ') failed" }
     return ($value | Out-String).Trim()
 }
