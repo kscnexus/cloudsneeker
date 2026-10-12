@@ -13,6 +13,7 @@ import {
 } from "vitest";
 
 import { updateSamlConfig } from "@/actions/integrations";
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import {
   RUNTIME_CONFIG_SCRIPT_ID,
   type RuntimePublicConfig,
@@ -123,6 +124,14 @@ afterAll(() => {
 });
 
 describe("SamlConfigForm", () => {
+  it("shows the product SAML audience", () => {
+    // cloudsneeker-hook
+    render(<SamlConfigForm setIsOpen={vi.fn()} />);
+
+    expect(screen.getByText(BRAND.samlSpEntityId)).toBeInTheDocument();
+    expect(screen.queryByText(/urn:prowler/)).not.toBeInTheDocument();
+  });
+
   it("keeps the ACS field container while generating the URL", async () => {
     // Given
     const serverHtml = renderToString(<SamlConfigForm setIsOpen={vi.fn()} />);

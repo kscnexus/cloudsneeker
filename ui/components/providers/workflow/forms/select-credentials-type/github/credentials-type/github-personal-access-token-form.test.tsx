@@ -2,6 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
 
+import { PRECONFIGURED_CREDENTIAL_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
+
 import { GitHubPersonalAccessTokenForm } from "./github-personal-access-token-form";
 
 // Wraps the form in a react-hook-form context so the WizardInputField mounts
@@ -19,7 +21,7 @@ const Harness = ({ providerUid }: { providerUid?: string }) => {
 };
 
 const USER_URL =
-  "https://github.com/settings/personal-access-tokens/new?name=Prowler+Security+Scanner&description=Fine-grained+PAT+for+Prowler+security+scanning&expires_in=90&administration=read&contents=read&vulnerability_alerts=read&emails=read";
+  PRECONFIGURED_CREDENTIAL_URLS.GITHUB_PERSONAL_ACCESS_TOKEN_USER;
 
 const expectSafeExternalLink = (href: string) => (name: RegExp) => {
   const link = screen.getByRole("link", { name });

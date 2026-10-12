@@ -1,0 +1,33 @@
+---
+title: "Support"
+description: "How to reach us and what to include"
+---
+
+## Contact
+
+- **Support portal**: [support.cloudsneeker.example](https://support.cloudsneeker.example)
+- **In-app**: the **Help** entry in the sidebar opens this site; the **Contact support** link opens the portal with your organization pre-filled.
+
+Hosted customers have the response targets in their agreement. Self-hosted customers receive support for the current and previous minor release.
+
+## What to include
+
+For the fastest answer, include:
+
+1. Your organization name and, if relevant, the provider alias and the scan ID (visible in the scan's URL).
+2. What you expected and what happened, with a screenshot if it is a UI issue.
+3. For self-hosted installations: the image tags you run (`docker compose images` or `helm list`) and the API logs around the time of the issue:
+
+   ```shell
+   docker compose logs --since 30m cloudsneeker-api cloudsneeker-worker
+   ```
+
+Do not send credentials, API keys, or the `.env` file. If a credential may have been exposed, rotate it first.
+
+## Security issues
+
+Report suspected vulnerabilities in the product through the support portal with the subject **Security**. We acknowledge within two business days.
+
+## Release notes
+
+Each release lists new checks, changed behavior, and upgrade notes. The current version is shown in the sidebar footer of the web app and in `cloudsneeker --version`.

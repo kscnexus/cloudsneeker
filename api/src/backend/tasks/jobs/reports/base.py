@@ -12,6 +12,13 @@ from api.db_router import READ_REPLICA_ALIAS
 from api.db_utils import rls_transaction
 from api.models import Provider, StatusChoices
 from celery.utils.log import get_task_logger
+from cloudsneeker_api.brand import (  # cloudsneeker-hook
+    pdf_author,
+    pdf_creator,
+    pdf_footer,
+    pdf_keywords,
+    report_logo_path,
+)
 from prowler.lib.check.compliance_models import (
     Compliance,
     get_bulk_compliance_frameworks_universal,
@@ -620,8 +627,8 @@ class BaseComplianceReportGenerator(ABC):
         elements = []
 
         # Prowler logo
-        logo_path = os.path.join(
-            os.path.dirname(__file__), "../../assets/img/prowler_logo.png"
+        logo_path = report_logo_path(  # cloudsneeker-hook
+            os.path.join(os.path.dirname(__file__), "../../assets/img")
         )
         if os.path.exists(logo_path):
             logo = Image(logo_path, width=5 * inch, height=1 * inch)
@@ -852,7 +859,7 @@ class BaseComplianceReportGenerator(ABC):
         else:
             page_text = f"Page {page_num}"
 
-        return page_text, "Powered by Prowler"
+        return page_text, pdf_footer()  # cloudsneeker-hook
 
     def _render_requirement_detail_extras(
         self, req: RequirementData, data: ComplianceData
@@ -1017,10 +1024,10 @@ class BaseComplianceReportGenerator(ABC):
             output_path,
             pagesize=letter,
             title=f"{self.config.display_name} Report - {data.framework}",
-            author="Prowler",
+            author=pdf_author(),  # cloudsneeker-hook
             subject=f"Compliance Report for {data.framework}",
-            creator="Prowler Engineering Team",
-            keywords=f"compliance,{data.framework},security,framework,prowler",
+            creator=pdf_creator(),  # cloudsneeker-hook
+            keywords=pdf_keywords(data.framework),  # cloudsneeker-hook
         )
 
     def _build_pdf(

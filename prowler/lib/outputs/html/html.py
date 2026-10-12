@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 import markdown
 from markupsafe import escape
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
+from cloudsneeker.sdk import html_title  # cloudsneeker-hook
 from prowler.config.config import (
     html_logo_url,
     prowler_version,
@@ -201,7 +203,7 @@ class HTML(Output):
 
         .float-left {{ float: left !important; max-width: 100%; }}
     </style>
-    <title>Prowler - The Handy Cloud Security Tool</title>
+    <title>{html_title()}</title>
     </head>
     <body>
     <div class="container-fluid">
@@ -209,7 +211,7 @@ class HTML(Output):
         <div class="col-md-4">
             <a href="{html_logo_url}"><img class="float-left card-img-left mt-4 mr-4 ml-4"
                         src={square_logo_img}
-                        alt="prowler-logo"
+                        alt="{brand.slug}-logo"
                         style="width: 15rem; height:auto;"/></a>
             <div class="card">
             <div class="card-header">

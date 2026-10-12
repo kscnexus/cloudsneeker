@@ -1,0 +1,41 @@
+---
+title: "Connect a provider"
+description: "Give Cloudsneeker read-only access to an account, subscription, project, cluster, or tenant"
+---
+
+A **provider** is one thing Cloudsneeker scans: an AWS account, an Azure subscription, a Google Cloud project, a Kubernetes cluster, a GitHub organization, a Microsoft 365 tenant, and so on. You can connect as many as you need.
+
+## Add a provider
+
+<Steps>
+  <Step title="Open the wizard">
+    Go to **Providers** and select **Add provider**.
+  </Step>
+  <Step title="Choose the platform and identify the target">
+    Enter the account ID, subscription ID, project ID, cluster context, or organization name. An optional alias makes it easier to find later.
+  </Step>
+  <Step title="Choose a credential type and enter the credential">
+    Each platform supports one or more methods. Role-based and workload-identity methods are preferred because no long-lived secret leaves your environment.
+  </Step>
+  <Step title="Test the connection">
+    Cloudsneeker verifies it can authenticate and list resources. When the test passes, the first scan starts.
+  </Step>
+</Steps>
+
+## Platform guides
+
+<Columns cols={2}>
+  <Card title="AWS" href="/providers/aws">IAM role with CloudFormation quick-create, or access keys.</Card>
+  <Card title="Azure" href="/providers/azure">App registration with reader roles.</Card>
+  <Card title="Google Cloud" href="/providers/gcp">Service account key or workload identity.</Card>
+  <Card title="Kubernetes" href="/providers/kubernetes">Kubeconfig or in-cluster service account.</Card>
+  <Card title="Other platforms" href="/providers/other">GitHub, Microsoft 365, MongoDB Atlas, and more.</Card>
+</Columns>
+
+## Permissions
+
+Every method is read-only. Cloudsneeker never modifies a resource during a scan. The exact permission sets are listed on each platform page.
+
+## Rotate or replace credentials
+
+Open the provider, select **Update credentials**, and enter the new credential. The next scan uses it. Deleting a provider deletes its credentials, scans, and findings.

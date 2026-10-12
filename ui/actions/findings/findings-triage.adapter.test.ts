@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import {
   FINDING_TRIAGE_DISABLED_REASON,
   FINDING_TRIAGE_STATUS,
@@ -122,7 +123,7 @@ describe("provisional findings triage contract fixtures", () => {
     expect(summary.disabledReason).toBe(
       FINDING_TRIAGE_DISABLED_REASON.CLOUD_ONLY,
     );
-    expect(summary.billingHref).toBe("https://prowler.com/pricing");
+    expect(summary.billingHref).toBe(BRAND.pricingUrl);
   });
 });
 
@@ -391,7 +392,7 @@ describe("adaptFindingTriageSummariesResponse", () => {
         label: "Under Review",
         hasVisibleNote: true,
         canEdit: true,
-        billingHref: "https://prowler.com/pricing",
+        billingHref: BRAND.pricingUrl,
       }),
     ]);
   });

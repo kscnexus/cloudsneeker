@@ -7,6 +7,8 @@ from typing import Optional
 from boto3.session import Session
 from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
 
+# cloudsneeker-hook
+from cloudsneeker.sdk import s3_test_object_body, s3_test_object_key
 from prowler.lib.logger import logger
 from prowler.lib.outputs.output import Output
 from prowler.providers.aws.aws_provider import AwsProvider
@@ -344,15 +346,15 @@ class S3:
                 )
             # Set a Temp file to upload
             with tempfile.TemporaryFile() as temp_file:
-                temp_file.write(b"Test Prowler Connection")
+                temp_file.write(s3_test_object_body())  # cloudsneeker-hook
                 temp_file.seek(0)
                 s3_client.upload_fileobj(
-                    temp_file, bucket_name, "test-prowler-connection.txt"
+                    temp_file, bucket_name, s3_test_object_key()  # cloudsneeker-hook
                 )
 
             # Try to delete the file
             s3_client.delete_object(
-                Bucket=bucket_name, Key="test-prowler-connection.txt"
+                Bucket=bucket_name, Key=s3_test_object_key()  # cloudsneeker-hook
             )
             return Connection(is_connected=True)
 

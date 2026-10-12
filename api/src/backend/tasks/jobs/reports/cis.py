@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Any
 
 from api.models import StatusChoices
+from cloudsneeker_api.brand import report_logo_path  # cloudsneeker-hook
 from reportlab.lib.units import inch
 from reportlab.platypus import Image, PageBreak, Paragraph, Spacer, Table, TableStyle
 
@@ -130,8 +131,8 @@ class CISReportGenerator(BaseComplianceReportGenerator):
         elements = []
 
         # Create logos side by side (same pattern as NIS2 / ENS)
-        prowler_logo_path = os.path.join(
-            os.path.dirname(__file__), "../../assets/img/prowler_logo.png"
+        prowler_logo_path = report_logo_path(  # cloudsneeker-hook
+            os.path.join(os.path.dirname(__file__), "../../assets/img")
         )
         cis_logo_path = os.path.join(
             os.path.dirname(__file__), "../../assets/img/cis_logo.png"

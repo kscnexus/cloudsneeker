@@ -1,0 +1,33 @@
+---
+title: "Other platforms"
+description: "GitHub, Microsoft 365, MongoDB Atlas, and the rest of the catalog"
+---
+
+Every platform below is added through **Providers → Add provider**. Each row lists the credential the wizard asks for and the minimum access it needs. Every credential is read-only.
+
+| Platform | Target | Credential | Minimum access |
+| --- | --- | --- | --- |
+| GitHub | Organization or user | Personal access token, OAuth app token, or GitHub App | `read:org`, `repo` (read), `read:user` |
+| Microsoft 365 | Tenant | App registration client secret or certificate | Graph application permissions for Exchange, SharePoint, Teams, and Entra read |
+| MongoDB Atlas | Organization or project | API key pair | Organization Read Only |
+| Alibaba Cloud | Account | RAM access key | `ReadOnlyAccess` |
+| Huawei Cloud | Account | Access key | `Tenant Guest` / read-only system policies |
+| Oracle Cloud | Tenancy | API signing key | Auditors policy group |
+| NHN Cloud | Tenant | Username and password | Member with read access |
+| OpenStack | Project | Application credential | Reader role |
+| Cloudflare | Account | API token | Read-only permissions for zones, DNS, firewall, and account settings |
+| Vercel | Team | Access token | Viewer |
+| Linode | Account | Personal access token | Read-only scopes |
+| Scaleway | Project | API key | `ProjectReadOnly` |
+| STACKIT | Project | Service account token | Reader |
+| E2E Networks | Account | API key | Read-only |
+| Okta | Organization | API token | Read-only administrator |
+| Google Workspace | Customer | Service account with domain-wide delegation | Read-only directory and reports scopes |
+
+## Infrastructure as code
+
+The **IaC** provider scans a Git repository for misconfigurations in Terraform, CloudFormation, Kubernetes manifests, Dockerfiles, and similar files. Provide the repository URL and, for private repositories, a token with read access.
+
+## Platforms not listed
+
+Contact [support](/support) to ask about a platform. The engine's check catalog grows with each release; the [checks index](/checks) shows what is currently covered per platform.

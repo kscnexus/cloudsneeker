@@ -1,0 +1,6 @@
+# Deployment secrets and runtime state never enter the repository.
+.env
+.env.*
+!.env.example
+_data/
+build/

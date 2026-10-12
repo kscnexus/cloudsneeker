@@ -6,7 +6,7 @@ describe("siteConfig", () => {
     vi.resetModules();
   });
 
-  it("names the open-source application Prowler Local Server", async () => {
+  it("names the application Cloudsneeker", async () => {
     // Given
     vi.stubEnv("UI_CLOUD_ENABLED", "false");
 
@@ -14,10 +14,10 @@ describe("siteConfig", () => {
     const { siteConfig } = await import("./site");
 
     // Then
-    expect(siteConfig.name).toBe("Prowler Local Server");
+    expect(siteConfig.name).toBe("Cloudsneeker");
   });
 
-  it("keeps the Prowler Cloud name in Cloud", async () => {
+  it("keeps the Cloudsneeker name when cloud mode is enabled", async () => {
     // Given
     vi.stubEnv("UI_CLOUD_ENABLED", "true");
 
@@ -25,6 +25,6 @@ describe("siteConfig", () => {
     const { siteConfig } = await import("./site");
 
     // Then
-    expect(siteConfig.name).toBe("Prowler Cloud");
+    expect(siteConfig.name).toBe("Cloudsneeker");
   });
 });

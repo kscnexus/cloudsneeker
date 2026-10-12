@@ -14,6 +14,7 @@ import requests.compat
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler.lib.logger import logger
 from prowler.lib.outputs.finding import Finding
 from prowler.lib.outputs.jira.exceptions.exceptions import (
@@ -399,8 +400,10 @@ class Jira:
     REQUEST_TIMEOUT = 90
     ISSUE_STATUS_BATCH_SIZE = 100
     LABEL_MAX_LENGTH = 255
-    FINDING_LABEL_PREFIX = "prowler-finding"
-    DELIVERY_ATTEMPT_LABEL_PREFIX = "prowler-attempt"
+    FINDING_LABEL_PREFIX = f"{brand.jira_label_prefix}-finding"  # cloudsneeker-hook
+    DELIVERY_ATTEMPT_LABEL_PREFIX = (
+        f"{brand.jira_label_prefix}-attempt"  # cloudsneeker-hook
+    )
     ISSUE_KEY_REGEX = re.compile(r"^[A-Z][A-Z0-9_]*-[0-9]+$")
     ISSUE_ID_REGEX = re.compile(r"^[0-9]+$")
     HEADER_TEMPLATE = {

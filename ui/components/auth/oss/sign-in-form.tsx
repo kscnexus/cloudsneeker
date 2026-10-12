@@ -24,8 +24,10 @@ import { Form } from "@/components/shadcn/form";
 import {
   appendAttributionToCallbackPath,
   getSafeCallbackPath,
+  resolvePostLoginPath,
 } from "@/lib/auth-callback-url";
 import { stripPasswordManagerHighlight } from "@/lib/password-manager";
+import { isCloud } from "@/lib/shared/env";
 import { extractUtmParams } from "@/lib/utm";
 import { SignInFormData, signInSchema } from "@/types";
 
@@ -145,14 +147,16 @@ export const SignInForm = ({
     });
 
     if (result?.message === "Success") {
-      router.push(callbackUrl);
+      router.push(resolvePostLoginPath(callbackUrl, isCloud()));
     } else if (result?.errors && "credentials" in result.errors) {
       const message = result.errors.credentials ?? "Invalid email or password";
 
       form.setError("email", { type: "server", message });
       form.setError("password", { type: "server", message });
-    } else if (result?.message === "User email is not verified") {
+    } else if (result?.message === "User email is not verified" && isCloud()) {
       router.push("/email-verification");
+    } else if (result?.message === "User email is not verified") {
+      router.push("/");
     } else {
       toast({
         variant: "destructive",

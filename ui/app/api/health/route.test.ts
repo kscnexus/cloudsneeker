@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand";
+
 import { GET } from "./route";
 
 interface HealthResponse {
   status: "pass";
   version: string;
   releaseId: string;
-  serviceId: "prowler-ui";
+  serviceId: string;
   description: string;
 }
 
@@ -37,8 +39,8 @@ describe("GET /api/health", () => {
       status: "pass",
       version: "1",
       releaseId: "1.28.0",
-      serviceId: "prowler-ui",
-      description: "Prowler UI",
+      serviceId: BRAND.serviceId,
+      description: `${BRAND.name} UI`,
     });
   });
 
@@ -83,7 +85,7 @@ describe("GET /api/health", () => {
     // Then
     expect(response.status).toBe(200);
     expect(body.status).toBe("pass");
-    expect(body.serviceId).toBe("prowler-ui");
+    expect(body.serviceId).toBe(BRAND.serviceId);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

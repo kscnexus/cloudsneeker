@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { DOCS_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
 import type { OnboardingFlow } from "@/lib/onboarding";
 import { useScansStore } from "@/store";
 import { ProviderProps } from "@/types";
@@ -320,7 +321,7 @@ describe("ScansPageShell", () => {
     );
     expect(screen.getByRole("link", { name: /learn more/i })).toHaveAttribute(
       "href",
-      "https://docs.prowler.com/user-guide/tutorials/prowler-app-import-findings",
+      DOCS_URLS.FINDINGS_INGESTION,
     );
   });
 

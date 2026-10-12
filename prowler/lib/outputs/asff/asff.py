@@ -4,6 +4,13 @@ from typing import Optional
 
 from pydantic.v1 import BaseModel, validator
 
+# cloudsneeker-hook
+from cloudsneeker.brand import brand
+from cloudsneeker.sdk import (
+    asff_finding_id,
+    asff_generator_id,
+    security_hub_product_arn,
+)
 from prowler.config.config import prowler_version, timestamp_utc
 from prowler.lib.logger import logger
 from prowler.lib.outputs.finding import Finding
@@ -72,14 +79,23 @@ class ASFF(Output):
                     AWSSecurityFindingFormat(
                         # The following line cannot be changed because it is the format we use to generate unique findings for AWS Security Hub
                         # If changed some findings could be lost because the unique identifier will be different
-                        Id=f"prowler-{finding.metadata.CheckID}-{finding.account_uid}-{finding.region}-{hash_sha512(finding.resource_uid)}",
-                        ProductArn=f"arn:{finding.partition}:securityhub:{finding.region}::product/prowler/prowler",
+                        Id=asff_finding_id(  # cloudsneeker-hook
+                            finding.metadata.CheckID,
+                            finding.account_uid,
+                            finding.region,
+                            hash_sha512(finding.resource_uid),
+                        ),
+                        ProductArn=security_hub_product_arn(  # cloudsneeker-hook
+                            finding.partition, finding.region, finding.account_uid
+                        ),
                         ProductFields=ProductFields(
                             ProwlerResourceName=finding.resource_uid,
                             ProwlerAccountOrganizationalUnitId=finding.account_ou_uid,
                             ProwlerAccountOrganizationalUnitName=finding.account_ou_name,
                         ),
-                        GeneratorId="prowler-" + finding.metadata.CheckID,
+                        GeneratorId=asff_generator_id(
+                            finding.metadata.CheckID
+                        ),  # cloudsneeker-hook
                         AwsAccountId=finding.account_uid,
                         Types=(
                             finding.metadata.CheckType
@@ -241,7 +257,7 @@ class ProductFields(BaseModel):
         - ProwlerResourceName (str): The name of the Prowler resource.
     """
 
-    ProviderName: str = "Prowler"
+    ProviderName: str = brand.security_hub_product_name  # cloudsneeker-hook
     ProviderVersion: str = prowler_version
     ProwlerResourceName: str
     ProwlerAccountOrganizationalUnitId: Optional[str] = None

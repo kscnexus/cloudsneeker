@@ -1,0 +1,40 @@
+---
+title: "Compliance"
+description: "Map findings to frameworks and track requirement status"
+---
+
+Every check is mapped to the requirements of one or more compliance frameworks. After each scan, the **Compliance** page scores each framework for the provider and lists requirements as passed, failed, or manual.
+
+## Read a framework
+
+1. Open **Compliance** and pick a provider and scan.
+2. Select a framework card. The score is the share of automatable requirements with no failed findings.
+3. Expand a section to see its requirements. Each requirement lists the checks behind it and links to the failing findings.
+4. Requirements marked **Manual** have no automated check; the description explains what to verify by hand.
+
+## Frameworks
+
+The set depends on the provider type. For AWS it includes:
+
+| Family | Versions |
+| --- | --- |
+| CIS Benchmarks | 1.4 through 7.0 |
+| AWS Foundational Security Best Practices, Well-Architected (Security, Reliability), Foundational Technical Review | current |
+| NIST | 800-53 r4, 800-53 r5, 800-171 r2, CSF 1.1, CSF 2.0 |
+| ISO/IEC 27001 | 2013, 2022 |
+| PCI DSS | 3.2.1, 4.0 |
+| SOC 2, HIPAA, GDPR, FFIEC, FedRAMP (Low, Moderate), C5, CISA, RBI, ENS RD 2022, NIS2, SecNumCloud, KISA ISMS-P, GxP (21 CFR Part 11, EU Annex 11), ASD Essential Eight, MITRE ATT&CK | current |
+
+Azure, Google Cloud, Kubernetes, Microsoft 365, GitHub, and the other providers have their own CIS and sector-specific sets. The framework list on the Compliance page is authoritative for your installation.
+
+## Threat score
+
+The **threat score** is a weighted posture score across identity, logging, network, data protection, and other categories. It is shown on the overview page per provider and has its own PDF report. See [Reports](/scans/reports).
+
+## PDF reports
+
+CIS, ENS, NIS2, CSA CCM, and the threat score produce PDF reports with an executive summary, section scores, and failing requirements. Download them from the framework page.
+
+## Watchlist
+
+Pin the frameworks that matter to your organization with **Add to watchlist**. Watched frameworks appear on the overview page with their latest score and trend.

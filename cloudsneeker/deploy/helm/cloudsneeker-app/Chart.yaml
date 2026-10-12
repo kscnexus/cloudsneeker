@@ -1,0 +1,9 @@
+apiVersion: v2
+name: cloudsneeker-app
+description: Cloudsneeker application tier (API, workers, web app, MCP server)
+type: application
+version: 0.1.0
+appVersion: "5.45.0"
+keywords:
+  - cloudsneeker
+  - cloud-security

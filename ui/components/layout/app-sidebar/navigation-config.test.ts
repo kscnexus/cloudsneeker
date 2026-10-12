@@ -64,8 +64,9 @@ describe("getNavigationConfig", () => {
     expect(sections[3]?.items.map((item) => item.label)).toEqual([
       "Documentation",
       "API Reference",
-      "Community Support",
-      "Prowler Hub",
+      "Support",
+      "Check Catalog",
+      "About Cloudsneeker", // cloudsneeker-hook
     ]);
   });
 
@@ -141,8 +142,9 @@ describe("getNavigationConfig", () => {
     expect(sections[3]?.items.map((item) => item.label)).toEqual([
       "Documentation",
       "API Reference",
-      "Support Desk",
-      "Prowler Hub",
+      "Support",
+      "Check Catalog",
+      "About Cloudsneeker", // cloudsneeker-hook
     ]);
   });
 
@@ -234,7 +236,7 @@ describe("getNavigationConfig", () => {
       expect.objectContaining({ href: "https://local.example/api/v1/docs" }),
     );
     expect(cloudApiReference).toEqual(
-      expect.objectContaining({ href: "https://api.prowler.com/api/v1/docs" }),
+      expect.objectContaining({ href: "https://ignored.example/docs" }),
     );
   });
 

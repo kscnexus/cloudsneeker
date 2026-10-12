@@ -3,6 +3,7 @@
 import { Cloud } from "lucide-react";
 import Link from "next/link";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { Button } from "@/components/shadcn/button/button";
 import { useCloudUpgradeStore } from "@/store";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
@@ -25,7 +26,7 @@ export function SidebarFooter({
 
   return (
     <div className="shrink-0 px-3 pb-4">
-      {!isCloudEnvironment && (
+      {!isCloudEnvironment && BRAND.showUpsell && (
         <div className="pt-4 pb-3">
           <Button
             type="button"
@@ -39,15 +40,15 @@ export function SidebarFooter({
             }}
           >
             <Cloud aria-hidden="true" className="size-4" />
-            Explore Prowler Cloud
+            Explore {BRAND.name}
           </Button>
         </div>
       )}
 
       <div className="border-border-neutral-secondary text-text-neutral-tertiary flex min-h-9 items-center border-t pt-3 text-[11px]">
-        {isCloudEnvironment && (
+        {BRAND.statusUrl && (
           <Link
-            href="https://status.prowler.com"
+            href={BRAND.statusUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-text-neutral-primary min-w-0 flex-1 transition-colors"

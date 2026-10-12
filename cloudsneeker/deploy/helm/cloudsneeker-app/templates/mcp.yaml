@@ -1,0 +1,70 @@
+{{- $component := "mcp" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cloudsneeker.fullname" . }}-mcp
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.mcp.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "cloudsneeker.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: mcp
+          image: {{ include "cloudsneeker.image" (dict "root" . "component" "mcp") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["uvicorn", "--host", "0.0.0.0", "--port", {{ .Values.mcp.port | quote }}]
+          ports:
+            - name: http
+              containerPort: {{ .Values.mcp.port }}
+          env:
+            - name: PROWLER_MCP_TRANSPORT_MODE
+              value: http
+            - name: API_BASE_URL
+              value: {{ printf "http://%s-api:%v/api/v1" (include "cloudsneeker.fullname" .) .Values.api.port | quote }}
+            - name: CLOUDSNEEKER_API_URL
+              value: {{ printf "https://%s" .Values.hosts.api | quote }}
+            {{- if .Values.brand.docsUrl }}
+            - name: CLOUDSNEEKER_DOCS_URL
+              value: {{ .Values.brand.docsUrl | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudsneeker.fullname" . }}-mcp
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.mcp.port }}
+      targetPort: http
+  selector:
+    {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 4 }}

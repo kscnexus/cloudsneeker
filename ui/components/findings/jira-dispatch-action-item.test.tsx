@@ -6,6 +6,7 @@ import {
   ActionDropdown,
   ActionDropdownItem,
 } from "@/components/shadcn/dropdown";
+import { PROWLER_CLOUD_ONLY_TOOLTIP } from "@/lib/deployment"; // cloudsneeker-hook
 import { createJiraTargetSelection } from "@/lib/jira-dispatch-selection";
 import { useCloudUpgradeStore, useJiraDispatchStore } from "@/store";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
@@ -68,13 +69,13 @@ describe("JiraDispatchActionItem", () => {
     await user.click(screen.getByRole("button", { name: "Actions" }));
     const jiraAction = screen.getByRole("menuitem", { name: "Send to Jira" });
     expect(
-      within(jiraAction).queryByText("Available only in Prowler Cloud"),
+      within(jiraAction).queryByText(PROWLER_CLOUD_ONLY_TOOLTIP),
     ).not.toBeInTheDocument();
     await user.hover(jiraAction);
 
     // Then
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
-      "Available only in Prowler Cloud",
+      PROWLER_CLOUD_ONLY_TOOLTIP,
     );
 
     // When

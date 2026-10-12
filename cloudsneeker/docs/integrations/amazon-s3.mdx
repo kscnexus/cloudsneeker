@@ -1,0 +1,67 @@
+---
+title: "Amazon S3"
+description: "Deliver every scan's report bundle to a bucket you own"
+---
+
+After each scan of the selected providers, Cloudsneeker uploads the CSV, OCSF JSON, HTML, and per-framework compliance files to your bucket under the output directory you choose.
+
+## Prepare the bucket
+
+<Steps>
+  <Step title="Create or pick a bucket">
+    Any region works. Enable default encryption and block public access.
+  </Step>
+  <Step title="Grant write access">
+    Cloudsneeker authenticates with an IAM role it assumes (recommended) or with access keys. The identity needs:
+
+    ```json
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
+          "Resource": [
+            "arn:aws:s3:::<bucket-name>",
+            "arn:aws:s3:::<bucket-name>/*"
+          ]
+        }
+      ]
+    }
+    ```
+
+    When the bucket is in the account you already scan with the `CloudsneekerScan` role, deploy the CloudFormation template with **S3 integration** enabled and the bucket name; it adds this policy to the role.
+  </Step>
+</Steps>
+
+## Configure
+
+1. Open **Integrations → Amazon S3 → Add**.
+2. Choose the providers whose results should be delivered.
+3. Enter the **bucket name** and an **output directory** (prefix), for example `cloudsneeker`.
+4. Choose the credential type. For a role, enter the role ARN; the external ID is pre-filled with your organization ID and must match the role's trust policy.
+5. Select **Test connection**, then **Save**.
+
+## Layout in the bucket
+
+```text
+<output directory>/
+  csv/
+    cloudsneeker-output-<provider>-<timestamp>.csv
+  json-ocsf/
+    cloudsneeker-output-<provider>-<timestamp>.ocsf.json
+  html/
+    cloudsneeker-output-<provider>-<timestamp>.html
+  compliance/
+    cloudsneeker-output-<provider>-<timestamp>_<framework>.csv
+```
+
+Downstream consumers (Athena, a SIEM, a data lake) can watch the prefix for new objects.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Test connection fails with `AccessDenied` | The role's trust policy external ID differs from the one shown in the form |
+| Upload succeeds but objects are missing | Bucket policy denies `s3:PutObject` without a specific encryption header; remove the condition or use SSE-S3 default encryption |
+| Files land in the wrong place | The output directory is a prefix with no leading slash |

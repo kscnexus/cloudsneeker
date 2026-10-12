@@ -1,0 +1,76 @@
+---
+title: "Install on Kubernetes"
+description: "Deploy Cloudsneeker with the Helm chart"
+---
+
+The `cloudsneeker-app` Helm chart deploys the API, workers, scheduler, web app, and MCP server. Datastores (PostgreSQL, Valkey, Neo4j) are external; point the chart at managed services or your own operators.
+
+## Requirements
+
+- Kubernetes 1.27+ and Helm 3.12+
+- PostgreSQL 15+, Valkey or Redis 7+, Neo4j 5+ reachable from the cluster
+- An ingress controller and TLS certificates for the app, API, and MCP hostnames
+
+## Install
+
+<Steps>
+  <Step title="Create the secret">
+    Either let the chart create it from `secrets.*` values, or create one yourself and set `existingSecret`:
+
+    ```shell
+    kubectl create secret generic cloudsneeker \
+      --from-literal=postgresPassword=... \
+      --from-literal=postgresAdminPassword=... \
+      --from-literal=valkeyPassword=... \
+      --from-literal=neo4jPassword=... \
+      --from-file=djangoTokenSigningKey=signing.pem \
+      --from-file=djangoTokenVerifyingKey=verifying.pem \
+      --from-literal=djangoSecretsEncryptionKey=... \
+      --from-literal=authSecret=...
+    ```
+  </Step>
+  <Step title="Write values">
+    ```yaml
+    image:
+      registry: registry.example.com/cloudsneeker
+      tag: 5.45.0
+    hosts:
+      app: cloudsneeker.example.com
+      api: api.cloudsneeker.example.com
+      mcp: mcp.cloudsneeker.example.com
+    datastores:
+      postgres:
+        host: postgres.internal
+      valkey:
+        host: valkey.internal
+      neo4j:
+        host: neo4j.internal
+    existingSecret: cloudsneeker
+    ingress:
+      enabled: true
+      className: nginx
+    ```
+  </Step>
+  <Step title="Install the chart">
+    ```shell
+    helm upgrade --install cloudsneeker ./cloudsneeker-app -f values.yaml
+    ```
+  </Step>
+</Steps>
+
+## Scaling
+
+| Component | Value | Notes |
+| --- | --- | --- |
+| API | `api.replicas` | Stateless |
+| Workers | `worker.replicas` | One scan runs per worker process; add replicas for more parallel scans |
+| Scheduler | `beat.replicas` | Keep at `1` |
+| Web app | `ui.replicas` | Stateless |
+
+## Upgrade
+
+```shell
+helm upgrade cloudsneeker ./cloudsneeker-app -f values.yaml
+```
+
+The API deployment runs migrations on start.

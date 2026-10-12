@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from pydantic.v1 import BaseModel, Field, ValidationError
 
+from cloudsneeker.sdk import finding_uid  # cloudsneeker-hook
 from prowler.config.config import prowler_version
 from prowler.lib.check.models import (
     Check_Report,
@@ -572,9 +573,12 @@ class Finding(BaseModel):
             # check_output Unique ID
             # TODO: move this to a function
             # TODO: in Azure, GCP and K8s there are findings without resource_name
-            output_data["uid"] = (
-                f"prowler-{provider.type}-{check_output.check_metadata.CheckID}-{output_data['account_uid']}-"
-                f"{output_data['region']}-{output_data['resource_name']}"
+            output_data["uid"] = finding_uid(  # cloudsneeker-hook
+                provider.type,
+                check_output.check_metadata.CheckID,
+                output_data["account_uid"],
+                output_data["region"],
+                output_data["resource_name"],
             )
 
             if provider.type == "iac" and output_data.get("resource_line_range"):

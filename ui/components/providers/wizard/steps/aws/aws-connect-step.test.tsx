@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import {
   PROVIDER_FUNNEL_EVENT,
   type ProviderFunnelDetail,
@@ -163,7 +164,9 @@ describe("AwsConnectStep", () => {
       });
       expect(quickCreate).toHaveAttribute(
         "href",
-        expect.stringContaining("prowler-scan-role.yml"),
+        expect.stringContaining(
+          encodeURIComponent(BRAND.cloudformationTemplateUrl),
+        ),
       );
       expect(quickCreate).toHaveAttribute(
         "href",
@@ -688,7 +691,7 @@ describe("AwsConnectStep", () => {
       // Then
       expect(
         screen.getByRole("link", { name: /CloudFormation Template/i }),
-      ).toHaveAttribute("href", expect.stringContaining("prowler-scan-role"));
+      ).toHaveAttribute("href", BRAND.cloudformationTemplateUrl);
       expect(
         screen.getByRole("link", { name: /Terraform Code/i }),
       ).toBeVisible();
@@ -726,7 +729,9 @@ describe("AwsConnectStep", () => {
         screen.getByRole("link", { name: /Create the IAM role in AWS/i }),
       ).toHaveAttribute(
         "href",
-        expect.stringContaining("prowler-scan-role.yml"),
+        expect.stringContaining(
+          encodeURIComponent(BRAND.cloudformationTemplateUrl),
+        ),
       );
 
       // When

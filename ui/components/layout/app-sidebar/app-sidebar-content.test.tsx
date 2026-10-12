@@ -2,12 +2,26 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand";
 import { useUIStore } from "@/store/ui/store";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import { AppSidebarContent } from "./app-sidebar-content";
 import { useAppSidebarMode } from "./app-sidebar-mode-store";
 import { APP_SIDEBAR_MODE } from "./types";
+
+// cloudsneeker-hook: upstream upsell flow is exercised with upsell enabled
+vi.mock("@/cloudsneeker/brand", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/cloudsneeker/brand")>();
+  return {
+    ...actual,
+    BRAND: {
+      ...actual.BRAND,
+      showUpsell: true,
+      statusUrl: "https://status.example",
+    },
+  };
+});
 
 const {
   openCloudUpgradeMock,
@@ -82,7 +96,7 @@ describe("AppSidebarContent", () => {
     render(<AppSidebarContent />);
 
     // Then
-    const homeLink = screen.getByRole("link", { name: "Prowler home" });
+    const homeLink = screen.getByRole("link", { name: `${BRAND.name} home` });
     expect(homeLink).toBeVisible();
     expect(screen.getByRole("link", { name: "Launch Scan" })).toHaveAttribute(
       "href",
@@ -136,7 +150,7 @@ describe("AppSidebarContent", () => {
     expect(screen.getByTestId("lighthouse-chat-sidebar")).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Service status" }),
-    ).toHaveAttribute("href", "https://status.prowler.com");
+    ).toHaveAttribute("href", "https://status.example");
     expect(
       screen.queryByText("All systems operational"),
     ).not.toBeInTheDocument();

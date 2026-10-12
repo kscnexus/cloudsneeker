@@ -1,0 +1,39 @@
+---
+title: "Run a scan"
+description: "Start an on-demand scan and follow its progress"
+---
+
+A scan evaluates every applicable check against one provider. The first scan starts when a provider's connection test passes; after that you run scans on demand or on a [schedule](/scans/schedules).
+
+## Start a scan
+
+1. Go to **Scans** and select **Launch scan**.
+2. Choose the provider. Optionally give the scan a name so it is easy to find later.
+3. Select **Start**.
+
+The scan appears in the list with its progress. Duration depends on the number of resources: a small account finishes in minutes, a large one can take an hour or more.
+
+## What a scan does
+
+- Lists resources in every enabled region or location
+- Runs every check that applies to the provider type
+- Records a finding per resource per check with status `PASS`, `FAIL`, or `MANUAL`
+- Compares with the previous scan to mark findings as new, unchanged, or resolved
+- Generates the downloadable [reports](/scans/reports) and runs any configured [integrations](/integrations)
+
+Scans are read-only. Nothing in the account is changed.
+
+## Scan states
+
+| State | Meaning |
+| --- | --- |
+| `available` | Queued, waiting for a worker |
+| `scheduled` | Created by the daily schedule, waiting for its time |
+| `executing` | Running; the progress bar shows checks completed |
+| `completed` | Finished; findings and reports are ready |
+| `failed` | Stopped early; open the scan for the error. Usually a credential or permission problem |
+| `cancelled` | Stopped by a user |
+
+## Limit a scan
+
+Open the provider's settings to exclude regions, services, or individual checks. Excluded checks do not produce findings and do not count toward compliance scores.

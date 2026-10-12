@@ -1,6 +1,19 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
+
+// cloudsneeker-hook: upstream upsell flow is exercised with upsell enabled
+vi.mock("@/cloudsneeker/brand", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/cloudsneeker/brand")>();
+  return {
+    ...actual,
+    BRAND: {
+      ...actual.BRAND,
+      showUpsell: true,
+      statusUrl: "https://status.example",
+    },
+  };
+});
 
 import { useCloudUpgradeStore } from "./store";
 

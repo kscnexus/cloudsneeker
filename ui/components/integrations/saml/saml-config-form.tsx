@@ -6,6 +6,7 @@ import { type Dispatch, type SetStateAction, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { createSamlConfig, updateSamlConfig } from "@/actions/integrations";
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { AddIcon } from "@/components/icons";
 import {
   Button,
@@ -579,7 +580,7 @@ export const SamlConfigForm = ({
                   Audience:
                 </span>
                 <CodeSnippet
-                  value="urn:prowler.com:sp"
+                  value={BRAND.samlSpEntityId} // cloudsneeker-hook
                   ariaLabel="Copy Audience"
                   className="h-10 w-full"
                 />

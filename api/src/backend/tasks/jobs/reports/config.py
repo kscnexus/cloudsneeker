@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 
+from cloudsneeker_api.brand import threatscore_display_name  # cloudsneeker-hook
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 
@@ -271,7 +272,7 @@ class FrameworkConfig:
 FRAMEWORK_REGISTRY: dict[str, FrameworkConfig] = {
     "prowler_threatscore": FrameworkConfig(
         name="prowler_threatscore",
-        display_name="Prowler ThreatScore",
+        display_name=threatscore_display_name(),  # cloudsneeker-hook
         logo_filename=None,
         primary_color=COLOR_BLUE,
         secondary_color=COLOR_LIGHT_BLUE,

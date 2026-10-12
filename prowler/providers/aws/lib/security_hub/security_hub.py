@@ -7,6 +7,12 @@ from boto3 import Session
 from botocore.client import ClientError
 from botocore.exceptions import NoCredentialsError, ProfileNotFound
 
+# cloudsneeker-hook
+from cloudsneeker.brand import brand
+from cloudsneeker.sdk import (
+    security_hub_product_filter,
+    security_hub_subscription_arn,
+)
 from prowler.config.config import timestamp_utc
 from prowler.lib.logger import logger
 from prowler.lib.outputs.asff.asff import AWSSecurityFindingFormat
@@ -44,7 +50,9 @@ from prowler.providers.aws.lib.session.aws_set_up_session import AwsSetUpSession
 from prowler.providers.aws.models import AWSAssumeRoleInfo
 from prowler.providers.common.models import Connection
 
-SECURITY_HUB_INTEGRATION_NAME = "prowler/prowler"
+SECURITY_HUB_INTEGRATION_NAME = (
+    brand.security_hub_integration_name or "default"
+)  # cloudsneeker-hook
 SECURITY_HUB_MAX_BATCH = 100
 
 
@@ -258,9 +266,17 @@ class SecurityHub:
             security_hub_client.describe_hub()
 
             # Check if Prowler integration is enabled in Security Hub
-            security_hub_prowler_integration_arn = f"arn:{aws_partition}:securityhub:{region}:{aws_account_id}:product-subscription/{SECURITY_HUB_INTEGRATION_NAME}"
-            if security_hub_prowler_integration_arn not in str(
-                security_hub_client.list_enabled_products_for_import()
+            security_hub_prowler_integration_arn = (
+                security_hub_subscription_arn(  # cloudsneeker-hook
+                    aws_partition, region, aws_account_id
+                )
+            )
+            if (
+                security_hub_prowler_integration_arn
+                and (  # cloudsneeker-hook: default product needs no subscription
+                    security_hub_prowler_integration_arn
+                    not in str(security_hub_client.list_enabled_products_for_import())
+                )
             ):
                 logger.warning(
                     f"Security Hub is enabled in {region} but Prowler integration does not accept findings. More info: https://docs.prowler.com/user-guide/providers/aws/securityhub#aws-security-hub-integration-with-prowler"
@@ -389,7 +405,9 @@ class SecurityHub:
                     current_findings_ids.append(finding.Id)
                 # Get findings of that region
                 findings_filter = {
-                    "ProductName": [{"Value": "Prowler", "Comparison": "EQUALS"}],
+                    **security_hub_product_filter(  # cloudsneeker-hook
+                        self._aws_partition, region, self._aws_account_id
+                    ),
                     "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
                     "AwsAccountId": [
                         {"Value": self._aws_account_id, "Comparison": "EQUALS"}

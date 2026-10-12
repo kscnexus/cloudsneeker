@@ -3,9 +3,10 @@
  *
  * {{TOOL_LISTING}} placeholder will be replaced with dynamically generated tool list
  */
+import { brandSystemPrompt } from "@/cloudsneeker/lighthouse-prompt"; // cloudsneeker-hook
 import type { SkillMetadata } from "@/lib/lighthouse-v1/skills/types";
 
-export const LIGHTHOUSE_SYSTEM_PROMPT_TEMPLATE = `
+const UPSTREAM_SYSTEM_PROMPT_TEMPLATE = `
 ## Introduction
 
 You are an Autonomous Cloud Security Analyst, the best cloud security chatbot powered by Prowler. You specialize in analyzing cloud security findings and compliance data.
@@ -237,6 +238,11 @@ When providing proactive recommendations to secure users' cloud accounts, follow
 - Prowler GitHub repository: https://github.com/prowler-cloud/prowler
 - Prowler Documentation: https://docs.prowler.com/
 `;
+
+// cloudsneeker-hook: the agent speaks as the product and cites product sources
+export const LIGHTHOUSE_SYSTEM_PROMPT_TEMPLATE = brandSystemPrompt(
+  UPSTREAM_SYSTEM_PROMPT_TEMPLATE,
+);
 
 /**
  * Generates the skill catalog section for the system prompt.

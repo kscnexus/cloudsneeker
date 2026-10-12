@@ -1,0 +1,236 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Cloudsneeker Documentation",
+  "colors": {
+    "primary": "#0F172A",
+    "light": "#38BDF8",
+    "dark": "#38BDF8"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "dark": "/logo/cloudsneeker-logo-dark.svg",
+    "light": "/logo/cloudsneeker-logo-light.svg"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view"
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              "introduction",
+              "getting-started/hosted",
+              "getting-started/install-docker",
+              "getting-started/install-kubernetes",
+              "getting-started/configuration"
+            ]
+          },
+          {
+            "group": "Connect a provider",
+            "pages": [
+              "providers/index",
+              "providers/aws",
+              "providers/azure",
+              "providers/gcp",
+              "providers/kubernetes",
+              "providers/other"
+            ]
+          },
+          {
+            "group": "Scans and findings",
+            "pages": [
+              "scans/run-a-scan",
+              "scans/schedules",
+              "scans/findings",
+              "scans/reports",
+              "scans/compliance",
+              "scans/mute-rules"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/index",
+              "integrations/amazon-s3",
+              "integrations/aws-security-hub",
+              "integrations/jira",
+              "integrations/slack"
+            ]
+          },
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/users-and-roles",
+              "admin/sso",
+              "admin/api-keys"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/api",
+              "reference/cli",
+              "reference/mcp"
+            ]
+          },
+          {
+            "group": "Help",
+            "pages": [
+              "support",
+              "troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Checks",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "checks/index"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Frameworks",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "compliance/index"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Open Cloudsneeker",
+      "href": "https://cloudsneeker.example"
+    }
+  },
+  "footer": {
+    "links": [
+      {
+        "header": "Product",
+        "items": [
+          {
+            "label": "Status",
+            "href": "https://cloudsneeker.example/status"
+          },
+          {
+            "label": "Support",
+            "href": "https://support.cloudsneeker.example"
+          }
+        ]
+      },
+      {
+        "header": "Legal",
+        "items": [
+          {
+            "label": "Terms",
+            "href": "https://cloudsneeker.example/terms"
+          },
+          {
+            "label": "Privacy",
+            "href": "https://cloudsneeker.example/privacy"
+          }
+        ]
+      }
+    ]
+  },
+  "redirects": [
+    {
+      "source": "/user-guide/providers",
+      "destination": "/providers/index"
+    },
+    {
+      "source": "/user-guide/providers/aws/:path*",
+      "destination": "/providers/aws"
+    },
+    {
+      "source": "/user-guide/providers/azure/:path*",
+      "destination": "/providers/azure"
+    },
+    {
+      "source": "/user-guide/providers/gcp/:path*",
+      "destination": "/providers/gcp"
+    },
+    {
+      "source": "/user-guide/providers/k8s/:path*",
+      "destination": "/providers/kubernetes"
+    },
+    {
+      "source": "/user-guide/providers/kubernetes/:path*",
+      "destination": "/providers/kubernetes"
+    },
+    {
+      "source": "/user-guide/providers/:provider/:path*",
+      "destination": "/providers/other"
+    },
+    {
+      "source": "/user-guide/tutorials/app",
+      "destination": "/scans/findings"
+    },
+    {
+      "source": "/user-guide/tutorials/app-findings-triage",
+      "destination": "/scans/findings"
+    },
+    {
+      "source": "/user-guide/tutorials/app-attack-paths",
+      "destination": "/scans/findings"
+    },
+    {
+      "source": "/user-guide/tutorials/app-import-findings",
+      "destination": "/reference/cli"
+    },
+    {
+      "source": "/user-guide/tutorials/app-scan-configuration",
+      "destination": "/scans/schedules"
+    },
+    {
+      "source": "/user-guide/tutorials/app-alerts",
+      "destination": "/integrations/slack"
+    },
+    {
+      "source": "/user-guide/tutorials/app-slack-integration",
+      "destination": "/integrations/slack"
+    },
+    {
+      "source": "/user-guide/tutorials/app-s3-integration",
+      "destination": "/integrations/amazon-s3"
+    },
+    {
+      "source": "/user-guide/tutorials/aws-organizations",
+      "destination": "/providers/aws"
+    },
+    {
+      "source": "/user-guide/tutorials/azure-management-groups",
+      "destination": "/providers/azure"
+    },
+    {
+      "source": "/user-guide/tutorials/gcp-organizations",
+      "destination": "/providers/gcp"
+    },
+    {
+      "source": "/user-guide/ai-agents/:path*",
+      "destination": "/reference/mcp"
+    },
+    {
+      "source": "/user-guide/:path*",
+      "destination": "/introduction"
+    }
+  ]
+}

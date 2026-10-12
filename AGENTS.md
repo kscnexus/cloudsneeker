@@ -155,6 +155,14 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 
 ## Project Overview
 
+Cloudsneeker is this repository's product name. The codebase is a derivative of Prowler and still uses `prowler` for packages, imports, and most internal identifiers. The internal map of the system lives in [`knowledge-base/README.md`](knowledge-base/README.md).
+
+New Cloudsneeker features go in `cloudsneeker/`, `api/src/backend/cloudsneeker_api/`, or `ui/app/(cloudsneeker)/`. Code in those directories uses the same style, standards, and structure as the matching Prowler component. Read that component's `AGENTS.md` and skill before writing. The map is [`knowledge-base/coding-standards.md`](knowledge-base/coding-standards.md).
+
+A feature is unfinished until its unit tests cover the new behavior, related feature suites still pass, and the Amazon S3, AWS Security Hub, Jira, and Slack integration tests pass when the change can affect their data. See [`knowledge-base/feature-verification.md`](knowledge-base/feature-verification.md).
+
+Auth, admin, credentials, UI stores, and audit stay on Prowler (`User`, `Role`, `ProviderSecret`, `ui/store/`, `Scan`, `Finding`). Call those APIs. Do not change existing Prowler checks, migrations, or API types to carry Cloudsneeker work. Merge upstream Prowler by keeping its files and re-applying [`knowledge-base/upstream-hooks.md`](knowledge-base/upstream-hooks.md). Do not push this tree to `prowler-cloud/prowler`.
+
 Prowler is an open-source cloud security assessment tool supporting AWS, Azure, GCP, Kubernetes, GitHub, M365, and more.
 
 | Component | Location | Tech Stack |

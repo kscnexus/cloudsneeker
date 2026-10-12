@@ -1,0 +1,54 @@
+{{- if .Values.ingress.enabled }}
+{{- $fullname := include "cloudsneeker.fullname" . }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" "ingress") | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.hosts.app }}
+        - {{ .Values.hosts.api }}
+        - {{ .Values.hosts.mcp }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.hosts.app }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-ui
+                port:
+                  name: http
+    - host: {{ .Values.hosts.api }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-api
+                port:
+                  name: http
+    - host: {{ .Values.hosts.mcp }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-mcp
+                port:
+                  name: http
+{{- end }}

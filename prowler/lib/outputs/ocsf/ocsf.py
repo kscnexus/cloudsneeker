@@ -24,6 +24,7 @@ from py_ocsf_models.objects.remediation import Remediation
 from py_ocsf_models.objects.resource_details import ResourceDetails
 from uuid6 import UUID
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler.lib.logger import logger
 from prowler.lib.outputs.finding import Finding
 from prowler.lib.outputs.output import Output
@@ -161,9 +162,9 @@ class OCSF(Output):
                     metadata=Metadata(
                         event_code=finding.metadata.CheckID,
                         product=Product(
-                            uid="prowler",
-                            name="Prowler",
-                            vendor_name="Prowler",
+                            uid=brand.ocsf_product_uid,  # cloudsneeker-hook
+                            name=brand.name,  # cloudsneeker-hook
+                            vendor_name=brand.vendor,  # cloudsneeker-hook
                             version=finding.prowler_version,
                         ),
                         profiles=(

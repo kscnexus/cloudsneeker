@@ -9063,10 +9063,12 @@ class TestJWTFields:
         access_token = response.data["attributes"]["access"]
         payload = jwt.decode(access_token, options={"verify_signature": False})
 
+        from django.conf import settings as django_settings  # cloudsneeker-hook
+
         expected_fields = {
             "typ": "access",
-            "aud": "https://api.prowler.com",
-            "iss": "https://api.prowler.com",
+            "aud": django_settings.SIMPLE_JWT["AUDIENCE"],  # cloudsneeker-hook
+            "iss": django_settings.SIMPLE_JWT["ISSUER"],  # cloudsneeker-hook
         }
 
         # Verify expected fields

@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import type { Survey } from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { clampSidePanelWidth } from "@/lib/ui-layout";
 
 type SurveyCallback = (surveys: Survey[]) => void;
@@ -62,7 +63,7 @@ const GLOBAL_STYLES = readFileSync(
 
 const SURVEY_FIXTURE = {
   id: "survey-123",
-  name: "Prowler Feedback",
+  name: BRAND.surveyName,
   type: "api",
   questions: [
     {
@@ -343,7 +344,7 @@ describe("FeedbackSurvey", () => {
     await waitFor(() =>
       expect(mocks.capture).toHaveBeenCalledWith("survey shown", {
         $survey_id: "survey-123",
-        $survey_name: "Prowler Feedback",
+        $survey_name: BRAND.surveyName,
       }),
     );
   });
@@ -368,7 +369,7 @@ describe("FeedbackSurvey", () => {
     await waitFor(() =>
       expect(mocks.capture).toHaveBeenCalledWith("survey sent", {
         $survey_id: "survey-123",
-        $survey_name: "Prowler Feedback",
+        $survey_name: BRAND.surveyName,
         $survey_questions: [
           {
             id: "q-1",
@@ -404,7 +405,7 @@ describe("FeedbackSurvey", () => {
     await waitFor(() =>
       expect(mocks.capture).toHaveBeenCalledWith("survey dismissed", {
         $survey_id: "survey-123",
-        $survey_name: "Prowler Feedback",
+        $survey_name: BRAND.surveyName,
       }),
     );
   });

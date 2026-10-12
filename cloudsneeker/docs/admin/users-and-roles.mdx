@@ -1,0 +1,44 @@
+---
+title: "Users and roles"
+description: "Invite people and control what they can see and do"
+---
+
+Each **organization** has its own users, providers, scans, and findings. A user can belong to several organizations and switch between them from the profile menu.
+
+## Invite a user
+
+1. Open **Users → Invite user** (requires **manage users**).
+2. Enter the email and pick a role.
+3. Copy the invitation link and send it through your own channel. The link expires after seven days.
+
+The invitee signs up (or signs in if they already have an account) with that email and lands in your organization with the chosen role.
+
+## Roles
+
+A role is a set of permissions plus, optionally, a restriction to specific provider groups.
+
+| Permission | Allows |
+| --- | --- |
+| Manage users | Invite, edit, and remove users; assign roles |
+| Manage account | Edit organization settings, SSO, API keys |
+| Manage providers | Add, edit, and delete providers and their credentials |
+| Manage scans | Start scans, change schedules, create mute rules |
+| Manage integrations | Configure S3, Security Hub, and Jira |
+| Unlimited visibility | See every provider. Without it, the role sees only the provider groups assigned to it |
+
+The built-in **admin** role has every permission. Create additional roles under **Roles**. Typical examples:
+
+- **Auditor**: unlimited visibility, no manage permissions
+- **Team lead**: manage scans and integrations, visibility limited to the team's provider group
+
+## Provider groups
+
+Group providers under **Providers → Groups**, then assign groups to roles. A role without **unlimited visibility** sees findings, scans, and compliance only for providers in its groups. Users with several roles get the union.
+
+## Remove a user
+
+**Users → the user → Remove** ends the membership. Scans, findings, and mute rules the user created remain, attributed to the user's email.
+
+## Audit trail
+
+Every scan records who started it, every mute rule records its creator, and invitations record the inviter. Sign-in events and token refreshes are logged by the API.

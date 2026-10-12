@@ -1,0 +1,72 @@
+---
+title: "Kubernetes"
+description: "Connect a cluster with a read-only service account"
+---
+
+Cloudsneeker authenticates to a cluster with a kubeconfig. Kubeconfigs that rely on `exec` plugins (such as `aws eks get-token` or `gke-gcloud-auth-plugin`) are not supported because the scanner does not run local commands. Use a service-account token instead.
+
+## Create the service account
+
+<Steps>
+  <Step title="Apply the RBAC objects">
+    ```yaml
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: cloudsneeker
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: cloudsneeker-scanner
+      namespace: cloudsneeker
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: cloudsneeker-read-cluster
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "configmaps", "nodes", "namespaces"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["rbac.authorization.k8s.io"]
+        resources: ["clusterrolebindings", "rolebindings", "clusterroles", "roles"]
+        verbs: ["get", "list", "watch"]
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: cloudsneeker-read-cluster
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: cloudsneeker-read-cluster
+    subjects:
+      - kind: ServiceAccount
+        name: cloudsneeker-scanner
+        namespace: cloudsneeker
+    ```
+  </Step>
+  <Step title="Issue a token">
+    ```shell
+    kubectl create token cloudsneeker-scanner -n cloudsneeker --duration=8760h
+    ```
+
+    Pick a duration that matches your rotation policy. When the token expires, issue a new one and update the provider's credentials.
+  </Step>
+  <Step title="Build the kubeconfig">
+    ```shell
+    kubectl config set-credentials cloudsneeker-scanner --token=<token>
+    kubectl config set-context cloudsneeker --cluster=<cluster-name> --user=cloudsneeker-scanner
+    kubectl config view --minify --flatten --context=cloudsneeker > cloudsneeker-kubeconfig.yaml
+    ```
+  </Step>
+</Steps>
+
+## Connect
+
+In **Providers**, select **Add provider → Kubernetes**, enter the context name (`cloudsneeker`), and paste the contents of `cloudsneeker-kubeconfig.yaml`. Select **Test connection**.
+
+## Network access
+
+The cluster API endpoint must be reachable from where Cloudsneeker runs. On the hosted service, allow the egress address shown in the wizard. On a self-hosted installation, the worker pods or containers need a route to the API server.

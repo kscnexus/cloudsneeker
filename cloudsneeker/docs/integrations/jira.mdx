@@ -1,0 +1,72 @@
+---
+title: "Jira"
+description: "Create Jira issues from findings"
+---
+
+The Jira integration lets any user with access to a finding create a Jira issue for it. Issues carry the finding's details, remediation steps, and labels that link the issue back to the finding.
+
+## Connect Jira
+
+<Steps>
+  <Step title="Create an API token">
+    In Atlassian account settings, create an API token for a user who can create issues in the target projects. A dedicated service account is recommended so issues are not attributed to a person who may leave.
+  </Step>
+  <Step title="Add the integration">
+    Open **Integrations → Jira → Add**. Enter:
+
+    | Field | Value |
+    | --- | --- |
+    | Jira domain | `your-domain.atlassian.net` |
+    | User email | The email of the token's owner |
+    | API token | The token from step 1 |
+  </Step>
+  <Step title="Test and save">
+    **Test connection** verifies the credentials and loads the projects the user can see.
+  </Step>
+</Steps>
+
+## Create an issue from a finding
+
+1. Open a finding, or select several findings on the **Findings** page.
+2. Select **Send to Jira**.
+3. Choose the **project** and **issue type**. Issue types are read from the project at that moment.
+4. Confirm. A task runs in the background; the result appears as a notification with a link to each created issue.
+
+## Issue contents
+
+| Section | Source |
+| --- | --- |
+| Summary | `[Cloudsneeker] <SEVERITY> - <check id> - <resource id>` |
+| Description | Status, provider, region, resource identifier and tags, risk, recommendation, and a link back to the finding in the web app |
+| Remediation | CLI, Terraform, native IaC, and console steps from the check |
+| Compliance | Frameworks and requirements the check maps to |
+
+### Labels
+
+Every issue receives labels so you can filter in JQL and trace an issue to its finding:
+
+| Label | Example |
+| --- | --- |
+| `cloudsneeker` | — |
+| `cloudsneeker-<provider>` | `cloudsneeker-aws` |
+| `cloudsneeker-<severity>` | `cloudsneeker-high` |
+| `cloudsneeker-<check id>` | `cloudsneeker-s3_bucket_public_access` |
+| `cloudsneeker-finding-<uid>` | One label per finding UID |
+
+Example JQL for all open issues from critical findings:
+
+```text
+labels = cloudsneeker-critical AND statusCategory != Done
+```
+
+## Permissions
+
+Connecting Jira needs the **manage integrations** permission. Creating issues needs read access to the finding. Issues are created in Jira as the token owner.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Test connection fails with 401 | Token revoked or email mismatch |
+| Project missing from the list | The token owner lacks **Create issues** in that project |
+| Issue created without some fields | The project's issue type makes a required field mandatory that the integration does not set; add a default value in the Jira field configuration |

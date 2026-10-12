@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand";
 import { PROVIDER_WIZARD_STEP } from "@/types/provider-wizard";
 
 import {
@@ -14,6 +15,8 @@ import {
   getProviderHelpText,
   PROWLER_CF_TEMPLATE_URL,
 } from "./external-urls";
+
+const DOCS = BRAND.docsUrl;
 
 function getQuickCreateParams(link: string): URLSearchParams {
   const hashQuery = new URL(link).hash.split("?")[1];
@@ -121,7 +124,7 @@ describe("PRECONFIGURED_CREDENTIAL_URLS", () => {
     // token flow to users. Matches the "User API Token" link in
     // docs/user-guide/providers/cloudflare/authentication.mdx.
     expect(PRECONFIGURED_CREDENTIAL_URLS.CLOUDFLARE_API_TOKEN_USER).toBe(
-      "https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ssl_and_certificates%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22bot_management%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_waf%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=Prowler%20Security%20Scanner",
+      `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ssl_and_certificates%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22bot_management%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_waf%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=${encodeURIComponent(BRAND.credentialDisplayName)}`,
     );
   });
 
@@ -144,7 +147,7 @@ describe("PRECONFIGURED_CREDENTIAL_URLS", () => {
       { key: "bot_management", type: "read" },
       { key: "zone_waf", type: "read" },
     ]);
-    expect(parsed.searchParams.get("name")).toBe("Prowler Security Scanner");
+    expect(parsed.searchParams.get("name")).toBe(BRAND.credentialDisplayName);
   });
 
   it("keeps the GitHub user-scope PAT URL pre-filled with the four required read permissions", () => {
@@ -155,7 +158,7 @@ describe("PRECONFIGURED_CREDENTIAL_URLS", () => {
     expect(
       PRECONFIGURED_CREDENTIAL_URLS.GITHUB_PERSONAL_ACCESS_TOKEN_USER,
     ).toBe(
-      "https://github.com/settings/personal-access-tokens/new?name=Prowler+Security+Scanner&description=Fine-grained+PAT+for+Prowler+security+scanning&expires_in=90&administration=read&contents=read&vulnerability_alerts=read&emails=read",
+      `https://github.com/settings/personal-access-tokens/new?name=${encodeURIComponent(BRAND.credentialDisplayName)}&description=${encodeURIComponent(`Fine-grained PAT for ${BRAND.name} security scanning`)}&expires_in=90&administration=read&contents=read&vulnerability_alerts=read&emails=read`,
     );
   });
 
@@ -168,7 +171,7 @@ describe("PRECONFIGURED_CREDENTIAL_URLS", () => {
       PRECONFIGURED_CREDENTIAL_URLS.GITHUB_PERSONAL_ACCESS_TOKEN_USER,
     );
 
-    expect(parsed.searchParams.get("name")).toBe("Prowler Security Scanner");
+    expect(parsed.searchParams.get("name")).toBe(BRAND.credentialDisplayName);
     expect(parsed.searchParams.get("expires_in")).toBe("90");
     expect(parsed.searchParams.get("organization_administration")).toBeNull();
     expect(parsed.searchParams.get("members")).toBeNull();
@@ -208,7 +211,7 @@ describe("buildCloudflareAccountOwnedApiTokenUrl", () => {
     expect(url.searchParams.get("to")).toBe(
       "/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4/api-tokens",
     );
-    expect(url.searchParams.get("name")).toBe("Prowler Security Scanner");
+    expect(url.searchParams.get("name")).toBe(BRAND.credentialDisplayName);
     const permissionGroupKeys = JSON.parse(
       url.searchParams.get("permissionGroupKeys") ?? "[]",
     );
@@ -265,7 +268,7 @@ describe("buildGitHubPersonalAccessTokenOrgUrl", () => {
     expect(url.searchParams.get("administration")).toBe("read");
     expect(url.searchParams.get("contents")).toBe("read");
     expect(url.searchParams.get("vulnerability_alerts")).toBe("read");
-    expect(url.searchParams.get("name")).toBe("Prowler Security Scanner");
+    expect(url.searchParams.get("name")).toBe(BRAND.credentialDisplayName);
     expect(url.searchParams.get("expires_in")).toBe("90");
   });
 
@@ -292,9 +295,8 @@ describe("buildGitHubPersonalAccessTokenOrgUrl", () => {
 });
 
 describe("getProviderHelpText", () => {
-  const AWS_SHORTLINK = "https://goto.prowler.com/provider-aws";
-  const AWS_CREDENTIALS_STEP_DOCS =
-    "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication";
+  const AWS_SHORTLINK = `${DOCS}/user-guide/providers/aws`;
+  const AWS_CREDENTIALS_STEP_DOCS = `${DOCS}/user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication`;
 
   it("returns the provider shortlink on the connect step", () => {
     // Given the user is picking a provider (no deep-link into auth yet)
@@ -325,7 +327,7 @@ describe("getProviderHelpText", () => {
     );
 
     expect(link).toBe(
-      "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#assume-role-recommended",
+      `${DOCS}/user-guide/providers/aws/getting-started-aws#assume-role-recommended`,
     );
   });
 
@@ -337,7 +339,7 @@ describe("getProviderHelpText", () => {
     );
 
     expect(link).toBe(
-      "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#credentials-static-access-keys",
+      `${DOCS}/user-guide/providers/aws/getting-started-aws#credentials-static-access-keys`,
     );
   });
 
@@ -352,7 +354,7 @@ describe("getProviderHelpText", () => {
     );
 
     expect(link).toBe(
-      "https://docs.prowler.com/user-guide/providers/gcp/getting-started-gcp#step-3-set-up-gcp-authentication",
+      `${DOCS}/user-guide/providers/gcp/getting-started-gcp#step-3-set-up-gcp-authentication`,
     );
   });
 
@@ -379,67 +381,67 @@ describe("getProviderHelpText", () => {
     const cases: Array<[string, string]> = [
       [
         "aws",
-        "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication",
+        `${DOCS}/user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication`,
       ],
       [
         "azure",
-        "https://docs.prowler.com/user-guide/providers/azure/getting-started-azure#step-3-add-credentials-to-prowler-cloud",
+        `${DOCS}/user-guide/providers/azure/getting-started-azure#step-3-add-credentials`,
       ],
       [
         "m365",
-        "https://docs.prowler.com/user-guide/providers/microsoft365/getting-started-m365#step-3-choose-and-provide-authentication",
+        `${DOCS}/user-guide/providers/microsoft365/getting-started-m365#step-3-choose-and-provide-authentication`,
       ],
       [
         "gcp",
-        "https://docs.prowler.com/user-guide/providers/gcp/getting-started-gcp#step-3-set-up-gcp-authentication",
+        `${DOCS}/user-guide/providers/gcp/getting-started-gcp#step-3-set-up-gcp-authentication`,
       ],
       [
         "kubernetes",
-        "https://docs.prowler.com/user-guide/providers/kubernetes/getting-started-k8s#step-2-configure-kubernetes-authentication",
+        `${DOCS}/user-guide/providers/kubernetes/getting-started-k8s#step-2-configure-kubernetes-authentication`,
       ],
       [
         "github",
-        "https://docs.prowler.com/user-guide/providers/github/getting-started-github#step-3-choose-authentication-method",
+        `${DOCS}/user-guide/providers/github/getting-started-github#step-3-choose-authentication-method`,
       ],
       [
         "iac",
-        "https://docs.prowler.com/user-guide/providers/iac/getting-started-iac#step-2-enter-authentication-details",
+        `${DOCS}/user-guide/providers/iac/getting-started-iac#step-2-enter-authentication-details`,
       ],
       [
         "image",
-        "https://docs.prowler.com/user-guide/providers/image/getting-started-image#step-2-enter-authentication-and-scan-filters",
+        `${DOCS}/user-guide/providers/image/getting-started-image#step-2-enter-authentication-and-scan-filters`,
       ],
       [
         "oraclecloud",
-        "https://docs.prowler.com/user-guide/providers/oci/getting-started-oci#step-3-add-oci-api-key-credentials",
+        `${DOCS}/user-guide/providers/oci/getting-started-oci#step-3-add-oci-api-key-credentials`,
       ],
       [
         "mongodbatlas",
-        "https://docs.prowler.com/user-guide/providers/mongodbatlas/getting-started-mongodbatlas#step-2-provide-api-credentials",
+        `${DOCS}/user-guide/providers/mongodbatlas/getting-started-mongodbatlas#step-2-provide-api-credentials`,
       ],
       [
         "alibabacloud",
-        "https://docs.prowler.com/user-guide/providers/alibabacloud/getting-started-alibabacloud#step-3-choose-and-provide-authentication",
+        `${DOCS}/user-guide/providers/alibabacloud/getting-started-alibabacloud#step-3-choose-and-provide-authentication`,
       ],
       [
         "cloudflare",
-        "https://docs.prowler.com/user-guide/providers/cloudflare/getting-started-cloudflare#step-3-choose-and-provide-authentication",
+        `${DOCS}/user-guide/providers/cloudflare/getting-started-cloudflare#step-3-choose-and-provide-authentication`,
       ],
       [
         "openstack",
-        "https://docs.prowler.com/user-guide/providers/openstack/getting-started-openstack#step-2-provide-credentials",
+        `${DOCS}/user-guide/providers/openstack/getting-started-openstack#step-2-provide-credentials`,
       ],
       [
         "googleworkspace",
-        "https://docs.prowler.com/user-guide/providers/googleworkspace/getting-started-googleworkspace#step-3-provide-credentials",
+        `${DOCS}/user-guide/providers/googleworkspace/getting-started-googleworkspace#step-3-provide-credentials`,
       ],
       [
         "vercel",
-        "https://docs.prowler.com/user-guide/providers/vercel/getting-started-vercel#step-2-provide-credentials",
+        `${DOCS}/user-guide/providers/vercel/getting-started-vercel#step-2-provide-credentials`,
       ],
       [
         "okta",
-        "https://docs.prowler.com/user-guide/providers/okta/getting-started-okta#step-2-provide-credentials",
+        `${DOCS}/user-guide/providers/okta/getting-started-okta#step-2-provide-credentials`,
       ],
     ];
 
@@ -459,42 +461,42 @@ describe("getProviderHelpText", () => {
       [
         "aws",
         "role",
-        "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#assume-role-recommended",
+        `${DOCS}/user-guide/providers/aws/getting-started-aws#assume-role-recommended`,
       ],
       [
         "aws",
         "credentials",
-        "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#credentials-static-access-keys",
+        `${DOCS}/user-guide/providers/aws/getting-started-aws#credentials-static-access-keys`,
       ],
       [
         "m365",
         "app_certificate",
-        "https://docs.prowler.com/user-guide/providers/microsoft365/getting-started-m365#application-certificate-authentication-recommended",
+        `${DOCS}/user-guide/providers/microsoft365/getting-started-m365#application-certificate-authentication-recommended`,
       ],
       [
         "m365",
         "app_client_secret",
-        "https://docs.prowler.com/user-guide/providers/microsoft365/getting-started-m365#application-client-secret-authentication",
+        `${DOCS}/user-guide/providers/microsoft365/getting-started-m365#application-client-secret-authentication`,
       ],
       [
         "alibabacloud",
         "role",
-        "https://docs.prowler.com/user-guide/providers/alibabacloud/getting-started-alibabacloud#ram-role-assumption-recommended",
+        `${DOCS}/user-guide/providers/alibabacloud/getting-started-alibabacloud#ram-role-assumption-recommended`,
       ],
       [
         "alibabacloud",
         "credentials",
-        "https://docs.prowler.com/user-guide/providers/alibabacloud/getting-started-alibabacloud#credentials-static-access-keys",
+        `${DOCS}/user-guide/providers/alibabacloud/getting-started-alibabacloud#credentials-static-access-keys`,
       ],
       [
         "cloudflare",
         "api_token",
-        "https://docs.prowler.com/user-guide/providers/cloudflare/getting-started-cloudflare#user-api-token-authentication-recommended",
+        `${DOCS}/user-guide/providers/cloudflare/getting-started-cloudflare#user-api-token-authentication-recommended`,
       ],
       [
         "cloudflare",
         "api_key",
-        "https://docs.prowler.com/user-guide/providers/cloudflare/getting-started-cloudflare#api-key-and-email-authentication-legacy",
+        `${DOCS}/user-guide/providers/cloudflare/getting-started-cloudflare#api-key-and-email-authentication-legacy`,
       ],
     ];
 
@@ -514,7 +516,7 @@ describe("getProviderHelpText", () => {
       PROVIDER_WIZARD_STEP.CREDENTIALS,
     );
 
-    expect(link).toBe("https://goto.prowler.com/provider-help");
+    expect(link).toBe(`${DOCS}/user-guide/providers`);
   });
 
   it("falls back for unknown providers colliding with Object.prototype", () => {
@@ -529,12 +531,12 @@ describe("getProviderHelpText", () => {
       );
 
       // Then
-      expect(link).toBe("https://goto.prowler.com/provider-help");
+      expect(link).toBe(`${DOCS}/user-guide/providers`);
     }
   });
 });
 
-describe("Prowler CloudFormation template", () => {
+describe("CloudFormation template", () => {
   it("should define every parameter used by the UI quick-create links", () => {
     // Given
     const template = readFileSync(

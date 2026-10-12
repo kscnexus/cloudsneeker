@@ -1,0 +1,89 @@
+{{- $component := "worker" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cloudsneeker.fullname" . }}-worker
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 8 }}
+      annotations:
+        checksum/secret: {{ toYaml .Values.secrets | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "cloudsneeker.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "cloudsneeker.image" (dict "root" . "component" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["worker"]
+          env:
+            {{- include "cloudsneeker.apiEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: output
+              mountPath: /tmp/prowler_api_output
+      volumes:
+        - name: output
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- $beat := "beat" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cloudsneeker.fullname" . }}-beat
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" $beat) | nindent 4 }}
+spec:
+  # Exactly one scheduler; a second beat would duplicate periodic tasks.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $beat) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $beat) | nindent 8 }}
+      annotations:
+        checksum/secret: {{ toYaml .Values.secrets | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "cloudsneeker.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: beat
+          image: {{ include "cloudsneeker.image" (dict "root" . "component" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["beat"]
+          env:
+            {{- include "cloudsneeker.apiEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.beat.resources | nindent 12 }}

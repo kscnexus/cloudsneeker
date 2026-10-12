@@ -1,5 +1,6 @@
 "use client";
 
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -10,6 +11,7 @@ import {
   INVITATION_ERROR_FLOW,
   isInvitationTokenError,
 } from "@/app/(auth)/invitation/_lib/invitation-errors";
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { AuthDivider } from "@/components/auth/oss/auth-divider";
 import { AuthFooterLink } from "@/components/auth/oss/auth-footer-link";
 import { AuthLayout } from "@/components/auth/oss/auth-layout";
@@ -249,12 +251,12 @@ export const SignUpForm = ({
                     >
                       I agree with the&nbsp;
                       <CustomLink
-                        href="https://prowler.com/terms-of-service/"
+                        href={BRAND.termsUrl} // cloudsneeker-hook
                         size="sm"
                       >
                         Terms of Service
                       </CustomLink>
-                      &nbsp;of Prowler
+                      &nbsp;of {BRAND.name}
                       <span className="text-text-error-primary">*</span>
                     </label>
                   </div>

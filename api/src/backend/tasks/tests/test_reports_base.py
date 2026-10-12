@@ -672,7 +672,9 @@ class TestBaseComplianceReportGenerator:
         generator = ConcreteGenerator(config)
         left, right = generator.get_footer_text(1)
         assert left == "Page 1"
-        assert right == "Powered by Prowler"
+        from cloudsneeker_api.brand import pdf_footer  # cloudsneeker-hook
+
+        assert right == pdf_footer()  # cloudsneeker-hook
 
     def test_get_footer_text_spanish(self):
         """Test footer text in Spanish."""

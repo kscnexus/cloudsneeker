@@ -1,0 +1,54 @@
+---
+title: "Azure"
+description: "Connect an Azure subscription with an app registration"
+---
+
+## Create the app registration
+
+<Steps>
+  <Step title="Register an application">
+    In the Azure portal, open **Microsoft Entra ID → App registrations → New registration**. Name it `Cloudsneeker Security Scanner`. Note the **Application (client) ID** and **Directory (tenant) ID**.
+  </Step>
+  <Step title="Create a client secret">
+    Under **Certificates & secrets**, add a client secret and copy its value. It is shown once.
+  </Step>
+  <Step title="Grant Microsoft Graph permissions">
+    Under **API permissions**, add application permissions `Directory.Read.All` and `Policy.Read.All`, then **Grant admin consent**. These let identity and conditional-access checks run. `Domain.Read.All` can replace `Directory.Read.All` with fewer directory checks available.
+  </Step>
+  <Step title="Assign subscription roles">
+    For each subscription to scan, assign the `Reader` role to the application. Some checks need read APIs outside `Reader`; create a custom role from the definition below and assign it as well.
+
+    ```shell
+    az role assignment create --role "Reader" \
+      --assignee <application-client-id> \
+      --scope /subscriptions/<subscription-id>
+    ```
+  </Step>
+</Steps>
+
+## Custom role
+
+```json
+{
+  "Name": "CloudsneekerRole",
+  "IsCustom": true,
+  "Description": "Read-only access for checks not covered by Reader.",
+  "Actions": [
+    "Microsoft.Web/sites/host/listkeys/action",
+    "Microsoft.Web/sites/config/list/Action"
+  ],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}
+```
+
+## Connect
+
+In **Providers**, select **Add provider → Azure**, enter the subscription ID, and choose **Service principal**. Enter the tenant ID, client ID, and client secret, then **Test connection**.
+
+## Troubleshooting
+
+| Message | Cause |
+| --- | --- |
+| `AADSTS7000215` | The client secret is wrong or expired |
+| `Authorization_RequestDenied` | Graph permissions were added but admin consent was not granted |
+| Subscription not listed | `Reader` is not assigned at that subscription scope |

@@ -22,19 +22,20 @@ interface WizardStepperProps {
 const STEPS: StepConfig[] = [
   {
     label: "Link a Provider",
-    description: "Enter the provider details you would like to add in Prowler.",
+    description:
+      "Enter the provider details you would like to add in Cloudsneeker.",
     icon: FolderGit2,
   },
   {
     label: "Authenticate Credentials",
     description:
-      "Authorize a secure connection between Prowler and your provider.",
+      "Authorize a secure connection between Cloudsneeker and your provider.",
     icon: KeyRound,
   },
   {
     label: "Validate Connection",
     description:
-      "Review provider resources and test the connection to Prowler.",
+      "Review provider resources and test the connection to Cloudsneeker.",
     icon: Rocket,
   },
   {
@@ -52,7 +53,7 @@ export const AWS_PROVIDER_WIZARD_STEPS: StepConfig[] = [
   {
     label: "Link a Provider",
     description:
-      "Enter the account details and the credentials Prowler will use, then test the connection.",
+      "Enter the account details and the credentials Cloudsneeker will use, then test the connection.",
     icon: FolderGit2,
   },
   STEPS[3],

@@ -551,6 +551,7 @@ vi.mock("../../muted", () => ({
 // ---------------------------------------------------------------------------
 
 import type { ResourceDrawerFinding } from "@/actions/findings";
+import { BRAND, checkDocsUrl } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { usePartialScanStore } from "@/store/partial-scan/store";
 import { SIDE_PANEL_TAB, useSidePanelStore } from "@/store/side-panel";
 import type { FindingResourceRow } from "@/types";
@@ -1155,18 +1156,20 @@ describe("ResourceDetailDrawerContent — CVE recommendation button", () => {
     );
     expect(screen.getByText(statusExtendedWithFixVersions)).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "View in Prowler Hub" }),
+      screen.queryByRole("link", {
+        name: `View in ${BRAND.name} documentation`,
+      }),
     ).not.toBeInTheDocument();
   });
 
-  it("should show View in Prowler Hub when the recommendation URL points to Prowler Hub", () => {
+  it("should show the documentation link when the recommendation URL points to the docs", () => {
     const hubCheckMeta: CheckMeta = {
       ...mockCheckMeta,
       remediation: {
         ...mockCheckMeta.remediation,
         recommendation: {
           text: "Open the check in Hub",
-          url: "https://hub.prowler.com/check/image_vulnerability",
+          url: checkDocsUrl("image_vulnerability"),
         },
       },
     };
@@ -1177,7 +1180,7 @@ describe("ResourceDetailDrawerContent — CVE recommendation button", () => {
         ...mockFinding.remediation,
         recommendation: {
           text: "Open the check in Hub",
-          url: "https://hub.prowler.com/check/image_vulnerability",
+          url: checkDocsUrl("image_vulnerability"),
         },
       },
     };
@@ -1198,10 +1201,12 @@ describe("ResourceDetailDrawerContent — CVE recommendation button", () => {
     );
 
     expect(screen.getByText(statusExtendedWithFixVersions)).toBeInTheDocument();
-    const hubLink = screen.getByRole("link", { name: "View in Prowler Hub" });
+    const hubLink = screen.getByRole("link", {
+      name: `View in ${BRAND.name} documentation`,
+    });
     expect(hubLink).toHaveAttribute(
       "href",
-      "https://hub.prowler.com/check/image_vulnerability",
+      checkDocsUrl("image_vulnerability"),
     );
     expect(hubLink).toHaveAttribute("target", "_blank");
     expect(hubLink).toHaveAttribute("rel", "noopener noreferrer");

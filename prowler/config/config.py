@@ -10,6 +10,7 @@ import requests
 import yaml
 from packaging import version
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler.lib.check.compliance_models import (
     get_universal_compliance_entry_point_dirs,
     load_compliance_framework_universal,
@@ -53,8 +54,8 @@ class _MutableTimestamp:
 timestamp = _MutableTimestamp(datetime.today())
 timestamp_utc = _MutableTimestamp(datetime.now(timezone.utc))
 prowler_version = "5.45.0"
-html_logo_url = "https://github.com/prowler-cloud/prowler/"
-square_logo_img = "https://raw.githubusercontent.com/prowler-cloud/prowler/dc7d2d5aeb92fdf12e8604f42ef6472cd3e8e889/docs/img/prowler-logo-black.png"
+html_logo_url = brand.website_url  # cloudsneeker-hook
+square_logo_img = brand.logo_url  # cloudsneeker-hook
 aws_logo = "https://user-images.githubusercontent.com/38561120/235953920-3e3fba08-0795-41dc-b480-9bea57db9f2e.png"
 azure_logo = "https://user-images.githubusercontent.com/38561120/235927375-b23e2e0f-8932-49ec-b59c-d89f61c8041d.png"
 gcp_logo = "https://user-images.githubusercontent.com/38561120/235928332-eb4accdc-c226-4391-8e97-6ca86a91cf50.png"
@@ -216,7 +217,9 @@ encoding_format_utf_8 = "utf-8"
 available_output_formats = ["csv", "json-asff", "json-ocsf", "html", "sarif"]
 
 # Prowler Cloud API settings
-cloud_api_base_url = os.getenv("PROWLER_CLOUD_API_BASE_URL", "https://api.prowler.com")
+cloud_api_base_url = os.getenv(
+    "PROWLER_CLOUD_API_BASE_URL", brand.api_url
+)  # cloudsneeker-hook
 cloud_api_key = os.getenv("PROWLER_CLOUD_API_KEY", "")
 cloud_api_ingestion_path = "/api/v1/ingestions"
 
@@ -261,6 +264,12 @@ def get_default_mute_file_path(provider: str):
 
 
 def check_current_version():
+    return brand.version_string(
+        prowler_version
+    )  # cloudsneeker-hook: no upstream release lookup
+
+
+def _upstream_check_current_version():  # pragma: no cover - kept for merges
     try:
         prowler_version_string = f"Prowler {prowler_version}"
         release_response = requests.get(

@@ -1,3 +1,4 @@
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import {
   CLOUD_UPGRADE_FEATURE,
   type CloudUpgradeFeature,
@@ -18,8 +19,8 @@ export const CLOUD_UPGRADE_SECONDARY_CTA = "View Plans & Pricing";
 export const CLOUD_UPGRADE_FOOTER_NOTE =
   "Prowler Cloud opens in a new tab. Your Prowler Local Server remains unchanged.";
 
-const CLOUD_SIGN_UP_URL = "https://cloud.prowler.com/sign-up";
-const PRICING_URL = "https://prowler.com/pricing";
+const CLOUD_SIGN_UP_URL = BRAND.websiteUrl; // cloudsneeker-hook
+const PRICING_URL = BRAND.pricingUrl || BRAND.websiteUrl; // cloudsneeker-hook
 const LOCAL_SERVER_UTM_SOURCE = "prowler-local-server";
 
 const CLOUD_UPGRADE_UTM_CONTENT = {

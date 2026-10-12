@@ -392,7 +392,7 @@ class Test_Config:
     def test_check_current_version_with_latest(self):
         assert (
             check_current_version()
-            == f"Prowler {MOCK_PROWLER_VERSION} (You are running the latest version, yay!)"
+            == f"Prowler {MOCK_PROWLER_VERSION}"  # cloudsneeker-hook: no release lookup
         )
 
     @mock.patch(
@@ -402,7 +402,7 @@ class Test_Config:
     def test_check_current_version_with_old(self):
         assert (
             check_current_version()
-            == f"Prowler {MOCK_OLD_PROWLER_VERSION} (latest is {MOCK_PROWLER_VERSION}, upgrade for the latest features)"
+            == f"Prowler {MOCK_OLD_PROWLER_VERSION}"  # cloudsneeker-hook: no release lookup
         )
 
     @mock.patch(
@@ -414,7 +414,7 @@ class Test_Config:
     def test_check_current_version_with_master_version(self):
         assert (
             check_current_version()
-            == f"Prowler {MOCK_PROWLER_MASTER_VERSION} (You are running the latest version, yay!)"
+            == f"Prowler {MOCK_PROWLER_MASTER_VERSION}"  # cloudsneeker-hook: no release lookup
         )
 
     def test_get_available_compliance_frameworks(self):

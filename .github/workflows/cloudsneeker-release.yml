@@ -1,0 +1,223 @@
+name: 'Cloudsneeker: Brand Gate and Release'
+# Runs only on the private Cloudsneeker remote. It never fires on
+# prowler-cloud/prowler because that repository has no `cloudsneeker/` tree.
+#
+# Gate: the rebranded tree and a sample scan output must contain no upstream
+# brand string. Release (tags `cloudsneeker-v*`): build and push the images.
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'cloudsneeker-v*'
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions: {}
+
+env:
+  REGISTRY: ${{ vars.CLOUDSNEEKER_REGISTRY || 'ghcr.io' }}
+  IMAGE_PREFIX: ${{ vars.CLOUDSNEEKER_IMAGE_PREFIX || github.repository_owner }}
+
+jobs:
+  source-gate:
+    name: Source brand gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.12'
+
+      - name: Rebrand rules still match upstream text
+        run: uv run python cloudsneeker/tools/rebrand.py --check
+
+      - name: Cloudsneeker-owned source is clean
+        run: uv run python cloudsneeker/tools/brand_audit.py --source
+
+      - name: Brand unit tests
+        run: uv run pytest tests/cloudsneeker -q
+
+      - name: MCP brand unit tests
+        working-directory: mcp_server
+        run: |
+          uv sync --frozen
+          uv run pytest tests/cloudsneeker tests/test_health.py tests/test_server.py -q
+
+  docs-gate:
+    name: Documentation site gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.12'
+
+      - name: Generate check pages and the CloudFormation template
+        run: uv run --no-project python cloudsneeker/tools/gen_check_docs.py
+
+      - name: Audit the generated site
+        run: uv run --no-project python cloudsneeker/tools/brand_audit.py --tree cloudsneeker/docs
+
+      - name: Keep the generated site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-site
+          path: cloudsneeker/docs
+          retention-days: 7
+
+  build-gate:
+    name: Build tree and artifact gate
+    needs: source-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.12'
+          install-dependencies: 'false'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Export rebranded tree
+        run: |
+          docker build -f cloudsneeker/deploy/docker/source.Dockerfile \
+            --target tree --output type=local,dest=build/tree .
+          docker build -f cloudsneeker/deploy/docker/source.Dockerfile \
+            --target wheel --output type=local,dest=build/wheels .
+
+      - name: Audit build tree
+        run: uv run --no-project python cloudsneeker/tools/brand_audit.py --tree build/tree
+
+      - name: Generate sample scan output from the rebranded tree
+        working-directory: build/tree
+        run: uv run --no-dev python cloudsneeker/tools/sample_outputs.py --output-dir ../artifacts
+
+      - name: Audit sample scan output
+        run: uv run --no-project python cloudsneeker/tools/brand_audit.py --artifacts build/artifacts
+
+      - name: Lint Helm chart
+        run: helm lint cloudsneeker/deploy/helm/cloudsneeker-app --set secrets.authSecret=ci
+
+      - name: Keep build tree for the image jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-tree
+          path: build
+          retention-days: 1
+          include-hidden-files: true
+
+  images:
+    name: Build ${{ matrix.image }} image
+    needs: build-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [cli, api, ui, mcp]
+    env:
+      PUSH: ${{ startsWith(github.ref, 'refs/tags/cloudsneeker-v') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Restore build tree
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-tree
+          path: build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Log in to registry
+        if: env.PUSH == 'true'
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.CLOUDSNEEKER_REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.CLOUDSNEEKER_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+
+      - name: Resolve tag
+        id: tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$REF_NAME" == cloudsneeker-v* ]]; then
+            echo "tag=${REF_NAME#cloudsneeker-}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          push_flag=""
+          if [[ "$PUSH" == "true" ]]; then push_flag="--push"; else push_flag="--load"; fi
+          case "${{ matrix.image }}" in
+            cli)
+              docker buildx build $push_flag -t "$IMAGE:$TAG" build/tree ;;
+            api)
+              docker buildx build --load -t "cloudsneeker/api-base:$TAG" build/tree/api
+              docker buildx build $push_flag -t "$IMAGE:$TAG" \
+                --build-arg "BASE_IMAGE=cloudsneeker/api-base:$TAG" \
+                -f cloudsneeker/deploy/docker/api.Dockerfile build ;;
+            ui)
+              docker buildx build $push_flag -t "$IMAGE:$TAG" --target prod \
+                --build-arg "NEXT_PUBLIC_PROWLER_RELEASE_VERSION=$TAG" build/tree/ui ;;
+            mcp)
+              docker buildx build $push_flag -t "$IMAGE:$TAG" build/tree/mcp_server ;;
+          esac
+
+      - name: Image carries no upstream brand in its labels or help output
+        if: matrix.image == 'cli'
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/cli-output
+          docker run --rm "$IMAGE:$TAG" --version > build/cli-output/version.txt
+          docker run --rm "$IMAGE:$TAG" --help > build/cli-output/help.txt
+          cat build/cli-output/version.txt
+          python3 cloudsneeker/tools/brand_audit.py --artifacts build/cli-output

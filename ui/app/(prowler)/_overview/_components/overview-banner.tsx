@@ -24,8 +24,8 @@ const OVERVIEW_BANNER_CONTENT = {
   },
   agents: {
     icon: <Bot className="size-5" />,
-    title: "Connect all your agents to Prowler Cloud",
-    description: "Turn your favorite agent into a Cloud Security Expert.",
+    title: "Connect your agents to Cloudsneeker",
+    description: "Use Lighthouse and the local MCP server from this app.",
   },
 } as const satisfies Record<
   OverviewBannerVariant,

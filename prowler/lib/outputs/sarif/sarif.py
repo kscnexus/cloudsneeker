@@ -1,6 +1,7 @@
 from json import dump
 from typing import Optional
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler.config.config import prowler_version
 from prowler.lib.logger import logger
 from prowler.lib.outputs.finding import Finding
@@ -106,9 +107,9 @@ class SARIF(Output):
                 {
                     "tool": {
                         "driver": {
-                            "name": "Prowler",
+                            "name": brand.sarif_driver_name,  # cloudsneeker-hook
                             "version": prowler_version,
-                            "informationUri": "https://prowler.com",
+                            "informationUri": brand.website_url,  # cloudsneeker-hook
                             "rules": list(rules.values()),
                         },
                     },

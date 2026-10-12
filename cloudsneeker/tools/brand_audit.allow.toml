@@ -1,0 +1,111 @@
+# Paths and patterns the brand audit ignores.
+#
+# Paths listed here are never shipped to a client or must legally keep the
+# upstream name. Patterns cover technical identifiers that are not displayed.
+
+[paths]
+allow = [
+  "NOTICE",
+  "LICENSE",
+  "README.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "CODE_OF_CONDUCT.md",
+  "Makefile",
+  ".git/**",
+  ".github/**",
+  ".cursor/**",
+  "_data/**",
+  "docs/**",
+  "knowledge-base/**",
+  "cloudsneeker/tools/**",
+  # Test-only: upstream-compatible brand values for the test sessions.
+  "cloudsneeker/testing.py",
+  "mcp_server/prowler_mcp_server/cloudsneeker/testing.py",
+  "contrib/**",
+  "permissions/**",
+  "util/**",
+  "scripts/**",
+  "dashboard/**",
+  "examples/**",
+  "**/CHANGELOG*.md",
+  "**/*.lock",
+  "**/pnpm-lock.yaml",
+  "**/node_modules/**",
+  "**/.venv/**",
+  "**/__pycache__/**",
+  "**/tests/**",
+  "**/__tests__/**",
+  "**/*_test.py",
+  "**/test_*.py",
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/fixtures/**",
+  "**/migrations/**",
+  "**/*.md",
+  "**/*.mdx",
+  "api/fixtures/**",
+  "api/pyproject.toml",
+  "pyproject.toml",
+  "mcp_server/pyproject.toml",
+  "ui/package.json",
+  "Dockerfile",
+  "**/Dockerfile",
+  "docker-compose*.yml",
+  "**/.env*",
+  "**/*.png",
+  "**/*.ico",
+  "**/*.svg",
+  # Repository tooling that no image or package ships.
+  ".backportrc.json",
+  ".gitignore",
+  ".grype.yaml",
+  ".trivyignore.yaml",
+  ".config/**",
+  ".claude-plugin/**",
+  "claude_plugins/**",
+  "skills/**",
+  "action.yml",
+  "**/towncrier.toml",
+  "**/conftest.py",
+  "**/vitest.config.ts",
+  "**/vitest.setup.ts",
+  "**/playwright*.config.ts",
+  "ui/scripts/**",
+  "**/*.egg-info/**",
+  # Upstream Hub and Documentation tool sets: disabled unless a deployment
+  # opts in with CLOUDSNEEKER_MCP_HUB_TOOLS / CLOUDSNEEKER_MCP_DOCS_TOOLS.
+  "mcp_server/prowler_mcp_server/prowler_hub/**",
+  "mcp_server/prowler_mcp_server/prowler_documentation/**",
+  # Console-script name from mcp_server/pyproject.toml.
+  "mcp_server/entrypoint.sh",
+]
+
+[patterns]
+# Technical identifiers that are never rendered as prose.
+allow = [
+  'prowler-cloud/prowler\.git',
+  'prowler_mcp_server',
+  'PROWLER_[A-Z_]+',
+  'prowler-api-dev',
+  # Neo4j node label shared by the API attack-paths queries and the UI graph.
+  'ProwlerFinding',
+  # Authorship metadata; attribution stays with the upstream authors.
+  'engineering@prowler\.com',
+  # Container-internal state directory of the API.
+  '\.config/prowler-api',
+  '"\.config" / "prowler-api"',
+  # Package name the API reads from its own pyproject.toml.
+  '_PROJECT_NAME = "prowler-api"',
+  # Source comments about the hosted-edition overlay; never rendered.
+  'prowler-cloud overlay',
+  'The prowler-cloud\s*$',
+  '\(prowler-cloud\) enforces',
+  # Hosted-tier upsell internals, gated off by BRAND.showUpsell.
+  'CLOUD_UTM_SOURCE = "prowler-cloud"',
+  '\^prowler-cloud-',
+  # Upstream release lookup kept for merges; unreachable behind the hook.
+  'api\.github\.com/repos/prowler-cloud/prowler/tags',
+  # Docstring that names the upstream URL shape the hook replaces.
+  'hub\.prowler\.com/check/<id>',
+]

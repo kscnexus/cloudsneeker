@@ -3,6 +3,7 @@
 import { MessageSquareText } from "lucide-react";
 import { useState } from "react";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { Button } from "@/components/shadcn/button/button";
 import { ActionDropdownItem } from "@/components/shadcn/dropdown";
 import { useToast } from "@/components/shadcn/toast/use-toast";
@@ -44,7 +45,7 @@ import {
   TRIAGE_STATUS_TEXT_CLASS,
 } from "./finding-triage-status-control";
 
-export const CLOUD_ONLY_TOOLTIP_COPY = "Available in Prowler Cloud";
+export const CLOUD_ONLY_TOOLTIP_COPY = BRAND.unavailableFeatureCopy; // cloudsneeker-hook
 export const EDITING_UNAVAILABLE_COPY = "Editing is currently unavailable.";
 
 const getDisabledCopy = ({

@@ -1,6 +1,7 @@
 import { extractUtmParams, type UtmParams } from "@/lib/utm";
 
 const DEFAULT_CALLBACK_PATH = "/";
+const CLOUD_ONLY_AUTH_PREFIXES = ["/email-verification"] as const;
 const INVITATION_TOKEN_PARAM = "invitation_token";
 // Origin used only to resolve relative paths; never part of the returned value.
 const INTERNAL_ORIGIN = "http://localhost";
@@ -30,6 +31,20 @@ export const getSafeCallbackPathFromValue = (
   } catch (_error) {
     return DEFAULT_CALLBACK_PATH;
   }
+};
+
+export const resolvePostLoginPath = (
+  callbackPath: string,
+  cloudEnabled: boolean,
+) => {
+  if (
+    !cloudEnabled &&
+    CLOUD_ONLY_AUTH_PREFIXES.some((prefix) => callbackPath.startsWith(prefix))
+  ) {
+    return DEFAULT_CALLBACK_PATH;
+  }
+
+  return callbackPath;
 };
 
 export const getSafeCallbackPath = (

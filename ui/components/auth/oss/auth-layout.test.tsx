@@ -1,17 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand";
+
 import { AuthLayout } from "./auth-layout";
 
 describe("AuthLayout", () => {
-  it("renders the Prowler brand directly above the form card", () => {
+  it("renders the brand directly above the form card", () => {
     render(
       <AuthLayout title="Sign in">
         <p>form content</p>
       </AuthLayout>,
     );
 
-    const brand = screen.getByRole("img", { name: /prowler/i });
+    const brand = screen.getByRole("img", { name: BRAND.name });
     const title = screen.getByText("Sign in");
 
     expect(

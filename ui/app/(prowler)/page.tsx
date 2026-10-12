@@ -11,7 +11,7 @@ import {
   AppSidebarModeSync,
 } from "@/components/layout/app-sidebar";
 import { ContentLayout } from "@/components/shadcn/content-layout";
-import { DOCS_URLS } from "@/lib/external-urls";
+import { LIGHTHOUSE_ROUTE } from "@/lib/lighthouse-routes";
 import { isCloud } from "@/lib/shared/env";
 import { SearchParamsProps } from "@/types";
 
@@ -81,7 +81,7 @@ export default async function Home({
         <div className="min-w-0 lg:flex-1">
           <OverviewBanner
             variant={OVERVIEW_BANNER_VARIANT.AGENTS}
-            href={DOCS_URLS.AI_AGENTS}
+            href={LIGHTHOUSE_ROUTE.CHAT}
           />
         </div>
       </div>

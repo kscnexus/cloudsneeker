@@ -1,0 +1,28 @@
+---
+title: "Integrations"
+description: "Send scan results to the tools your team already uses"
+---
+
+Integrations are configured under **Integrations** in the web app by a user with the **manage integrations** permission. Each integration is attached to one or more providers and runs after every completed scan of those providers.
+
+<Columns cols={2}>
+  <Card title="Amazon S3" icon="bucket" href="/integrations/amazon-s3">
+    Deliver the full report bundle to your bucket after every scan.
+  </Card>
+  <Card title="AWS Security Hub" icon="shield" href="/integrations/aws-security-hub">
+    Import failed findings into Security Hub in every scanned region.
+  </Card>
+  <Card title="Jira" icon="ticket" href="/integrations/jira">
+    Create issues from findings with one click.
+  </Card>
+  <Card title="Slack" icon="slack" href="/integrations/slack">
+    Post a scan summary to a channel from the command line.
+  </Card>
+</Columns>
+
+## Common behavior
+
+- **Test connection** on each integration verifies credentials before saving.
+- Integrations run inside the worker after the scan's report bundle is ready. A failed delivery does not fail the scan; the error is shown on the integration card.
+- Credentials are stored encrypted with the same key as provider credentials.
+- Removing an integration stops future deliveries. Nothing already delivered is removed.

@@ -1,0 +1,23 @@
+# Applies to builds that use source.Dockerfile (BuildKit picks
+# <Dockerfile>.dockerignore over the root .dockerignore).
+.git
+.github
+.env
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.template
+build
+_data
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/*.pyc
+**/*.egg-info
+**/coverage
+**/playwright-report
+**/test-results

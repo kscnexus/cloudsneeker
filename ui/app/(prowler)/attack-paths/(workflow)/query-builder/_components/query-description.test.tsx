@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { getAttackPathHubUrl } from "@/lib/external-urls"; // cloudsneeker-hook
 import {
   ATTACK_PATH_QUERY_IDS,
   type AttackPathQuery,
@@ -51,7 +52,7 @@ describe("QueryDescription", () => {
     // Then
     expect(link).toHaveAttribute(
       "href",
-      "https://hub.prowler.com/attack-paths/aws-sts-privesc-assume-role",
+      getAttackPathHubUrl("aws-sts-privesc-assume-role"),
     );
   });
 

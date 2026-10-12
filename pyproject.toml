@@ -148,6 +148,7 @@ version = "5.45.0"
 
 [project.scripts]
 prowler = "prowler.__main__:prowler"
+cloudsneeker = "prowler.__main__:prowler" # cloudsneeker-hook
 
 [project.urls]
 "Changelog" = "https://github.com/prowler-cloud/prowler/releases"
@@ -156,10 +157,10 @@ prowler = "prowler.__main__:prowler"
 "Issue tracker" = "https://github.com/prowler-cloud/prowler/issues"
 
 [tool.hatch.build.targets.sdist]
-include = ["prowler", "dashboard"]
+include = ["prowler", "dashboard", "cloudsneeker"] # cloudsneeker-hook
 
 [tool.hatch.build.targets.wheel]
-packages = ["prowler", "dashboard"]
+packages = ["prowler", "dashboard", "cloudsneeker"] # cloudsneeker-hook
 
 [tool.pytest.ini_options]
 pythonpath = [

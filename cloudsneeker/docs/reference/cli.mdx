@@ -1,0 +1,86 @@
+---
+title: "Command line"
+description: "Run the scanning engine directly from a terminal or a pipeline"
+---
+
+The `cloudsneeker` command runs the same checks as the platform without the web app or the API. Use it for ad-hoc scans, CI pipelines, and air-gapped environments.
+
+## Install
+
+<Tabs>
+  <Tab title="Container image">
+    ```shell
+    docker run --rm -v ~/.aws:/home/prowler/.aws:ro -v "$PWD/output:/home/prowler/output" \
+      <registry>/cloudsneeker/cli:stable aws --profile default
+    ```
+  </Tab>
+  <Tab title="Python wheel">
+    ```shell
+    pip install cloudsneeker-<version>-py3-none-any.whl
+    cloudsneeker --version
+    ```
+
+    Python 3.10 or newer is required.
+  </Tab>
+</Tabs>
+
+## Run a scan
+
+```shell
+cloudsneeker aws                      # default credentials, all regions, all checks
+cloudsneeker azure --az-cli-auth --subscription-ids <id>
+cloudsneeker gcp --project-ids <project>   # uses application default credentials
+cloudsneeker kubernetes --kubeconfig-file ./kubeconfig --context <ctx>
+```
+
+Output is written to `./output/` as CSV, OCSF JSON, and HTML named `cloudsneeker-output-<account>-<timestamp>.*`. The exit code is `3` when any check failed, `0` when all passed; add `--ignore-exit-code-3` to always exit `0`.
+
+## Common options
+
+| Option | Effect |
+| --- | --- |
+| `--check <id> [...]` / `--excluded-check <id> [...]` | Run or skip specific checks |
+| `--service <name> [...]` / `--excluded-service` | Limit by service |
+| `--severity critical high` | Limit by severity |
+| `--compliance <framework>` | Run the checks for a framework and print its table |
+| `--category <name>` | Checks with a category, for example `internet-exposed` |
+| `--status FAIL` | Only report failed findings |
+| `--output-formats csv json-ocsf json-asff html sarif` | Choose formats |
+| `--output-directory <dir>` / `--output-filename <name>` | Where and how to name files |
+| `--mutelist-file <yaml>` | Mute findings by account, check, region, resource, or tag |
+| `--config-file <yaml>` | Thresholds and parameters for checks |
+| `--list-checks`, `--list-services`, `--list-compliance`, `--list-categories` | Discover what is available |
+| `--no-banner`, `--no-color`, `--verbose`, `--only-logs`, `--log-level` | Console output |
+
+Run `cloudsneeker <provider> --help` for the provider-specific options.
+
+## AWS options
+
+| Option | Effect |
+| --- | --- |
+| `--profile`, `--role <arn>`, `--external-id`, `--mfa` | Credentials and role assumption |
+| `--region <r> [...]` / `--excluded-region` | Limit regions |
+| `--organizations-role <arn>` | Read account metadata from AWS Organizations |
+| `--security-hub`, `--send-sh-only-fails`, `--skip-sh-update` | [Security Hub](/integrations/aws-security-hub) |
+| `--output-bucket <bucket>` | Upload the output directory to S3 |
+| `--resource-tag key=value`, `--resource-arn <arn>` | Scan only matching resources |
+| `--quick-inventory` | List resources without running checks |
+| `--fixer` | Apply the automated remediation for checks that have one |
+
+## Integrations from the CLI
+
+- **Slack**: set `SLACK_API_TOKEN` and `SLACK_CHANNEL_NAME` (or `SLACK_CHANNEL_ID`) and add `--slack`. See [Slack](/integrations/slack).
+- **S3**: `--output-bucket <bucket>`; `--output-bucket-no-assume` when the bucket belongs to the credential's own account.
+- **Security Hub**: `--security-hub`.
+
+## Finding UIDs
+
+Each finding has a stable UID of the form `cloudsneeker-<provider>-<check id>-<account>-<region>-<resource>`. The same UID appears in the CLI output, the API, and the web app, so results can be joined across them.
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Completed, no failed findings (or `--ignore-exit-code-3`) |
+| `1` | Error: bad arguments, credentials, or an unrecoverable provider error |
+| `3` | Completed with at least one failed finding |

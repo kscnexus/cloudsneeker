@@ -6,6 +6,7 @@ import posthogClient from "posthog-js";
 import type { Survey } from "posthog-js";
 import { useState } from "react";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { Button } from "@/components/shadcn/button/button";
 import {
   Popover,
@@ -27,7 +28,7 @@ import { useSidePanelStore } from "@/store/side-panel";
 
 import { FeedbackForm } from "./feedback-form";
 
-const SURVEY_NAME = "Prowler Feedback";
+const SURVEY_NAME = BRAND.surveyName; // cloudsneeker-hook
 const FEEDBACK_GUTTER_PX = 24;
 
 const SURVEY_EVENT = {

@@ -1,0 +1,42 @@
+---
+title: "AWS"
+description: "Connect an AWS account with an IAM role or access keys"
+---
+
+## Recommended: IAM role
+
+Cloudsneeker assumes a role in your account. No long-lived key is stored.
+
+<Steps>
+  <Step title="Start the wizard">
+    In **Providers**, select **Add provider**, choose **AWS**, and enter the 12-digit account ID.
+  </Step>
+  <Step title="Create the role">
+    Choose **IAM role** and select **Launch CloudFormation**. The quick-create link opens the AWS console with the template, the external ID, and the stack name `Cloudsneeker` pre-filled. The template creates a role named `CloudsneekerScan` with:
+
+    - AWS managed policies `SecurityAudit` and `job-function/ViewOnlyAccess`
+    - A small inline policy for read-only APIs those policies miss
+    - A trust policy limited to the principal and external ID shown in the wizard
+
+    You can also download the template at `/templates/cloudsneeker-scan-role.yml` on this site and deploy it with your own tooling or a StackSet across an organization.
+  </Step>
+  <Step title="Paste the role ARN">
+    Copy the ARN from the stack outputs (`arn:aws:iam::<account-id>:role/CloudsneekerScan`) into the wizard and select **Test connection**.
+  </Step>
+</Steps>
+
+## Alternative: access keys
+
+Create an IAM user with the same two managed policies, generate an access key, and enter the key ID, secret, and optional session token. Rotate the key regularly; the wizard's **Update credentials** action accepts the new values.
+
+## Organizations
+
+To scan every account in an AWS Organization, deploy the template from the management account with **StackSet deployment** enabled. Then add each account as a provider using its own `CloudsneekerScan` role ARN, or connect the organization once from **Providers → Organizations** and let Cloudsneeker discover member accounts.
+
+## Troubleshooting
+
+| Message | Cause |
+| --- | --- |
+| `AccessDenied` on `sts:AssumeRole` | External ID or trust policy does not match the wizard values. Redeploy the stack from the quick-create link. |
+| Connection passes but a service shows no resources | The inline policy is out of date. Update the stack with the current template. |
+| Region appears empty | The region is disabled in the account. Enable it or ignore it under provider settings. |

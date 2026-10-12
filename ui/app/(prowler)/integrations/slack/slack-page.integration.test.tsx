@@ -40,6 +40,7 @@ import {
   unreportedRevocationSlackFixture,
 } from "@/__tests__/msw/handlers/slack.fixtures";
 import { exchangeSlackOAuthCode } from "@/actions/integrations/slack";
+import { DOCS_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
 
 import {
   CONNECTION_OUTCOME,
@@ -617,8 +618,13 @@ describe("authorizing destination channels", () => {
 
     // Then — the whole anchored URL: the anchor is the point of the link, and
     // it is derived from a docs heading that a rewording would silently move.
+    // cloudsneeker-hook: the host comes from the brand; the anchored path is
+    // the contract.
     expect(harness.channelInviteHintDocsUrl()).toBe(
-      "https://docs.prowler.com/user-guide/tutorials/prowler-app-slack-integration#why-a-private-channel-is-missing-from-the-channel-list",
+      DOCS_URLS.SLACK_INTEGRATION_PRIVATE_CHANNELS,
+    );
+    expect(harness.channelInviteHintDocsUrl()).toMatch(
+      /\/user-guide\/tutorials\/app-slack-integration#why-a-private-channel-is-missing-from-the-channel-list$/,
     );
   }, 30000);
 

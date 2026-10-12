@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { LighthouseV2SidebarChat } from "@/app/(prowler)/lighthouse/_components/navigation";
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { ProwlerBrand } from "@/components/icons";
 import { useAuth } from "@/hooks";
 import { useRuntimeConfig } from "@/hooks/use-runtime-config";
@@ -44,7 +45,7 @@ export function AppSidebarContent({ onSelect }: AppSidebarContentProps) {
       <div className="shrink-0 px-5 pt-8 pb-7">
         <Link
           href="/"
-          aria-label="Prowler home"
+          aria-label={`${BRAND.name} home`} // cloudsneeker-hook
           className="focus-visible:ring-button-primary/50 flex h-8 items-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
           onClick={onSelect}
         >
@@ -54,10 +55,12 @@ export function AppSidebarContent({ onSelect }: AppSidebarContentProps) {
 
       <div className="shrink-0 space-y-3 px-3 pb-1">
         <LaunchScanAction onSelect={onSelect} />
-        <AppSidebarModeToggle
-          chatEnabled={isCloudEnvironment}
-          onSelect={onSelect}
-        />
+        {(isCloudEnvironment || BRAND.showUpsell) && ( // cloudsneeker-hook
+          <AppSidebarModeToggle
+            chatEnabled={isCloudEnvironment}
+            onSelect={onSelect}
+          />
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">

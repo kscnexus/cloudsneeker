@@ -19,6 +19,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import redis
+from cloudsneeker_api.brand import (  # cloudsneeker-hook
+    health_description,
+    health_service_id,
+)
 from config.version import API_VERSION, RELEASE_ID
 from django.conf import settings
 from django.db import connections
@@ -31,8 +35,8 @@ from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
 
-SERVICE_ID = "prowler-api"
-SERVICE_DESCRIPTION = "Prowler API"
+SERVICE_ID = health_service_id()  # cloudsneeker-hook
+SERVICE_DESCRIPTION = health_description()  # cloudsneeker-hook
 
 # Status vocabulary from the IETF draft (section 3.1).
 STATUS_PASS = "pass"

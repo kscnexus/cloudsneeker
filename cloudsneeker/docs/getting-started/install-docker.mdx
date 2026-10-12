@@ -1,0 +1,76 @@
+---
+title: "Install with Docker Compose"
+description: "Run the full Cloudsneeker platform on a single host"
+---
+
+Use this guide to run Cloudsneeker on a single Linux host with Docker. For production clusters, see [Install on Kubernetes](/getting-started/install-kubernetes).
+
+## Requirements
+
+- Docker Engine 24+ and the Docker Compose plugin
+- 4 vCPU, 8 GB RAM, 40 GB disk for the datastores
+- Access to the image registry we provided, or images you built from the release bundle
+- A DNS name and TLS termination in front of the web app (a reverse proxy such as Caddy, nginx, or Traefik)
+
+## Install
+
+<Steps>
+  <Step title="Download the deployment bundle">
+    The bundle contains `docker-compose.yml` and `.env.example`. Unpack it into a directory such as `/opt/cloudsneeker`.
+  </Step>
+  <Step title="Create the environment file">
+    ```shell
+    cp .env.example .env
+    ```
+
+    Fill in every empty value. At minimum:
+
+    | Variable | Purpose |
+    | --- | --- |
+    | `AUTH_URL` | Public URL of the web app, for example `https://cloudsneeker.example.com` |
+    | `AUTH_SECRET` | `openssl rand -base64 32` |
+    | `POSTGRES_PASSWORD`, `POSTGRES_ADMIN_PASSWORD` | Database passwords |
+    | `NEO4J_PASSWORD` | Graph database password |
+    | `DJANGO_TOKEN_SIGNING_KEY`, `DJANGO_TOKEN_VERIFYING_KEY` | RSA key pair for session tokens; see the comments in the file |
+    | `DJANGO_SECRETS_ENCRYPTION_KEY` | Key that encrypts stored provider credentials |
+    | `CLOUDSNEEKER_REGISTRY` | Registry prefix for the images |
+
+    Keep `.env` out of version control.
+  </Step>
+  <Step title="Start the stack">
+    ```shell
+    docker compose pull
+    docker compose up -d
+    ```
+
+    The `api-init` service runs database migrations and exits. The web app listens on port `3000`, the API on `8080`.
+  </Step>
+  <Step title="Create the first user">
+    Open the web app and use **Sign up**. The first user in a new installation becomes the administrator of a new organization.
+  </Step>
+</Steps>
+
+## Services
+
+| Service | Role |
+| --- | --- |
+| `cloudsneeker-ui` | Web application |
+| `cloudsneeker-api` | REST API and authentication |
+| `cloudsneeker-worker` | Runs scans, reports, and integrations |
+| `cloudsneeker-worker-beat` | Schedules recurring scans |
+| `cloudsneeker-mcp` | MCP server for AI assistants |
+| `postgres`, `valkey`, `neo4j` | Datastores |
+
+## Upgrade
+
+```shell
+docker compose pull
+docker compose up -d
+```
+
+Migrations run automatically through `api-init`. Back up the `postgres` volume before upgrading across major versions.
+
+## Health checks
+
+- Web app: `GET /api/health`
+- API: `GET /api/v1/health/live` and `GET /api/v1/health/ready`

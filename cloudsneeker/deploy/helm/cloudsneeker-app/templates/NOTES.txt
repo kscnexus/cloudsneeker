@@ -1,0 +1,20 @@
+Cloudsneeker {{ .Chart.AppVersion }} is deploying.
+
+  Web app : https://{{ .Values.hosts.app }}
+  API     : https://{{ .Values.hosts.api }}/api/v1
+  API docs: https://{{ .Values.hosts.api }}/api/v1/docs
+  MCP     : https://{{ .Values.hosts.mcp }}/mcp
+
+Datastores are external to this chart:
+  PostgreSQL {{ .Values.datastores.postgres.host }}:{{ .Values.datastores.postgres.port }}
+  Valkey     {{ .Values.datastores.valkey.host }}:{{ .Values.datastores.valkey.port }}
+  Neo4j      {{ .Values.datastores.neo4j.host }}:{{ .Values.datastores.neo4j.port }}
+
+{{- if not .Values.existingSecret }}
+
+Secrets were rendered from values into {{ include "cloudsneeker.secretName" . }}.
+For production, create that Secret yourself and set `existingSecret`.
+{{- end }}
+
+Check rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "cloudsneeker.fullname" . }}-api

@@ -1,0 +1,43 @@
+---
+title: "Slack"
+description: "Post a scan summary to a Slack channel"
+---
+
+Slack delivery is available from the command line. When a CLI scan finishes, Cloudsneeker posts one message to a channel with the account, the number of passed and failed findings, and the severity breakdown. The web app does not manage Slack in this edition.
+
+## Create the Slack app
+
+<Steps>
+  <Step title="Create an app">
+    At [api.slack.com/apps](https://api.slack.com/apps), create an app from scratch in your workspace. Name it `Cloudsneeker`.
+  </Step>
+  <Step title="Add bot scopes">
+    Under **OAuth & Permissions → Bot Token Scopes**, add `chat:write` and `chat:write.public`. The second lets the bot post to public channels it has not joined; for private channels, invite the bot instead.
+  </Step>
+  <Step title="Install and copy the token">
+    Install the app to the workspace and copy the **Bot User OAuth Token** (`xoxb-...`).
+  </Step>
+</Steps>
+
+## Run with Slack delivery
+
+```shell
+export SLACK_API_TOKEN=xoxb-...
+export SLACK_CHANNEL_NAME=security-alerts   # or SLACK_CHANNEL_ID=C0123456789
+
+cloudsneeker aws --slack
+```
+
+The message is posted once per run, after all checks finish. It includes a link to the account scanned and counts by severity; it does not include individual findings.
+
+## Scheduling
+
+To receive a daily summary, run the CLI from a scheduled job (cron, a CI pipeline, or a container job) with the two environment variables set. Store the token in your scheduler's secret store, not in the job definition.
+
+## Troubleshooting
+
+| Message | Cause |
+| --- | --- |
+| `not_in_channel` | The bot is not a member of a private channel; invite it with `/invite @Cloudsneeker` |
+| `channel_not_found` | Wrong channel name or the channel is archived |
+| `invalid_auth` | The token was revoked or belongs to a different workspace |

@@ -1,0 +1,35 @@
+---
+title: "What is Cloudsneeker?"
+description: "Continuous cloud security posture assessment for your cloud accounts, clusters, and SaaS tenants"
+---
+
+**Cloudsneeker** scans your cloud environments against thousands of security checks, maps the results to compliance frameworks, and tells you what to fix first. It runs as a hosted service operated by us, or inside your own infrastructure.
+
+<Columns cols={2}>
+  <Card title="Use the hosted service" icon="cloud" href="/getting-started/hosted">
+    Sign in, connect a provider, and run your first scan in minutes.
+  </Card>
+  <Card title="Install it yourself" icon="server" href="/getting-started/install-docker">
+    Run the full platform with Docker Compose or Kubernetes.
+  </Card>
+  <Card title="Connect a provider" icon="plug" href="/providers">
+    AWS, Azure, Google Cloud, Kubernetes, GitHub, Microsoft 365, and more.
+  </Card>
+  <Card title="Browse the checks" icon="list-check" href="/checks">
+    Every check, its risk, and how to remediate it.
+  </Card>
+</Columns>
+
+## How it works
+
+1. **Connect** a provider with read-only credentials. Credentials are encrypted at rest and only used to run scans.
+2. **Scan** on demand or on a schedule. Each scan evaluates every applicable check against every resource it can see.
+3. **Review** findings by severity, service, resource, or compliance framework. Mute what is accepted risk.
+4. **Export** reports as CSV, JSON, HTML, or PDF, or push findings to Amazon S3, AWS Security Hub, Jira, and Slack.
+
+## Where to go next
+
+- [Run a scan](/scans/run-a-scan)
+- [Download reports](/scans/reports)
+- [Set up integrations](/integrations)
+- [API reference](/reference/api)

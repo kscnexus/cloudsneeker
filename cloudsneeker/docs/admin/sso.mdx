@@ -1,0 +1,52 @@
+---
+title: "Single sign-on"
+description: "Sign in with your identity provider through SAML 2.0"
+---
+
+With SAML configured, users whose email belongs to your domain are redirected to your identity provider (Okta, Entra ID, Google Workspace, JumpCloud, and others) when they enter their email on the sign-in page. Role assignment can be driven by an attribute in the assertion.
+
+## Configure
+
+<Steps>
+  <Step title="Open the SAML settings">
+    **Integrations → SAML SSO** (requires **manage account**). Enter your **primary email domain**, for example `example.com`. The form then shows the values your identity provider needs:
+
+    | Field | Value |
+    | --- | --- |
+    | ACS URL | `https://<api host>/api/v1/accounts/saml/example.com/acs/` |
+    | Audience (SP entity ID) | `urn:cloudsneeker:sp` |
+    | Name ID format | `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress` |
+  </Step>
+  <Step title="Create the application in your identity provider">
+    Create a SAML 2.0 application with the ACS URL and audience above. Map these assertion attributes:
+
+    | Attribute | Required | Use |
+    | --- | --- | --- |
+    | `firstName` | yes | User's given name |
+    | `lastName` | yes | User's family name |
+    | `userType` | no | Name of the role to assign; created as read-only if it does not exist |
+    | `organization` | no | Shown on the user's profile |
+
+    Download the identity provider's **metadata XML**.
+  </Step>
+  <Step title="Upload the metadata">
+    Paste the metadata XML into the form and save. The configuration is active immediately.
+  </Step>
+  <Step title="Test">
+    Open the sign-in page in a private window, enter an email on the domain, and complete the identity provider flow. The user is created on first sign-in.
+  </Step>
+</Steps>
+
+## Roles through `userType`
+
+If the assertion carries `userType`, the user receives the role with that exact name at every sign-in, replacing any role assigned by hand. A role that does not exist yet is created with **unlimited visibility** and no manage permissions. Create the roles under **Roles** before rolling out, so the attribute maps to the permissions you intend. Without `userType`, a new user gets the `read_only` role and keeps whatever roles an administrator assigns later.
+
+The mapping never removes the last user with **manage account** from the organization.
+
+## Password sign-in after SSO
+
+Users on an SSO domain are redirected to the identity provider and no longer use a password. Keep a break-glass administrator on a different domain, and use [API keys](/admin/api-keys) for automation.
+
+## Social sign-in
+
+Self-hosted installations can also enable **Sign in with Google** or **GitHub** by setting `SOCIAL_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` or `SOCIAL_GITHUB_OAUTH_CLIENT_ID` / `_SECRET` with the matching callback URLs listed in `.env.example`. The hosted service enables these on request.

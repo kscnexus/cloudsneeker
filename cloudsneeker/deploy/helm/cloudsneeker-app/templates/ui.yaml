@@ -1,0 +1,85 @@
+{{- $component := "ui" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cloudsneeker.fullname" . }}-ui
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.ui.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 8 }}
+      annotations:
+        checksum/secret: {{ toYaml .Values.secrets | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "cloudsneeker.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: ui
+          image: {{ include "cloudsneeker.image" (dict "root" . "component" "ui") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ui.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.ui.port | quote }}
+            - name: AUTH_URL
+              value: {{ printf "https://%s" .Values.hosts.app | quote }}
+            - name: AUTH_TRUST_HOST
+              value: "true"
+            - name: UI_API_BASE_URL
+              value: {{ printf "http://%s-api:%v/api/v1" (include "cloudsneeker.fullname" .) .Values.api.port | quote }}
+            - name: UI_API_DOCS_URL
+              value: {{ printf "https://%s/api/v1/docs" .Values.hosts.api | quote }}
+            - name: UI_CLOUD_ENABLED
+              value: "false"
+            - name: PROWLER_MCP_SERVER_URL
+              value: {{ printf "http://%s-mcp:%v/mcp" (include "cloudsneeker.fullname" .) .Values.mcp.port | quote }}
+            - name: NEXT_PUBLIC_PROWLER_RELEASE_VERSION
+              value: {{ .Values.image.tag | quote }}
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cloudsneeker.secretName" . }}
+                  key: authSecret
+            {{- with .Values.ui.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.ui.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudsneeker.fullname" . }}-ui
+  labels:
+    {{- include "cloudsneeker.labels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.ui.port }}
+      targetPort: http
+  selector:
+    {{- include "cloudsneeker.selectorLabels" (dict "root" . "component" $component) | nindent 4 }}

@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { docsUrl } from "@/cloudsneeker/brand"; // cloudsneeker-hook
+import { DOCS_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
 import {
   PROVIDER_FUNNEL_EVENT,
   type ProviderFunnelDetail,
@@ -252,7 +254,9 @@ describe("useProviderWizardController", () => {
     // Update mode enters at the credentials step, so the docs link scrolls
     // the getting-started page to the credentials/authentication section.
     expect(result.current.docsLink).toBe(
-      "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication",
+      docsUrl(
+        "user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication",
+      ),
     );
 
     const state = useProviderWizardStore.getState();
@@ -290,7 +294,9 @@ describe("useProviderWizardController", () => {
     });
 
     expect(result.current.docsLink).toBe(
-      "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#assume-role-recommended",
+      docsUrl(
+        "user-guide/providers/aws/getting-started-aws#assume-role-recommended",
+      ),
     );
   });
 
@@ -317,9 +323,7 @@ describe("useProviderWizardController", () => {
     expect(useOrgSetupStore.getState().organizationType).toBe(
       ORGANIZATION_TYPE.AWS,
     );
-    expect(result.current.docsLink).toBe(
-      "https://docs.prowler.com/user-guide/tutorials/prowler-cloud-aws-organizations",
-    );
+    expect(result.current.docsLink).toBe(DOCS_URLS.AWS_ORGANIZATIONS);
 
     // When
     act(() => {

@@ -1,0 +1,206 @@
+# Build-time text transform applied to a copy of the source tree before images
+# are built. Rules run in order; earlier rules win on overlapping text.
+# Replacement strings may reference any field of cloudsneeker.brand.Brand with
+# {field_name}. Regular expressions use Python syntax.
+#
+# Keep source files byte-identical to upstream and express display changes
+# here. Structural changes (logos, URL catalogs, product IDs) use hooks instead.
+
+[defaults]
+exclude = [
+  ".git/**",
+  "**/node_modules/**",
+  "**/.venv/**",
+  "**/.next/**",
+  "**/__pycache__/**",
+  "_data/**",
+  "docs/**",
+  "knowledge-base/**",
+  ".cursor/**",
+  ".github/**",
+  "cloudsneeker/tools/**",
+  # Test-only: upstream-compatible brand values for the test sessions.
+  "cloudsneeker/testing.py",
+  "mcp_server/prowler_mcp_server/cloudsneeker/testing.py",
+  "NOTICE",
+  "LICENSE",
+  "**/CHANGELOG*.md",
+  "**/*.lock",
+  "**/pnpm-lock.yaml",
+  "**/tests/**",
+  "**/__tests__/**",
+  "**/*_test.py",
+  "**/test_*.py",
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/migrations/**",
+  "**/*.png",
+  "**/*.ico",
+  "**/*.jpg",
+  "**/*.woff",
+  "**/*.woff2",
+]
+
+# Text surfaces: application code, scan metadata, compliance catalogs, schema.
+text_targets = [
+  "ui/app/**/*.ts",
+  "ui/app/**/*.tsx",
+  "ui/components/**/*.ts",
+  "ui/components/**/*.tsx",
+  "ui/lib/**/*.ts",
+  "ui/lib/**/*.tsx",
+  "ui/actions/**/*.ts",
+  "ui/types/**/*.ts",
+  "ui/hooks/**/*.ts",
+  "ui/store/**/*.ts",
+  "ui/config/**/*.ts",
+  "prowler/**/*.py",
+  "prowler/compliance/**/*.json",
+  "prowler/providers/**/*.metadata.json",
+  "prowler/config/*.yaml",
+  "api/src/backend/**/*.py",
+  "api/src/backend/api/specs/*.yaml",
+  "mcp_server/**/*.py",
+  "mcp_server/**/*.md",
+]
+
+# Product tier and sister-product names collapse to the product name so no
+# sentence advertises a hosted edition that Cloudsneeker does not sell.
+[[rule]]
+id = "prowler-cloud-tier"
+pattern = '\bProwler (Cloud|App|Pro|Local Server)\b'
+replacement = "{name}"
+include = "text_targets"
+
+[[rule]]
+id = "prowler-pro-compact"
+pattern = '\bProwlerPro\b'
+replacement = "{name}"
+include = "text_targets"
+optional = true
+
+[[rule]]
+id = "prowler-hub"
+pattern = '\bProwler Hub\b'
+replacement = "{name} documentation"
+include = "text_targets"
+
+[[rule]]
+id = "prowler-slack-handle"
+pattern = '@Prowler\b'
+replacement = "@{name}"
+include = "text_targets"
+optional = true
+
+[[rule]]
+id = "display-name"
+pattern = '\bProwler\b'
+replacement = "{name}"
+include = "text_targets"
+
+[[rule]]
+id = "hub-check-url"
+pattern = 'https://hub\.prowler\.com/check/'
+replacement = "{docs_url}/checks/"
+include = "text_targets"
+
+[[rule]]
+id = "hub-root-url"
+pattern = '''https://hub\.prowler\.com[^\s"'`)>]*'''
+replacement = "{docs_url}"
+include = "text_targets"
+optional = true
+
+[[rule]]
+id = "docs-url"
+pattern = '''https://docs\.prowler\.com[^\s"'`)>]*'''
+replacement = "{docs_url}"
+include = "text_targets"
+
+[[rule]]
+id = "github-repo-url"
+pattern = '''https://github\.com/prowler-cloud/[^\s"'`)>]*'''
+replacement = "{website_url}"
+include = "text_targets"
+
+[[rule]]
+id = "other-prowler-hosts"
+pattern = '''https://[a-z0-9.-]*prowler\.(?:com|pro)[^\s"'`)>]*'''
+replacement = "{website_url}"
+include = "text_targets"
+
+[[rule]]
+id = "output-file-prefix"
+pattern = 'prowler-output-'
+replacement = "{output_file_prefix}-"
+include = "text_targets"
+
+[[rule]]
+id = "inventory-file-prefix"
+pattern = 'prowler-inventory-'
+replacement = "{inventory_file_prefix}-"
+include = "text_targets"
+optional = true
+
+# The IAM role clients create for AWS scans. The CloudFormation template under
+# permissions/ is published on the docs site, so it is transformed too.
+[[rule]]
+id = "aws-scan-role-name"
+pattern = '\bProwlerScan\b'
+replacement = "{name}Scan"
+include = [
+  "ui/components/**/*.ts",
+  "ui/components/**/*.tsx",
+  "ui/lib/**/*.ts",
+  "permissions/templates/**",
+]
+
+[[rule]]
+id = "aws-scan-role-connection-test-file"
+pattern = 'test-prowler-connection\.txt'
+replacement = "test-{slug}-connection.txt"
+include = ["permissions/templates/**"]
+optional = true
+
+[[rule]]
+id = "cloudformation-template-contact"
+pattern = '(?:support|contact)@prowler\.com'
+replacement = "{support_url}"
+include = ["permissions/templates/**"]
+optional = true
+
+[[rule]]
+id = "cloudformation-template-text"
+pattern = '\bProwler\b'
+replacement = "{name}"
+include = ["permissions/templates/**"]
+
+[[rule]]
+id = "cloudformation-template-urls"
+pattern = '''https://(?:[a-z0-9.-]*prowler\.com|github\.com/prowler-cloud)[^\s"'`)>]*'''
+replacement = "{website_url}"
+include = ["permissions/templates/**"]
+optional = true
+
+# Security Hub shows ProductFields keys in its console. The pydantic field
+# names and their call sites live in the same file, so a file-local rename is
+# consistent.
+[[rule]]
+id = "asff-product-field-names"
+pattern = '\bProwler(ResourceName|AccountOrganizationalUnitId|AccountOrganizationalUnitName)\b'
+replacement = '{name}\1'
+include = ["prowler/lib/outputs/asff/asff.py"]
+
+# Tools are exposed as "<namespace>_<tool>"; the app namespace is the slug.
+[[rule]]
+id = "mcp-app-namespace"
+pattern = 'namespace="prowler"'
+replacement = 'namespace="{slug}"'
+include = ["mcp_server/prowler_mcp_server/server.py"]
+
+[[rule]]
+id = "mcp-tool-prefix"
+pattern = '"prowler_(?!mcp_server)'
+replacement = '"{slug}_'
+include = ["mcp_server/**/*.py"]
+optional = true

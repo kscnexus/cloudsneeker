@@ -1,3 +1,5 @@
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
+
 import type { FindingStatus } from "./components";
 import type { ProviderType } from "./providers";
 
@@ -93,8 +95,7 @@ export const FINDING_TRIAGE_ORIGIN = {
 } as const;
 
 export const FINDING_TRIAGE_NOTE_MAX_LENGTH = 500 as const;
-export const FINDING_TRIAGE_BILLING_HREF =
-  "https://prowler.com/pricing" as const;
+export const FINDING_TRIAGE_BILLING_HREF = BRAND.pricingUrl; // cloudsneeker-hook
 
 export interface FindingTriageSummary {
   findingId: string;

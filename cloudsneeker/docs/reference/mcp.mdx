@@ -1,0 +1,75 @@
+---
+title: "MCP server"
+description: "Let an AI assistant query findings, start scans, and read compliance state"
+---
+
+The Cloudsneeker MCP server exposes the platform to assistants that speak the [Model Context Protocol](https://modelcontextprotocol.io): Claude Desktop, Cursor, VS Code, and others. Every tool calls the REST API with an API key, so the assistant sees exactly what that key's owner can see.
+
+## Run the server
+
+<Tabs>
+  <Tab title="Hosted or self-hosted HTTP endpoint">
+    The platform ships the server at `https://<mcp host>/mcp`. Point your client at it and pass the API key as a bearer token (a session JWT also works):
+
+    ```json
+    {
+      "mcpServers": {
+        "cloudsneeker": {
+          "url": "https://mcp.cloudsneeker.example/mcp",
+          "headers": { "Authorization": "Bearer pk_xxx.yyyy" }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Local process (stdio)">
+    ```json
+    {
+      "mcpServers": {
+        "cloudsneeker": {
+          "command": "docker",
+          "args": ["run", "-i", "--rm",
+                   "-e", "API_BASE_URL=https://api.cloudsneeker.example/api/v1",
+                   "-e", "PROWLER_API_KEY=pk_xxx.yyyy",
+                   "<registry>/cloudsneeker/mcp:stable"]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+| Variable | Purpose |
+| --- | --- |
+| `API_BASE_URL` | API root including `/api/v1`. Defaults to the product API URL |
+| `PROWLER_API_KEY` | API key used for every call |
+| `PROWLER_MCP_TRANSPORT_MODE` | `stdio` (default) or `http` |
+
+## Tools
+
+All tools are prefixed `cloudsneeker_`.
+
+| Area | Tools |
+| --- | --- |
+| Providers | `search_providers`, `connect_provider`, `delete_provider` |
+| Scans | `list_scans`, `get_scan`, `trigger_scan`, `schedule_daily_scan`, `update_scan` |
+| Findings | `search_security_findings`, `get_finding_details`, `get_findings_overview` |
+| Resources | `list_resources`, `get_resource`, `get_resources_overview`, `get_resource_events` |
+| Compliance | `get_compliance_overview`, `get_compliance_framework_state_details` |
+| Muting | `list_mute_rules`, `get_mute_rule`, `create_mute_rule`, `get_mutelist`, `set_mutelist`, `delete_mutelist` |
+| Attack paths | Graph queries over the attack-path store |
+| Users and roles | Read-only listing |
+| Integrations | Read-only listing |
+
+Tools that change state (`trigger_scan`, `connect_provider`, `delete_provider`, `create_mute_rule`) require the matching permission on the key's owner and fail with a clear message otherwise.
+
+## Example prompts
+
+- "Show me the critical failed findings from the last scan of account 123456789012 and group them by service."
+- "Which CIS 3.0 requirements are failing for my production Azure subscription?"
+- "Start a scan of the `staging` provider and tell me when it finishes."
+- "Mute finding `cloudsneeker-aws-s3_bucket_public_access-...` with reason 'public website bucket'."
+
+## Health
+
+`GET /health` on the HTTP transport returns `{"status": "pass", "serviceId": "cloudsneeker-mcp-server"}`.

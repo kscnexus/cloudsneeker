@@ -9,6 +9,7 @@ from api.models import Scan
 from botocore.config import Config
 from botocore.exceptions import ClientError, NoCredentialsError, ParamValidationError
 from celery.utils.log import get_task_logger
+from cloudsneeker_api.brand import brand  # cloudsneeker-hook
 from django.conf import settings
 from prowler.config.config import (
     csv_file_suffix,
@@ -370,12 +371,12 @@ def _build_output_path(
 
     if subdirectory:
         path = (
-            f"{output_directory}/{tenant_id}/{scan_id}/{subdirectory}/prowler-output-"
+            f"{output_directory}/{tenant_id}/{scan_id}/{subdirectory}/{brand.output_file_prefix}-"  # cloudsneeker-hook
             f"{prowler_provider_sanitized}-{timestamp}"
         )
     else:
         path = (
-            f"{output_directory}/{tenant_id}/{scan_id}/prowler-output-"
+            f"{output_directory}/{tenant_id}/{scan_id}/{brand.output_file_prefix}-"  # cloudsneeker-hook
             f"{prowler_provider_sanitized}-{timestamp}"
         )
 

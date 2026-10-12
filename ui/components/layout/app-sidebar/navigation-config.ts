@@ -15,6 +15,8 @@ import {
   Warehouse,
 } from "lucide-react";
 
+import { BRAND, docsUrl } from "@/cloudsneeker/brand"; // cloudsneeker-hook
+import { withCloudsneekerNavigation } from "@/cloudsneeker/navigation"; // cloudsneeker-hook
 import { LighthouseIcon } from "@/components/icons/Icons";
 import { isCloud } from "@/lib/shared/env";
 import type { CloudUpgradeFeature } from "@/types/cloud-upgrade";
@@ -114,9 +116,7 @@ export function getNavigationConfig({
   permissions,
 }: NavigationConfigOptions): NavigationSection[] {
   const isCloudEnvironment = isCloud();
-  const apiReferenceUrl = isCloudEnvironment
-    ? "https://api.prowler.com/api/v1/docs"
-    : apiDocsUrl;
+  const apiReferenceUrl = apiDocsUrl; // cloudsneeker-hook: always the deployed API docs
 
   const sections: NavigationSection[] = [
     {
@@ -301,7 +301,7 @@ export function getNavigationConfig({
       items: [
         {
           kind: NAVIGATION_ITEM_KIND.LINK,
-          href: "https://docs.prowler.com/",
+          href: docsUrl(), // cloudsneeker-hook
           label: "Documentation",
           icon: FileText,
           target: "_blank",
@@ -319,17 +319,15 @@ export function getNavigationConfig({
           : []),
         {
           kind: NAVIGATION_ITEM_KIND.LINK,
-          href: isCloudEnvironment
-            ? "https://customer.support.prowler.com/servicedesk/customer/portal/9/create/102"
-            : "https://github.com/prowler-cloud/prowler/issues",
-          label: isCloudEnvironment ? "Support Desk" : "Community Support",
+          href: BRAND.supportUrl, // cloudsneeker-hook
+          label: "Support",
           icon: MessageCircleQuestion,
           target: "_blank",
         },
         {
           kind: NAVIGATION_ITEM_KIND.LINK,
-          href: "https://hub.prowler.com/",
-          label: "Prowler Hub",
+          href: docsUrl("checks"), // cloudsneeker-hook
+          label: "Check Catalog",
           icon: LayoutGrid,
           target: "_blank",
           tooltip: "Looking for all available checks? learn more.",
@@ -338,5 +336,8 @@ export function getNavigationConfig({
     },
   ];
 
-  return filterNavigationByPermissions(sections, permissions);
+  return filterNavigationByPermissions(
+    withCloudsneekerNavigation(sections, pathname), // cloudsneeker-hook
+    permissions,
+  );
 }

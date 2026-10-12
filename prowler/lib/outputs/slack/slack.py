@@ -4,6 +4,8 @@ from typing import Any
 from slack_sdk import WebClient
 from slack_sdk.web.base_client import SlackResponse
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
+from cloudsneeker.sdk import slack_footer_blocks, slack_title  # cloudsneeker-hook
 from prowler.config.config import aws_logo, azure_logo, gcp_logo, square_logo_img
 from prowler.lib.logger import logger
 from prowler.lib.outputs.slack.exceptions.exceptions import (
@@ -47,10 +49,10 @@ class Slack:
             client = WebClient(token=self.token)
             identity, logo = self.__create_message_identity__(self._provider)
             response = client.chat_postMessage(
-                username="Prowler",
+                username=brand.slack_bot_name,  # cloudsneeker-hook
                 icon_url=square_logo_img,
                 channel=f"#{self.channel}",
-                text="Prowler Scan Summary",
+                text=f"{brand.name} Scan Summary",  # cloudsneeker-hook
                 blocks=self.__create_message_blocks__(identity, logo, stats, args),
             )
             return response
@@ -191,44 +193,12 @@ class Slack:
                     "elements": [
                         {
                             "type": "mrkdwn",
-                            "text": f"Used parameters: `prowler {args}`",
+                            "text": f"Used parameters: `{brand.cli_command} {args}`",  # cloudsneeker-hook
                         }
                     ],
                 },
                 {"type": "divider"},
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": "Join our Slack Community!"},
-                    "accessory": {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Prowler :slack:"},
-                        "url": "https://goto.prowler.com/slack",
-                    },
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "Feel free to contact us in our repo",
-                    },
-                    "accessory": {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Prowler :github:"},
-                        "url": "https://github.com/prowler-cloud/prowler",
-                    },
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "See all the things you can do with ProwlerPro",
-                    },
-                    "accessory": {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Prowler Pro"},
-                        "url": "https://prowler.pro",
-                    },
-                },
+                *slack_footer_blocks(),  # cloudsneeker-hook
             ]
             return blocks
         except Exception as error:
@@ -248,7 +218,7 @@ class Slack:
             str: Slack message title.
         """
         try:
-            title = f"Hey there 👋 \n I'm *Prowler*, _the handy multi-cloud security tool_ :cloud::key:\n\n I have just finished the security assessment on your {identity} with a total of *{stats['findings_count']}* findings."
+            title = slack_title(identity, stats["findings_count"])  # cloudsneeker-hook
             return title
         except Exception as error:
             logger.error(

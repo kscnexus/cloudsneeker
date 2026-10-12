@@ -1,0 +1,43 @@
+---
+title: "AWS Security Hub"
+description: "Import findings into Security Hub in every scanned region"
+---
+
+After each scan of an AWS provider, Cloudsneeker converts findings to the AWS Security Finding Format (ASFF) and imports them into Security Hub in each region where the scan found resources. Findings appear under the account's own product with `ProductFields.ProviderName` set to `Cloudsneeker`, so no partner-product subscription is needed.
+
+## Prerequisites
+
+- Security Hub is enabled in every region you scan. Regions without Security Hub are skipped and reported on the integration card.
+- The identity used for the integration can call `securityhub:BatchImportFindings` and `securityhub:GetFindings`. The `CloudsneekerScan` role created by the CloudFormation template includes both.
+
+## Configure
+
+1. Open **Integrations → AWS Security Hub → Add**.
+2. Select the AWS provider. One integration covers one account.
+3. Choose the credential: reuse the provider's role, or give a separate role or access key.
+4. Options:
+   - **Send only failed findings** (default on): import `FAIL` findings only. Turn off to also import `PASS` findings as resolved.
+   - **Archive previous findings** (default off): mark findings from earlier scans that no longer appear as `ARCHIVED`, so Security Hub reflects the current state.
+5. Select **Test connection**, then **Save**.
+
+## What you see in Security Hub
+
+| ASFF field | Value |
+| --- | --- |
+| `GeneratorId` | `cloudsneeker-<check id>` |
+| `Title` | The check title |
+| `Severity.Label` | The check severity |
+| `Compliance.Status` | `FAILED`, `PASSED`, or `NOT_AVAILABLE` for manual checks |
+| `ProductFields.ProviderName` | `Cloudsneeker` |
+| `ProductFields.CloudsneekerResourceName` | The resource identifier |
+| `Remediation.Recommendation.Url` | The check's page on this site |
+
+Findings update in place on each scan because the finding ID is stable per resource and check.
+
+## Command line
+
+The same import works from the CLI:
+
+```shell
+cloudsneeker aws --security-hub --send-sh-only-fails
+```

@@ -1,0 +1,38 @@
+---
+title: "Reports"
+description: "Download scan output as CSV, JSON, HTML, and PDF"
+---
+
+Every completed scan produces a report bundle. Download it from the scan's row menu in **Scans** with **Download scan reports**, or through the API.
+
+## Report bundle
+
+The download is a ZIP named `cloudsneeker-output-<provider>-<timestamp>.zip` containing:
+
+| File | Format | Use |
+| --- | --- | --- |
+| `cloudsneeker-output-*.csv` | CSV, one row per finding | Spreadsheets, ticketing imports |
+| `cloudsneeker-output-*.ocsf.json` | JSON in the OCSF schema | SIEM and data-lake ingestion |
+| `cloudsneeker-output-*.html` | Self-contained HTML page | Sharing with people who do not have access to the app |
+| `compliance/*.csv` | One CSV per compliance framework | Audit evidence |
+
+Columns include the finding UID, status, severity, check id and title, resource identifier, region, account, remediation text, and the compliance requirements the check maps to.
+
+## Compliance reports
+
+For each framework that applies to the provider, a per-framework CSV lists every requirement with its status and the findings behind it. Download one framework at a time from the **Compliance** page with **Download report**, or from the API at `GET /api/v1/scans/{id}/compliance/{framework}`.
+
+Some frameworks also produce a **PDF** report with an executive summary, per-section scores, and the failing requirements. PDF reports are available for the frameworks listed on the [Compliance](/scans/compliance) page.
+
+## Threat score
+
+The **threat score** PDF summarizes the account's risk posture across weighted categories for a single scan. Download it from `GET /api/v1/scans/{id}/threatscore` or the **Compliance → Threat score** page.
+
+## Retention
+
+- Hosted service: report bundles are kept for the retention period in your agreement, then deleted. Findings remain queryable in the app for longer.
+- Self-hosted: bundles are written under `DJANGO_TMP_OUTPUT_DIRECTORY` on the worker, or uploaded to the bucket configured by `DJANGO_OUTPUT_S3_*`. Retention is yours to manage.
+
+## Continuous delivery
+
+To receive every scan's output automatically, configure the [Amazon S3 integration](/integrations/amazon-s3). To push findings into a ticketing or chat tool, see [Jira](/integrations/jira) and [Slack](/integrations/slack).

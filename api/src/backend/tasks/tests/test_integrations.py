@@ -15,6 +15,7 @@ from prowler.lib.outputs.jira.jira import Jira
 from prowler.providers.aws.lib.security_hub.security_hub import SecurityHubConnection
 from prowler.providers.common.models import Connection
 from tasks.jobs.integrations import (
+    JIRA_LABEL_PREFIX,  # cloudsneeker-hook
     build_jira_finding_url,
     build_jira_issue_labels,
     get_s3_client_from_integration,
@@ -1786,11 +1787,11 @@ class TestJiraIntegration:
         assert first_call.kwargs["issue_type"] == issue_type
         # Finding reference: labels, link back and tenant info
         assert first_call.kwargs["issue_labels"] == [
-            "prowler",
-            "prowler-aws",
-            "prowler-high",
-            "prowler-check_001",
-            "prowler-finding-prowler-aws-check_001-123456789012-us-east-1-my_bucket",
+            JIRA_LABEL_PREFIX,
+            f"{JIRA_LABEL_PREFIX}-aws",
+            f"{JIRA_LABEL_PREFIX}-high",
+            f"{JIRA_LABEL_PREFIX}-check_001",
+            f"{JIRA_LABEL_PREFIX}-finding-prowler-aws-check_001-123456789012-us-east-1-my_bucket",
         ]
         assert first_call.kwargs["finding_url"] == (
             "https://cloud.example.com/findings?filter[uid]="
@@ -1804,11 +1805,11 @@ class TestJiraIntegration:
         assert second_call.kwargs["severity"] == "medium"
         assert second_call.kwargs["status"] == "PASS"
         assert second_call.kwargs["issue_labels"] == [
-            "prowler",
-            "prowler-azure",
-            "prowler-medium",
-            "prowler-check_002",
-            "prowler-finding-prowler-azure-check_002-sub/resource",
+            JIRA_LABEL_PREFIX,
+            f"{JIRA_LABEL_PREFIX}-azure",
+            f"{JIRA_LABEL_PREFIX}-medium",
+            f"{JIRA_LABEL_PREFIX}-check_002",
+            f"{JIRA_LABEL_PREFIX}-finding-prowler-azure-check_002-sub/resource",
         ]
         assert second_call.kwargs["finding_url"] == (
             "https://cloud.example.com/findings?filter[uid]="
@@ -2247,17 +2248,17 @@ class TestJiraFindingReference:
             severity="critical",
             check_id="iam_root_mfa",
         ) == [
-            "prowler",
-            "prowler-aws",
-            "prowler-critical",
-            "prowler-iam_root_mfa",
-            "prowler-finding-prowler-aws-check-123-eu-west-1-hub/unknown",
+            JIRA_LABEL_PREFIX,
+            f"{JIRA_LABEL_PREFIX}-aws",
+            f"{JIRA_LABEL_PREFIX}-critical",
+            f"{JIRA_LABEL_PREFIX}-iam_root_mfa",
+            f"{JIRA_LABEL_PREFIX}-finding-prowler-aws-check-123-eu-west-1-hub/unknown",
         ]
 
     def test_build_jira_issue_labels_skips_empty_parts(self):
         assert build_jira_issue_labels(
             finding_uid="", provider="", severity="", check_id=""
-        ) == ["prowler"]
+        ) == [JIRA_LABEL_PREFIX]
 
     def test_build_jira_issue_labels_sanitizes_metadata(self):
         assert build_jira_issue_labels(
@@ -2266,11 +2267,11 @@ class TestJiraFindingReference:
             severity="high severity",
             check_id="check id",
         ) == [
-            "prowler",
-            "prowler-aws_cloud",
-            "prowler-high_severity",
-            "prowler-check_id",
-            "prowler-finding-uid_with_spaces",
+            JIRA_LABEL_PREFIX,
+            f"{JIRA_LABEL_PREFIX}-aws_cloud",
+            f"{JIRA_LABEL_PREFIX}-high_severity",
+            f"{JIRA_LABEL_PREFIX}-check_id",
+            f"{JIRA_LABEL_PREFIX}-finding-uid_with_spaces",
         ]
 
     def test_build_jira_issue_labels_preserves_maximum_length_uid(self):

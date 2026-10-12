@@ -1,0 +1,48 @@
+---
+title: "Findings"
+description: "Read, filter, and act on scan results"
+---
+
+A **finding** is the result of one check on one resource in one scan. The **Findings** page shows the latest finding per resource and check across all providers; open a scan to see its findings alone.
+
+## Status
+
+| Status | Meaning |
+| --- | --- |
+| `FAIL` | The resource does not meet the check. Action is needed. |
+| `PASS` | The resource meets the check. |
+| `MANUAL` | The check cannot be evaluated automatically; review the guidance by hand. |
+| `MUTED` | A [mute rule](/scans/mute-rules) or a manual mute hid this finding from the default view. |
+
+## Severity
+
+Checks carry a fixed severity: `critical`, `high`, `medium`, `low`, or `informational`. Sort by severity to work through the most important failures first. The overview page counts failed findings per severity for the latest scan of each provider.
+
+## Delta
+
+Each finding is compared with the previous scan of the same provider:
+
+- **New**: failed now, did not exist or passed before
+- **Changed**: status changed between scans
+- **Unchanged**: same status as the previous scan
+
+Filter by **New** after a scan to see only regressions.
+
+## Filters
+
+Combine filters for provider, account alias, region, service, resource type, check, severity, status, delta, and compliance framework. Filters are kept in the URL, so a filtered view can be bookmarked or shared with another user in the organization.
+
+## Finding detail
+
+Open a finding to see:
+
+- The resource (identifier, region, tags) and a link to the resource's other findings
+- The check's description, risk, and remediation steps with CLI, Terraform, and console instructions
+- The compliance requirements this check maps to
+- The finding UID, which is stable across scans for the same resource and check and is the key used by integrations
+
+The **Learn more** link opens the check's page on this site, for example [`s3_bucket_public_access`](/checks/s3_bucket_public_access).
+
+## Export
+
+Use **Download** on a scan for the full report bundle, or export the current filtered table as CSV. See [Reports](/scans/reports).

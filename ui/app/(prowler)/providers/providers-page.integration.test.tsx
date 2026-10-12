@@ -46,6 +46,7 @@ import {
   mixedHierarchyFixture,
   type OrgFixture,
 } from "@/__tests__/msw/handlers/organizations.fixtures";
+import { DOCS_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
 import { ORGANIZATION_TYPE } from "@/types/organizations";
 import { SCAN_JOBS_TAB } from "@/types/scans";
 
@@ -85,7 +86,7 @@ const VALID_SA_KEY = JSON.stringify({
   client_email: "prowler@prowler-scan.iam.gserviceaccount.com",
 });
 
-const GCP_ORG_DOCS = "prowler-cloud-gcp-organizations";
+const GCP_ORG_DOCS = DOCS_URLS.GCP_ORGANIZATIONS; // cloudsneeker-hook
 
 /** The GCP organization seeded by `mixedHierarchyFixture`. */
 const GCP_ORG_NAME = "My GCP Organization";
@@ -167,7 +168,7 @@ interface OrganizationSecretRequestBody {
 
 const AZURE_CLIENT_ID = "99999999-9999-4999-8999-999999999999";
 const AZURE_CLIENT_SECRET = "azure-client-secret";
-const AZURE_ORG_DOCS = "prowler-cloud-azure-management-groups";
+const AZURE_ORG_DOCS = DOCS_URLS.AZURE_ORGANIZATIONS; // cloudsneeker-hook
 
 /** Drive a fresh Azure org onboarding up to the authentication submit. */
 async function authenticateAzureOrg(

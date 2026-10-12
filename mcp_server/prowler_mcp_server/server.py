@@ -2,50 +2,60 @@ from fastmcp import FastMCP
 from starlette.responses import JSONResponse
 
 from prowler_mcp_server import __version__
+from prowler_mcp_server.cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler_mcp_server.lib.errors import SharedFailureMiddleware
 from prowler_mcp_server.lib.logger import logger
 
 # `mask_error_details` keeps an unhandled failure from relaying text this server
 # does not control. It is set on every sub-server as well, because it does not
 # reach mounted children -- FastMCP warns about exactly that at mount time.
-prowler_mcp_server = FastMCP("prowler-mcp-server", mask_error_details=True)
+prowler_mcp_server = FastMCP(
+    brand.server_name, mask_error_details=True
+)  # cloudsneeker-hook
 
 # Middleware, unlike masking, does reach mounted children, so the classifier that
 # gives the masked failures a sentence back is wired here once.
 prowler_mcp_server.add_middleware(SharedFailureMiddleware())
 
 
-def setup_main_server():
+def setup_main_server(server: FastMCP | None = None):  # cloudsneeker-hook
     """Set up the main Prowler MCP server with all available integrations."""
+    # cloudsneeker-hook: mount onto the caller's server when given; the Hub and
+    # Documentation tool sets talk to upstream vendor hosts and are opt-in.
+    root = prowler_mcp_server if server is None else server
     # Mount Prowler Hub tools with prowler_hub_ namespace
-    try:
-        logger.info("Mounting Prowler Hub server...")
-        from prowler_mcp_server.prowler_hub.server import hub_mcp_server
+    if brand.mcp_hub_tools:  # cloudsneeker-hook
+        try:
+            logger.info("Mounting Prowler Hub server...")
+            from prowler_mcp_server.prowler_hub.server import hub_mcp_server
 
-        prowler_mcp_server.mount(hub_mcp_server, namespace="prowler_hub")
-        logger.info("Successfully mounted Prowler Hub server")
-    except Exception as e:
-        logger.error(f"Failed to mount Prowler Hub server: {e}")
+            root.mount(hub_mcp_server, namespace="prowler_hub")
+            logger.info("Successfully mounted Prowler Hub server")
+        except Exception as e:
+            logger.error(f"Failed to mount Prowler Hub server: {e}")
 
     # Mount core Prowler tools with prowler_ namespace
     try:
         logger.info("Mounting Prowler tools server...")
         from prowler_mcp_server.prowler_app.server import app_mcp_server
 
-        prowler_mcp_server.mount(app_mcp_server, namespace="prowler")
+        root.mount(app_mcp_server, namespace="prowler")
         logger.info("Successfully mounted Prowler tools server")
     except Exception as e:
         logger.error(f"Failed to mount Prowler tools server: {e}")
 
     # Mount Prowler Documentation tools with prowler_docs_ namespace
-    try:
-        logger.info("Mounting Prowler Documentation server...")
-        from prowler_mcp_server.prowler_documentation.server import docs_mcp_server
+    if brand.mcp_docs_tools:  # cloudsneeker-hook
+        try:
+            logger.info("Mounting Prowler Documentation server...")
+            from prowler_mcp_server.prowler_documentation.server import (
+                docs_mcp_server,
+            )
 
-        prowler_mcp_server.mount(docs_mcp_server, namespace="prowler_docs")
-        logger.info("Successfully mounted Prowler Documentation server")
-    except Exception as e:
-        logger.error(f"Failed to mount Prowler Documentation server: {e}")
+            root.mount(docs_mcp_server, namespace="prowler_docs")
+            logger.info("Successfully mounted Prowler Documentation server")
+        except Exception as e:
+            logger.error(f"Failed to mount Prowler Documentation server: {e}")
 
 
 # Response follows the IETF Health Check Response Format
@@ -59,8 +69,8 @@ async def health_check(_request) -> JSONResponse:
             "status": "pass",
             "version": "1",
             "releaseId": __version__,
-            "serviceId": "prowler-mcp-server",
-            "description": "Prowler MCP Server",
+            "serviceId": brand.server_name,  # cloudsneeker-hook
+            "description": brand.description,  # cloudsneeker-hook
         },
         media_type="application/health+json",
         headers={"Cache-Control": "no-store"},

@@ -1,0 +1,124 @@
+# Default values for cloudsneeker-app.
+#
+# The chart deploys the application tier only. PostgreSQL, Valkey (Redis), and
+# Neo4j are expected to exist already (managed services or separate charts);
+# point `datastores` at them. Secrets are either rendered from `secrets` or
+# read from `existingSecret`, which must carry the same keys.
+
+image:
+  registry: cloudsneeker
+  tag: stable
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Public hostnames. The web app, API, and MCP server each need one.
+hosts:
+  app: app.cloudsneeker.example
+  api: api.cloudsneeker.example
+  mcp: mcp.cloudsneeker.example
+
+# Brand overrides read by the API and SDK at runtime (CLOUDSNEEKER_* env).
+# Leave a value empty to keep the compiled-in default.
+brand:
+  docsUrl: https://docs.cloudsneeker.example
+  supportUrl: https://support.cloudsneeker.example
+
+datastores:
+  postgres:
+    host: postgres
+    port: 5432
+    db: cloudsneeker_db
+    user: cloudsneeker
+    adminUser: cloudsneeker_admin
+  valkey:
+    scheme: redis
+    host: valkey
+    port: 6379
+    db: 0
+    username: ""
+  neo4j:
+    host: neo4j
+    port: 7687
+    user: neo4j
+
+# Non-secret settings shared by the API, workers, and beat.
+api:
+  replicas: 2
+  port: 8080
+  workers: 4
+  logLevel: INFO
+  accessTokenLifetime: 30
+  refreshTokenLifetime: 1440
+  manageDbPartitions: "True"
+  extraEnv: []
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "2", memory: 2Gi }
+
+worker:
+  replicas: 2
+  terminationGracePeriodSeconds: 120
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits: { cpu: "4", memory: 6Gi }
+
+beat:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+ui:
+  replicas: 2
+  port: 3000
+  extraEnv: []
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+mcp:
+  replicas: 1
+  port: 8000
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  tls:
+    enabled: true
+    # One certificate per host, or a wildcard secret shared by all three.
+    secretName: cloudsneeker-tls
+
+# Name of a pre-created Secret with the keys listed under `secrets`. When set,
+# the chart does not render its own Secret.
+existingSecret: ""
+
+# Rendered into a Secret when existingSecret is empty. Supply them with
+# `--set-file` or a values file that never enters version control.
+secrets:
+  postgresPassword: ""
+  postgresAdminPassword: ""
+  valkeyPassword: ""
+  neo4jPassword: ""
+  djangoTokenSigningKey: ""      # openssl genrsa 2048
+  djangoTokenVerifyingKey: ""    # matching public key
+  djangoSecretsEncryptionKey: "" # openssl rand -base64 32
+  authSecret: ""                 # openssl rand -base64 32
+  djangoSentryDsn: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

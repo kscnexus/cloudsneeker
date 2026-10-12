@@ -1,0 +1,64 @@
+---
+title: "REST API"
+description: "Everything the web app does is available over a JSON:API interface"
+---
+
+The API is served at `https://<api host>/api/v1`. The interactive reference, generated from the running server, is at `/api/v1/docs` and the OpenAPI document at `/api/v1/schema`.
+
+## Authentication
+
+Two methods:
+
+| Method | Header | Use |
+| --- | --- | --- |
+| Session token | `Authorization: Bearer <access token>` | Interactive clients. Obtain with `POST /api/v1/tokens`; refresh with `POST /api/v1/tokens/refresh` |
+| API key | `Authorization: Api-Key <key>` | Scripts and CI. See [API keys](/admin/api-keys) |
+
+Access tokens are JWTs signed by the server; the `iss` claim is the API URL and `aud` identifies the web app. Tokens expire after 30 minutes by default; refresh tokens after 24 hours.
+
+## Request and response format
+
+The API follows [JSON:API 1.1](https://jsonapi.org/). Send `Content-Type: application/vnd.api+json` and `Accept: application/vnd.api+json`. Responses wrap resources in `data` with `type`, `id`, `attributes`, and `relationships`.
+
+```shell
+curl "https://api.cloudsneeker.example/api/v1/findings?filter[status]=FAIL&filter[severity__in]=critical,high&page[size]=50" \
+  -H "Authorization: Api-Key $CLOUDSNEEKER_API_KEY" \
+  -H "Accept: application/vnd.api+json"
+```
+
+Filtering uses `filter[<field>]` and `filter[<field>__<lookup>]`; sorting uses `sort=-inserted_at`; pagination uses `page[number]` and `page[size]`; related resources are embedded with `include=`.
+
+## Main resources
+
+| Resource | Path | Notes |
+| --- | --- | --- |
+| Providers | `/providers`, `/providers/{id}/connection` | Create, update, test, delete |
+| Provider secrets | `/providers/secrets` | Write-only credentials |
+| Scans | `/scans`, `/scans/{id}/report`, `/scans/{id}/compliance/{framework}`, `/scans/{id}/threatscore` | Start scans and download reports |
+| Schedules | `/schedules/daily` | Daily schedule per provider |
+| Findings | `/findings`, `/findings/metadata/latest` | Filter by scan, provider, status, severity, delta |
+| Resources | `/resources` | Inventory with tags |
+| Compliance | `/compliance-overviews`, `/compliance-overviews/requirements` | Scores and requirement status |
+| Overviews | `/overviews/providers`, `/overviews/findings`, `/overviews/services` | Aggregates for dashboards |
+| Mute rules | `/mute-rules` | Accepted risks |
+| Integrations | `/integrations` | S3, Security Hub, Jira |
+| Users, roles, invitations | `/users`, `/roles`, `/invitations` | Administration |
+| Tenants | `/tenants` | Organizations the caller belongs to |
+| API keys | `/api-keys` | Programmatic access |
+| SAML | `/saml-config`, `/accounts/saml/{domain}/...` | Single sign-on |
+| Tasks | `/tasks/{id}` | Status of long-running jobs (scans, deletions, report downloads) |
+
+## Long-running operations
+
+Starting a scan, testing a connection, or deleting a provider returns `202 Accepted` with a `tasks` resource. Poll `GET /api/v1/tasks/{id}` until `state` is `completed` or `failed`.
+
+## Rate limits
+
+Token endpoints are rate-limited per IP. Other endpoints have no fixed limit on self-hosted installations; the hosted service applies fair-use limits and returns `429` with `Retry-After` when exceeded.
+
+## Health
+
+- `GET /api/v1/health/live`: process is up
+- `GET /api/v1/health/ready`: database and queue reachable
+
+Both follow the IETF health-check format: `{"status": "pass", "serviceId": "cloudsneeker-api", "releaseId": "..."}`, with per-dependency detail in `checks` when readiness fails.

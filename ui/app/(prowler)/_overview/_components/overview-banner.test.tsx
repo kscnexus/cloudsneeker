@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { DOCS_URLS } from "@/lib/external-urls";
+import { LIGHTHOUSE_ROUTE } from "@/lib/lighthouse-routes";
 
 import { LIGHTHOUSE_OVERVIEW_BANNER_HREF } from "../_lib/lighthouse-banner";
 import { OVERVIEW_BANNER_VARIANT } from "../_lib/overview-banner";
@@ -45,24 +45,23 @@ describe("OverviewBanner", () => {
     expect(link).not.toHaveAttribute("target");
   });
 
-  it("opens the AI agents docs in a new tab", () => {
+  it("opens Lighthouse in this app", () => {
     // Given / When
     render(
       <OverviewBanner
         variant={OVERVIEW_BANNER_VARIANT.AGENTS}
-        href={DOCS_URLS.AI_AGENTS}
+        href={LIGHTHOUSE_ROUTE.CHAT}
       />,
     );
 
     // Then
     const link = screen.getByRole("link", {
-      name: /Connect all your agents to Prowler Cloud/,
+      name: /Connect your agents to Cloudsneeker/,
     });
-    expect(link).toHaveAttribute("href", DOCS_URLS.AI_AGENTS);
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAttribute("href", LIGHTHOUSE_ROUTE.CHAT);
+    expect(link).not.toHaveAttribute("target");
     expect(link).toHaveTextContent(
-      "Turn your favorite agent into a Cloud Security Expert.",
+      "Use Lighthouse and the local MCP server from this app.",
     );
   });
 
@@ -71,13 +70,13 @@ describe("OverviewBanner", () => {
     render(
       <OverviewBanner
         variant={OVERVIEW_BANNER_VARIANT.AGENTS}
-        href={DOCS_URLS.AI_AGENTS}
+        href={LIGHTHOUSE_ROUTE.CHAT}
       />,
     );
 
     // Then
     const link = screen.getByRole("link", {
-      name: /Connect all your agents to Prowler Cloud/,
+      name: /Connect your agents to Cloudsneeker/,
     });
     const gradient = link.querySelector(".overview-banner-gradient");
     expect(gradient).toHaveClass("overview-banner-gradient-agents");
@@ -117,7 +116,7 @@ describe("OverviewBanner", () => {
         />
         <OverviewBanner
           variant={OVERVIEW_BANNER_VARIANT.AGENTS}
-          href={DOCS_URLS.AI_AGENTS}
+          href={LIGHTHOUSE_ROUTE.CHAT}
         />
       </>,
     );

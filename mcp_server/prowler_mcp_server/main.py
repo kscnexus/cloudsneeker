@@ -2,12 +2,13 @@ import argparse
 import os
 import sys
 
+from prowler_mcp_server.cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler_mcp_server.lib.logger import logger
 
 
 def parse_arguments():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Prowler MCP Server")
+    parser = argparse.ArgumentParser(description=brand.description)  # cloudsneeker-hook
     parser.add_argument(
         "--transport",
         choices=["stdio", "http"],

@@ -1,0 +1,38 @@
+---
+title: "API keys"
+description: "Authenticate scripts and CI jobs without a user session"
+---
+
+An API key authenticates calls to the [REST API](/reference/api) on behalf of the user who created it, within one organization. Use keys for automation: exporting findings, triggering scans from a pipeline, syncing providers.
+
+## Create a key
+
+1. Open **Profile → API keys** (requires **manage account**).
+2. Select **Create API key**, give it a name (unique within the organization) and an optional expiry.
+3. Copy the key. It is shown once; only a hash is stored.
+
+Keys look like `pk_a1b2c3d4.xxxxxxxx...`. The part before the dot is a prefix you can use to identify the key in the list.
+
+## Use a key
+
+```shell
+curl https://api.cloudsneeker.example/api/v1/providers \
+  -H "Authorization: Api-Key pk_a1b2c3d4.xxxxxxxx" \
+  -H "Accept: application/vnd.api+json"
+```
+
+The key carries the permissions and provider-group visibility of the user who created it at the time of the call. If that user is removed from the organization, the key stops working.
+
+## Manage keys
+
+The list shows each key's name, prefix, creation date, expiry, and last use. **Revoke** a key to disable it immediately; revoked keys cannot be restored.
+
+## Rotation
+
+Create the new key, update the consumer, then revoke the old one. The last-used timestamp confirms the old key is idle before you revoke it.
+
+## Security notes
+
+- Store keys in a secret manager or CI secret store, not in source control.
+- Give each consumer its own key so a leak can be revoked without affecting others.
+- Prefer a dedicated service user with a narrow role as the key owner.

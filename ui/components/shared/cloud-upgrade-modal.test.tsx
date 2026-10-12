@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand";
 import { useCloudUpgradeStore } from "@/store/cloud-upgrade/store";
 import {
   CLOUD_UPGRADE_FEATURE,
@@ -9,6 +10,19 @@ import {
 } from "@/types/cloud-upgrade";
 
 import { CloudUpgradeModal } from "./cloud-upgrade-modal";
+
+// cloudsneeker-hook: upstream upsell flow is exercised with upsell enabled
+vi.mock("@/cloudsneeker/brand", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/cloudsneeker/brand")>();
+  return {
+    ...actual,
+    BRAND: {
+      ...actual.BRAND,
+      showUpsell: true,
+      statusUrl: "https://status.example",
+    },
+  };
+});
 
 const modalTestState = vi.hoisted(() => ({
   keepContentMounted: false,
@@ -78,13 +92,13 @@ describe("CloudUpgradeModal", () => {
       screen.getByRole("link", { name: "Create Alerts in Prowler Cloud" }),
     ).toHaveAttribute(
       "href",
-      "https://cloud.prowler.com/sign-up?utm_source=prowler-local-server&utm_content=alerts",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=alerts`,
     );
     expect(
       screen.getByRole("link", { name: "View Plans & Pricing" }),
     ).toHaveAttribute(
       "href",
-      "https://prowler.com/pricing?utm_source=prowler-local-server&utm_content=alerts",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=alerts`,
     );
   });
 
@@ -126,7 +140,7 @@ describe("CloudUpgradeModal", () => {
     expect(primaryCta.querySelector(".truncate")).not.toBeInTheDocument();
     expect(primaryCta).toHaveAttribute(
       "href",
-      "https://cloud.prowler.com/sign-up?utm_source=prowler-local-server&utm_content=organization",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=organization`,
     );
   });
 
@@ -152,13 +166,13 @@ describe("CloudUpgradeModal", () => {
       }),
     ).toHaveAttribute(
       "href",
-      "https://cloud.prowler.com/sign-up?utm_source=prowler-local-server&utm_content=jira-dispatch",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=jira-dispatch`,
     );
     expect(
       screen.getByRole("link", { name: "View Plans & Pricing" }),
     ).toHaveAttribute(
       "href",
-      "https://prowler.com/pricing?utm_source=prowler-local-server&utm_content=jira-dispatch",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=jira-dispatch`,
     );
   });
 
@@ -292,7 +306,7 @@ describe("CloudUpgradeModal", () => {
     });
     expect(pricingLink).toHaveAttribute(
       "href",
-      "https://prowler.com/pricing?utm_source=prowler-cloud&utm_content=report-download",
+      `${BRAND.websiteUrl}/?utm_source=prowler-cloud&utm_content=report-download`,
     );
     expect(pricingLink).toHaveAttribute("target", "_blank");
     expect(

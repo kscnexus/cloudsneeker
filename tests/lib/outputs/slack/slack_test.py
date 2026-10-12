@@ -1,5 +1,6 @@
 from unittest import mock
 
+from cloudsneeker.sdk import slack_footer_blocks, slack_title  # cloudsneeker-hook
 from prowler.config.config import aws_logo, azure_logo, gcp_logo
 from prowler.lib.outputs.slack.exceptions.exceptions import (
     SlackChannelNotFound,
@@ -73,10 +74,9 @@ class TestSlackIntegration:
             f"AWS Account *{aws_provider.identity.account}*",
             aws_logo,
         )
-        assert (
-            slack.__create_title__(identity, stats)
-            == f"Hey there 👋 \n I'm *Prowler*, _the handy multi-cloud security tool_ :cloud::key:\n\n I have just finished the security assessment on your {identity} with a total of *{stats['findings_count']}* findings."
-        )
+        assert slack.__create_title__(identity, stats) == slack_title(
+            identity, stats["findings_count"]
+        )  # cloudsneeker-hook
 
     def test_create_message_blocks_aws(self):
         aws_provider = set_mocked_aws_provider()
@@ -170,39 +170,7 @@ class TestSlackIntegration:
                 ],
             },
             {"type": "divider"},
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "Join our Slack Community!"},
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler :slack:"},
-                    "url": "https://goto.prowler.com/slack",
-                },
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "Feel free to contact us in our repo",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler :github:"},
-                    "url": "https://github.com/prowler-cloud/prowler",
-                },
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "See all the things you can do with ProwlerPro",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler Pro"},
-                    "url": "https://prowler.pro",
-                },
-            },
+            *slack_footer_blocks(),  # cloudsneeker-hook
         ]
 
     def test_create_message_blocks_no_findings(self):
@@ -340,39 +308,7 @@ class TestSlackIntegration:
                 ],
             },
             {"type": "divider"},
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "Join our Slack Community!"},
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler :slack:"},
-                    "url": "https://goto.prowler.com/slack",
-                },
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "Feel free to contact us in our repo",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler :github:"},
-                    "url": "https://github.com/prowler-cloud/prowler",
-                },
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "See all the things you can do with ProwlerPro",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler Pro"},
-                    "url": "https://prowler.pro",
-                },
-            },
+            *slack_footer_blocks(),  # cloudsneeker-hook
         ]
 
     def test_create_message_blocks_gcp(self):
@@ -467,39 +403,7 @@ class TestSlackIntegration:
                 ],
             },
             {"type": "divider"},
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "Join our Slack Community!"},
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler :slack:"},
-                    "url": "https://goto.prowler.com/slack",
-                },
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "Feel free to contact us in our repo",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler :github:"},
-                    "url": "https://github.com/prowler-cloud/prowler",
-                },
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "See all the things you can do with ProwlerPro",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Prowler Pro"},
-                    "url": "https://prowler.pro",
-                },
-            },
+            *slack_footer_blocks(),  # cloudsneeker-hook
         ]
 
     def test_send_slack_message(self):

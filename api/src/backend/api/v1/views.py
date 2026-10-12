@@ -249,6 +249,7 @@ from api.v1.serializers import (
 )
 from botocore.exceptions import ClientError, NoCredentialsError, ParamValidationError
 from celery.result import AsyncResult
+from cloudsneeker_api import brand as cloudsneeker_brand  # cloudsneeker-hook
 from config.custom_logging import BackendLogger
 from config.env import env
 from config.settings.social_login import (
@@ -448,11 +449,11 @@ class SchemaView(SpectacularAPIView):
     serializer_class = None
 
     def get(self, request, *args, **kwargs):
-        spectacular_settings.TITLE = "Prowler API"
+        spectacular_settings.TITLE = cloudsneeker_brand.api_title()  # cloudsneeker-hook
         spectacular_settings.VERSION = RELEASE_ID
         spectacular_settings.DESCRIPTION = (
-            "Prowler API specification.\n\nThis file is auto-generated."
-        )
+            cloudsneeker_brand.api_description()
+        )  # cloudsneeker-hook
         spectacular_settings.TAGS = [
             {"name": "User", "description": "Endpoints for managing user accounts."},
             {

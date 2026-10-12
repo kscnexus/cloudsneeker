@@ -1,0 +1,184 @@
+# Cloudsneeker production Docker Compose.
+#
+# Uses the images produced by cloudsneeker/deploy/scripts/build.sh (or pulled
+# from your registry). Configuration comes from a `.env` file next to this
+# file; start from cloudsneeker/.env.example. Never commit `.env`.
+#
+#   cp ../.env.example .env   # then fill in every placeholder
+#   docker compose up -d
+#
+# The upstream docker-compose.yml at the repository root is left untouched.
+
+x-env: &env
+  env_file:
+    - path: .env
+      required: true
+
+x-api-image: &api-image
+  image: ${CLOUDSNEEKER_REGISTRY:-cloudsneeker}/api:${CLOUDSNEEKER_API_VERSION:-stable}
+
+services:
+  api-init:
+    image: busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+    volumes:
+      - ./_data/api:/data
+    command: ["sh", "-c", "chown -R 1000:1000 /data"]
+    restart: "no"
+
+  cloudsneeker-api:
+    <<: [*api-image, *env]
+    hostname: "cloudsneeker-api"
+    restart: unless-stopped
+    ports:
+      - "${DJANGO_PORT:-8080}:${DJANGO_PORT:-8080}"
+    volumes:
+      - ./_data/api:/home/prowler/.config/prowler-api
+      - output:/tmp/prowler_api_output
+    depends_on:
+      api-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:${DJANGO_PORT:-8080}/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    entrypoint:
+      - "/home/prowler/docker-entrypoint.sh"
+      - "prod"
+
+  cloudsneeker-worker:
+    <<: [*api-image, *env]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    volumes:
+      - "output:/tmp/prowler_api_output"
+    depends_on:
+      cloudsneeker-api:
+        condition: service_healthy
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    entrypoint:
+      - "/home/prowler/docker-entrypoint.sh"
+      - "worker"
+
+  cloudsneeker-worker-beat:
+    <<: [*api-image, *env]
+    restart: unless-stopped
+    depends_on:
+      cloudsneeker-api:
+        condition: service_healthy
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    entrypoint:
+      - "/home/prowler/docker-entrypoint.sh"
+      - "beat"
+
+  cloudsneeker-ui:
+    <<: *env
+    image: ${CLOUDSNEEKER_REGISTRY:-cloudsneeker}/ui:${CLOUDSNEEKER_UI_VERSION:-stable}
+    restart: unless-stopped
+    ports:
+      - ${UI_PORT:-3000}:3000
+    depends_on:
+      cloudsneeker-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  cloudsneeker-mcp:
+    <<: *env
+    image: ${CLOUDSNEEKER_REGISTRY:-cloudsneeker}/mcp:${CLOUDSNEEKER_MCP_VERSION:-stable}
+    restart: unless-stopped
+    environment:
+      - PROWLER_MCP_TRANSPORT_MODE=http
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  postgres:
+    <<: *env
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    restart: unless-stopped
+    hostname: "postgres-db"
+    volumes:
+      - ./_data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_ADMIN_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_ADMIN_USER} -d ${POSTGRES_DB}'"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    <<: *env
+    image: valkey/valkey:8-alpine@sha256:a038175878d66b9d274fbf8be73c0305e93798b83917647f167e18cef3c71eec
+    restart: unless-stopped
+    hostname: "valkey"
+    volumes:
+      - ./_data/valkey:/data
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'valkey-cli ping'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  neo4j:
+    image: graphstack/dozerdb:5.26.27.0@sha256:9b54d6b3a98a76c00bd23e8e78d8c82081ff168162aebd47b25c234e092cb0a0
+    restart: unless-stopped
+    hostname: "neo4j"
+    volumes:
+      - ./_data/neo4j:/data
+    environment:
+      # Neo4j rejects some variables from .env, so only the ones it needs are passed.
+      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
+      - NEO4J_dbms_max__databases=${NEO4J_DBMS_MAX__DATABASES:-1000}
+      - NEO4J_server_memory_pagecache_size=${NEO4J_SERVER_MEMORY_PAGECACHE_SIZE:-1G}
+      - NEO4J_server_memory_heap_initial__size=${NEO4J_SERVER_MEMORY_HEAP_INITIAL__SIZE:-1G}
+      - NEO4J_server_memory_heap_max__size=${NEO4J_SERVER_MEMORY_HEAP_MAX__SIZE:-1G}
+      - "NEO4J_PLUGINS=${NEO4J_PLUGINS:-[\"apoc\"]}"
+      - "NEO4J_dbms_security_procedures_allowlist=${NEO4J_DBMS_SECURITY_PROCEDURES_ALLOWLIST:-apoc.*}"
+      - "NEO4J_dbms_security_procedures_unrestricted=${NEO4J_DBMS_SECURITY_PROCEDURES_UNRESTRICTED:-}"
+      - apoc.export.file.enabled=${NEO4J_APOC_EXPORT_FILE_ENABLED:-false}
+      - apoc.import.file.enabled=${NEO4J_APOC_IMPORT_FILE_ENABLED:-false}
+      - apoc.import.file.use_neo4j_config=${NEO4J_APOC_IMPORT_FILE_USE_NEO4J_CONFIG:-true}
+      - apoc.trigger.enabled=${NEO4J_APOC_TRIGGER_ENABLED:-false}
+      - "dbms.connector.bolt.listen_address=${NEO4J_DBMS_CONNECTOR_BOLT_LISTEN_ADDRESS:-0.0.0.0:7687}"
+    ports:
+      - ${NEO4J_PORT:-7687}:7687
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "http://localhost:7474"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  output:
+    driver: local

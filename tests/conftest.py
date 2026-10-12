@@ -1,6 +1,11 @@
+import os
 from unittest import mock
 
 import pytest
+
+from cloudsneeker.testing import UPSTREAM_COMPAT_ENV  # cloudsneeker-hook
+
+os.environ.update(UPSTREAM_COMPAT_ENV)  # cloudsneeker-hook: before any prowler import
 
 _MOCK_CLASSES = (
     mock.Mock,

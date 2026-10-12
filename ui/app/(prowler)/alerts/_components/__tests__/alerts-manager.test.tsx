@@ -12,6 +12,7 @@ import type {
   AlertFormSubmitResult,
   AlertFormValues,
 } from "@/app/(prowler)/alerts/_types/alert-form";
+import { DOCS_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
 
 import { ALERTS_PERMISSION_ERROR } from "../../_lib/alert-errors";
 import { AlertsManager } from "../alerts-manager";
@@ -202,7 +203,7 @@ describe("AlertsManager", () => {
     expect(findingsLink.closest("[data-variant='link']")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "here." })).toHaveAttribute(
       "href",
-      "https://docs.prowler.com/user-guide/tutorials/prowler-app-alerts",
+      DOCS_URLS.ALERTS,
     );
     expect(screen.getByText(/get notified when findings match/i)).toBeVisible();
   });

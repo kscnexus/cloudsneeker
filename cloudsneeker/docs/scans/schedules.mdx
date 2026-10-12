@@ -1,0 +1,22 @@
+---
+title: "Scheduled scans"
+description: "Scan every provider once a day without manual action"
+---
+
+Every connected provider gets a **daily scan** schedule when its first connection test passes. The schedule repeats every 24 hours from the time the provider was connected.
+
+## See the schedule
+
+Open **Scans** and filter by state **Scheduled**. Each provider's next planned scan is listed with its time in your browser's timezone. The **Scan schedule** section in the provider wizard shows the same information when you add a provider.
+
+## Change the time
+
+Scheduled scans anchor to the time the provider was connected. To move the daily run, open the scheduled scan's row menu in **Scans**, select **Edit scan schedule**, remove the schedule, and create it again at the time you want. Alternatively, call `POST /api/v1/schedules/daily` with the provider ID at the desired time; see the [API reference](/reference/api).
+
+## Pause a schedule
+
+Remove the schedule from the same **Edit scan schedule** dialog. Existing findings stay; no new scans run until you create the schedule again. On-demand scans still work.
+
+## Scheduled and on-demand scans together
+
+Running an on-demand scan does not reset the schedule. If a scheduled scan is due while another scan for the same provider is executing, the scheduled scan waits for the running one to finish.

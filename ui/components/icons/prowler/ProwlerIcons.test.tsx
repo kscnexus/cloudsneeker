@@ -9,26 +9,17 @@ describe("ProwlerBrand", () => {
     vi.unstubAllEnvs();
   });
 
-  it("should render the Local Server lockups outside Cloud", () => {
-    // Given
-    vi.stubEnv("UI_CLOUD_ENABLED", "false");
-
+  it("renders the Cloudsneeker wordmark", () => {
     // When
     render(<ProwlerBrand />);
 
     // Then
-    const logo = screen.getByRole("img", { name: "Prowler Local Server" });
-    const sources = Array.from(logo.querySelectorAll("img"), (image) =>
-      image.getAttribute("src"),
+    expect(screen.getByRole("img", { name: "Cloudsneeker" })).toHaveTextContent(
+      "Cloudsneeker",
     );
-
-    expect(sources).toEqual([
-      "/logos/prowler-local-server-light.svg",
-      "/logos/prowler-local-server-dark.svg",
-    ]);
   });
 
-  it("should render the Prowler Cloud lockups in Cloud", () => {
+  it("keeps the Cloudsneeker wordmark when cloud mode is enabled", () => {
     // Given
     vi.stubEnv("UI_CLOUD_ENABLED", "true");
 
@@ -36,14 +27,8 @@ describe("ProwlerBrand", () => {
     render(<ProwlerBrand />);
 
     // Then
-    const logo = screen.getByRole("img", { name: "Prowler Cloud" });
-    const sources = Array.from(logo.querySelectorAll("img"), (image) =>
-      image.getAttribute("src"),
+    expect(screen.getByRole("img", { name: "Cloudsneeker" })).toHaveTextContent(
+      "Cloudsneeker",
     );
-
-    expect(sources).toEqual([
-      "/logos/prowler-cloud-light.svg",
-      "/logos/prowler-cloud-dark.svg",
-    ]);
   });
 });

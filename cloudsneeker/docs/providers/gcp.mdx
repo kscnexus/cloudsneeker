@@ -1,0 +1,48 @@
+---
+title: "Google Cloud"
+description: "Connect a Google Cloud project with a service account"
+---
+
+## Create the service account
+
+<Steps>
+  <Step title="Create the account">
+    ```shell
+    gcloud iam service-accounts create cloudsneeker-scanner \
+      --project <project-id> \
+      --display-name "Cloudsneeker Security Scanner"
+    ```
+  </Step>
+  <Step title="Grant read-only roles">
+    Grant at the project level, or at a folder or organization level to cover many projects:
+
+    ```shell
+    for role in roles/viewer roles/serviceusage.serviceUsageConsumer; do
+      gcloud projects add-iam-policy-binding <project-id> \
+        --member "serviceAccount:cloudsneeker-scanner@<project-id>.iam.gserviceaccount.com" \
+        --role "$role"
+    done
+    ```
+
+    For organization-wide project discovery, also grant `roles/cloudasset.viewer` at the organization node and enable the Cloud Asset API in the service account's project.
+  </Step>
+  <Step title="Enable APIs">
+    Enable the APIs for the services you want evaluated, for example Compute Engine, Cloud KMS, Cloud SQL, IAM, Cloud Logging, and Cloud Storage. Checks for disabled APIs are skipped.
+  </Step>
+  <Step title="Create a key">
+    ```shell
+    gcloud iam service-accounts keys create key.json \
+      --iam-account cloudsneeker-scanner@<project-id>.iam.gserviceaccount.com
+    ```
+  </Step>
+</Steps>
+
+## Connect
+
+In **Providers**, select **Add provider → Google Cloud**, enter the project ID, choose **Service account key**, and paste the contents of `key.json`. Select **Test connection**.
+
+Delete the local `key.json` after pasting it. Cloudsneeker stores the key encrypted.
+
+## Many projects
+
+Add one provider per project. The same service account key can be reused when the roles were granted at a folder or organization level.

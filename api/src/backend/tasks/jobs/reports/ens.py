@@ -2,6 +2,7 @@ import os
 from collections import defaultdict
 
 from api.models import StatusChoices
+from cloudsneeker_api.brand import pdf_footer, report_logo_path  # cloudsneeker-hook
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
@@ -67,8 +68,8 @@ class ENSReportGenerator(BaseComplianceReportGenerator):
         elements = []
 
         # Create logos side by side
-        prowler_logo_path = os.path.join(
-            os.path.dirname(__file__), "../../assets/img/prowler_logo.png"
+        prowler_logo_path = report_logo_path(  # cloudsneeker-hook
+            os.path.join(os.path.dirname(__file__), "../../assets/img")
         )
         ens_logo_path = os.path.join(
             os.path.dirname(__file__), "../../assets/img/ens_logo.png"
@@ -391,7 +392,7 @@ class ENSReportGenerator(BaseComplianceReportGenerator):
         Returns:
             Tuple of (left_text, right_text) for the footer.
         """
-        return f"Página {page_num}", "Powered by Prowler"
+        return f"Página {page_num}", pdf_footer()  # cloudsneeker-hook
 
     def _count_manual_requirements(self, data: ComplianceData) -> int:
         """Count requirements with manual execution mode."""

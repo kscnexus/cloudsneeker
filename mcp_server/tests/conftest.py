@@ -21,6 +21,7 @@ Three properties of the runtime shape everything below and are easy to get wrong
    explicitly instead.
 """
 
+import os
 import socket
 from collections.abc import Callable, Iterator
 
@@ -29,8 +30,15 @@ import pytest
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from prowler_mcp_server.cloudsneeker.testing import (
+    UPSTREAM_COMPAT_ENV,  # cloudsneeker-hook
+)
 from tests.helpers.http import MockRouter
 from tests.helpers.tokens import FAKE_API_KEY
+
+# cloudsneeker-hook: the upstream suite asserts upstream names; the server
+# module reads the brand on first import, which happens inside fixtures.
+os.environ.update(UPSTREAM_COMPAT_ENV)
 
 # Must match [tool.pytest_env] in pyproject.toml: the env var is what the code
 # reads at import time, this constant is what tests assert against.

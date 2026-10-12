@@ -10,6 +10,7 @@ from api.models import Finding, Integration, Provider
 from api.rls import Tenant
 from api.utils import initialize_prowler_integration, initialize_prowler_provider
 from celery.utils.log import get_task_logger
+from cloudsneeker_api.brand import brand  # cloudsneeker-hook
 from config.django.base import DJANGO_FINDINGS_BATCH_SIZE
 from django.conf import settings
 from django.db import OperationalError
@@ -481,7 +482,7 @@ def upload_security_hub_integration(
         return False
 
 
-JIRA_LABEL_PREFIX = "prowler"
+JIRA_LABEL_PREFIX = brand.jira_label_prefix  # cloudsneeker-hook
 
 
 def build_jira_finding_url(finding_uid: str) -> str:

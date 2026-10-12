@@ -1,3 +1,4 @@
+from cloudsneeker_api.brand import brand  # cloudsneeker-hook
 from config.env import env
 
 # Provider Oauth settings
@@ -67,7 +68,7 @@ SOCIALACCOUNT_PROVIDERS = {
     "saml": {
         "use_nameid_for_email": True,
         "sp": {
-            "entity_id": "urn:prowler.com:sp",
+            "entity_id": brand.saml_sp_entity_id,  # cloudsneeker-hook
         },
         "advanced": {
             # TODO: Validate certificates

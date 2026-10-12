@@ -1,6 +1,7 @@
 from csv import DictWriter
 from typing import List
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler.lib.logger import logger
 from prowler.lib.outputs.finding import Finding
 from prowler.lib.outputs.output import Output
@@ -78,7 +79,9 @@ class CSV(Output):
                 finding_dict["DEPENDS_ON"] = unroll_list(finding.metadata.DependsOn)
                 finding_dict["RELATED_TO"] = unroll_list(finding.metadata.RelatedTo)
                 finding_dict["NOTES"] = finding.metadata.Notes
-                finding_dict["PROWLER_VERSION"] = finding.prowler_version
+                finding_dict[brand.scanner_version_header] = (
+                    finding.prowler_version
+                )  # cloudsneeker-hook
                 finding_dict["ADDITIONAL_URLS"] = unroll_list(
                     finding.metadata.AdditionalURLs
                 )

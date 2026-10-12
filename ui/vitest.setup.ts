@@ -1,8 +1,17 @@
 import "@testing-library/jest-dom/vitest";
 
+import { vi } from "vitest";
+
 // An ambient UI_CLOUD_ENABLED in a developer's shell would silently flip
 // every test that relies on the OSS default — clear it.
 delete process.env.UI_CLOUD_ENABLED;
+
+// cloudsneeker-hook: upstream suites exercise the hosted-tier upsell flow.
+// The product ships with it off; `ui/cloudsneeker/brand.test.ts` covers that.
+vi.mock("@/cloudsneeker/brand", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/cloudsneeker/brand")>();
+  return { ...actual, BRAND: { ...actual.BRAND, showUpsell: true } };
+});
 
 class MockStorage implements Storage {
   private readonly store = new Map<string, string>();

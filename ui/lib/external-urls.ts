@@ -1,3 +1,5 @@
+import { BRAND, docsUrl } from "@/cloudsneeker/brand"; // cloudsneeker-hook
+
 import type { IntegrationType } from "../types/integrations";
 import {
   PROVIDER_WIZARD_STEP,
@@ -6,34 +8,30 @@ import {
 
 // Documentation URLs
 export const DOCS_URLS = {
-  FINDINGS_ANALYSIS:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app#step-8:-analyze-the-findings",
-  FINDINGS_INGESTION:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app-import-findings",
-  FINDINGS_TRIAGE:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app-findings-triage",
-  AWS_ORGANIZATIONS:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-cloud-aws-organizations",
-  AZURE_ORGANIZATIONS:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-cloud-azure-management-groups",
-  GCP_ORGANIZATIONS:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-cloud-gcp-organizations",
-  ALERTS: "https://docs.prowler.com/user-guide/tutorials/prowler-app-alerts",
-  SLACK_INTEGRATION:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app-slack-integration",
-  SLACK_INTEGRATION_PRIVATE_CHANNELS:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app-slack-integration#why-a-private-channel-is-missing-from-the-channel-list",
-  SCAN_CONFIGURATION:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app-scan-configuration",
-  ATTACK_PATHS_CUSTOM_QUERIES:
-    "https://docs.prowler.com/user-guide/tutorials/prowler-app-attack-paths#writing-custom-opencypher-queries",
-  AI_AGENTS: "https://docs.prowler.com/user-guide/ai-agents/",
+  FINDINGS_ANALYSIS: docsUrl(
+    "user-guide/tutorials/app#step-8:-analyze-the-findings",
+  ),
+  FINDINGS_INGESTION: docsUrl("user-guide/tutorials/app-import-findings"),
+  FINDINGS_TRIAGE: docsUrl("user-guide/tutorials/app-findings-triage"),
+  AWS_ORGANIZATIONS: docsUrl("user-guide/tutorials/aws-organizations"),
+  AZURE_ORGANIZATIONS: docsUrl("user-guide/tutorials/azure-management-groups"),
+  GCP_ORGANIZATIONS: docsUrl("user-guide/tutorials/gcp-organizations"),
+  ALERTS: docsUrl("user-guide/tutorials/app-alerts"),
+  SLACK_INTEGRATION: docsUrl("user-guide/tutorials/app-slack-integration"),
+  SLACK_INTEGRATION_PRIVATE_CHANNELS: docsUrl(
+    "user-guide/tutorials/app-slack-integration#why-a-private-channel-is-missing-from-the-channel-list",
+  ),
+  SCAN_CONFIGURATION: docsUrl("user-guide/tutorials/app-scan-configuration"),
+  ATTACK_PATHS_CUSTOM_QUERIES: docsUrl(
+    "user-guide/tutorials/app-attack-paths#writing-custom-opencypher-queries",
+  ),
+  AI_AGENTS: docsUrl("user-guide/ai-agents/"),
 } as const;
 
 // Prowler Hub — the public catalog of Prowler artifacts (checks, compliance,
 // attack paths). Every built-in Attack Paths query has a page keyed by its
 // query id, e.g. https://hub.prowler.com/attack-paths/aws-sts-privesc-assume-role
-export const PROWLER_HUB_URL = "https://hub.prowler.com";
+export const PROWLER_HUB_URL = BRAND.docsUrl; // cloudsneeker-hook
 
 export const getAttackPathHubUrl = (queryId: string): string =>
   `${PROWLER_HUB_URL}/attack-paths/${encodeURIComponent(queryId)}`;
@@ -41,11 +39,10 @@ export const getAttackPathHubUrl = (queryId: string): string =>
 // CloudFormation template URL for the ProwlerScan role.
 // Also used (URL-encoded) as the templateURL param in the quick-create links
 // built by getAWSCredentialsTemplateLinks and getAWSOrgDeploymentQuickLink below.
-export const PROWLER_CF_TEMPLATE_URL =
-  "https://prowler-cloud-public.s3.eu-west-1.amazonaws.com/permissions/templates/aws/cloudformation/prowler-scan-role.yml";
+export const PROWLER_CF_TEMPLATE_URL = BRAND.cloudformationTemplateUrl; // cloudsneeker-hook
 
 // Prowler Cloud billing/subscription management page.
-export const BILLING_URL = "https://cloud.prowler.com/billing";
+export const BILLING_URL = `${BRAND.websiteUrl}/billing`; // cloudsneeker-hook
 
 // Base URL for the CloudFormation "quick create stack" console flow.
 // Hardcoded to us-east-1 because the public template is hosted for that flow.
@@ -66,14 +63,12 @@ export const PRECONFIGURED_CREDENTIAL_URLS = {
   // `Bot Management`, `Zone WAF`) and the token name.
   // Kept in sync with the "User API Token" URL published in
   // docs/user-guide/providers/cloudflare/authentication.mdx.
-  CLOUDFLARE_API_TOKEN_USER:
-    "https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ssl_and_certificates%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22bot_management%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_waf%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=Prowler%20Security%20Scanner",
+  CLOUDFLARE_API_TOKEN_USER: `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ssl_and_certificates%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22bot_management%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_waf%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=${encodeURIComponent(BRAND.credentialDisplayName)}`,
   // Opens the GitHub fine-grained PAT creation form pre-filled with the four
   // read-only permissions Prowler needs to scan a user's own repositories.
   // Kept in sync with the "user repositories" URL published in
   // docs/user-guide/providers/github/authentication.mdx.
-  GITHUB_PERSONAL_ACCESS_TOKEN_USER:
-    "https://github.com/settings/personal-access-tokens/new?name=Prowler+Security+Scanner&description=Fine-grained+PAT+for+Prowler+security+scanning&expires_in=90&administration=read&contents=read&vulnerability_alerts=read&emails=read",
+  GITHUB_PERSONAL_ACCESS_TOKEN_USER: `https://github.com/settings/personal-access-tokens/new?name=${encodeURIComponent(BRAND.credentialDisplayName)}&description=${encodeURIComponent(`Fine-grained PAT for ${BRAND.name} security scanning`)}&expires_in=90&administration=read&contents=read&vulnerability_alerts=read&emails=read`,
 } as const;
 
 // Builds the account-owned Cloudflare API Token URL for the given account.
@@ -103,7 +98,7 @@ export const buildCloudflareAccountOwnedApiTokenUrl = (
       { key: "zone_waf", type: "read" },
     ]),
   );
-  const name = encodeURIComponent("Prowler Security Scanner");
+  const name = encodeURIComponent(BRAND.credentialDisplayName);
   return `https://dash.cloudflare.com/?to=/${encodedAccountId}/api-tokens&permissionGroupKeys=${permissionGroupKeys}&name=${name}`;
 };
 
@@ -118,8 +113,8 @@ export const buildGitHubPersonalAccessTokenOrgUrl = (
   targetName: string,
 ): string => {
   const params = new URLSearchParams({
-    name: "Prowler Security Scanner",
-    description: "Fine-grained PAT for Prowler organization security scanning",
+    name: BRAND.credentialDisplayName,
+    description: `Fine-grained PAT for ${BRAND.name} organization security scanning`,
     expires_in: "90",
     target_name: targetName,
     administration: "read",
@@ -142,7 +137,7 @@ const buildCloudFormationQuickCreateLink = (
 ): string => {
   const searchParams = new URLSearchParams({
     templateURL: PROWLER_CF_TEMPLATE_URL,
-    stackName: "Prowler",
+    stackName: BRAND.cloudformationStackName,
     ...parameters,
   });
 
@@ -153,22 +148,22 @@ const buildCloudFormationQuickCreateLink = (
 // ownership stays with the docs/marketing team: they can retarget
 // destinations from the shortener panel without a UI PR.
 const PROVIDER_DOCS_SHORTLINK: Record<string, string> = {
-  aws: "https://goto.prowler.com/provider-aws",
-  azure: "https://goto.prowler.com/provider-azure",
-  m365: "https://goto.prowler.com/provider-m365",
-  gcp: "https://goto.prowler.com/provider-gcp",
-  kubernetes: "https://goto.prowler.com/provider-k8s",
-  github: "https://goto.prowler.com/provider-github",
-  iac: "https://goto.prowler.com/provider-iac",
-  image: "https://goto.prowler.com/provider-image",
-  oraclecloud: "https://goto.prowler.com/provider-oraclecloud",
-  mongodbatlas: "https://goto.prowler.com/provider-mongodbatlas",
-  alibabacloud: "https://goto.prowler.com/provider-alibabacloud",
-  cloudflare: "https://goto.prowler.com/provider-cloudflare",
-  openstack: "https://goto.prowler.com/provider-openstack",
-  googleworkspace: "https://goto.prowler.com/provider-googleworkspace",
-  vercel: "https://goto.prowler.com/provider-vercel",
-  okta: "https://goto.prowler.com/provider-okta",
+  aws: docsUrl("user-guide/providers/aws"),
+  azure: docsUrl("user-guide/providers/azure"),
+  m365: docsUrl("user-guide/providers/m365"),
+  gcp: docsUrl("user-guide/providers/gcp"),
+  kubernetes: docsUrl("user-guide/providers/k8s"),
+  github: docsUrl("user-guide/providers/github"),
+  iac: docsUrl("user-guide/providers/iac"),
+  image: docsUrl("user-guide/providers/image"),
+  oraclecloud: docsUrl("user-guide/providers/oraclecloud"),
+  mongodbatlas: docsUrl("user-guide/providers/mongodbatlas"),
+  alibabacloud: docsUrl("user-guide/providers/alibabacloud"),
+  cloudflare: docsUrl("user-guide/providers/cloudflare"),
+  openstack: docsUrl("user-guide/providers/openstack"),
+  googleworkspace: docsUrl("user-guide/providers/googleworkspace"),
+  vercel: docsUrl("user-guide/providers/vercel"),
+  okta: docsUrl("user-guide/providers/okta"),
 };
 
 // Default target for the credentials step: the section of the provider's
@@ -179,33 +174,54 @@ const PROVIDER_DOCS_SHORTLINK: Record<string, string> = {
 // `authentication.mdx` from the wizard, otherwise the user is jumped into
 // low-level docs before they have the context to make sense of them.
 const PROVIDER_CREDENTIALS_STEP_DOCS_URL: Record<string, string> = {
-  aws: "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication",
-  azure:
-    "https://docs.prowler.com/user-guide/providers/azure/getting-started-azure#step-3-add-credentials-to-prowler-cloud",
-  m365: "https://docs.prowler.com/user-guide/providers/microsoft365/getting-started-m365#step-3-choose-and-provide-authentication",
-  gcp: "https://docs.prowler.com/user-guide/providers/gcp/getting-started-gcp#step-3-set-up-gcp-authentication",
-  kubernetes:
-    "https://docs.prowler.com/user-guide/providers/kubernetes/getting-started-k8s#step-2-configure-kubernetes-authentication",
-  github:
-    "https://docs.prowler.com/user-guide/providers/github/getting-started-github#step-3-choose-authentication-method",
-  iac: "https://docs.prowler.com/user-guide/providers/iac/getting-started-iac#step-2-enter-authentication-details",
-  image:
-    "https://docs.prowler.com/user-guide/providers/image/getting-started-image#step-2-enter-authentication-and-scan-filters",
-  oraclecloud:
-    "https://docs.prowler.com/user-guide/providers/oci/getting-started-oci#step-3-add-oci-api-key-credentials",
-  mongodbatlas:
-    "https://docs.prowler.com/user-guide/providers/mongodbatlas/getting-started-mongodbatlas#step-2-provide-api-credentials",
-  alibabacloud:
-    "https://docs.prowler.com/user-guide/providers/alibabacloud/getting-started-alibabacloud#step-3-choose-and-provide-authentication",
-  cloudflare:
-    "https://docs.prowler.com/user-guide/providers/cloudflare/getting-started-cloudflare#step-3-choose-and-provide-authentication",
-  openstack:
-    "https://docs.prowler.com/user-guide/providers/openstack/getting-started-openstack#step-2-provide-credentials",
-  googleworkspace:
-    "https://docs.prowler.com/user-guide/providers/googleworkspace/getting-started-googleworkspace#step-3-provide-credentials",
-  vercel:
-    "https://docs.prowler.com/user-guide/providers/vercel/getting-started-vercel#step-2-provide-credentials",
-  okta: "https://docs.prowler.com/user-guide/providers/okta/getting-started-okta#step-2-provide-credentials",
+  aws: docsUrl(
+    "user-guide/providers/aws/getting-started-aws#step-3-set-up-aws-authentication",
+  ),
+  azure: docsUrl(
+    "user-guide/providers/azure/getting-started-azure#step-3-add-credentials",
+  ),
+  m365: docsUrl(
+    "user-guide/providers/microsoft365/getting-started-m365#step-3-choose-and-provide-authentication",
+  ),
+  gcp: docsUrl(
+    "user-guide/providers/gcp/getting-started-gcp#step-3-set-up-gcp-authentication",
+  ),
+  kubernetes: docsUrl(
+    "user-guide/providers/kubernetes/getting-started-k8s#step-2-configure-kubernetes-authentication",
+  ),
+  github: docsUrl(
+    "user-guide/providers/github/getting-started-github#step-3-choose-authentication-method",
+  ),
+  iac: docsUrl(
+    "user-guide/providers/iac/getting-started-iac#step-2-enter-authentication-details",
+  ),
+  image: docsUrl(
+    "user-guide/providers/image/getting-started-image#step-2-enter-authentication-and-scan-filters",
+  ),
+  oraclecloud: docsUrl(
+    "user-guide/providers/oci/getting-started-oci#step-3-add-oci-api-key-credentials",
+  ),
+  mongodbatlas: docsUrl(
+    "user-guide/providers/mongodbatlas/getting-started-mongodbatlas#step-2-provide-api-credentials",
+  ),
+  alibabacloud: docsUrl(
+    "user-guide/providers/alibabacloud/getting-started-alibabacloud#step-3-choose-and-provide-authentication",
+  ),
+  cloudflare: docsUrl(
+    "user-guide/providers/cloudflare/getting-started-cloudflare#step-3-choose-and-provide-authentication",
+  ),
+  openstack: docsUrl(
+    "user-guide/providers/openstack/getting-started-openstack#step-2-provide-credentials",
+  ),
+  googleworkspace: docsUrl(
+    "user-guide/providers/googleworkspace/getting-started-googleworkspace#step-3-provide-credentials",
+  ),
+  vercel: docsUrl(
+    "user-guide/providers/vercel/getting-started-vercel#step-2-provide-credentials",
+  ),
+  okta: docsUrl(
+    "user-guide/providers/okta/getting-started-okta#step-2-provide-credentials",
+  ),
 };
 
 // When the user has picked a specific auth method inside the credentials
@@ -219,30 +235,40 @@ const PROVIDER_CREDENTIALS_METHOD_DOCS_URL: Record<
   Record<string, string>
 > = {
   aws: {
-    role: "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#assume-role-recommended",
-    credentials:
-      "https://docs.prowler.com/user-guide/providers/aws/getting-started-aws#credentials-static-access-keys",
+    role: docsUrl(
+      "user-guide/providers/aws/getting-started-aws#assume-role-recommended",
+    ),
+    credentials: docsUrl(
+      "user-guide/providers/aws/getting-started-aws#credentials-static-access-keys",
+    ),
   },
   m365: {
-    app_certificate:
-      "https://docs.prowler.com/user-guide/providers/microsoft365/getting-started-m365#application-certificate-authentication-recommended",
-    app_client_secret:
-      "https://docs.prowler.com/user-guide/providers/microsoft365/getting-started-m365#application-client-secret-authentication",
+    app_certificate: docsUrl(
+      "user-guide/providers/microsoft365/getting-started-m365#application-certificate-authentication-recommended",
+    ),
+    app_client_secret: docsUrl(
+      "user-guide/providers/microsoft365/getting-started-m365#application-client-secret-authentication",
+    ),
   },
   alibabacloud: {
-    role: "https://docs.prowler.com/user-guide/providers/alibabacloud/getting-started-alibabacloud#ram-role-assumption-recommended",
-    credentials:
-      "https://docs.prowler.com/user-guide/providers/alibabacloud/getting-started-alibabacloud#credentials-static-access-keys",
+    role: docsUrl(
+      "user-guide/providers/alibabacloud/getting-started-alibabacloud#ram-role-assumption-recommended",
+    ),
+    credentials: docsUrl(
+      "user-guide/providers/alibabacloud/getting-started-alibabacloud#credentials-static-access-keys",
+    ),
   },
   cloudflare: {
-    api_token:
-      "https://docs.prowler.com/user-guide/providers/cloudflare/getting-started-cloudflare#user-api-token-authentication-recommended",
-    api_key:
-      "https://docs.prowler.com/user-guide/providers/cloudflare/getting-started-cloudflare#api-key-and-email-authentication-legacy",
+    api_token: docsUrl(
+      "user-guide/providers/cloudflare/getting-started-cloudflare#user-api-token-authentication-recommended",
+    ),
+    api_key: docsUrl(
+      "user-guide/providers/cloudflare/getting-started-cloudflare#api-key-and-email-authentication-legacy",
+    ),
   },
 };
 
-const PROVIDER_HELP_FALLBACK_URL = "https://goto.prowler.com/provider-help";
+const PROVIDER_HELP_FALLBACK_URL = docsUrl("user-guide/providers");
 
 const getOwnRecordValue = <T>(
   record: Readonly<Record<string, T>>,
@@ -335,19 +361,15 @@ export const getAWSCredentialsTemplateLinks = (
 
   if (integrationType === undefined || integrationType === "aws_security_hub") {
     links = {
-      cloudformation:
-        "https://github.com/prowler-cloud/prowler/blob/master/permissions/templates/cloudformation/prowler-scan-role.yml",
-      terraform:
-        "https://github.com/prowler-cloud/prowler/tree/master/permissions/templates/terraform",
+      cloudformation: BRAND.cloudformationTemplateUrl,
+      terraform: docsUrl("user-guide/providers/aws/templates/terraform"),
     };
   }
 
   if (integrationType === "amazon_s3") {
     links = {
-      cloudformation:
-        "https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/prowler-app-s3-integration/",
-      terraform:
-        "https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/prowler-app-s3-integration/#terraform",
+      cloudformation: docsUrl("user-guide/tutorials/app-s3-integration"),
+      terraform: docsUrl("user-guide/tutorials/app-s3-integration#terraform"),
     };
   }
 

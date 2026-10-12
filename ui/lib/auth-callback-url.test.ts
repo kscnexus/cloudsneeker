@@ -7,9 +7,34 @@ import {
   getInvitationTokenFromCallbackPath,
   getSafeCallbackPath,
   isSelfRegistrationDisabledResponse,
+  resolvePostLoginPath,
 } from "@/lib/auth-callback-url";
 
 describe("auth callback URL helpers", () => {
+  describe("when resolving the path after login", () => {
+    it("should send a local login home instead of the cloud email verification page", () => {
+      // Given
+      const callbackPath = "/email-verification";
+
+      // When
+      const result = resolvePostLoginPath(callbackPath, false);
+
+      // Then
+      expect(result).toBe("/");
+    });
+
+    it("should keep the email verification path when cloud mode is on", () => {
+      // Given
+      const callbackPath = "/email-verification";
+
+      // When
+      const result = resolvePostLoginPath(callbackPath, true);
+
+      // Then
+      expect(result).toBe("/email-verification");
+    });
+  });
+
   describe("when appending OAuth state", () => {
     it("should add a relative callback path as provider state", () => {
       const authUrl = "https://accounts.example.com/oauth?client_id=client";

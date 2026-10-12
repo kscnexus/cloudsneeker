@@ -112,6 +112,8 @@ WORKDIR /home/prowler
 # Copy necessary files
 COPY --chown=prowler:prowler prowler/  /home/prowler/prowler/
 COPY --chown=prowler:prowler dashboard/ /home/prowler/dashboard/
+# cloudsneeker-hook: brand package imported by prowler/config/config.py
+COPY --chown=prowler:prowler cloudsneeker/ /home/prowler/cloudsneeker/
 COPY --chown=prowler:prowler pyproject.toml uv.lock /home/prowler/
 COPY --chown=prowler:prowler README.md /home/prowler/
 COPY --chown=prowler:prowler prowler/providers/m365/lib/powershell/m365_powershell.py /home/prowler/prowler/providers/m365/lib/powershell/m365_powershell.py

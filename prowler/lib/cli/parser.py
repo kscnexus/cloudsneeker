@@ -2,6 +2,7 @@ import argparse
 import sys
 from argparse import RawTextHelpFormatter
 
+from cloudsneeker.brand import brand  # cloudsneeker-hook
 from dashboard.lib.arguments.arguments import init_dashboard_parser
 from prowler.config.config import (
     available_compliance_frameworks,
@@ -74,9 +75,9 @@ class ProwlerArgumentParser:
 
         # CLI Arguments
         self.parser = argparse.ArgumentParser(
-            prog="prowler",
+            prog=brand.cli_command,  # cloudsneeker-hook
             formatter_class=RawTextHelpFormatter,
-            usage=f"prowler [-h] [--version] {{aws,azure,gcp,kubernetes,m365,github,googleworkspace,okta,nhn,mongodbatlas,oraclecloud,alibabacloud,cloudflare,openstack,scaleway,stackit,vercel,linode,huaweicloud,e2enetworks,dashboard,iac,image,llm{extra_providers_csv}}} ...",
+            usage=f"{brand.cli_command} [-h] [--version] {{aws,azure,gcp,kubernetes,m365,github,googleworkspace,okta,nhn,mongodbatlas,oraclecloud,alibabacloud,cloudflare,openstack,scaleway,stackit,vercel,linode,huaweicloud,e2enetworks,dashboard,iac,image,llm{extra_providers_csv}}} ...",
             epilog=f"""
 Available Cloud Providers:
   {{aws,azure,gcp,kubernetes,m365,github,googleworkspace,okta,iac,llm,image,nhn,mongodbatlas,oraclecloud,alibabacloud,cloudflare,openstack,scaleway,stackit,vercel,linode,huaweicloud,e2enetworks{extra_providers_csv}}}
@@ -109,9 +110,9 @@ Available components:
     dashboard           Local dashboard
 
 To see the different available options on a specific component, run:
-    prowler {{provider|dashboard}} -h|--help
+    {brand.cli_command} {{provider|dashboard}} -h|--help
 
-Detailed documentation at https://docs.prowler.com
+Detailed documentation at {brand.docs_url}
 """,
         )
         # Default
@@ -119,7 +120,7 @@ Detailed documentation at https://docs.prowler.com
             "--version",
             "-v",
             action="store_true",
-            help="show Prowler version",
+            help=f"show {brand.name} version",  # cloudsneeker-hook
         )
         # Common arguments parser
         self.common_providers_parser = argparse.ArgumentParser(add_help=False)
@@ -289,10 +290,14 @@ Detailed documentation at https://docs.prowler.com
             "--push-to-cloud",
             action="store_true",
             help=(
-                "Send findings in OCSF format to Prowler Cloud. "
-                "Requires PROWLER_CLOUD_API_KEY environment variable. "
-                "For the IaC provider, --provider-uid is also required. "
-                "More details here: https://goto.prowler.com/import-findings"
+                argparse.SUPPRESS
+                if not brand.show_upsell
+                else (  # cloudsneeker-hook
+                    "Send findings in OCSF format to Prowler Cloud. "
+                    "Requires PROWLER_CLOUD_API_KEY environment variable. "
+                    "For the IaC provider, --provider-uid is also required. "
+                    "More details here: https://goto.prowler.com/import-findings"
+                )
             ),
         )
 

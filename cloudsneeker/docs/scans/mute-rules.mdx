@@ -1,0 +1,33 @@
+---
+title: "Mute findings"
+description: "Hide accepted risks from the default view without deleting them"
+---
+
+A **mute rule** marks a set of findings as accepted risk. Muted findings keep their original status in reports and compliance evidence but are hidden from the default findings view and excluded from the severity counts on the overview page.
+
+## Mute findings
+
+1. On the **Findings** page, select one or more findings with the row checkboxes.
+2. Select **Mute** in the floating action bar.
+3. Give the rule a name (3–100 characters) and a reason (3–500 characters). The reason is shown wherever the muted finding appears and is part of the audit trail.
+4. Confirm. The rule applies immediately and to future scans: the same resource failing the same check stays muted until the rule is disabled or deleted.
+
+A rule matches on the **finding UID**, which identifies a resource-and-check pair. Muting a finding does not mute the whole check across the account.
+
+## See muted findings
+
+Use the status filter **Muted** on the Findings page. The reason and the rule name are visible on each muted finding.
+
+## Manage rules
+
+The **Mutelist** page lists every rule with its creator, creation date, reason, and the findings it covers. From there you can:
+
+- **Disable** a rule to bring its findings back without losing the record
+- **Edit** the name or reason
+- **Delete** a rule
+
+Rule names are unique within an organization. Rules are visible to every user in the organization; creating and deleting them requires a role with the **manage scans** permission.
+
+## Reports and integrations
+
+Muted findings stay in CSV, JSON, and HTML reports with the `MUTED` column set, so auditors can see what was accepted. Compliance scores and the overview counts exclude them.

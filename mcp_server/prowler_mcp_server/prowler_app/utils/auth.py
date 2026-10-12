@@ -6,6 +6,7 @@ from datetime import datetime
 from fastmcp.server.dependencies import get_http_headers
 
 from prowler_mcp_server import __version__
+from prowler_mcp_server.cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler_mcp_server.lib.errors import CredentialError
 from prowler_mcp_server.lib.logger import logger
 
@@ -16,7 +17,9 @@ class ProwlerAppAuth:
     def __init__(
         self,
         mode: str = os.getenv("PROWLER_MCP_TRANSPORT_MODE", "stdio"),
-        base_url: str = os.getenv("API_BASE_URL", "https://api.prowler.com/api/v1"),
+        base_url: str = os.getenv(
+            "API_BASE_URL", brand.api_base_url
+        ),  # cloudsneeker-hook
     ):
         self.base_url = base_url.rstrip("/")
         logger.info(f"Using Prowler API base URL: {self.base_url}")
@@ -144,7 +147,7 @@ class ProwlerAppAuth:
             "Authorization": authorization_header,
             "Content-Type": "application/vnd.api+json",
             "Accept": "application/vnd.api+json",
-            "User-Agent": f"prowler-mcp-server/{__version__}",
+            "User-Agent": f"{brand.server_name}/{__version__}",  # cloudsneeker-hook
         }
 
         return headers

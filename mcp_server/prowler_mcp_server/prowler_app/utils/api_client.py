@@ -10,6 +10,7 @@ import httpx
 from fastmcp.exceptions import ToolError
 
 from prowler_mcp_server import __version__
+from prowler_mcp_server.cloudsneeker.brand import brand  # cloudsneeker-hook
 from prowler_mcp_server.lib.errors import (
     InvalidArgument,
     ProwlerAPIError,
@@ -283,7 +284,9 @@ class ProwlerAPIClient(metaclass=SingletonMeta):
         try:
             response = await self.client.get(
                 url,
-                headers={"User-Agent": f"prowler-mcp-server/{__version__}"},
+                headers={
+                    "User-Agent": f"{brand.server_name}/{__version__}"
+                },  # cloudsneeker-hook
             )
             response.raise_for_status()
             return response.text

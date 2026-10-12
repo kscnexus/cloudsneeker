@@ -1,0 +1,56 @@
+---
+title: "Troubleshooting"
+description: "Common problems and their causes"
+---
+
+## Sign-in
+
+| Symptom | Cause and fix |
+| --- | --- |
+| "Invalid credentials" with a correct password | The email belongs to an SSO domain; use the identity provider flow |
+| Redirect loop after SSO | `AUTH_URL` does not match the URL in the browser, or the identity provider's ACS URL points at a different API host |
+| Session ends after a few minutes | `DJANGO_ACCESS_TOKEN_LIFETIME` is low and the browser blocks the refresh cookie; check `AUTH_TRUST_HOST` and TLS termination |
+
+## Providers
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Connection test fails immediately | Credentials are wrong or lack the listed read-only permissions; see the platform page under [Connect a provider](/providers) |
+| Connection passes but the scan finds nothing | The account has no resources in the enabled regions, or a service API is disabled (Google Cloud) |
+| AWS role works from the CLI but not in the app | The external ID in the trust policy differs from the one shown in the wizard |
+
+## Scans
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Scan stays `available` | No worker is running or the worker cannot reach Valkey; check `cloudsneeker-worker` logs |
+| Scan `failed` with a throttling error | Provider API rate limits; lower `worker.replicas` or raise `--aws-retries-max-attempts` in provider settings |
+| Scan takes much longer than before | A new region or a large new service appeared; exclude it in provider settings if not needed |
+| Scheduled scan did not run | `cloudsneeker-worker-beat` is not running, or two beat instances compete; keep exactly one |
+
+## Reports
+
+| Symptom | Cause and fix |
+| --- | --- |
+| "The scan has no reports" | The report job has not finished; wait for the task on the scan row to complete |
+| Download returns 404 after an upgrade | `DJANGO_TMP_OUTPUT_DIRECTORY` is not persisted across worker restarts; mount a volume or configure the `DJANGO_OUTPUT_S3_*` bucket |
+| PDF missing for a framework | Only some frameworks produce PDFs; see [Compliance](/scans/compliance) |
+
+## Self-hosted operations
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `api-init` fails on start | Database credentials or `POSTGRES_ADMIN_*` are wrong, or the database is not reachable from the container network |
+| UI shows "API unreachable" | `UI_API_BASE_URL` must be reachable from the UI container, `AUTH_URL` from the browser |
+| Attack paths page empty | Neo4j is not configured or unreachable; the rest of the product works without it |
+| Health check `ready` returns `fail` | The response lists which dependency failed under `checks` |
+
+## Collecting diagnostics
+
+```shell
+docker compose ps
+docker compose logs --since 1h cloudsneeker-api cloudsneeker-worker cloudsneeker-worker-beat cloudsneeker-ui
+curl -s https://<api host>/api/v1/health/ready | jq
+```
+
+Attach the output when you contact [support](/support).

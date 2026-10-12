@@ -1,0 +1,51 @@
+---
+title: "Configuration"
+description: "Environment variables that change how a self-hosted installation behaves"
+---
+
+All configuration is through environment variables. The `.env.example` in the deployment bundle lists every variable with a comment. This page covers the ones most installations change.
+
+## Web app
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AUTH_URL` | — | Public URL of the web app. Required. |
+| `AUTH_SECRET` | — | Session encryption secret. Required. |
+| `UI_API_BASE_URL` | `http://cloudsneeker-api:8080/api/v1` | Where the web app reaches the API inside the network |
+| `UI_CLOUD_ENABLED` | `false` | Keep `false` |
+| `RSS_FEED_SOURCES` | empty | Release feed shown on the overview page; empty hides it |
+
+## API
+
+| Variable | Purpose |
+| --- | --- |
+| `DJANGO_ALLOWED_HOSTS` | Hostnames the API accepts |
+| `DJANGO_ACCESS_TOKEN_LIFETIME`, `DJANGO_REFRESH_TOKEN_LIFETIME` | Session lifetimes in minutes |
+| `DJANGO_TOKEN_SIGNING_KEY`, `DJANGO_TOKEN_VERIFYING_KEY` | RSA keys for session tokens |
+| `DJANGO_SECRETS_ENCRYPTION_KEY` | Encrypts stored provider credentials |
+| `DJANGO_OUTPUT_S3_*` | Optional bucket for scan output archives |
+| `DJANGO_SENTRY_DSN` | Optional error reporting |
+
+## Brand and links
+
+These change the help links and names printed by the API, reports, and command line. Leave them at defaults unless we gave you different values.
+
+| Variable | Default |
+| --- | --- |
+| `CLOUDSNEEKER_DOCS_URL` | `https://docs.cloudsneeker.example` |
+| `CLOUDSNEEKER_SUPPORT_URL` | `https://support.cloudsneeker.example` |
+| `CLOUDSNEEKER_API_URL` | `https://api.cloudsneeker.example` |
+
+## Datastores
+
+| Variable | Purpose |
+| --- | --- |
+| `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB` | Primary database |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD` | Application role |
+| `POSTGRES_ADMIN_USER`, `POSTGRES_ADMIN_PASSWORD` | Role used for migrations |
+| `VALKEY_HOST`, `VALKEY_PORT`, `VALKEY_PASSWORD` | Task queue |
+| `NEO4J_HOST`, `NEO4J_PORT`, `NEO4J_USER`, `NEO4J_PASSWORD` | Attack-path graph |
+
+## Invitations
+
+The platform does not send email. When you invite a user, the web app shows the invitation link for you to share through your own channel. See [Users and roles](/admin/users-and-roles).

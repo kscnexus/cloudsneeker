@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from cloudsneeker_api.brand import brand  # cloudsneeker-hook
 from config.custom_logging import LOGGING  # noqa
 from config.env import BASE_DIR, env  # noqa
 from config.settings.celery import *  # noqa
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "drf_simple_apikey",
     "django_eventstream",
+    "cloudsneeker_api",  # cloudsneeker-hook
 ]
 
 MIDDLEWARE = [
@@ -136,7 +138,7 @@ SPECTACULAR_SETTINGS = {
     "POSTPROCESSING_HOOKS": [
         "api.schema_hooks.attach_task_202_examples",
     ],
-    "TITLE": "API Reference - Prowler",
+    "TITLE": f"API Reference - {brand.name}",  # cloudsneeker-hook
 }
 
 WSGI_APPLICATION = "config.wsgi.application"
@@ -234,8 +236,12 @@ SIMPLE_JWT = {
     "CHECK_REVOKE_TOKEN": True,
     # Issuer and Audience claims, for the moment we will keep these values as default values, they may change in the
     # future.
-    "AUDIENCE": env.str("DJANGO_JWT_AUDIENCE", "https://api.prowler.com"),
-    "ISSUER": env.str("DJANGO_JWT_ISSUER", "https://api.prowler.com"),
+    "AUDIENCE": env.str(
+        "DJANGO_JWT_AUDIENCE", brand.jwt_default_issuer
+    ),  # cloudsneeker-hook
+    "ISSUER": env.str(
+        "DJANGO_JWT_ISSUER", brand.jwt_default_issuer
+    ),  # cloudsneeker-hook
     # Additional security settings
     "UPDATE_LAST_LOGIN": True,
 }

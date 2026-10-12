@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import {
@@ -49,7 +50,7 @@ describe("cloud upgrade URLs", () => {
 
     // Then
     expect(url).toBe(
-      "https://cloud.prowler.com/sign-up?utm_source=prowler-local-server&utm_content=alerts",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=alerts`,
     );
   });
 
@@ -61,7 +62,7 @@ describe("cloud upgrade URLs", () => {
 
     // Then
     expect(url).toBe(
-      "https://prowler.com/pricing?utm_source=prowler-local-server&utm_content=cross-provider-compliance",
+      `${BRAND.websiteUrl}/?utm_source=prowler-local-server&utm_content=cross-provider-compliance`,
     );
   });
 

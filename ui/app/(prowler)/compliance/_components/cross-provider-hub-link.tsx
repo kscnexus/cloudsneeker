@@ -1,6 +1,7 @@
 import { SquareArrowOutUpRight } from "lucide-react";
 import Link from "next/link";
 
+import { docsUrl } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { Button } from "@/components/shadcn/button/button";
 
 interface CrossProviderHubLinkProps {
@@ -12,12 +13,12 @@ export const CrossProviderHubLink = ({
 }: CrossProviderHubLinkProps) => (
   <Button variant="link" size="link-xs" asChild>
     <Link
-      href={`https://hub.prowler.com/compliance/${encodeURIComponent(complianceId)}`}
+      href={docsUrl(`compliance/${encodeURIComponent(complianceId)}`)} // cloudsneeker-hook
       target="_blank"
       rel="noopener noreferrer"
       prefetch={false}
     >
-      View on Prowler Hub
+      View documentation
       <SquareArrowOutUpRight />
     </Link>
   </Button>

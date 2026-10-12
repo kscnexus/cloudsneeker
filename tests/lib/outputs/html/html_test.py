@@ -5,7 +5,11 @@ from io import StringIO
 import pytest
 from mock import MagicMock, patch
 
-from prowler.config.config import prowler_version, timestamp
+from prowler.config.config import (  # cloudsneeker-hook: html_logo_url
+    html_logo_url,
+    prowler_version,
+    timestamp,
+)
 from prowler.lib.cli.redact import redact_argv
 from prowler.lib.logger import logger
 from prowler.lib.outputs.html.html import HTML
@@ -459,7 +463,7 @@ def get_aws_html_header(args: list) -> str:
     <div class="container-fluid">
         <div class="row mt-3">
         <div class="col-md-4">
-            <a href="https://github.com/prowler-cloud/prowler/"><img class="float-left card-img-left mt-4 mr-4 ml-4"
+            <a href="{html_logo_url}"><img class="float-left card-img-left mt-4 mr-4 ml-4"
                         src=https://raw.githubusercontent.com/prowler-cloud/prowler/dc7d2d5aeb92fdf12e8604f42ef6472cd3e8e889/docs/img/prowler-logo-black.png
                         alt="prowler-logo"
                         style="width: 15rem; height:auto;"/></a>
