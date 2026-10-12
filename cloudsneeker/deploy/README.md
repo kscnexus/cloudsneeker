@@ -70,6 +70,23 @@ helm upgrade --install cloudsneeker cloudsneeker/deploy/helm/cloudsneeker-app \
 Create `cloudsneeker-secrets` beforehand with the keys listed under `secrets`
 in `values.yaml`. Passing secrets through `--set` is for development only.
 
+## Amazon ECS
+
+`ecs/` is the hosted stack. `deploy.ps1` creates the image registry and
+CodeBuild project, then a Fargate platform in a dedicated VPC: private tasks,
+a public load balancer, encrypted PostgreSQL and Valkey, Neo4j on encrypted
+shared storage, and Secrets Manager for credentials. Container images are
+built in AWS from this repository, not on a workstation.
+
+```powershell
+pwsh cloudsneeker/deploy/ecs/deploy.ps1
+```
+
+The first run takes about an hour because the images are built in CodeBuild
+while the data stores are created. The script prints the load balancer URL
+when the services are steady. Add a domain later by redeploying with
+`-DomainName` and `-CertificateArn`.
+
 ## Brand configuration
 
 Names, URLs, and identifiers come from the brand modules

@@ -1,0 +1,1699 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Cloudsneeker on ECS Fargate. Tasks run in private subnets. PostgreSQL and
+  Valkey are encrypted managed stores. Credentials stay in Secrets Manager.
+
+Parameters:
+  ImageTag:
+    Type: String
+    Default: ""
+    Description: Image tag in ECR. Leave empty to create the platform without starting tasks.
+    AllowedPattern: "^$|^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"
+  AppSecretArn:
+    Type: String
+    Description: ARN of the cloudsneeker/app secret.
+    AllowedPattern: "^arn:aws[a-zA-Z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$"
+  DomainName:
+    Type: String
+    Default: ""
+    Description: Public hostname. Used only together with CertificateArn.
+    AllowedPattern: "^$|^[A-Za-z0-9.-]+$"
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN for DomainName.
+    AllowedPattern: "^$|^arn:aws[a-zA-Z-]*:acm:[a-z0-9-]+:[0-9]{12}:certificate/.+$"
+  DatabaseMultiAz:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+Conditions:
+  HasImage: !Not [!Equals [!Ref ImageTag, ""]]
+  UseHttps: !And
+    - !Not [!Equals [!Ref DomainName, ""]]
+    - !Not [!Equals [!Ref CertificateArn, ""]]
+  UseHttpRules: !Not [!Condition UseHttps]
+  MultiAzDatabase: !Equals [!Ref DatabaseMultiAz, "true"]
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.42.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-public-a
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: 10.42.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-public-b
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.42.10.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-private-a
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: 10.42.11.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-private-b
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-public
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetARoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetBRoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  NatEip:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-nat
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-private
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetARoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetBRoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Interface endpoints for image pulls, logs, and secrets.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.42.0.0/16
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-endpoints
+
+  EcrApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  EcrDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  LogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  SecretsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  FlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /vpc/cloudsneeker/flow
+      RetentionInDays: 14
+
+  FlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudsneeker-flow-logs
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: write-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !Sub ${FlowLogGroup.Arn}:*
+
+  FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceType: VPC
+      ResourceId: !Ref Vpc
+      TrafficType: ALL
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref FlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt FlowLogRole.Arn
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public load balancer.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-alb
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: API, web, workers, and MCP tasks.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-app
+
+  AppToApiRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  AppToMcpRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8000
+      ToPort: 8000
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  Neo4jSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Graph database tasks.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 7687
+          ToPort: 7687
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 7474
+          ToPort: 7474
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-neo4j
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-db
+
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Valkey.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-cache
+
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Shared file system.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref Neo4jSecurityGroup
+      Tags:
+        - Key: Name
+          Value: cloudsneeker-efs
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for PostgreSQL.
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  DatabaseParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Require encrypted database connections.
+      Family: postgres16
+      Parameters:
+        rds.force_ssl: "1"
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: cloudsneeker
+      Engine: postgres
+      EngineVersion: "16.15"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: !If [MultiAzDatabase, true, false]
+      PubliclyAccessible: false
+      DBName: cloudsneeker_db
+      MasterUsername: cloudsneeker_admin
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBParameterGroupName: !Ref DatabaseParameterGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: "03:00-04:00"
+      PreferredMaintenanceWindow: "sun:04:30-sun:05:30"
+      CopyTagsToSnapshot: true
+      DeletionProtection: false
+      EnablePerformanceInsights: true
+      PerformanceInsightsRetentionPeriod: 7
+      AutoMinorVersionUpgrade: true
+      EnableCloudwatchLogsExports:
+        - postgresql
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Private subnets for Valkey.
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  Cache:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupId: cloudsneeker
+      ReplicationGroupDescription: Encrypted Valkey for the broker and event stream.
+      Engine: valkey
+      EngineVersion: "8.2"
+      CacheNodeType: cache.t4g.micro
+      NumCacheClusters: 2
+      AutomaticFailoverEnabled: true
+      MultiAZEnabled: true
+      AtRestEncryptionEnabled: true
+      TransitEncryptionEnabled: true
+      AuthToken: !Sub "{{resolve:secretsmanager:${AppSecretArn}:SecretString:valkeyAuthToken}}"
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      SecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      Port: 6379
+      SnapshotRetentionLimit: 1
+      SnapshotWindow: "03:00-04:00"
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: Name
+          Value: cloudsneeker
+
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: elastic
+      BackupPolicy:
+        Status: ENABLED
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_30_DAYS
+      FileSystemTags:
+        - Key: Name
+          Value: cloudsneeker
+
+  OutputAccessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref FileSystem
+      PosixUser:
+        Uid: "1000"
+        Gid: "1000"
+      RootDirectory:
+        Path: /output
+        CreationInfo:
+          OwnerUid: "1000"
+          OwnerGid: "1000"
+          Permissions: "750"
+
+  Neo4jAccessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref FileSystem
+      PosixUser:
+        Uid: "7474"
+        Gid: "7474"
+      RootDirectory:
+        Path: /neo4j
+        CreationInfo:
+          OwnerUid: "7474"
+          OwnerGid: "7474"
+          Permissions: "750"
+
+  OutputMountA:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Ref PrivateSubnetA
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+  OutputMountB:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Ref PrivateSubnetB
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudsneeker-task-execution
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: read-secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref AppSecretArn
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudsneeker-task
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: shared-files
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticfilesystem:ClientMount
+                  - elasticfilesystem:ClientWrite
+                  - elasticfilesystem:ClientRootAccess
+                Resource: !GetAtt FileSystem.Arn
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: cloudsneeker
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+
+  Namespace:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: cloudsneeker.local
+      Vpc: !Ref Vpc
+      Description: Private names for the application tasks.
+
+  ApiDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: api
+      NamespaceId: !Ref Namespace
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - Type: A
+            TTL: 10
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  McpDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: mcp
+      NamespaceId: !Ref Namespace
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - Type: A
+            TTL: 10
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  Neo4jDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: neo4j
+      NamespaceId: !Ref Namespace
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - Type: A
+            TTL: 10
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub cloudsneeker-alb-logs-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire
+            Status: Enabled
+            ExpirationInDays: 90
+
+  AccessLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AccessLogsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DeliveryAcl
+            Effect: Allow
+            Principal:
+              Service: logdelivery.elasticloadbalancing.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt AccessLogsBucket.Arn
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+          - Sid: DeliveryWrite
+            Effect: Allow
+            Principal:
+              Service: logdelivery.elasticloadbalancing.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub ${AccessLogsBucket.Arn}/AWSLogs/${AWS::AccountId}/*
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+                s3:x-amz-acl: bucket-owner-full-control
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: AccessLogsBucketPolicy
+    Properties:
+      Name: cloudsneeker
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: "300"
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: "true"
+        - Key: access_logs.s3.enabled
+          Value: "true"
+        - Key: access_logs.s3.bucket
+          Value: !Ref AccessLogsBucket
+
+  WebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: cloudsneeker
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: cloudsneeker
+      Rules:
+        - Name: Common
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+              RuleActionOverrides:
+                - Name: SizeRestrictions_BODY
+                  ActionToUse:
+                    Count: {}
+                - Name: NoUserAgent_HEADER
+                  ActionToUse:
+                    Count: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: cloudsneeker-common
+        - Name: KnownBadInputs
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: cloudsneeker-bad-inputs
+
+  WebAclAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref LoadBalancer
+      WebACLArn: !GetAtt WebAcl.Arn
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: cloudsneeker-api
+      VpcId: !Ref Vpc
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckPath: /health/ready
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "60"
+
+  UiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: cloudsneeker-ui
+      VpcId: !Ref Vpc
+      Port: 3000
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "30"
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - !If
+          - UseHttps
+          - Type: redirect
+            RedirectConfig:
+              Protocol: HTTPS
+              Port: "443"
+              StatusCode: HTTP_301
+          - Type: forward
+            TargetGroupArn: !Ref UiTargetGroup
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: UseHttps
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref UiTargetGroup
+
+  ApiHttpRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseHttpRules
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/v1/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  HealthHttpRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseHttpRules
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 20
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /health/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  ApiHttpsRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseHttps
+    Properties:
+      ListenerArn: !Ref HttpsListener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/v1/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  HealthHttpsRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseHttps
+    Properties:
+      ListenerArn: !Ref HttpsListener
+      Priority: 20
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /health/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/cloudsneeker/api
+      RetentionInDays: 30
+
+  UiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/cloudsneeker/ui
+      RetentionInDays: 30
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/cloudsneeker/worker
+      RetentionInDays: 30
+
+  BeatLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/cloudsneeker/beat
+      RetentionInDays: 30
+
+  McpLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/cloudsneeker/mcp
+      RetentionInDays: 30
+
+  Neo4jLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/cloudsneeker/neo4j
+      RetentionInDays: 30
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: HasImage
+    Properties:
+      Family: cloudsneeker-api
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "1024"
+      Memory: "2048"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Volumes:
+        - Name: output
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystem
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref OutputAccessPoint
+              IAM: ENABLED
+      ContainerDefinitions:
+        - Name: api
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/api:${ImageTag}
+          Essential: true
+          LinuxParameters:
+            InitProcessEnabled: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          MountPoints:
+            - SourceVolume: output
+              ContainerPath: /tmp/prowler_api_output
+              ReadOnly: false
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -q -O /dev/null http://127.0.0.1:8080/health/live || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 300
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApiLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+          Environment:
+            - Name: DJANGO_SETTINGS_MODULE
+              Value: config.django.production
+            - Name: DJANGO_BIND_ADDRESS
+              Value: "0.0.0.0"
+            - Name: DJANGO_PORT
+              Value: "8080"
+            - Name: DJANGO_WORKERS
+              Value: "2"
+            - Name: DJANGO_DEBUG
+              Value: "False"
+            - Name: DJANGO_LOGGING_LEVEL
+              Value: INFO
+            - Name: DJANGO_LOGGING_FORMATTER
+              Value: ndjson
+            - Name: DJANGO_ALLOWED_HOSTS
+              Value: !If
+                - UseHttps
+                - !Sub "${DomainName},${LoadBalancer.DNSName},api.cloudsneeker.local,localhost,127.0.0.1"
+                - !Sub "${LoadBalancer.DNSName},api.cloudsneeker.local,localhost,127.0.0.1"
+            - Name: DJANGO_CORS_ALLOWED_ORIGINS
+              Value: !If
+                - UseHttps
+                - !Sub "https://${DomainName}"
+                - !Sub "http://${LoadBalancer.DNSName}"
+            - Name: DJANGO_ACCESS_TOKEN_LIFETIME
+              Value: "30"
+            - Name: DJANGO_REFRESH_TOKEN_LIFETIME
+              Value: "1440"
+            - Name: DJANGO_MANAGE_DB_PARTITIONS
+              Value: "True"
+            - Name: DJANGO_JWT_ISSUER
+              Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
+            - Name: DJANGO_JWT_AUDIENCE
+              Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
+            - Name: DJANGO_UI_BASE_URL
+              Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
+            - Name: DJANGO_TMP_OUTPUT_DIRECTORY
+              Value: /tmp/prowler_api_output
+            - Name: POSTGRES_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: POSTGRES_PORT
+              Value: !Sub "${Database.Endpoint.Port}"
+            - Name: POSTGRES_DB
+              Value: cloudsneeker_db
+            - Name: POSTGRES_USER
+              Value: cloudsneeker
+            - Name: POSTGRES_ADMIN_USER
+              Value: cloudsneeker_admin
+            - Name: VALKEY_SCHEME
+              Value: rediss
+            - Name: VALKEY_HOST
+              Value: !GetAtt Cache.PrimaryEndPoint.Address
+            - Name: VALKEY_PORT
+              Value: !Sub "${Cache.PrimaryEndPoint.Port}"
+            - Name: VALKEY_DB
+              Value: "0"
+            - Name: VALKEY_USERNAME
+              Value: default
+            - Name: NEO4J_HOST
+              Value: neo4j.cloudsneeker.local
+            - Name: NEO4J_PORT
+              Value: "7687"
+            - Name: NEO4J_USER
+              Value: neo4j
+            - Name: CLOUDSNEEKER_DOCS_URL
+              Value: https://docs.cloudsneeker.example
+            - Name: CLOUDSNEEKER_SUPPORT_URL
+              Value: https://support.cloudsneeker.example
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+          Secrets:
+            - Name: POSTGRES_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:postgresPassword::"
+            - Name: POSTGRES_ADMIN_PASSWORD
+              ValueFrom: !Sub
+                - "${SecretArn}:password::"
+                - SecretArn: !GetAtt Database.MasterUserSecret.SecretArn
+            - Name: VALKEY_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:valkeyAuthToken::"
+            - Name: NEO4J_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:neo4jPassword::"
+            - Name: DJANGO_TOKEN_SIGNING_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoTokenSigningKey::"
+            - Name: DJANGO_TOKEN_VERIFYING_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
+            - Name: DJANGO_SECRETS_ENCRYPTION_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+
+  WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: HasImage
+    Properties:
+      Family: cloudsneeker-worker
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "1024"
+      Memory: "4096"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Volumes:
+        - Name: output
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystem
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref OutputAccessPoint
+              IAM: ENABLED
+      ContainerDefinitions:
+        - Name: worker
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/api:${ImageTag}
+          Essential: true
+          EntryPoint:
+            - /home/prowler/docker-entrypoint.sh
+            - worker
+          StopTimeout: 120
+          LinuxParameters:
+            InitProcessEnabled: true
+          Ulimits:
+            - Name: nofile
+              SoftLimit: 65536
+              HardLimit: 65536
+          MountPoints:
+            - SourceVolume: output
+              ContainerPath: /tmp/prowler_api_output
+              ReadOnly: false
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref WorkerLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: worker
+          Environment:
+            - Name: DJANGO_SETTINGS_MODULE
+              Value: config.django.production
+            - Name: DJANGO_LOGGING_LEVEL
+              Value: INFO
+            - Name: DJANGO_LOGGING_FORMATTER
+              Value: ndjson
+            - Name: DJANGO_TMP_OUTPUT_DIRECTORY
+              Value: /tmp/prowler_api_output
+            - Name: POSTGRES_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: POSTGRES_PORT
+              Value: !Sub "${Database.Endpoint.Port}"
+            - Name: POSTGRES_DB
+              Value: cloudsneeker_db
+            - Name: POSTGRES_USER
+              Value: cloudsneeker
+            - Name: POSTGRES_ADMIN_USER
+              Value: cloudsneeker_admin
+            - Name: VALKEY_SCHEME
+              Value: rediss
+            - Name: VALKEY_HOST
+              Value: !GetAtt Cache.PrimaryEndPoint.Address
+            - Name: VALKEY_PORT
+              Value: !Sub "${Cache.PrimaryEndPoint.Port}"
+            - Name: VALKEY_DB
+              Value: "0"
+            - Name: VALKEY_USERNAME
+              Value: default
+            - Name: NEO4J_HOST
+              Value: neo4j.cloudsneeker.local
+            - Name: NEO4J_PORT
+              Value: "7687"
+            - Name: NEO4J_USER
+              Value: neo4j
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+          Secrets:
+            - Name: POSTGRES_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:postgresPassword::"
+            - Name: POSTGRES_ADMIN_PASSWORD
+              ValueFrom: !Sub
+                - "${SecretArn}:password::"
+                - SecretArn: !GetAtt Database.MasterUserSecret.SecretArn
+            - Name: VALKEY_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:valkeyAuthToken::"
+            - Name: NEO4J_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:neo4jPassword::"
+            - Name: DJANGO_TOKEN_SIGNING_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoTokenSigningKey::"
+            - Name: DJANGO_TOKEN_VERIFYING_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
+            - Name: DJANGO_SECRETS_ENCRYPTION_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+
+  BeatTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: HasImage
+    Properties:
+      Family: cloudsneeker-beat
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: beat
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/api:${ImageTag}
+          Essential: true
+          EntryPoint:
+            - /home/prowler/docker-entrypoint.sh
+            - beat
+          LinuxParameters:
+            InitProcessEnabled: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref BeatLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: beat
+          Environment:
+            - Name: DJANGO_SETTINGS_MODULE
+              Value: config.django.production
+            - Name: DJANGO_LOGGING_LEVEL
+              Value: INFO
+            - Name: DJANGO_LOGGING_FORMATTER
+              Value: ndjson
+            - Name: POSTGRES_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: POSTGRES_PORT
+              Value: !Sub "${Database.Endpoint.Port}"
+            - Name: POSTGRES_DB
+              Value: cloudsneeker_db
+            - Name: POSTGRES_USER
+              Value: cloudsneeker
+            - Name: POSTGRES_ADMIN_USER
+              Value: cloudsneeker_admin
+            - Name: VALKEY_SCHEME
+              Value: rediss
+            - Name: VALKEY_HOST
+              Value: !GetAtt Cache.PrimaryEndPoint.Address
+            - Name: VALKEY_PORT
+              Value: !Sub "${Cache.PrimaryEndPoint.Port}"
+            - Name: VALKEY_DB
+              Value: "0"
+            - Name: VALKEY_USERNAME
+              Value: default
+            - Name: NEO4J_HOST
+              Value: neo4j.cloudsneeker.local
+            - Name: NEO4J_PORT
+              Value: "7687"
+            - Name: NEO4J_USER
+              Value: neo4j
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+          Secrets:
+            - Name: POSTGRES_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:postgresPassword::"
+            - Name: POSTGRES_ADMIN_PASSWORD
+              ValueFrom: !Sub
+                - "${SecretArn}:password::"
+                - SecretArn: !GetAtt Database.MasterUserSecret.SecretArn
+            - Name: VALKEY_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:valkeyAuthToken::"
+            - Name: NEO4J_PASSWORD
+              ValueFrom: !Sub "${AppSecretArn}:neo4jPassword::"
+            - Name: DJANGO_TOKEN_SIGNING_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoTokenSigningKey::"
+            - Name: DJANGO_TOKEN_VERIFYING_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
+            - Name: DJANGO_SECRETS_ENCRYPTION_KEY
+              ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+
+  UiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: HasImage
+    Properties:
+      Family: cloudsneeker-ui
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "512"
+      Memory: "1024"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: ui
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/ui:${ImageTag}
+          Essential: true
+          LinuxParameters:
+            InitProcessEnabled: true
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref UiLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ui
+          Environment:
+            - Name: PORT
+              Value: "3000"
+            - Name: HOSTNAME
+              Value: "0.0.0.0"
+            - Name: AUTH_URL
+              Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
+            - Name: AUTH_TRUST_HOST
+              Value: "true"
+            - Name: UI_API_BASE_URL
+              Value: http://api.cloudsneeker.local:8080/api/v1
+            - Name: UI_API_DOCS_URL
+              Value: !If [UseHttps, !Sub "https://${DomainName}/api/v1/docs", !Sub "http://${LoadBalancer.DNSName}/api/v1/docs"]
+            - Name: UI_CLOUD_ENABLED
+              Value: "false"
+            - Name: PROWLER_MCP_SERVER_URL
+              Value: http://mcp.cloudsneeker.local:8000/mcp
+            - Name: NEXT_PUBLIC_PROWLER_RELEASE_VERSION
+              Value: !Ref ImageTag
+          Secrets:
+            - Name: AUTH_SECRET
+              ValueFrom: !Sub "${AppSecretArn}:authSecret::"
+
+  McpTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: HasImage
+    Properties:
+      Family: cloudsneeker-mcp
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: mcp
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/mcp:${ImageTag}
+          Essential: true
+          EntryPoint:
+            - /app/entrypoint.sh
+            - uvicorn
+          Command:
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+          LinuxParameters:
+            InitProcessEnabled: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -q -O /dev/null http://127.0.0.1:8000/health || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 40
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref McpLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: mcp
+          Environment:
+            - Name: PROWLER_MCP_TRANSPORT_MODE
+              Value: http
+            - Name: API_BASE_URL
+              Value: http://api.cloudsneeker.local:8080/api/v1
+
+  Neo4jTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: HasImage
+    Properties:
+      Family: cloudsneeker-neo4j
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "1024"
+      Memory: "4096"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Volumes:
+        - Name: data
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystem
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref Neo4jAccessPoint
+              IAM: ENABLED
+      ContainerDefinitions:
+        - Name: neo4j
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/neo4j:${ImageTag}
+          Essential: true
+          LinuxParameters:
+            InitProcessEnabled: true
+          PortMappings:
+            - ContainerPort: 7687
+              Protocol: tcp
+            - ContainerPort: 7474
+              Protocol: tcp
+          MountPoints:
+            - SourceVolume: data
+              ContainerPath: /data
+              ReadOnly: false
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -q -O /dev/null http://127.0.0.1:7474 || exit 1
+            Interval: 30
+            Timeout: 10
+            Retries: 5
+            StartPeriod: 180
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref Neo4jLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: neo4j
+          Environment:
+            - Name: NEO4J_dbms_max__databases
+              Value: "1000"
+            - Name: NEO4J_server_memory_pagecache_size
+              Value: 512M
+            - Name: NEO4J_server_memory_heap_initial__size
+              Value: 512M
+            - Name: NEO4J_server_memory_heap_max__size
+              Value: 1G
+            - Name: NEO4J_PLUGINS
+              Value: '["apoc"]'
+            - Name: NEO4J_dbms_security_procedures_allowlist
+              Value: apoc.*
+            - Name: NEO4J_apoc_export_file_enabled
+              Value: "false"
+            - Name: NEO4J_apoc_import_file_enabled
+              Value: "false"
+            - Name: NEO4J_apoc_import_file_use__neo4j__config
+              Value: "true"
+            - Name: NEO4J_apoc_trigger_enabled
+              Value: "false"
+            - Name: NEO4J_dbms_connector_bolt_listen__address
+              Value: 0.0.0.0:7687
+          Secrets:
+            - Name: NEO4J_AUTH
+              ValueFrom: !Sub "${AppSecretArn}:neo4jAuth::"
+
+  ApiService:
+    Type: AWS::ECS::Service
+    Condition: HasImage
+    DependsOn:
+      - OutputMountA
+      - OutputMountB
+      - HttpListener
+    Properties:
+      ServiceName: api
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: 2
+      HealthCheckGracePeriodSeconds: 600
+      DeploymentCircuitBreaker:
+        Enable: true
+        Rollback: true
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnetA
+            - !Ref PrivateSubnetB
+          SecurityGroups:
+            - !Ref AppSecurityGroup
+      LoadBalancers:
+        - TargetGroupArn: !Ref ApiTargetGroup
+          ContainerName: api
+          ContainerPort: 8080
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ApiDiscovery.Arn
+
+  UiService:
+    Type: AWS::ECS::Service
+    Condition: HasImage
+    DependsOn: HttpListener
+    Properties:
+      ServiceName: ui
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref UiTaskDefinition
+      DesiredCount: 2
+      HealthCheckGracePeriodSeconds: 120
+      DeploymentCircuitBreaker:
+        Enable: true
+        Rollback: true
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnetA
+            - !Ref PrivateSubnetB
+          SecurityGroups:
+            - !Ref AppSecurityGroup
+      LoadBalancers:
+        - TargetGroupArn: !Ref UiTargetGroup
+          ContainerName: ui
+          ContainerPort: 3000
+
+  WorkerService:
+    Type: AWS::ECS::Service
+    Condition: HasImage
+    DependsOn:
+      - OutputMountA
+      - OutputMountB
+    Properties:
+      ServiceName: worker
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref WorkerTaskDefinition
+      DesiredCount: 1
+      DeploymentCircuitBreaker:
+        Enable: true
+        Rollback: true
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnetA
+            - !Ref PrivateSubnetB
+          SecurityGroups:
+            - !Ref AppSecurityGroup
+
+  BeatService:
+    Type: AWS::ECS::Service
+    Condition: HasImage
+    Properties:
+      ServiceName: beat
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref BeatTaskDefinition
+      DesiredCount: 1
+      DeploymentCircuitBreaker:
+        Enable: true
+        Rollback: true
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnetA
+            - !Ref PrivateSubnetB
+          SecurityGroups:
+            - !Ref AppSecurityGroup
+
+  McpService:
+    Type: AWS::ECS::Service
+    Condition: HasImage
+    Properties:
+      ServiceName: mcp
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref McpTaskDefinition
+      DesiredCount: 1
+      DeploymentCircuitBreaker:
+        Enable: true
+        Rollback: true
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnetA
+            - !Ref PrivateSubnetB
+          SecurityGroups:
+            - !Ref AppSecurityGroup
+      ServiceRegistries:
+        - RegistryArn: !GetAtt McpDiscovery.Arn
+
+  Neo4jService:
+    Type: AWS::ECS::Service
+    Condition: HasImage
+    DependsOn:
+      - OutputMountA
+      - OutputMountB
+    Properties:
+      ServiceName: neo4j
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref Neo4jTaskDefinition
+      DesiredCount: 1
+      DeploymentCircuitBreaker:
+        Enable: true
+        Rollback: true
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref PrivateSubnetA
+            - !Ref PrivateSubnetB
+          SecurityGroups:
+            - !Ref Neo4jSecurityGroup
+      ServiceRegistries:
+        - RegistryArn: !GetAtt Neo4jDiscovery.Arn
+
+  ApiScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: HasImage
+    Properties:
+      MaxCapacity: 4
+      MinCapacity: 2
+      ResourceId: !Sub service/${Cluster}/api
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    DependsOn: ApiService
+
+  ApiScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: HasImage
+    Properties:
+      PolicyName: cloudsneeker-api-cpu
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ApiScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 60
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+
+  UiScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: HasImage
+    DependsOn: UiService
+    Properties:
+      MaxCapacity: 4
+      MinCapacity: 2
+      ResourceId: !Sub service/${Cluster}/ui
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  UiScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: HasImage
+    Properties:
+      PolicyName: cloudsneeker-ui-cpu
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref UiScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 60
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+
+Outputs:
+  ServiceUrl:
+    Description: Public address of the web application.
+    Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
+  LoadBalancerDns:
+    Value: !GetAtt LoadBalancer.DNSName
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+  CacheEndpoint:
+    Value: !GetAtt Cache.PrimaryEndPoint.Address
+  ClusterName:
+    Value: !Ref Cluster

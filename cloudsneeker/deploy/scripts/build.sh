@@ -15,6 +15,7 @@
 #   REGISTRY   image prefix (default: cloudsneeker)
 #   PUSH       set to 1 to push after a successful audit and build
 #   SKIP_AUDIT set to 1 to skip the brand audit (never in CI)
+#   SKIP_CLI   set to 1 to skip the CLI image (service images still build)
 #   PLATFORMS  passed to --platform (default: current platform)
 set -euo pipefail
 
@@ -48,8 +49,10 @@ if [[ "${SKIP_AUDIT:-0}" != "1" ]]; then
   python3 "$ROOT/cloudsneeker/tools/brand_audit.py" --artifacts "$ARTIFACTS"
 fi
 
-log "Building $REGISTRY/cli:$TAG"
-docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/cli:$TAG" "$TREE"
+if [[ "${SKIP_CLI:-0}" != "1" ]]; then
+  log "Building $REGISTRY/cli:$TAG"
+  docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/cli:$TAG" "$TREE"
+fi
 
 log "Building $REGISTRY/api:$TAG"
 docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/api-base:$TAG" "$TREE/api"
@@ -65,7 +68,11 @@ log "Building $REGISTRY/mcp:$TAG"
 docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/mcp:$TAG" "$TREE/mcp_server"
 
 if [[ "${PUSH:-0}" == "1" ]]; then
-  for image in cli api ui mcp; do
+  images=(api ui mcp)
+  if [[ "${SKIP_CLI:-0}" != "1" ]]; then
+    images=(cli "${images[@]}")
+  fi
+  for image in "${images[@]}"; do
     log "Pushing $REGISTRY/$image:$TAG"
     docker push "$REGISTRY/$image:$TAG"
   done

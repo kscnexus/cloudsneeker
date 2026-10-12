@@ -1,0 +1,33 @@
+version: 0.2
+
+env:
+  variables:
+    DOCKER_BUILDKIT: "1"
+    PUSH: "1"
+    SKIP_CLI: "1"
+    NEO4J_IMAGE: "graphstack/dozerdb:5.26.27.0@sha256:9b54d6b3a98a76c00bd23e8e78d8c82081ff168162aebd47b25c234e092cb0a0"
+
+phases:
+  pre_build:
+    commands:
+      - |
+        set -euo pipefail
+        export TAG="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-12)"
+        export ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+        export REGISTRY="${ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/cloudsneeker"
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "${ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "${HOME}/.local/bin" >> /root/.bashrc || true
+        ln -sf "${HOME}/.local/bin/uv" /usr/local/bin/uv
+  build:
+    commands:
+      - |
+        set -euo pipefail
+        export TAG="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-12)"
+        export ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+        export REGISTRY="${ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/cloudsneeker"
+        bash cloudsneeker/deploy/scripts/build.sh "$TAG"
+        docker pull "$NEO4J_IMAGE"
+        docker tag "$NEO4J_IMAGE" "${REGISTRY}/neo4j:${TAG}"
+        docker push "${REGISTRY}/neo4j:${TAG}"
+        printf '%s\n' "$TAG"
