@@ -87,6 +87,18 @@ while the data stores are created. The script prints the load balancer URL
 when the services are steady. Add a domain later by redeploying with
 `-DomainName` and `-CertificateArn`.
 
+`PlatformMode` is `running` or `parked`. Parking removes the tasks, load
+balancer, NAT gateway, interface endpoints, and Valkey cache, then stops
+PostgreSQL. The database, EFS files, Secrets Manager secret, container
+images, and S3 objects stay. AWS restarts a stopped database after seven
+days; a daily check stops it again while the stack is parked.
+
+```powershell
+pwsh cloudsneeker/deploy/ecs/destroy.ps1
+```
+
+Run `deploy.ps1` again to start the database and bring compute back.
+
 ## Brand configuration
 
 Names, URLs, and identifiers come from the brand modules

@@ -44,7 +44,6 @@ describe("getNavigationConfig", () => {
       null,
       "SECURITY",
       "SETTINGS",
-      "HELP",
     ]);
     expect(sections[0]?.items.map((item) => item.label)).toEqual([
       "Overview",
@@ -61,13 +60,7 @@ describe("getNavigationConfig", () => {
       "Configuration",
       "Organization",
     ]);
-    expect(sections[3]?.items.map((item) => item.label)).toEqual([
-      "Documentation",
-      "API Reference",
-      "Support",
-      "Check Catalog",
-      "About Cloudsneeker", // cloudsneeker-hook
-    ]);
+    expect(sections.some((section) => section.label === "HELP")).toBe(false);
   });
 
   it("models Local Server Cloud features as contextual upgrade actions", () => {
@@ -139,13 +132,7 @@ describe("getNavigationConfig", () => {
     expect(items.find((item) => item.label === "Attack Paths")).not.toEqual(
       expect.objectContaining({ highlight: true }),
     );
-    expect(sections[3]?.items.map((item) => item.label)).toEqual([
-      "Documentation",
-      "API Reference",
-      "Support",
-      "Check Catalog",
-      "About Cloudsneeker", // cloudsneeker-hook
-    ]);
+    expect(sections.some((section) => section.label === "HELP")).toBe(false);
   });
 
   it("keeps the Cloud Billing destination for users with billing permission", () => {
@@ -211,33 +198,32 @@ describe("getNavigationConfig", () => {
     expect(localItems.find((item) => item.label === "Billing")).toBeUndefined();
   });
 
-  it("keeps environment-specific API documentation destinations", () => {
+  it("omits help destinations in local and cloud navigation", () => {
     // Given
     vi.stubEnv("UI_CLOUD_ENABLED", "false");
+    const helpLabels = [
+      "Documentation",
+      "API Reference",
+      "Support",
+      "Check Catalog",
+    ];
 
     // When
-    const localApiReference = getNavigationConfig({
+    const localItems = getNavigationConfig({
       pathname: "/",
       apiDocsUrl: "https://local.example/api/v1/docs",
-    })
-      .flatMap((section) => section.items)
-      .find((item) => item.label === "API Reference");
-
+    }).flatMap((section) => section.items);
     vi.stubEnv("UI_CLOUD_ENABLED", "true");
-    const cloudApiReference = getNavigationConfig({
+    const cloudItems = getNavigationConfig({
       pathname: "/",
       apiDocsUrl: "https://ignored.example/docs",
-    })
-      .flatMap((section) => section.items)
-      .find((item) => item.label === "API Reference");
+    }).flatMap((section) => section.items);
 
     // Then
-    expect(localApiReference).toEqual(
-      expect.objectContaining({ href: "https://local.example/api/v1/docs" }),
-    );
-    expect(cloudApiReference).toEqual(
-      expect.objectContaining({ href: "https://ignored.example/docs" }),
-    );
+    for (const label of helpLabels) {
+      expect(localItems.find((item) => item.label === label)).toBeUndefined();
+      expect(cloudItems.find((item) => item.label === label)).toBeUndefined();
+    }
   });
 
   it("omits the Local Server API reference when no URL is configured", () => {

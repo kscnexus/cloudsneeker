@@ -119,6 +119,37 @@ Write-Host "==> Starting image build $ImageTag"
 $buildJson = Invoke-Aws @("codebuild", "start-build", "--project-name", "cloudsneeker-images", "--source-version", $sha)
 $buildId = ($buildJson | ConvertFrom-Json).build.id
 
+function Start-RetainedDatabase {
+    Write-Host "==> Database"
+    $status = ""
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $status = (& aws --profile $Profile --region $Region --output text rds describe-db-instances --db-instance-identifier cloudsneeker --query "DBInstances[0].DBInstanceStatus" 2>$null | Out-String).Trim()
+    $describeExit = $LASTEXITCODE
+    $ErrorActionPreference = $previous
+    if ($describeExit -ne 0 -or -not $status -or $status -eq "None") {
+        Write-Host "Database is not created yet"
+        return
+    }
+    Write-Host "Database status: $status"
+    if ($status -eq "stopped") {
+        Invoke-Aws @("rds", "start-db-instance", "--db-instance-identifier", "cloudsneeker") | Out-Null
+    }
+    if ($status -ne "available") {
+        Invoke-Aws @("rds", "wait", "db-instance-available", "--db-instance-identifier", "cloudsneeker") | Out-Null
+    }
+}
+
+Start-RetainedDatabase
+
+$existingTag = ""
+try {
+    $existingTag = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker", "--query", "Stacks[0].Parameters[?ParameterKey=='ImageTag'].ParameterValue | [0]")
+} catch {
+    $existingTag = ""
+}
+if ($existingTag -eq "None") { $existingTag = "" }
+
 Write-Host "==> Platform (data stores and network)"
 Invoke-Aws @(
     "cloudformation", "deploy",
@@ -128,7 +159,7 @@ Invoke-Aws @(
     "--s3-prefix", "ecs",
     "--capabilities", "CAPABILITY_NAMED_IAM",
     "--no-fail-on-empty-changeset",
-    "--parameter-overrides", "ImageTag=", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
+    "--parameter-overrides", "PlatformMode=running", "ImageTag=$existingTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
 ) | Out-Host
 
 Write-Host "==> Waiting for image build"
@@ -151,7 +182,7 @@ Invoke-Aws @(
     "--s3-prefix", "ecs",
     "--capabilities", "CAPABILITY_NAMED_IAM",
     "--no-fail-on-empty-changeset",
-    "--parameter-overrides", "ImageTag=$ImageTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
+    "--parameter-overrides", "PlatformMode=running", "ImageTag=$ImageTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
 ) | Out-Host
 
 $url = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker", "--query", "Stacks[0].Outputs[?OutputKey=='ServiceUrl'].OutputValue | [0]")

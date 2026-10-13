@@ -66,7 +66,7 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `components/icons/prowler/ProwlerIcons.tsx` | `ProwlerExtended`/`ProwlerShort` render the artwork from `ui/cloudsneeker/brand-logo.tsx` | Keep the component names; they are imported across the app. |
 | `components/auth/oss/auth-layout.tsx` | re-exports the responsive split-screen experience from `ui/cloudsneeker/auth-layout.tsx` | Form children and submission behavior remain inherited. |
 | `components/compliance/threatscore-logo.tsx` | re-exports product artwork from `ui/cloudsneeker/threatscore-logo.tsx` | Prevents inherited vendor artwork from appearing on the overview. |
-| `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | New sidebar entries go in `ui/cloudsneeker/navigation.ts`. |
+| `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | `withCloudsneekerNavigation` drops the HELP section. New sidebar entries go in `ui/cloudsneeker/navigation.ts`. |
 | `components/layout/app-sidebar/app-sidebar-content.tsx` | `aria-label={`${BRAND.name} home`}`; upsell block gated by `BRAND.showUpsell` | — |
 | `components/layout/app-sidebar/sidebar-footer.tsx` | footer links read `BRAND` | — |
 | `components/auth/oss/sign-up-form.tsx` | terms link `href={BRAND.termsUrl}` | — |
@@ -84,7 +84,7 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `store/cloud-upgrade/store.ts` | upsell modal opens only when `BRAND.showUpsell` | — |
 | `types/findings-triage.ts` | `FINDING_TRIAGE_BILLING_HREF = BRAND.pricingUrl` | — |
 
-Test-side hooks (UI): `vitest.setup.ts` mocks `@/cloudsneeker/brand` with `showUpsell: true` so upstream upsell suites run unchanged; about twenty `*.test.ts(x)` files read `BRAND` instead of a literal (`navigation-config.test.ts` also expects the `About Cloudsneeker` entry). Two browser suites, `providers-page.integration.test.tsx` and `slack-page.integration.test.tsx`, compare documentation links against `DOCS_URLS` instead of upstream slugs. Run `rg -n "cloudsneeker-hook" ui --glob "*.test.*"` for the list.
+Test-side hooks (UI): `vitest.setup.ts` mocks `@/cloudsneeker/brand` with `showUpsell: true` so upstream upsell suites run unchanged; about twenty `*.test.ts(x)` files read `BRAND` instead of a literal (`navigation-config.test.ts` expects the HELP section to be absent). Two browser suites, `providers-page.integration.test.tsx` and `slack-page.integration.test.tsx`, compare documentation links against `DOCS_URLS` instead of upstream slugs. Run `rg -n "cloudsneeker-hook" ui --glob "*.test.*"` for the list.
 
 In-app documentation paths (`user-guide/providers/aws`, `user-guide/tutorials/app-slack-integration`, ...) are kept as upstream wrote them; `cloudsneeker/docs/docs.json` `redirects` map every one of them to a product page. `tests/cloudsneeker/docs_links_test.py` fails when the UI links to a path the site does not serve.
 

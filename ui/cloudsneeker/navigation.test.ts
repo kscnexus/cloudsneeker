@@ -6,11 +6,7 @@ import {
   type NavigationSection,
 } from "@/components/layout/app-sidebar/types";
 
-import {
-  CLOUDSNEEKER_ROUTE,
-  getCloudsneekerNavigationItems,
-  withCloudsneekerNavigation,
-} from "./navigation";
+import { withCloudsneekerNavigation } from "./navigation";
 
 const upstreamSections = (): NavigationSection[] => [
   {
@@ -37,75 +33,25 @@ const upstreamSections = (): NavigationSection[] => [
   },
 ];
 
-describe("getCloudsneekerNavigationItems", () => {
-  it("links to the About page and marks it active on its route", () => {
-    // When
-    const items = getCloudsneekerNavigationItems(CLOUDSNEEKER_ROUTE.ABOUT);
-
-    // Then
-    expect(items).toHaveLength(1);
-    expect(items[0]).toEqual(
-      expect.objectContaining({
-        kind: NAVIGATION_ITEM_KIND.LINK,
-        href: CLOUDSNEEKER_ROUTE.ABOUT,
-        label: "About Cloudsneeker",
-        active: true,
-      }),
-    );
-  });
-
-  it("is inactive on other routes", () => {
-    expect(getCloudsneekerNavigationItems("/findings")[0]).toEqual(
-      expect.objectContaining({ active: false }),
-    );
-  });
-
-  it("never mentions the upstream product", () => {
-    const labels = getCloudsneekerNavigationItems("/").map(
-      (item) => item.label,
-    );
-    expect(labels.join(" ")).not.toMatch(/prowler/i);
-  });
-});
-
 describe("withCloudsneekerNavigation", () => {
-  it("appends the items to the HELP section and keeps the other sections intact", () => {
-    // Given
+  it("removes the HELP section and keeps the other sections", () => {
     const sections = upstreamSections();
 
-    // When
     const result = withCloudsneekerNavigation(sections, "/");
 
-    // Then
-    expect(result.map((section) => section.label ?? null)).toEqual([
-      null,
-      "HELP",
-    ]);
+    expect(result.map((section) => section.label ?? null)).toEqual([null]);
     expect(result[0]).toBe(sections[0]);
-    expect(result[1]?.items.map((item) => item.label)).toEqual([
-      "Documentation",
-      "About Cloudsneeker",
-    ]);
   });
 
-  it("adds a HELP section when upstream does not have one", () => {
-    // Given
+  it("leaves navigation unchanged when there is no HELP section", () => {
     const [overview] = upstreamSections();
 
-    // When
     const result = withCloudsneekerNavigation(
       [overview as NavigationSection],
       "/",
     );
 
-    // Then
-    expect(result.map((section) => section.label ?? null)).toEqual([
-      null,
-      "HELP",
-    ]);
-    expect(result[1]?.items.map((item) => item.label)).toEqual([
-      "About Cloudsneeker",
-    ]);
+    expect(result).toEqual([overview]);
   });
 
   it("does not mutate the upstream sections", () => {
@@ -114,6 +60,7 @@ describe("withCloudsneekerNavigation", () => {
 
     withCloudsneekerNavigation(sections, "/");
 
+    expect(sections).toHaveLength(2);
     expect(sections[1]?.items).toHaveLength(helpItemCount ?? -1);
   });
 });

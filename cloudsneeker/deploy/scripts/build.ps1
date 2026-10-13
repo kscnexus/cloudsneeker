@@ -15,7 +15,8 @@ param(
     [string]$Tag,
     [string]$Registry = "cloudsneeker",
     [switch]$Push,
-    [switch]$SkipAudit
+    [switch]$SkipAudit,
+    [switch]$SkipCli
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,8 +62,10 @@ if (-not $SkipAudit) {
     }
 }
 
-Invoke-Step "Building $Registry/cli:$Tag" {
-    docker build -t "$Registry/cli:$Tag" $Tree
+if (-not $SkipCli) {
+    Invoke-Step "Building $Registry/cli:$Tag" {
+        docker build -t "$Registry/cli:$Tag" $Tree
+    }
 }
 Invoke-Step "Building $Registry/api:$Tag" {
     docker build -t "$Registry/api-base:$Tag" (Join-Path $Tree "api")
@@ -79,7 +82,9 @@ Invoke-Step "Building $Registry/mcp:$Tag" {
 }
 
 if ($Push) {
-    foreach ($image in @("cli", "api", "ui", "mcp")) {
+    $images = @("api", "ui", "mcp")
+    if (-not $SkipCli) { $images = @("cli") + $images }
+    foreach ($image in $images) {
         Invoke-Step "Pushing $Registry/${image}:$Tag" { docker push "$Registry/${image}:$Tag" }
     }
 }

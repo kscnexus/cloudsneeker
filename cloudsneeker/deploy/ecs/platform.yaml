@@ -25,15 +25,33 @@ Parameters:
     AllowedPattern: "^$|^arn:aws[a-zA-Z-]*:acm:[a-z0-9-]+:[0-9]{12}:certificate/.+$"
   DatabaseMultiAz:
     Type: String
-    Default: "true"
+    Default: "false"
     AllowedValues: ["true", "false"]
+  PlatformMode:
+    Type: String
+    Default: "running"
+    AllowedValues: ["running", "parked"]
+    Description: >
+      running starts compute. parked removes tasks, the load balancer, NAT,
+      interface endpoints, and the cache, and marks the database to stay
+      stopped. The database, file storage, secrets, and images are kept.
 
 Conditions:
   HasImage: !Not [!Equals [!Ref ImageTag, ""]]
+  RunCompute: !Equals [!Ref PlatformMode, "running"]
+  RunTasks: !And
+    - !Condition HasImage
+    - !Condition RunCompute
   UseHttps: !And
     - !Not [!Equals [!Ref DomainName, ""]]
     - !Not [!Equals [!Ref CertificateArn, ""]]
   UseHttpRules: !Not [!Condition UseHttps]
+  UseHttpsCompute: !And
+    - !Condition UseHttps
+    - !Condition RunCompute
+  UseHttpRulesCompute: !And
+    - !Condition UseHttpRules
+    - !Condition RunCompute
   MultiAzDatabase: !Equals [!Ref DatabaseMultiAz, "true"]
 
 Resources:
@@ -134,6 +152,7 @@ Resources:
 
   NatEip:
     Type: AWS::EC2::EIP
+    Condition: RunCompute
     DependsOn: GatewayAttachment
     Properties:
       Domain: vpc
@@ -143,6 +162,7 @@ Resources:
 
   NatGateway:
     Type: AWS::EC2::NatGateway
+    Condition: RunCompute
     Properties:
       AllocationId: !GetAtt NatEip.AllocationId
       SubnetId: !Ref PublicSubnetA
@@ -160,6 +180,7 @@ Resources:
 
   PrivateRoute:
     Type: AWS::EC2::Route
+    Condition: RunCompute
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
@@ -202,6 +223,7 @@ Resources:
 
   EcrApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: RunCompute
     Properties:
       VpcId: !Ref Vpc
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
@@ -215,6 +237,7 @@ Resources:
 
   EcrDkrEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: RunCompute
     Properties:
       VpcId: !Ref Vpc
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
@@ -228,6 +251,7 @@ Resources:
 
   LogsEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: RunCompute
     Properties:
       VpcId: !Ref Vpc
       ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
@@ -241,6 +265,7 @@ Resources:
 
   SecretsEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: RunCompute
     Properties:
       VpcId: !Ref Vpc
       ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
@@ -439,8 +464,8 @@ Resources:
 
   Database:
     Type: AWS::RDS::DBInstance
-    DeletionPolicy: Snapshot
-    UpdateReplacePolicy: Snapshot
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       DBInstanceIdentifier: cloudsneeker
       Engine: postgres
@@ -459,19 +484,85 @@ Resources:
       VPCSecurityGroups:
         - !Ref DatabaseSecurityGroup
       DBParameterGroupName: !Ref DatabaseParameterGroup
-      BackupRetentionPeriod: 7
+      BackupRetentionPeriod: 1
       PreferredBackupWindow: "03:00-04:00"
       PreferredMaintenanceWindow: "sun:04:30-sun:05:30"
       CopyTagsToSnapshot: true
-      DeletionProtection: false
-      EnablePerformanceInsights: true
-      PerformanceInsightsRetentionPeriod: 7
+      DeletionProtection: true
       AutoMinorVersionUpgrade: true
       EnableCloudwatchLogsExports:
         - postgresql
       Tags:
         - Key: Name
           Value: cloudsneeker
+        - Key: cloudsneeker:parked
+          Value: !If [RunCompute, "false", "true"]
+
+  DatabaseParkRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudsneeker-database-park
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: stop-parked-database
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: rds:DescribeDBInstances
+                Resource: "*"
+              - Effect: Allow
+                Action: rds:StopDBInstance
+                Resource: !Sub arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:db:cloudsneeker
+
+  DatabaseParkFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: cloudsneeker-database-park
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt DatabaseParkRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import boto3
+
+          def handler(event, context):
+              rds = boto3.client("rds")
+              database = rds.describe_db_instances(DBInstanceIdentifier="cloudsneeker")["DBInstances"][0]
+              tags = {item["Key"]: item["Value"] for item in database.get("TagList", [])}
+              status = database["DBInstanceStatus"]
+              if tags.get("cloudsneeker:parked") != "true" or status != "available":
+                  return {"action": "leave", "status": status}
+              rds.stop_db_instance(DBInstanceIdentifier="cloudsneeker")
+              return {"action": "stop"}
+
+  DatabaseParkSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: cloudsneeker-park-database
+      Description: Stop the database again after AWS restarts a stopped instance.
+      ScheduleExpression: rate(1 day)
+      State: ENABLED
+      Targets:
+        - Id: park
+          Arn: !GetAtt DatabaseParkFunction.Arn
+
+  DatabaseParkPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DatabaseParkFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DatabaseParkSchedule.Arn
 
   CacheSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
@@ -486,15 +577,16 @@ Resources:
 
   Cache:
     Type: AWS::ElastiCache::ReplicationGroup
+    Condition: RunCompute
     Properties:
-      ReplicationGroupId: cloudsneeker
+      ReplicationGroupId: cloudsneeker-valkey
       ReplicationGroupDescription: Encrypted Valkey for the broker and event stream.
       Engine: valkey
       EngineVersion: "8.2"
       CacheNodeType: cache.t4g.micro
-      NumCacheClusters: 2
-      AutomaticFailoverEnabled: true
-      MultiAZEnabled: true
+      NumCacheClusters: 1
+      AutomaticFailoverEnabled: false
+      MultiAZEnabled: false
       AtRestEncryptionEnabled: true
       TransitEncryptionEnabled: true
       AuthToken: !Sub "{{resolve:secretsmanager:${AppSecretArn}:SecretString:valkeyAuthToken}}"
@@ -502,8 +594,8 @@ Resources:
       SecurityGroupIds:
         - !Ref CacheSecurityGroup
       Port: 6379
-      SnapshotRetentionLimit: 1
-      SnapshotWindow: "03:00-04:00"
+      # cache.t4g.micro cannot take snapshots.
+      SnapshotRetentionLimit: 0
       AutoMinorVersionUpgrade: true
       Tags:
         - Key: Name
@@ -511,6 +603,8 @@ Resources:
 
   FileSystem:
     Type: AWS::EFS::FileSystem
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Encrypted: true
       PerformanceMode: generalPurpose
@@ -525,6 +619,8 @@ Resources:
 
   OutputAccessPoint:
     Type: AWS::EFS::AccessPoint
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FileSystemId: !Ref FileSystem
       PosixUser:
@@ -539,6 +635,8 @@ Resources:
 
   Neo4jAccessPoint:
     Type: AWS::EFS::AccessPoint
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FileSystemId: !Ref FileSystem
       PosixUser:
@@ -676,6 +774,8 @@ Resources:
 
   AccessLogsBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub cloudsneeker-alb-logs-${AWS::AccountId}-${AWS::Region}
       PublicAccessBlockConfiguration:
@@ -725,6 +825,7 @@ Resources:
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: RunCompute
     DependsOn: AccessLogsBucketPolicy
     Properties:
       Name: cloudsneeker
@@ -747,6 +848,7 @@ Resources:
 
   WebAcl:
     Type: AWS::WAFv2::WebACL
+    Condition: RunCompute
     Properties:
       Name: cloudsneeker
       Scope: REGIONAL
@@ -791,12 +893,14 @@ Resources:
 
   WebAclAssociation:
     Type: AWS::WAFv2::WebACLAssociation
+    Condition: RunCompute
     Properties:
       ResourceArn: !Ref LoadBalancer
       WebACLArn: !GetAtt WebAcl.Arn
 
   ApiTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: RunCompute
     Properties:
       Name: cloudsneeker-api
       VpcId: !Ref Vpc
@@ -808,14 +912,17 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 5
+      # The load balancer calls the task IP, which Django rejects with 400.
+      # A response still means the process is up. Real clients use an allowed host.
       Matcher:
-        HttpCode: "200"
+        HttpCode: "200,400"
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: "60"
 
   UiTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: RunCompute
     Properties:
       Name: cloudsneeker-ui
       VpcId: !Ref Vpc
@@ -835,6 +942,7 @@ Resources:
 
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: RunCompute
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 80
@@ -852,7 +960,7 @@ Resources:
 
   HttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
-    Condition: UseHttps
+    Condition: UseHttpsCompute
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 443
@@ -866,7 +974,7 @@ Resources:
 
   ApiHttpRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Condition: UseHttpRules
+    Condition: UseHttpRulesCompute
     Properties:
       ListenerArn: !Ref HttpListener
       Priority: 10
@@ -880,7 +988,7 @@ Resources:
 
   HealthHttpRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Condition: UseHttpRules
+    Condition: UseHttpRulesCompute
     Properties:
       ListenerArn: !Ref HttpListener
       Priority: 20
@@ -894,7 +1002,7 @@ Resources:
 
   ApiHttpsRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Condition: UseHttps
+    Condition: UseHttpsCompute
     Properties:
       ListenerArn: !Ref HttpsListener
       Priority: 10
@@ -908,7 +1016,7 @@ Resources:
 
   HealthHttpsRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Condition: UseHttps
+    Condition: UseHttpsCompute
     Properties:
       ListenerArn: !Ref HttpsListener
       Priority: 20
@@ -958,7 +1066,7 @@ Resources:
 
   ApiTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       Family: cloudsneeker-api
       RequiresCompatibilities: [FARGATE]
@@ -1095,13 +1203,15 @@ Resources:
 
   WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       Family: cloudsneeker-worker
       RequiresCompatibilities: [FARGATE]
       NetworkMode: awsvpc
-      Cpu: "1024"
-      Memory: "4096"
+      Cpu: "4096"
+      Memory: "30720"
+      EphemeralStorage:
+        SizeInGiB: 40
       ExecutionRoleArn: !GetAtt ExecutionRole.Arn
       TaskRoleArn: !GetAtt TaskRole.Arn
       Volumes:
@@ -1195,7 +1305,7 @@ Resources:
 
   BeatTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       Family: cloudsneeker-beat
       RequiresCompatibilities: [FARGATE]
@@ -1274,7 +1384,7 @@ Resources:
 
   UiTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       Family: cloudsneeker-ui
       RequiresCompatibilities: [FARGATE]
@@ -1331,7 +1441,7 @@ Resources:
 
   McpTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       Family: cloudsneeker-mcp
       RequiresCompatibilities: [FARGATE]
@@ -1379,7 +1489,7 @@ Resources:
 
   Neo4jTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       Family: cloudsneeker-neo4j
       RequiresCompatibilities: [FARGATE]
@@ -1454,7 +1564,7 @@ Resources:
 
   ApiService:
     Type: AWS::ECS::Service
-    Condition: HasImage
+    Condition: RunTasks
     DependsOn:
       - OutputMountA
       - OutputMountB
@@ -1463,12 +1573,12 @@ Resources:
       ServiceName: api
       Cluster: !Ref Cluster
       TaskDefinition: !Ref ApiTaskDefinition
-      DesiredCount: 2
+      DesiredCount: 1
       HealthCheckGracePeriodSeconds: 600
-      DeploymentCircuitBreaker:
-        Enable: true
-        Rollback: true
       DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
         MinimumHealthyPercent: 100
         MaximumPercent: 200
       CapacityProviderStrategy:
@@ -1491,7 +1601,7 @@ Resources:
 
   UiService:
     Type: AWS::ECS::Service
-    Condition: HasImage
+    Condition: RunTasks
     DependsOn: HttpListener
     Properties:
       ServiceName: ui
@@ -1499,10 +1609,10 @@ Resources:
       TaskDefinition: !Ref UiTaskDefinition
       DesiredCount: 2
       HealthCheckGracePeriodSeconds: 120
-      DeploymentCircuitBreaker:
-        Enable: true
-        Rollback: true
       DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
         MinimumHealthyPercent: 100
         MaximumPercent: 200
       CapacityProviderStrategy:
@@ -1523,7 +1633,7 @@ Resources:
 
   WorkerService:
     Type: AWS::ECS::Service
-    Condition: HasImage
+    Condition: RunTasks
     DependsOn:
       - OutputMountA
       - OutputMountB
@@ -1532,10 +1642,10 @@ Resources:
       Cluster: !Ref Cluster
       TaskDefinition: !Ref WorkerTaskDefinition
       DesiredCount: 1
-      DeploymentCircuitBreaker:
-        Enable: true
-        Rollback: true
       DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
         MinimumHealthyPercent: 0
         MaximumPercent: 100
       CapacityProviderStrategy:
@@ -1552,16 +1662,16 @@ Resources:
 
   BeatService:
     Type: AWS::ECS::Service
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       ServiceName: beat
       Cluster: !Ref Cluster
       TaskDefinition: !Ref BeatTaskDefinition
       DesiredCount: 1
-      DeploymentCircuitBreaker:
-        Enable: true
-        Rollback: true
       DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
         MinimumHealthyPercent: 0
         MaximumPercent: 100
       CapacityProviderStrategy:
@@ -1578,16 +1688,16 @@ Resources:
 
   McpService:
     Type: AWS::ECS::Service
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       ServiceName: mcp
       Cluster: !Ref Cluster
       TaskDefinition: !Ref McpTaskDefinition
       DesiredCount: 1
-      DeploymentCircuitBreaker:
-        Enable: true
-        Rollback: true
       DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
         MinimumHealthyPercent: 0
         MaximumPercent: 100
       CapacityProviderStrategy:
@@ -1606,7 +1716,7 @@ Resources:
 
   Neo4jService:
     Type: AWS::ECS::Service
-    Condition: HasImage
+    Condition: RunTasks
     DependsOn:
       - OutputMountA
       - OutputMountB
@@ -1615,10 +1725,10 @@ Resources:
       Cluster: !Ref Cluster
       TaskDefinition: !Ref Neo4jTaskDefinition
       DesiredCount: 1
-      DeploymentCircuitBreaker:
-        Enable: true
-        Rollback: true
       DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
         MinimumHealthyPercent: 0
         MaximumPercent: 100
       CapacityProviderStrategy:
@@ -1637,10 +1747,10 @@ Resources:
 
   ApiScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       MaxCapacity: 4
-      MinCapacity: 2
+      MinCapacity: 1
       ResourceId: !Sub service/${Cluster}/api
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
@@ -1648,7 +1758,7 @@ Resources:
 
   ApiScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       PolicyName: cloudsneeker-api-cpu
       PolicyType: TargetTrackingScaling
@@ -1662,7 +1772,7 @@ Resources:
 
   UiScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Condition: HasImage
+    Condition: RunTasks
     DependsOn: UiService
     Properties:
       MaxCapacity: 4
@@ -1673,7 +1783,7 @@ Resources:
 
   UiScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Condition: HasImage
+    Condition: RunTasks
     Properties:
       PolicyName: cloudsneeker-ui-cpu
       PolicyType: TargetTrackingScaling
@@ -1687,13 +1797,19 @@ Resources:
 
 Outputs:
   ServiceUrl:
+    Condition: RunCompute
     Description: Public address of the web application.
     Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
   LoadBalancerDns:
+    Condition: RunCompute
     Value: !GetAtt LoadBalancer.DNSName
   DatabaseEndpoint:
+    Description: PostgreSQL address. Present while the instance is stopped.
     Value: !GetAtt Database.Endpoint.Address
   CacheEndpoint:
+    Condition: RunCompute
     Value: !GetAtt Cache.PrimaryEndPoint.Address
   ClusterName:
     Value: !Ref Cluster
+  PlatformMode:
+    Value: !Ref PlatformMode
