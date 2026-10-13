@@ -136,30 +136,26 @@ h2 {
   letter-spacing: -0.025em;
 }
 
-/* Ink navigation, separate from the page canvas. Tokens inherit, so labels
-   and the wordmark follow the panel instead of the page. */
+/* Navigation is a floating control surface, separate from the page canvas. */
 aside.fixed.inset-y-0 {
-  --bg-neutral-primary: #07141f;
-  --bg-neutral-secondary: #0c1c2b;
-  --bg-neutral-tertiary: #102433;
-  --text-neutral-primary: #e8f4f6;
-  --text-neutral-secondary: #c5dde3;
-  --text-neutral-tertiary: #8eafb8;
-  --border-neutral-primary: rgba(103, 232, 249, 0.12);
-  --border-neutral-secondary: rgba(103, 232, 249, 0.1);
-  --border-neutral-tertiary: rgba(103, 232, 249, 0.16);
-  --bg-sidebar-active: rgba(103, 232, 249, 0.12);
-  --bg-sidebar-hover: rgba(231, 242, 244, 0.05);
-  --bg-sidebar-subitem-active: rgba(103, 232, 249, 0.1);
-  --sidebar-active-bar: #67e8f9;
-  --sidebar-active-icon: #67e8f9;
-  --border-sidebar-guide: rgba(103, 232, 249, 0.22);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, 0.12), transparent 30%),
+    color-mix(in srgb, var(--bg-neutral-secondary) 94%, transparent);
+  box-shadow: 18px 0 50px rgba(12, 27, 36, 0.06);
+  backdrop-filter: blur(22px);
   color: var(--text-neutral-primary);
-  border-right-color: rgba(103, 232, 249, 0.12);
+}
+
+.dark aside.fixed.inset-y-0 {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, 0.12), transparent 30%),
+    rgba(7, 16, 24, 0.94);
+  box-shadow: 18px 0 55px rgba(0, 0, 0, 0.22);
 }
 
 header.sticky.top-0 {
   background: color-mix(in srgb, var(--bg-neutral-secondary) 88%, transparent);
+  box-shadow: 0 1px 0 rgba(12, 27, 36, 0.03);
 }
 
 [data-slot="button"] {
@@ -176,6 +172,281 @@ header.sticky.top-0 {
 [data-slot="input"]:focus,
 [data-slot="textarea"]:focus {
   box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.16);
+}
+
+[data-slot="card"] {
+  box-shadow:
+    0 1px 2px rgba(12, 27, 36, 0.04),
+    0 14px 38px rgba(12, 27, 36, 0.05);
+}
+
+.dark [data-slot="card"] {
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.2),
+    0 18px 48px rgba(0, 0, 0, 0.18);
+}
+
+/* Auth is intentionally asymmetric: a product story on the left and a
+   focused task surface on the right. The form itself remains unchanged. */
+.cloudsneeker-auth-shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(30rem, 0.92fr);
+  overflow: hidden;
+  background: var(--bg-neutral-primary);
+}
+
+.cloudsneeker-auth-story {
+  position: relative;
+  display: flex;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: #eafcff;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(34, 211, 238, 0.3), transparent 28%),
+    radial-gradient(circle at 82% 76%, rgba(99, 102, 241, 0.28), transparent 32%),
+    linear-gradient(145deg, #071724 0%, #0b2536 54%, #111d39 100%);
+}
+
+.cloudsneeker-auth-story::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(rgba(103, 232, 249, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.14) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(to bottom right, #000, transparent 72%);
+}
+
+.cloudsneeker-auth-orbit {
+  position: absolute;
+  top: 12%;
+  right: -12rem;
+  width: 32rem;
+  height: 32rem;
+  border: 1px solid rgba(103, 232, 249, 0.2);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 5rem rgba(103, 232, 249, 0.025),
+    0 0 0 10rem rgba(99, 102, 241, 0.025);
+}
+
+.cloudsneeker-auth-story-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(42rem, 100%);
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 5rem;
+  padding: clamp(2.5rem, 6vw, 6.5rem);
+}
+
+.cloudsneeker-auth-story .text-text-neutral-primary {
+  color: #f4fdff;
+}
+
+.cloudsneeker-auth-copy {
+  max-width: 38rem;
+}
+
+.cloudsneeker-auth-eyebrow,
+.cloudsneeker-auth-card-kicker {
+  margin-bottom: 0.9rem;
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.cloudsneeker-auth-copy h1 {
+  max-width: 12ch;
+  font-size: clamp(2.6rem, 5vw, 5.4rem);
+  font-weight: 650;
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.cloudsneeker-auth-copy > p:last-child {
+  max-width: 34rem;
+  margin-top: 1.75rem;
+  color: #b7d1d9;
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  line-height: 1.65;
+}
+
+.cloudsneeker-auth-signals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cloudsneeker-auth-signals li {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(103, 232, 249, 0.2);
+}
+
+.cloudsneeker-auth-signals strong,
+.cloudsneeker-auth-signals small {
+  display: block;
+}
+
+.cloudsneeker-auth-signals strong {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.cloudsneeker-auth-signals small {
+  margin-top: 0.35rem;
+  color: #8eafb8;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.cloudsneeker-auth-signal-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  color: #67e8f9;
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 0.75rem;
+  background: rgba(103, 232, 249, 0.07);
+}
+
+.cloudsneeker-auth-signal-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cloudsneeker-auth-form-side {
+  position: relative;
+  display: flex;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.5rem, 5vw, 5rem);
+  background:
+    radial-gradient(circle at 90% 8%, rgba(34, 211, 238, 0.12), transparent 24%),
+    var(--bg-neutral-primary);
+}
+
+.cloudsneeker-auth-card {
+  width: min(28rem, 100%);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: 1.5rem;
+  background: color-mix(in srgb, var(--bg-neutral-secondary) 90%, transparent);
+  box-shadow:
+    0 1px 2px rgba(12, 27, 36, 0.04),
+    0 28px 80px rgba(12, 27, 36, 0.11);
+  backdrop-filter: blur(24px);
+}
+
+.cloudsneeker-auth-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cloudsneeker-auth-card-heading h2 {
+  font-size: 1.75rem;
+  font-weight: 650;
+}
+
+.cloudsneeker-auth-card-kicker {
+  margin-bottom: 0.35rem;
+  color: var(--text-lighthouse);
+}
+
+.cloudsneeker-auth-mobile-brand {
+  display: none;
+}
+
+.cloudsneeker-auth-footer {
+  position: absolute;
+  bottom: 2rem;
+  color: var(--text-neutral-tertiary);
+}
+
+.cloudsneeker-threatscore-logo {
+  display: inline-flex;
+  height: 3.5rem;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text-neutral-primary);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.cloudsneeker-threatscore-name {
+  font-weight: 750;
+}
+
+.cloudsneeker-threatscore-divider {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--border-neutral-tertiary);
+}
+
+.cloudsneeker-threatscore-gauge {
+  width: 2.25rem;
+  fill: none;
+  stroke: var(--text-lighthouse);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+}
+
+.cloudsneeker-threatscore-gauge circle {
+  fill: var(--text-lighthouse);
+  stroke: none;
+}
+
+@media (max-width: 64rem) {
+  .cloudsneeker-auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .cloudsneeker-auth-story {
+    display: none;
+  }
+
+  .cloudsneeker-auth-form-side {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .cloudsneeker-auth-mobile-brand {
+    display: block;
+  }
+
+  .cloudsneeker-auth-footer {
+    position: static;
+  }
+}
+
+@media (max-width: 30rem) {
+  .cloudsneeker-auth-form-side {
+    justify-content: flex-start;
+    padding: 1.25rem;
+    padding-top: 3rem;
+  }
+
+  .cloudsneeker-auth-card {
+    padding: 1.35rem;
+    border-radius: 1.15rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

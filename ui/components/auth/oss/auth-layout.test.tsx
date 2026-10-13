@@ -6,7 +6,7 @@ import { BRAND } from "@/cloudsneeker/brand";
 import { AuthLayout } from "./auth-layout";
 
 describe("AuthLayout", () => {
-  it("renders the brand directly above the form card", () => {
+  it("renders the product story beside the form", () => {
     render(
       <AuthLayout title="Sign in">
         <p>form content</p>
@@ -16,9 +16,12 @@ describe("AuthLayout", () => {
     const brand = screen.getByRole("img", { name: BRAND.name });
     const title = screen.getByText("Sign in");
 
+    expect(brand).toBeVisible();
+    expect(title).toBeVisible();
     expect(
-      brand.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.getByText("See risk clearly. Act before exposure becomes impact."),
+    ).toBeVisible();
+    expect(screen.getByText("Continuous posture")).toBeVisible();
   });
 
   it("renders the footer outside the form card, below it", () => {
