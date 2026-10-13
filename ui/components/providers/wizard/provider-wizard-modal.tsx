@@ -115,7 +115,7 @@ export function ProviderWizardModal({
       open={open}
       onOpenChange={handleDialogOpenChange}
       size="4xl"
-      className="flex !h-[90vh] !max-h-[90vh] !min-h-[90vh] !w-[calc(100vw-24px)] !max-w-[1192px] flex-col overflow-hidden p-4 sm:!w-[calc(100vw-40px)] sm:p-6 lg:!w-[calc(100vw-64px)] lg:p-8"
+      className="flex !h-[90dvh] !max-h-[90dvh] !w-[calc(100vw-24px)] !max-w-[1192px] flex-col overflow-hidden p-4 sm:!w-[calc(100vw-40px)] sm:p-6 lg:!w-[calc(100vw-64px)] lg:p-8"
     >
       <DialogHeader className="gap-2 p-0">
         <DialogTitle className="text-lg font-semibold">
@@ -134,8 +134,8 @@ export function ProviderWizardModal({
       </DialogHeader>
 
       <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden lg:mt-8">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-          <div className="mb-4 box-border w-full shrink-0 lg:mb-0 lg:w-[328px]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          <div className="mb-4 box-border w-full shrink-0 md:mb-0 md:w-[260px] lg:w-[328px]">
             {isProviderFlow ? (
               <WizardStepper
                 currentStep={currentStep}
@@ -154,7 +154,7 @@ export function ProviderWizardModal({
           </div>
           <div
             aria-hidden
-            className="hidden w-[100px] min-w-0 shrink lg:block"
+            className="hidden min-w-0 shrink md:block md:w-8 lg:w-[100px]"
           />
 
           {/* Anchors the add-provider tour's final step to the form column only, so

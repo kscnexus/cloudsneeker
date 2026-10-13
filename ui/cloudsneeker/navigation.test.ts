@@ -5,6 +5,7 @@ import {
   NAVIGATION_ITEM_KIND,
   type NavigationSection,
 } from "@/components/layout/app-sidebar/types";
+import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import { withCloudsneekerNavigation } from "./navigation";
 
@@ -62,5 +63,54 @@ describe("withCloudsneekerNavigation", () => {
 
     expect(sections).toHaveLength(2);
     expect(sections[1]?.items).toHaveLength(helpItemCount ?? -1);
+  });
+
+  it("removes unavailable cloud controls without hiding working settings", () => {
+    const sections: NavigationSection[] = [
+      {
+        label: "CONFIGURATION",
+        items: [
+          {
+            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+            label: "Configuration",
+            icon: Info,
+            defaultOpen: true,
+            children: [
+              {
+                kind: NAVIGATION_ITEM_KIND.LINK,
+                href: "/providers",
+                label: "Providers",
+              },
+              {
+                kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
+                label: "Alerts",
+                cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.ALERTS,
+              },
+              {
+                kind: NAVIGATION_ITEM_KIND.LINK,
+                href: "/integrations",
+                label: "Integrations",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = withCloudsneekerNavigation(sections, "/providers");
+
+    expect(result[0]?.items[0]).toMatchObject({
+      children: [
+        { label: "Providers", href: "/providers" },
+        { label: "Integrations", href: "/integrations" },
+      ],
+    });
+    expect(sections[0]?.items[0]).toMatchObject({
+      children: [
+        { label: "Providers" },
+        { label: "Alerts" },
+        { label: "Integrations" },
+      ],
+    });
   });
 });

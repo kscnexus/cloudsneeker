@@ -179,6 +179,19 @@ describe("provider wizard account creation", () => {
     session.data = { tenantId: "tenant-abc" };
   });
 
+  it("keeps the form beside progress on laptop-sized viewports", () => {
+    render(<ProviderWizardModal open onOpenChange={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    const progress = screen.getByRole("navigation", {
+      name: "Wizard progress",
+    });
+    const wizardLayout = progress.parentElement?.parentElement;
+
+    expect(dialog).toHaveClass("!max-h-[90dvh]");
+    expect(wizardLayout).toHaveClass("md:flex-row");
+  });
+
   it("shows progress, blocks repeat clicks, and advances after creation", async () => {
     // Given
     let resolveCreation!: (value: typeof createdAccount) => void;
