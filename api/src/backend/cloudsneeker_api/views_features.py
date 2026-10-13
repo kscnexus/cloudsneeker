@@ -7,6 +7,7 @@ from api.db_utils import rls_transaction
 from api.models import Finding
 from api.rbac.permissions import Permissions
 from cloudsneeker_api.models import AlertRecipient, AlertRule, FindingIngestion, ScanConfiguration
+from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.serializers_alerts import (
     AlertRecipientSerializer,
     AlertRuleSerializer,
@@ -152,8 +153,15 @@ class AlertRuleViewSet(BaseRLSViewSet):
             AlertRuleSerializer(rule, context=self.get_serializer_context()).data
         )
 
-    @action(detail=False, methods=["post"], url_path="seed")
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="seed",
+        parser_classes=[LenientJSONAPIParser, JSONParser, FormParser],
+    )
     def seed(self, request, *args, **kwargs):
+        # Hand-built envelope; disable JSON:API re-wrapping.
+        self.resource_name = False
         payload = request.data or {}
         filter_bag = payload.get("filter_bag") or {}
         if not isinstance(filter_bag, dict):
@@ -193,8 +201,15 @@ class AlertRuleViewSet(BaseRLSViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @action(detail=False, methods=["post"], url_path="preview")
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="preview",
+        parser_classes=[LenientJSONAPIParser, JSONParser, FormParser],
+    )
     def preview(self, request, *args, **kwargs):
+        # Hand-built envelope; disable JSON:API re-wrapping.
+        self.resource_name = False
         payload = request.data or {}
         condition = payload.get("condition") or {}
         queryset = Finding.all_objects.filter(tenant_id=request.tenant_id)
@@ -303,6 +318,9 @@ class IngestionViewSet(BaseRLSViewSet):
     http_method_names = ["get", "post", "head", "options"]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     required_permissions = [Permissions.MANAGE_SCANS]
+    # Documents are built by hand; skip JSON:API re-wrapping that would nest
+    # another ``data`` key (and turn list pagination into ``data.results``).
+    resource_name = False
 
     def get_queryset(self):
         return FindingIngestion.objects.filter(tenant_id=self.request.tenant_id)
@@ -327,10 +345,14 @@ class IngestionViewSet(BaseRLSViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
-        documents = [self._document(item) for item in (page if page is not None else queryset)]
-        if page is not None:
-            return self.get_paginated_response(documents)
-        return Response({"data": documents})
+        items = page if page is not None else list(queryset)
+        documents = [self._document(item) for item in items]
+        payload: dict = {"data": documents}
+        if page is not None and self.paginator is not None:
+            paginated = self.paginator.get_paginated_response(documents)
+            payload["links"] = paginated.data.get("links")
+            payload["meta"] = paginated.data.get("meta")
+        return Response(payload)
 
     def retrieve(self, request, *args, **kwargs):
         ingestion = self.get_object()

@@ -6,6 +6,7 @@ import { getLatestMetadataInfo, getMetadataInfo } from "@/actions/findings";
 import { getAllProviderGroups } from "@/actions/manage-groups/manage-groups";
 import { getAllProviders } from "@/actions/providers";
 import { SeedFromFindingsButton } from "@/app/(prowler)/alerts/_components";
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { FindingsFilters } from "@/components/findings/findings-filters";
 import { createScanDetailsMapping, splitCsvFilterValues } from "@/lib";
 import { getSelectedFindingCheckOptions } from "@/lib/finding-group-filter-options";
@@ -95,7 +96,9 @@ export async function FindingsFiltersSection({
           uniqueResourceTypes={uniqueResourceTypes}
           uniqueCategories={uniqueCategories}
           uniqueGroups={uniqueGroups}
-          isCloudEnabled={isCloud()}
+          isCloudEnabled={
+            isCloud() || isCloudsneekerFeatureEnabled("alerts")
+          }
         />
       }
     />

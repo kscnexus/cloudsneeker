@@ -70,6 +70,7 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `components/compliance/threatscore-logo.tsx` | re-exports product artwork from `ui/cloudsneeker/threatscore-logo.tsx` | Prevents inherited vendor artwork from appearing on the overview. |
 | `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | `withCloudsneekerNavigation` drops HELP and turns built-in cloud features into real links. |
 | `app/(prowler)/alerts/page.tsx` | also allows `isCloudsneekerFeatureEnabled("alerts")` | Opens Alerts without `UI_CLOUD_ENABLED`. |
+| `app/(prowler)/findings/_components/findings-filters-section.tsx` | `isCloudEnabled={isCloud() \|\| isCloudsneekerFeatureEnabled("alerts")}` | Seed-from-findings works without cloud. |
 | `app/(prowler)/scans/config/page.tsx` | also allows `isCloudsneekerFeatureEnabled("scanConfiguration")` | Opens Scan profiles without cloud. |
 | `app/api/ingestions/route.ts`, `[ingestionId]/route.ts` | also allow `isCloudsneekerFeatureEnabled("cliImport")` | CLI Import proxy works without cloud. |
 | `components/scans/scans-page-shell.tsx` | CLI Import banner/modal when feature enabled | Uses `manage_scans` via Cloudsneeker permission mapping. |
