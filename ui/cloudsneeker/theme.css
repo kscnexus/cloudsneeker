@@ -1,43 +1,186 @@
-/* Product chrome. Imported after the upstream theme so accents change and
-   status colors (pass, fail, severity) stay as they are. */
+/* Cloudsneeker presentation layer.
+   Loaded after the upstream theme. Severity, pass, and fail colors stay so
+   findings keep their meaning. Surfaces, type, chrome, and accents change. */
 
 :root {
+  --bg-neutral-primary: #eef3f4;
+  --bg-neutral-secondary: #ffffff;
+  --bg-neutral-tertiary: #f6fafb;
+  --bg-tag-primary: #e7eef1;
+  --bg-neutral-map: #d5e1e6;
+
+  --text-neutral-primary: #0c1b24;
+  --text-neutral-secondary: #243840;
+  --text-neutral-tertiary: #5c7380;
+
+  --border-neutral-primary: #d5e2e6;
+  --border-neutral-secondary: #e1eaed;
+  --border-neutral-tertiary: #c5d5db;
+  --border-tag-primary: #b7c9d0;
+  --border-data-emphasis: rgba(12, 27, 36, 0.08);
+
+  --bg-input-primary: #ffffff;
+  --border-input-primary: #b7c9d0;
+  --border-input-primary-press: #0c1b24;
+  --border-input-primary-pressed: #0891b2;
+  --border-input-primary-fill: #5c7380;
+
   --bg-button-primary: #67e8f9;
   --bg-button-primary-hover: #a5f3fc;
   --bg-button-primary-press: #22d3ee;
+  --bg-button-secondary: #0c1b24;
+  --bg-button-secondary-press: #163041;
+  --bg-button-tertiary: #0e7490;
+  --bg-button-tertiary-hover: #0891b2;
+  --bg-button-tertiary-active: #155e75;
+  --bg-button-disabled: #d5e1e6;
+
+  --bg-sidebar-active: rgba(8, 145, 178, 0.1);
+  --bg-sidebar-hover: rgba(12, 27, 36, 0.04);
+  --bg-sidebar-subitem-active: rgba(8, 145, 178, 0.12);
+  --bg-sidebar-toggle: rgba(255, 255, 255, 0.06);
+  --border-sidebar-active: rgba(8, 145, 178, 0.28);
+  --border-sidebar-hover: rgba(12, 27, 36, 0.08);
+  --border-sidebar-guide: rgba(103, 232, 249, 0.22);
+  --border-sidebar-toggle: rgba(255, 255, 255, 0.08);
   --sidebar-active-bar: #0891b2;
-  --sidebar-active-icon: #0891b2;
+  --sidebar-active-icon: #0e7490;
+  --shadow-sidebar-active: 0 8px 20px rgba(7, 20, 31, 0.06);
+
   --text-lighthouse: #0e7490;
-  --border-lighthouse: rgba(8, 145, 178, 0.45);
-  --bg-feature-new: #0891b2;
-  --bg-sidebar-subitem-active: rgba(8, 145, 178, 0.1);
-  --gradient-feature-cloud: linear-gradient(
-    112deg,
-    #22d3ee 3.5%,
-    #6366f1 98.8%
+  --border-lighthouse: rgba(8, 145, 178, 0.4);
+  --gradient-lighthouse-from: #22d3ee;
+  --gradient-lighthouse-to: #6366f1;
+  --gradient-lighthouse: linear-gradient(
+    96deg,
+    var(--gradient-lighthouse-from) 3.55%,
+    var(--gradient-lighthouse-to) 98.85%
   );
+  --gradient-lighthouse-soft: linear-gradient(
+    96deg,
+    rgba(34, 211, 238, 0.12),
+    rgba(99, 102, 241, 0.1)
+  );
+  --gradient-feature-cloud: linear-gradient(112deg, #22d3ee 3.5%, #6366f1 98.8%);
+  --bg-feature-new: #0891b2;
   --gradient-sidebar-halo: radial-gradient(
     circle,
-    rgba(34, 211, 238, 0.16) 0%,
-    rgba(99, 102, 241, 0.08) 40%,
+    rgba(34, 211, 238, 0.14) 0%,
+    rgba(99, 102, 241, 0.05) 42%,
     transparent 72%
   );
 }
 
 .dark {
+  --bg-neutral-primary: #071018;
+  --bg-neutral-secondary: #0d1822;
+  --bg-neutral-tertiary: #12202c;
+  --bg-tag-primary: #12202c;
+  --bg-neutral-map: #163041;
+
+  --text-neutral-primary: #e7f2f4;
+  --text-neutral-secondary: #c5d8de;
+  --text-neutral-tertiary: #8eacb6;
+
+  --border-neutral-primary: #1c3040;
+  --border-neutral-secondary: #163041;
+  --border-neutral-tertiary: #245066;
+  --border-tag-primary: #245066;
+  --border-data-emphasis: rgba(231, 242, 244, 0.1);
+
+  --bg-input-primary: #0c1620;
+  --border-input-primary: #2a4454;
+  --border-input-primary-press: #67e8f9;
+  --border-input-primary-pressed: #67e8f9;
+  --border-input-primary-fill: #c5d8de;
+
   --bg-button-primary: #67e8f9;
   --bg-button-primary-hover: #a5f3fc;
   --bg-button-primary-press: #22d3ee;
+  --bg-button-secondary: #e7f2f4;
   --bg-button-secondary-press: #cffafe;
+  --bg-button-tertiary: #67e8f9;
+  --bg-button-tertiary-hover: #a5f3fc;
+  --bg-button-tertiary-active: #22d3ee;
+  --bg-button-disabled: #1c3040;
+
+  --bg-sidebar-active: rgba(103, 232, 249, 0.12);
+  --bg-sidebar-hover: rgba(231, 242, 244, 0.05);
+  --bg-sidebar-subitem-active: rgba(103, 232, 249, 0.1);
+  --bg-sidebar-toggle: rgba(231, 242, 244, 0.04);
+  --border-sidebar-active: rgba(103, 232, 249, 0.28);
+  --border-sidebar-hover: rgba(231, 242, 244, 0.08);
+  --border-sidebar-guide: rgba(103, 232, 249, 0.2);
+  --border-sidebar-toggle: rgba(231, 242, 244, 0.08);
   --sidebar-active-bar: #67e8f9;
   --sidebar-active-icon: #67e8f9;
+  --shadow-sidebar-active: 0 10px 24px rgba(0, 0, 0, 0.28);
+
   --text-lighthouse: #67e8f9;
-  --border-lighthouse: rgba(103, 232, 249, 0.45);
-  --bg-sidebar-subitem-active: rgba(103, 232, 249, 0.1);
+  --border-lighthouse: rgba(103, 232, 249, 0.4);
   --gradient-sidebar-halo: radial-gradient(
     circle,
-    rgba(103, 232, 249, 0.16) 0%,
-    rgba(99, 102, 241, 0.08) 40%,
+    rgba(103, 232, 249, 0.12) 0%,
+    rgba(99, 102, 241, 0.05) 42%,
     transparent 72%
   );
+}
+
+html {
+  font-feature-settings: "ss01" on, "cv11" on;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2 {
+  letter-spacing: -0.025em;
+}
+
+/* Ink navigation, separate from the page canvas. Tokens inherit, so labels
+   and the wordmark follow the panel instead of the page. */
+aside.fixed.inset-y-0 {
+  --bg-neutral-primary: #07141f;
+  --bg-neutral-secondary: #0c1c2b;
+  --bg-neutral-tertiary: #102433;
+  --text-neutral-primary: #e8f4f6;
+  --text-neutral-secondary: #c5dde3;
+  --text-neutral-tertiary: #8eafb8;
+  --border-neutral-primary: rgba(103, 232, 249, 0.12);
+  --border-neutral-secondary: rgba(103, 232, 249, 0.1);
+  --border-neutral-tertiary: rgba(103, 232, 249, 0.16);
+  --bg-sidebar-active: rgba(103, 232, 249, 0.12);
+  --bg-sidebar-hover: rgba(231, 242, 244, 0.05);
+  --bg-sidebar-subitem-active: rgba(103, 232, 249, 0.1);
+  --sidebar-active-bar: #67e8f9;
+  --sidebar-active-icon: #67e8f9;
+  --border-sidebar-guide: rgba(103, 232, 249, 0.22);
+  color: var(--text-neutral-primary);
+  border-right-color: rgba(103, 232, 249, 0.12);
+}
+
+header.sticky.top-0 {
+  background: color-mix(in srgb, var(--bg-neutral-secondary) 88%, transparent);
+}
+
+[data-slot="button"] {
+  letter-spacing: -0.01em;
+}
+
+[data-slot="input"],
+[data-slot="textarea"] {
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+[data-slot="input"]:focus,
+[data-slot="textarea"]:focus {
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="input"],
+  [data-slot="textarea"] {
+    transition: none;
+  }
 }

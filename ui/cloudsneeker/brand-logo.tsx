@@ -36,7 +36,7 @@ export const BrandWordmark = ({ className }: BrandWordmarkProps) => {
       role="img"
       aria-label={BRAND.name}
       className={cn(
-        "inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white",
+        "inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-text-neutral-primary",
         className,
       )}
     >
