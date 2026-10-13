@@ -413,7 +413,7 @@ header.sticky.top-0 {
   stroke: none;
 }
 
-@media (max-width: 64rem) {
+@media (max-width: 52rem) {
   .cloudsneeker-auth-shell {
     grid-template-columns: 1fr;
   }
