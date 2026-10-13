@@ -20,9 +20,9 @@ from cloudsneeker_api.views_features import (
     ScanConfigurationViewSet,
 )
 from django.urls import include, path
-from rest_framework_json_api.routers import DefaultRouter
+from rest_framework_nested import routers
 
-router = DefaultRouter(trailing_slash=False)
+router = routers.DefaultRouter(trailing_slash=False)
 router.register(r"scan-configurations", ScanConfigurationViewSet, basename="scan-configurations")
 router.register(r"alerts/rules", AlertRuleViewSet, basename="alert-rules")
 router.register(r"alerts/recipients", AlertRecipientViewSet, basename="alert-recipients")

@@ -35,6 +35,23 @@ class TestAppRegistration:
         assert TABLE_PREFIX == "cloudsneeker_"
 
 
+class TestFeatureRoutes:
+    """Configuration contracts must import with the same nested routers as upstream."""
+
+    @pytest.mark.parametrize(
+        ("url", "url_name"),
+        [
+            ("/api/v1/scan-configurations", "scan-configurations-list"),
+            ("/api/v1/alerts/rules", "alert-rules-list"),
+            ("/api/v1/alerts/recipients", "alert-recipients-list"),
+            ("/api/v1/ingestions", "ingestions-list"),
+        ],
+    )
+    def test_configuration_routes_resolve(self, url, url_name):
+        match = resolve(url)
+        assert match.url_name == url_name
+
+
 class TestBrandEndpoint:
     url = "/api/v1/cloudsneeker/brand"
 
