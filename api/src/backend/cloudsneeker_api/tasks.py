@@ -1,10 +1,12 @@
 """Celery tasks for Cloudsneeker feature backends."""
 
+from api.decorators import set_tenant
 from celery import shared_task
 from config.celery import RLSTask
 
 
 @shared_task(base=RLSTask, name="cloudsneeker-process-finding-ingestion", queue="scans")
+@set_tenant(keep_tenant=True)
 def process_finding_ingestion_task(tenant_id: str, ingestion_id: str):
     """Process an uploaded OCSF report into findings."""
     from cloudsneeker_api.services.ocsf_import import process_ingestion
@@ -13,6 +15,7 @@ def process_finding_ingestion_task(tenant_id: str, ingestion_id: str):
 
 
 @shared_task(base=RLSTask, name="cloudsneeker-evaluate-alert-rules", queue="scans")
+@set_tenant(keep_tenant=True)
 def evaluate_alert_rules_task(tenant_id: str, scan_id: str | None = None):
     """Evaluate enabled after-scan alert rules and email confirmed recipients."""
     from api.db_utils import rls_transaction

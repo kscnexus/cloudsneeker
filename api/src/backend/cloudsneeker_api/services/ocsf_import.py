@@ -102,8 +102,12 @@ def _finding_fields(record: dict[str, Any]) -> dict[str, Any] | None:
 
 def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
     """Create an imported scan and Finding rows from a stored OCSF payload."""
-    with rls_transaction(tenant_id):
-        ingestion = FindingIngestion.objects.get(id=ingestion_id, tenant_id=tenant_id)
+    from django.db import DEFAULT_DB_ALIAS
+
+    with rls_transaction(tenant_id, using=DEFAULT_DB_ALIAS):
+        ingestion = FindingIngestion.objects.using(DEFAULT_DB_ALIAS).get(
+            id=ingestion_id, tenant_id=tenant_id
+        )
         ingestion.status = FindingIngestion.Status.PROCESSING
         ingestion.save(update_fields=["status", "updated_at"])
 
