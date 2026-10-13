@@ -9,6 +9,9 @@ describe("BrandMark", () => {
     const { container } = render(<BrandMark size={20} />);
 
     // Then
+    expect(
+      container.querySelector('[data-brand-symbol="shield"]'),
+    ).toBeInTheDocument();
     expect(container.querySelector("svg")).toHaveAttribute(
       "aria-hidden",
       "true",

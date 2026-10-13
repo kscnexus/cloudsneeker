@@ -136,6 +136,10 @@ h2 {
   letter-spacing: -0.025em;
 }
 
+.cloudsneeker-wordmark-accent {
+  color: #2583ff;
+}
+
 /* Navigation is a floating control surface, separate from the page canvas. */
 aside.fixed.inset-y-0 {
   background:
