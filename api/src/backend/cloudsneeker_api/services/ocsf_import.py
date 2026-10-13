@@ -102,14 +102,20 @@ def _finding_fields(record: dict[str, Any]) -> dict[str, Any] | None:
 
 def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
     """Create an imported scan and Finding rows from a stored OCSF payload."""
-    from django.db import DEFAULT_DB_ALIAS
+    from api.db_router import MainRouter
 
-    with rls_transaction(tenant_id, using=DEFAULT_DB_ALIAS):
-        ingestion = FindingIngestion.objects.using(DEFAULT_DB_ALIAS).get(
-            id=ingestion_id, tenant_id=tenant_id
+    # Cloudsneeker feature tables are read/written on the admin alias in the
+    # worker so FORCE RLS on the app role cannot hide a just-committed upload.
+    admin = MainRouter.admin_db
+    ingestion = FindingIngestion.objects.using(admin).get(id=ingestion_id)
+    if str(ingestion.tenant_id) != str(tenant_id):
+        raise FindingIngestion.DoesNotExist(
+            "FindingIngestion matching query does not exist."
         )
+
+    with rls_transaction(tenant_id):
         ingestion.status = FindingIngestion.Status.PROCESSING
-        ingestion.save(update_fields=["status", "updated_at"])
+        ingestion.save(using=admin, update_fields=["status", "updated_at"])
 
         records = ingestion.payload if isinstance(ingestion.payload, list) else []
         ingestion.total_records = len(records)
@@ -136,16 +142,20 @@ def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
             ingestion.processed_records = processed
             ingestion.invalid_records = invalid
             ingestion.error_message = "No valid findings were found in the report."
-            ingestion.save()
+            ingestion.save(using=admin)
             return ingestion
 
         provider = None
         if first_fields["provider_uid"]:
-            provider = Provider.objects.filter(
-                tenant_id=tenant_id, uid=first_fields["provider_uid"]
-            ).first()
+            provider = (
+                Provider.objects.using(admin)
+                .filter(tenant_id=tenant_id, uid=first_fields["provider_uid"])
+                .first()
+            )
         if provider is None:
-            provider = Provider.objects.filter(tenant_id=tenant_id).first()
+            provider = (
+                Provider.objects.using(admin).filter(tenant_id=tenant_id).first()
+            )
         if provider is None:
             ingestion.status = FindingIngestion.Status.FAILED
             ingestion.error_message = (
@@ -153,12 +163,12 @@ def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
             )
             ingestion.processed_records = processed
             ingestion.invalid_records = invalid
-            ingestion.save()
+            ingestion.save(using=admin)
             return ingestion
 
         now = timezone.now()
         # Imported scans are intentionally outside LIVE_SCAN_TRIGGERS.
-        scan = Scan.all_objects.create(
+        scan = Scan.all_objects.using(admin).create(
             tenant_id=tenant_id,
             provider=provider,
             name=f"CLI Import {now.strftime('%Y-%m-%d %H:%M')}"[:100],
@@ -172,7 +182,7 @@ def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
         )
 
         for row in finding_rows:
-            finding = Finding.all_objects.create(
+            finding = Finding.all_objects.using(admin).create(
                 id=uuid7(),
                 tenant_id=tenant_id,
                 scan=scan,
@@ -189,7 +199,7 @@ def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
                 or None,
                 resource_types=row["resource_types"] or None,
             )
-            resource, _ = Resource.objects.get_or_create(
+            resource, _ = Resource.objects.using(admin).get_or_create(
                 tenant_id=tenant_id,
                 provider=provider,
                 uid=str(row["resource_uid"]),
@@ -203,7 +213,7 @@ def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
                     "type": (row["resource_types"] or ["resource"])[0] or "resource",
                 },
             )
-            ResourceFindingMapping.objects.get_or_create(
+            ResourceFindingMapping.objects.using(admin).get_or_create(
                 tenant_id=tenant_id,
                 resource=resource,
                 finding=finding,
@@ -214,5 +224,5 @@ def process_ingestion(tenant_id: str, ingestion_id: str) -> FindingIngestion:
         ingestion.invalid_records = invalid
         ingestion.scan_id = scan.id
         ingestion.error_message = ""
-        ingestion.save()
+        ingestion.save(using=admin)
         return ingestion
