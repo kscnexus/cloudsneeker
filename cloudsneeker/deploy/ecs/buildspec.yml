@@ -11,6 +11,7 @@ phases:
   pre_build:
     commands:
       - |
+        bash <<'EOF'
         set -euo pipefail
         export TAG="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-12)"
         export ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
@@ -19,9 +20,11 @@ phases:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "${HOME}/.local/bin" >> /root/.bashrc || true
         ln -sf "${HOME}/.local/bin/uv" /usr/local/bin/uv
+        EOF
   build:
     commands:
       - |
+        bash <<'EOF'
         set -euo pipefail
         export TAG="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-12)"
         export ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
@@ -31,3 +34,4 @@ phases:
         docker tag "$NEO4J_IMAGE" "${REGISTRY}/neo4j:${TAG}"
         docker push "${REGISTRY}/neo4j:${TAG}"
         printf '%s\n' "$TAG"
+        EOF
