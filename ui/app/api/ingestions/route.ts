@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { parseIngestion } from "@/lib/ingestions";
 import { isCloud } from "@/lib/shared/env";
@@ -10,9 +11,8 @@ export const runtime = "nodejs";
 const INVALID_INGESTION_RESPONSE =
   "Unable to start the import. Please try again.";
 const INGESTION_REJECTION_BY_CODE = {
-  invalid: "The report is not a valid Prowler OCSF finding report.",
-  subscription_required:
-    "A Prowler Cloud subscription is required to import findings.",
+  invalid: "The report is not a valid Cloudsneeker OCSF finding report.",
+  subscription_required: "Importing findings is not enabled for this tenant.",
   permission_denied: "You do not have permission to import findings.",
   file_too_large: "The selected file exceeds the allowed upload size.",
   rate_limited: "Too many import requests. Please try again shortly.",
@@ -50,7 +50,9 @@ const ingestionRejectionMessage = (
 };
 
 export async function POST(request: Request) {
-  if (!isCloud()) return new Response(null, { status: 404 });
+  if (!isCloud() && !isCloudsneekerFeatureEnabled("cliImport")) {
+    return new Response(null, { status: 404 });
+  }
 
   const headers = await getAuthHeaders({ contentType: false });
   const contentType = request.headers.get("content-type");

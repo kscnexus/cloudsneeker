@@ -1500,6 +1500,13 @@ def perform_prowler_scan(
         raise exception
 
     try:
+        from cloudsneeker_api.tasks import evaluate_alert_rules_task  # cloudsneeker-hook
+
+        evaluate_alert_rules_task.delay(tenant_id=str(tenant_id), scan_id=str(scan_id))
+    except Exception as alert_exception:  # noqa: BLE001 - alerts must not fail the scan
+        logger.warning(f"Alert evaluation enqueue failed for scan {scan_id}: {alert_exception}")
+
+    try:
         resource_scan_summaries = [
             ResourceScanSummary(
                 tenant_id=tenant_id,

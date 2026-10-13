@@ -146,13 +146,16 @@ export const getUserByMe = async (
   signal?: AbortSignal,
 ) => {
   const currentUser = await fetchCurrentUser(accessToken, { signal });
+  const { withCloudsneekerPermissions } = await import(
+    "@/cloudsneeker/permissions" // cloudsneeker-hook
+  );
 
   return {
     name: currentUser.name,
     email: currentUser.email,
     company: currentUser.company,
     dateJoined: currentUser.dateJoined,
-    permissions: currentUser.permissions,
+    permissions: withCloudsneekerPermissions(currentUser.permissions),
   };
 };
 

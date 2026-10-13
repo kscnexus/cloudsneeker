@@ -65,7 +65,7 @@ describe("withCloudsneekerNavigation", () => {
     expect(sections[1]?.items).toHaveLength(helpItemCount ?? -1);
   });
 
-  it("removes unavailable cloud controls without hiding working settings", () => {
+  it("turns cloud-only configuration controls into working product links", () => {
     const sections: NavigationSection[] = [
       {
         label: "CONFIGURATION",
@@ -87,6 +87,16 @@ describe("withCloudsneekerNavigation", () => {
                 cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.ALERTS,
               },
               {
+                kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
+                label: "Scans",
+                cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.SCAN_CONFIGURATION,
+              },
+              {
+                kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
+                label: "CLI Import",
+                cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.CLI_IMPORT,
+              },
+              {
                 kind: NAVIGATION_ITEM_KIND.LINK,
                 href: "/integrations",
                 label: "Integrations",
@@ -97,18 +107,31 @@ describe("withCloudsneekerNavigation", () => {
       },
     ];
 
-    const result = withCloudsneekerNavigation(sections, "/providers");
+    const result = withCloudsneekerNavigation(sections, "/alerts");
 
     expect(result[0]?.items[0]).toMatchObject({
       children: [
         { label: "Providers", href: "/providers" },
+        { label: "Alerts", href: "/alerts", kind: NAVIGATION_ITEM_KIND.LINK },
+        {
+          label: "Scan profiles",
+          href: "/scans/config",
+          kind: NAVIGATION_ITEM_KIND.LINK,
+        },
+        {
+          label: "CLI Import",
+          href: "/scans?import=1",
+          kind: NAVIGATION_ITEM_KIND.LINK,
+        },
         { label: "Integrations", href: "/integrations" },
       ],
     });
     expect(sections[0]?.items[0]).toMatchObject({
       children: [
         { label: "Providers" },
-        { label: "Alerts" },
+        { label: "Alerts", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
+        { label: "Scans", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
+        { label: "CLI Import", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
         { label: "Integrations" },
       ],
     });

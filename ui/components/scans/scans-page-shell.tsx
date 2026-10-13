@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useState } from "react";
 
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { OnboardingTrigger, PageReady } from "@/components/onboarding";
 import { MutedFindingsConfigButton } from "@/components/providers/muted-findings-config-button";
 import {
@@ -77,6 +78,8 @@ export function ScansPageShell({
   // none connected). The table still renders below, so imported scans stay visible.
   const showProvidersHint = thereAreNoProviders || !hasConnectedProviders;
   const isCloudEnvironment = isCloud();
+  const cliImportEnabled =
+    isCloudEnvironment || isCloudsneekerFeatureEnabled("cliImport");
   const launchDisabled = !hasManageScansPermission || !hasConnectedProviders;
   const launchOpen =
     !launchDisabled && (isLaunchScanModalOpen || urlLaunchOpen);
@@ -150,7 +153,7 @@ export function ScansPageShell({
         />
       </div>
 
-      {isCloudEnvironment && <CliImportBanner />}
+      {cliImportEnabled && <CliImportBanner />}
 
       <Tabs
         value={filters.activeTab}
@@ -182,7 +185,7 @@ export function ScansPageShell({
             >
               Launch Scan
             </Button>
-            {isCloudEnvironment && hasManageIngestionsPermission && (
+            {cliImportEnabled && hasManageIngestionsPermission && (
               <ImportFindingsModal />
             )}
             <MutedFindingsConfigButton />

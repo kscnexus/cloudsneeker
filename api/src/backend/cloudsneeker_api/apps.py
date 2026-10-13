@@ -6,8 +6,9 @@ class CloudsneekerApiConfig(AppConfig):
     """Django app that carries Cloudsneeker-only API behavior.
 
     Everything that is not a thin hook into an upstream file lives in this
-    app: new endpoints under ``/api/v1/cloudsneeker/``, new tables with the
-    ``cloudsneeker_`` prefix, and their tests.
+    app: brand under ``/api/v1/cloudsneeker/``, feature APIs that fill open
+    contracts the UI already calls (alerts, scan-configurations, ingestions),
+    new tables with the ``cloudsneeker_`` prefix, and their tests.
     """
 
     default_auto_field = "django.db.models.BigAutoField"

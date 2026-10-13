@@ -12,10 +12,13 @@ import {
 
 import { GET } from "./route";
 
-const { getAuthHeadersMock, isCloudMock } = vi.hoisted(() => ({
-  getAuthHeadersMock: vi.fn(),
-  isCloudMock: vi.fn(),
-}));
+const { getAuthHeadersMock, isCloudMock, isFeatureEnabledMock } = vi.hoisted(
+  () => ({
+    getAuthHeadersMock: vi.fn(),
+    isCloudMock: vi.fn(),
+    isFeatureEnabledMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib", () => ({
   apiBaseUrl: "https://api.example.com/api/v1",
@@ -24,6 +27,10 @@ vi.mock("@/lib", () => ({
 
 vi.mock("@/lib/shared/env", () => ({
   isCloud: isCloudMock,
+}));
+
+vi.mock("@/cloudsneeker/features", () => ({
+  isCloudsneekerFeatureEnabled: isFeatureEnabledMock,
 }));
 
 describe("GET /api/ingestions/[ingestionId]", () => {
@@ -39,8 +46,9 @@ describe("GET /api/ingestions/[ingestionId]", () => {
 
   afterAll(() => server.close());
 
-  it("returns not found in OSS and Local Server before reading the ingestion identifier", async () => {
+  it("returns not found when cloud and Cloudsneeker CLI import are both off", async () => {
     isCloudMock.mockReturnValue(false);
+    isFeatureEnabledMock.mockReturnValue(false);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -55,6 +63,7 @@ describe("GET /api/ingestions/[ingestionId]", () => {
 
   it("forwards a Cloud status request and translates its typed response", async () => {
     isCloudMock.mockReturnValue(true);
+    isFeatureEnabledMock.mockReturnValue(false);
     getAuthHeadersMock.mockResolvedValue({ Authorization: "Bearer token" });
     server.use(
       http.get("https://api.example.com/api/v1/ingestions/ingestion-123", () =>

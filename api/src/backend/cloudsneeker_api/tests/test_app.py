@@ -17,8 +17,17 @@ class TestAppRegistration:
         assert config.name == "cloudsneeker_api"
         assert config.verbose_name == brand.name
 
-    def test_app_has_no_models_yet(self):
-        assert list(apps.get_app_config("cloudsneeker_api").get_models()) == []
+    def test_app_registers_feature_models(self):
+        model_names = {
+            model.__name__
+            for model in apps.get_app_config("cloudsneeker_api").get_models()
+        }
+        assert {
+            "ScanConfiguration",
+            "AlertRule",
+            "AlertRecipient",
+            "FindingIngestion",
+        }.issubset(model_names)
 
     def test_table_prefix_constant(self):
         from cloudsneeker_api.models import TABLE_PREFIX

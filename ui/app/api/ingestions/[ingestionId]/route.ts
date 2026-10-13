@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { parseIngestion } from "@/lib/ingestions";
 import { isCloud } from "@/lib/shared/env";
@@ -20,7 +21,9 @@ export async function GET(
   _request: Request,
   { params }: IngestionRouteContext,
 ) {
-  if (!isCloud()) return new Response(null, { status: 404 });
+  if (!isCloud() && !isCloudsneekerFeatureEnabled("cliImport")) {
+    return new Response(null, { status: 404 });
+  }
 
   const { ingestionId } = await params;
   if (!ingestionId) return new Response(null, { status: 404 });

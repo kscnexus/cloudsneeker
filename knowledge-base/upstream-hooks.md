@@ -46,7 +46,8 @@ Test-side hooks (SDK): `tests/conftest.py` applies `cloudsneeker.testing.UPSTREA
 | File | Hook | Re-apply by |
 | --- | --- | --- |
 | `config/django/base.py` | `from cloudsneeker_api.brand import brand`; `"cloudsneeker_api"` appended to `INSTALLED_APPS`; `SPECTACULAR_SETTINGS["TITLE"] = f"API Reference - {brand.name}"`; `SIMPLE_JWT` issuer and audience default to `brand.jwt_default_issuer` | Keep upstream env-var names (`DJANGO_TOKEN_ISSUER`, `DJANGO_TOKEN_AUDIENCE`). |
-| `config/urls.py` | `path("api/v1/", include("cloudsneeker_api.urls"))` after the upstream `api.v1.urls` include | Cloudsneeker routes live under `/api/v1/cloudsneeker/`. |
+| `config/urls.py` | `path("api/v1/", include("cloudsneeker_api.urls"))` after the upstream `api.v1.urls` include | Brand under `/api/v1/cloudsneeker/`; also mounts alerts, scan-configurations, and ingestions contracts the UI already calls. |
+| `config/celery.py` | `autodiscover_tasks(["api", "cloudsneeker_api"])` | Loads Cloudsneeker ingestion and alert tasks. |
 | `config/settings/social_login.py` | SAML `"entity_id": brand.saml_sp_entity_id` | `urn:cloudsneeker:sp`; must match `ui/cloudsneeker/brand.ts` `samlSpEntityId`. |
 | `api/health.py` | `SERVICE_ID = health_service_id()`, `SERVICE_DESCRIPTION = health_description()` | `serviceId` is `cloudsneeker-api`. |
 | `api/v1/views.py` | `spectacular_settings.TITLE = cloudsneeker_brand.api_title()` and `DESCRIPTION = api_description()` inside the schema view | The `/api/v1/docs` page and generated schema carry the product name. |
@@ -55,6 +56,7 @@ Test-side hooks (SDK): `tests/conftest.py` applies `cloudsneeker.testing.UPSTREA
 | `tasks/jobs/reports/base.py` | `report_logo_path(...)`; PDF metadata `author=pdf_author()`, `creator=pdf_creator()`, `keywords=pdf_keywords(framework)`; footer `pdf_footer()` | Logo file is `tasks/assets/img/cloudsneeker_logo.png`. |
 | `tasks/jobs/reports/cis.py`, `ens.py`, `nis2.py` | `prowler_logo_path = report_logo_path(...)`; `ens.py` footer `pdf_footer()` | Keep upstream variable names. |
 | `tasks/jobs/reports/config.py` | `display_name=threatscore_display_name()` for the built-in risk framework | "Cloudsneeker ThreatScore". |
+| `tasks/jobs/scan.py` | after a successful scan, enqueue `evaluate_alert_rules_task` | Alerts stay Cloudsneeker-only; failures are logged and ignored. |
 
 Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations.py`, and `tasks/tests/test_reports_base.py` assert against `cloudsneeker_api.brand` values. `cloudsneeker_api/tests/` covers the brand helpers, the app registration, `/api/v1/cloudsneeker/brand`, and the OpenAPI entry.
 
@@ -66,7 +68,12 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `components/icons/prowler/ProwlerIcons.tsx` | `ProwlerExtended`/`ProwlerShort` render the artwork from `ui/cloudsneeker/brand-logo.tsx` | Keep the component names; they are imported across the app. |
 | `components/auth/oss/auth-layout.tsx` | re-exports the responsive split-screen experience from `ui/cloudsneeker/auth-layout.tsx` | Form children and submission behavior remain inherited. |
 | `components/compliance/threatscore-logo.tsx` | re-exports product artwork from `ui/cloudsneeker/threatscore-logo.tsx` | Prevents inherited vendor artwork from appearing on the overview. |
-| `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | `withCloudsneekerNavigation` drops the HELP section. New sidebar entries go in `ui/cloudsneeker/navigation.ts`. |
+| `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | `withCloudsneekerNavigation` drops HELP and turns built-in cloud features into real links. |
+| `app/(prowler)/alerts/page.tsx` | also allows `isCloudsneekerFeatureEnabled("alerts")` | Opens Alerts without `UI_CLOUD_ENABLED`. |
+| `app/(prowler)/scans/config/page.tsx` | also allows `isCloudsneekerFeatureEnabled("scanConfiguration")` | Opens Scan profiles without cloud. |
+| `app/api/ingestions/route.ts`, `[ingestionId]/route.ts` | also allow `isCloudsneekerFeatureEnabled("cliImport")` | CLI Import proxy works without cloud. |
+| `components/scans/scans-page-shell.tsx` | CLI Import banner/modal when feature enabled | Uses `manage_scans` via Cloudsneeker permission mapping. |
+| `actions/auth/auth.ts` | `withCloudsneekerPermissions(...)` on `/users/me` permissions | Maps `manage_scans` onto alerts/ingestions keys. |
 | `components/layout/app-sidebar/app-sidebar-content.tsx` | `aria-label={`${BRAND.name} home`}`; upsell block gated by `BRAND.showUpsell` | — |
 | `components/layout/app-sidebar/sidebar-footer.tsx` | footer links read `BRAND` | — |
 | `components/auth/oss/sign-up-form.tsx` | terms link `href={BRAND.termsUrl}` | — |
@@ -129,7 +136,7 @@ Excluded on purpose: `NOTICE`, `LICENSE`, changelogs, lockfiles, tests, migratio
 
 ## Gates
 
-CI: `.github/workflows/cloudsneeker-release.yml`.
+CI: `.github/workflows/cloudsneeker-release.yml` and `.github/workflows/cloudsneeker-images.yml`.
 
 * `source-gate`: `rebrand.py --check` (no stale rules) and `brand_audit.py --source` (Cloudsneeker-owned directories contain no upstream names).
 * `docs-gate`: `gen_check_docs.py` then `brand_audit.py --tree cloudsneeker/docs`.

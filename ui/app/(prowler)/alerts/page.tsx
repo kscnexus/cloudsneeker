@@ -7,6 +7,7 @@ import { getScans } from "@/actions/scans";
 import { getAlert, listAlerts } from "@/app/(prowler)/alerts/_actions";
 import { AlertsLighthouseContext } from "@/app/(prowler)/alerts/_components/alerts-lighthouse-context";
 import { AlertsManager } from "@/app/(prowler)/alerts/_components/alerts-manager";
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { createScanDetailsMapping } from "@/lib";
 import { isCloud } from "@/lib/shared/env";
@@ -52,7 +53,7 @@ const toAlertsSearchParams = (
 };
 
 export default async function AlertsPage({ searchParams }: AlertsPageProps) {
-  if (!isCloud()) {
+  if (!isCloud() && !isCloudsneekerFeatureEnabled("alerts")) {
     redirect("/");
   }
 

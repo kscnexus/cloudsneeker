@@ -14,10 +14,13 @@ import { POST } from "./route";
 
 // Browser MSW intercepts the same-origin request before Next can run this
 // Route Handler, so these tests call POST directly.
-const { getAuthHeadersMock, isCloudMock } = vi.hoisted(() => ({
-  getAuthHeadersMock: vi.fn(),
-  isCloudMock: vi.fn(),
-}));
+const { getAuthHeadersMock, isCloudMock, isFeatureEnabledMock } = vi.hoisted(
+  () => ({
+    getAuthHeadersMock: vi.fn(),
+    isCloudMock: vi.fn(),
+    isFeatureEnabledMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib", () => ({
   apiBaseUrl: "https://api.example.com/api/v1",
@@ -26,6 +29,10 @@ vi.mock("@/lib", () => ({
 
 vi.mock("@/lib/shared/env", () => ({
   isCloud: isCloudMock,
+}));
+
+vi.mock("@/cloudsneeker/features", () => ({
+  isCloudsneekerFeatureEnabled: isFeatureEnabledMock,
 }));
 
 // A browser upload always reaches the route with a length on the wire, and the
@@ -52,8 +59,9 @@ describe("POST /api/ingestions", () => {
 
   afterAll(() => server.close());
 
-  it("returns not found in OSS and Local Server without authenticating or forwarding the upload", async () => {
+  it("returns not found when cloud and Cloudsneeker CLI import are both off", async () => {
     isCloudMock.mockReturnValue(false);
+    isFeatureEnabledMock.mockReturnValue(false);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const request = new Request("http://localhost/api/ingestions", {
@@ -72,6 +80,7 @@ describe("POST /api/ingestions", () => {
 
   it("forwards the original multipart stream and boundary in Cloud", async () => {
     isCloudMock.mockReturnValue(true);
+    isFeatureEnabledMock.mockReturnValue(false);
     getAuthHeadersMock.mockResolvedValue({ Authorization: "Bearer token" });
     let contentType: string | null = null;
     let contentLength: string | null = null;
@@ -205,11 +214,11 @@ describe("POST /api/ingestions", () => {
   });
 
   it.each([
-    [400, "invalid", "The report is not a valid Prowler OCSF finding report."],
+    [400, "invalid", "The report is not a valid Cloudsneeker OCSF finding report."],
     [
       402,
       "subscription_required",
-      "A Prowler Cloud subscription is required to import findings.",
+      "Importing findings is not enabled for this tenant.",
     ],
     [
       403,
@@ -248,8 +257,8 @@ describe("POST /api/ingestions", () => {
   );
 
   const STATUS_TIER_REJECTIONS = [
-    [400, "The report is not a valid Prowler OCSF finding report."],
-    [402, "A Prowler Cloud subscription is required to import findings."],
+    [400, "The report is not a valid Cloudsneeker OCSF finding report."],
+    [402, "Importing findings is not enabled for this tenant."],
     [403, "You do not have permission to import findings."],
     [413, "The selected file exceeds the allowed upload size."],
     [429, "Too many import requests. Please try again shortly."],

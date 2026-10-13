@@ -143,7 +143,7 @@ describe("auth actions", () => {
     expect(result.permissions.manage_ingestions).toBe(true);
   });
 
-  it("should default manage_ingestions to false when the role omits it", async () => {
+  it("should map manage_scans onto manage_ingestions for Cloudsneeker", async () => {
     // Given
     mockUserMe({ manage_scans: true });
 
@@ -151,7 +151,8 @@ describe("auth actions", () => {
     const result = await getUserByMe("access-token");
 
     // Then
-    expect(result.permissions.manage_ingestions).toBe(false);
+    expect(result.permissions.manage_ingestions).toBe(true);
+    expect(result.permissions.manage_alerts).toBe(true);
     expect(result.permissions.manage_scans).toBe(true);
   });
 

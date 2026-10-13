@@ -81,7 +81,7 @@ celery_app.conf.task_annotations = {
     },
 }
 
-celery_app.autodiscover_tasks(["api"])
+celery_app.autodiscover_tasks(["api", "cloudsneeker_api"])  # cloudsneeker-hook
 
 
 class RLSTask(Task):
