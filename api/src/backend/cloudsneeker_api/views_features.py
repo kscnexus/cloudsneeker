@@ -19,6 +19,7 @@ from cloudsneeker_api.serializers_scan_config import (
 )
 from cloudsneeker_api.services.alert_conditions import preview_condition
 from cloudsneeker_api.services.ocsf_import import parse_ocsf_payload
+from django.db import transaction
 from django.utils import timezone
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -388,9 +389,15 @@ class IngestionViewSet(BaseRLSViewSet):
         )
         from cloudsneeker_api.tasks import process_finding_ingestion_task
 
-        process_finding_ingestion_task.delay(
-            tenant_id=str(request.tenant_id),
-            ingestion_id=str(ingestion.id),
+        tenant_id = str(request.tenant_id)
+        ingestion_id = str(ingestion.id)
+        # Defer broker publish until the request atomic block commits so the
+        # worker cannot race ahead of the FindingIngestion insert.
+        transaction.on_commit(
+            lambda: process_finding_ingestion_task.delay(
+                tenant_id=tenant_id,
+                ingestion_id=ingestion_id,
+            )
         )
         return Response(
             {"data": self._document(ingestion)},
