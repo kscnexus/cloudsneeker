@@ -34,6 +34,30 @@ class TestAppRegistration:
 
         assert TABLE_PREFIX == "cloudsneeker_"
 
+    def test_feature_models_point_tenant_at_api_app(self):
+        from cloudsneeker_api.models import (
+            AlertRecipient,
+            AlertRule,
+            FindingIngestion,
+            ScanConfiguration,
+        )
+
+        for model in (ScanConfiguration, AlertRule, AlertRecipient, FindingIngestion):
+            remote = model._meta.get_field("tenant").remote_field.model
+            assert remote._meta.app_label == "api"
+            assert remote._meta.model_name == "tenant"
+
+    def test_feature_models_pass_django_system_checks(self):
+        from django.core.checks import run_checks
+
+        errors = [
+            error
+            for error in run_checks(app_configs=None)
+            if error.id in {"fields.E300", "fields.E307"}
+            and "cloudsneeker_api" in str(error)
+        ]
+        assert errors == []
+
 
 class TestFeatureRoutes:
     """Configuration contracts must import with the same nested routers as upstream."""

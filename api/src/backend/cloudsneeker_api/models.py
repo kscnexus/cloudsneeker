@@ -19,7 +19,21 @@ TABLE_PREFIX = "cloudsneeker_"
 JSON_API_TYPE_PREFIX = "cloudsneeker-"
 
 
-class ScanConfiguration(RowLevelSecurityProtectedModel):
+class CloudsneekerRLSModel(RowLevelSecurityProtectedModel):
+    """RLS base for Cloudsneeker tables.
+
+    Upstream ``RowLevelSecurityProtectedModel`` declares ``ForeignKey("Tenant")``.
+    Concrete models in this app would resolve that string to
+    ``cloudsneeker_api.Tenant``. Point at ``api.Tenant`` explicitly.
+    """
+
+    tenant = models.ForeignKey("api.Tenant", on_delete=models.CASCADE)
+
+    class Meta(RowLevelSecurityProtectedModel.Meta):
+        abstract = True
+
+
+class ScanConfiguration(CloudsneekerRLSModel):
     """Named YAML/JSON scan options attached to one or more providers."""
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
@@ -34,7 +48,7 @@ class ScanConfiguration(RowLevelSecurityProtectedModel):
         blank=True,
     )
 
-    class Meta(RowLevelSecurityProtectedModel.Meta):
+    class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}scan_configurations"
         constraints = [
             RowLevelSecurityConstraint(
@@ -52,7 +66,7 @@ class ScanConfiguration(RowLevelSecurityProtectedModel):
         resource_name = "scan-configurations"
 
 
-class ScanConfigurationProvider(RowLevelSecurityProtectedModel):
+class ScanConfigurationProvider(CloudsneekerRLSModel):
     """Through table so a provider belongs to at most one scan configuration."""
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
@@ -68,7 +82,7 @@ class ScanConfigurationProvider(RowLevelSecurityProtectedModel):
     )
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
 
-    class Meta(RowLevelSecurityProtectedModel.Meta):
+    class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}scan_configuration_providers"
         constraints = [
             RowLevelSecurityConstraint(
@@ -83,7 +97,7 @@ class ScanConfigurationProvider(RowLevelSecurityProtectedModel):
         ]
 
 
-class AlertRecipient(RowLevelSecurityProtectedModel):
+class AlertRecipient(CloudsneekerRLSModel):
     """Email destination for alert rules, with confirmation lifecycle."""
 
     class Status(models.TextChoices):
@@ -107,7 +121,7 @@ class AlertRecipient(RowLevelSecurityProtectedModel):
     unsubscribed_at = models.DateTimeField(null=True, blank=True)
     last_bounce_at = models.DateTimeField(null=True, blank=True)
 
-    class Meta(RowLevelSecurityProtectedModel.Meta):
+    class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}alert_recipients"
         constraints = [
             RowLevelSecurityConstraint(
@@ -125,7 +139,7 @@ class AlertRecipient(RowLevelSecurityProtectedModel):
         resource_name = "alert-recipients"
 
 
-class AlertRule(RowLevelSecurityProtectedModel):
+class AlertRule(CloudsneekerRLSModel):
     """Finding alert rule evaluated after scans or on a daily schedule."""
 
     class Trigger(models.TextChoices):
@@ -159,7 +173,7 @@ class AlertRule(RowLevelSecurityProtectedModel):
         blank=True,
     )
 
-    class Meta(RowLevelSecurityProtectedModel.Meta):
+    class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}alert_rules"
         constraints = [
             RowLevelSecurityConstraint(
@@ -177,7 +191,7 @@ class AlertRule(RowLevelSecurityProtectedModel):
         resource_name = "alert-rules"
 
 
-class AlertRuleRecipient(RowLevelSecurityProtectedModel):
+class AlertRuleRecipient(CloudsneekerRLSModel):
     """Through table linking alert rules to recipients."""
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
@@ -189,7 +203,7 @@ class AlertRuleRecipient(RowLevelSecurityProtectedModel):
     )
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
 
-    class Meta(RowLevelSecurityProtectedModel.Meta):
+    class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}alert_rule_recipients"
         constraints = [
             RowLevelSecurityConstraint(
@@ -204,7 +218,7 @@ class AlertRuleRecipient(RowLevelSecurityProtectedModel):
         ]
 
 
-class FindingIngestion(RowLevelSecurityProtectedModel):
+class FindingIngestion(CloudsneekerRLSModel):
     """Upload job that imports a CLI OCSF finding report."""
 
     class Status(models.TextChoices):
@@ -234,7 +248,7 @@ class FindingIngestion(RowLevelSecurityProtectedModel):
     )
     scan_id = models.UUIDField(null=True, blank=True)
 
-    class Meta(RowLevelSecurityProtectedModel.Meta):
+    class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}finding_ingestions"
         constraints = [
             RowLevelSecurityConstraint(
