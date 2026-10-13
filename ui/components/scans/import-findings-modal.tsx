@@ -106,10 +106,14 @@ const responseError = async (
   return fallback;
 };
 
-export function ImportFindingsModal() {
+export function ImportFindingsModal({
+  initialOpen = false,
+}: {
+  initialOpen?: boolean;
+} = {}) {
   const router = useRouter();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [state, setState] = useState<ImportState>({ type: IMPORT_STATE.IDLE });
   const polling = useIngestionPolling({
     onCompleted: (ingestion, completedWhileHidden) => {

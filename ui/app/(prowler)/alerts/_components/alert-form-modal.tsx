@@ -455,10 +455,12 @@ const AlertFormModalContent = ({
   };
 
   const handleSubmit = async () => {
+    // Edits keep the stored condition when the Findings filter bar has no
+    // alert-compatible filters (common for API-created or advanced rules).
     const seedResult = editingAlert
       ? await seedAlertRule(pendingFilters)
       : null;
-    if (seedResult?.error) {
+    if (seedResult?.error && !editingAlert) {
       setPreview(null);
       setErrors({
         root: getAlertMutationError(seedResult, ALERT_SEED_ERROR),
@@ -467,7 +469,9 @@ const AlertFormModalContent = ({
     }
 
     const values = buildCurrentValues(
-      seedResult?.data.attributes.condition ?? defaults.condition,
+      seedResult?.error
+        ? defaults.condition
+        : (seedResult?.data.attributes.condition ?? defaults.condition),
     );
     const parsed = alertFormSchema.safeParse(values);
     if (!parsed.success) {

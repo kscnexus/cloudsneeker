@@ -15,6 +15,8 @@ import {
 } from "@/components/shadcn";
 import { getFlowById } from "@/lib/onboarding";
 import {
+  IMPORT_FINDINGS_SEARCH_PARAM,
+  isImportFindingsSearchParam,
   LAUNCH_SCAN_SEARCH_PARAM,
   LAUNCH_SCAN_SEARCH_VALUE,
 } from "@/lib/scans-navigation";
@@ -186,7 +188,11 @@ export function ScansPageShell({
               Launch Scan
             </Button>
             {cliImportEnabled && hasManageIngestionsPermission && (
-              <ImportFindingsModal />
+              <ImportFindingsModal
+                initialOpen={isImportFindingsSearchParam(
+                  searchParams.get(IMPORT_FINDINGS_SEARCH_PARAM),
+                )}
+              />
             )}
             <MutedFindingsConfigButton />
           </div>

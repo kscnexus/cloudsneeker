@@ -8,7 +8,10 @@ export const withCloudsneekerPermissions = (
   permissions: RolePermissionAttributes,
 ): RolePermissionAttributes => ({
   ...permissions,
-  manage_ingestions:
-    permissions.manage_ingestions ?? permissions.manage_scans ?? false,
-  manage_alerts: permissions.manage_alerts ?? permissions.manage_scans ?? false,
+  // OSS roles always serialize cloud-only keys as false via toPermissions();
+  // treat manage_scans as the edition grant for alerts and CLI import.
+  manage_ingestions: Boolean(
+    permissions.manage_ingestions || permissions.manage_scans,
+  ),
+  manage_alerts: Boolean(permissions.manage_alerts || permissions.manage_scans),
 });

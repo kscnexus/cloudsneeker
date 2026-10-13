@@ -12,6 +12,7 @@ from cloudsneeker_api.serializers_alerts import (
     AlertRuleSerializer,
     AlertRuleWriteSerializer,
 )
+from cloudsneeker_api.serializers_ingestions import FindingIngestionSerializer
 from cloudsneeker_api.serializers_scan_config import (
     ScanConfigurationSerializer,
     ScanConfigurationWriteSerializer,
@@ -297,6 +298,7 @@ class IngestionViewSet(BaseRLSViewSet):
     """Accept OCSF report uploads and expose import job status."""
 
     queryset = FindingIngestion.objects.all()
+    serializer_class = FindingIngestionSerializer
     http_method_names = ["get", "post", "head", "options"]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     required_permissions = [Permissions.MANAGE_SCANS]
@@ -310,6 +312,9 @@ class IngestionViewSet(BaseRLSViewSet):
             "id": str(ingestion.id),
             "attributes": {
                 "status": ingestion.status,
+                "original_filename": ingestion.original_filename,
+                "error_message": ingestion.error_message,
+                "scan_id": str(ingestion.scan_id) if ingestion.scan_id else None,
                 "summary": {
                     "total": ingestion.total_records,
                     "processed": ingestion.processed_records,
@@ -317,6 +322,14 @@ class IngestionViewSet(BaseRLSViewSet):
                 },
             },
         }
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        documents = [self._document(item) for item in (page if page is not None else queryset)]
+        if page is not None:
+            return self.get_paginated_response(documents)
+        return Response({"data": documents})
 
     def retrieve(self, request, *args, **kwargs):
         ingestion = self.get_object()
