@@ -86,6 +86,8 @@ def test_image_workflow_publishes_each_image_and_keeps_platform_mode():
     assert 'services="ui"' in IMAGES
     assert 'services="mcp"' in IMAGES
     assert 'services="neo4j"' in IMAGES
+    assert "--builder default" in IMAGES
+    assert 'docker push "$image"' in IMAGES
     assert "workflow_dispatch:" in IMAGES
     assert "codebuild" not in DEPLOY.lower()
     assert "GitHub Actions" in DEPLOY

@@ -198,10 +198,12 @@ jobs:
             cli)
               docker buildx build $push_flag -t "$IMAGE:$TAG" build/tree ;;
             api)
-              docker buildx build --load -t "cloudsneeker/api-base:$TAG" build/tree/api
-              docker buildx build $push_flag -t "$IMAGE:$TAG" \
+              docker buildx build --builder default --load -t "cloudsneeker/api-base:$TAG" build/tree/api
+              docker buildx build --builder default --load -t "$IMAGE:$TAG" \
                 --build-arg "BASE_IMAGE=cloudsneeker/api-base:$TAG" \
-                -f cloudsneeker/deploy/docker/api.Dockerfile build ;;
+                -f cloudsneeker/deploy/docker/api.Dockerfile build
+              if [[ "$PUSH" == "true" ]]; then docker push "$IMAGE:$TAG"; fi
+              ;;
             ui)
               docker buildx build $push_flag -t "$IMAGE:$TAG" --target prod \
                 --build-arg "NEXT_PUBLIC_PROWLER_RELEASE_VERSION=$TAG" build/tree/ui ;;

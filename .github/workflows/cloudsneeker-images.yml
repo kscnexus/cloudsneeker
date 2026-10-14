@@ -146,10 +146,13 @@ jobs:
           image="${REGISTRY}/${IMAGE_NAME}:${tag}"
           case "$IMAGE_NAME" in
             api)
-              docker buildx build --load -t "cloudsneeker/api-base:${tag}" build/tree/api
-              docker buildx build --push -t "$image" \
+              # The default builder shares the local image store. The
+              # container builder would try to pull the base image from a registry.
+              docker buildx build --builder default --load -t "cloudsneeker/api-base:${tag}" build/tree/api
+              docker buildx build --builder default --load -t "$image" \
                 --build-arg "BASE_IMAGE=cloudsneeker/api-base:${tag}" \
                 -f cloudsneeker/deploy/docker/api.Dockerfile build
+              docker push "$image"
               ;;
             ui)
               docker buildx build --push -t "$image" --target prod \
