@@ -57,6 +57,19 @@ export default async function CustodianPolicyDetailPage({
           <p className="text-text-neutral-secondary text-xs">
             Dry-run only — apply / remediate is not available.
           </p>
+          {policy.attributes.schedule_enabled ? (
+            <p className="text-text-neutral-secondary text-sm">
+              Schedule: {policy.attributes.schedule_cron} (
+              {policy.attributes.schedule_timezone || "UTC"})
+              {policy.attributes.next_run_at
+                ? ` · next ${new Date(policy.attributes.next_run_at).toLocaleString()}`
+                : ""}
+            </p>
+          ) : (
+            <p className="text-text-neutral-secondary text-sm">
+              Schedule: off
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button asChild variant="ghost" size="sm">
@@ -93,6 +106,9 @@ export default async function CustodianPolicyDetailPage({
                   </span>
                   <span className="text-text-neutral-secondary">
                     mode: {run.attributes.mode}
+                  </span>
+                  <span className="text-text-neutral-secondary capitalize">
+                    trigger: {run.attributes.trigger ?? "manual"}
                   </span>
                   <span className="text-text-neutral-secondary">
                     resources:{" "}

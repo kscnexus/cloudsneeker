@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import {
   createCustodianPolicy,
@@ -14,6 +14,7 @@ import {
   type CustodianPolicyFormInput,
   type CustodianPolicyFormValues,
 } from "@/cloudsneeker/lib/custodian-form-schema";
+import { CUSTODIAN_SCHEDULE_PRESET } from "@/cloudsneeker/lib/custodian-schedule";
 import { Button, Input, Label, Textarea } from "@/components/shadcn";
 
 interface AwsProviderOption {
@@ -23,9 +24,19 @@ interface AwsProviderOption {
 
 interface CustodianPolicyFormProps {
   providers: AwsProviderOption[];
-  initialValues?: CustodianPolicyFormValues;
+  initialValues?: CustodianPolicyFormInput;
   policyId?: string;
 }
+
+const WEEKDAYS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+] as const;
 
 export const CustodianPolicyForm = ({
   providers,
@@ -36,8 +47,6 @@ export const CustodianPolicyForm = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // `.default("")` on description makes input/output types differ — match
-  // scan-configuration-editor so RHF and zodResolver line up.
   const form = useForm<
     CustodianPolicyFormInput,
     unknown,
@@ -54,7 +63,17 @@ export const CustodianPolicyForm = ({
     filters:
       - Attachments: []
 `,
+      schedulePreset: CUSTODIAN_SCHEDULE_PRESET.DISABLED,
+      scheduleHour: 9,
+      scheduleWeekday: 1,
+      scheduleTimezone: "UTC",
+      scheduleCron: "",
     },
+  });
+
+  const schedulePreset = useWatch({
+    control: form.control,
+    name: "schedulePreset",
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -65,6 +84,9 @@ export const CustodianPolicyForm = ({
       description: values.description ?? "",
       policyYaml: values.policyYaml,
       providerId: values.providerId,
+      scheduleEnabled: values.scheduleEnabled,
+      scheduleCron: values.scheduleCron,
+      scheduleTimezone: values.scheduleTimezone,
     };
     const result = policyId
       ? await updateCustodianPolicy(policyId, payload)
@@ -145,6 +167,93 @@ export const CustodianPolicyForm = ({
           </p>
         ) : null}
       </div>
+
+      <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
+        <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
+          Dry-run schedule
+        </legend>
+        <p className="text-text-neutral-secondary text-xs">
+          Scheduled runs stay dry-run only. Apply / remediate is never enabled.
+        </p>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="custodian-schedule-preset">Cadence</Label>
+          <select
+            id="custodian-schedule-preset"
+            className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
+            {...form.register("schedulePreset")}
+          >
+            <option value={CUSTODIAN_SCHEDULE_PRESET.DISABLED}>Off</option>
+            <option value={CUSTODIAN_SCHEDULE_PRESET.HOURLY}>Hourly</option>
+            <option value={CUSTODIAN_SCHEDULE_PRESET.DAILY}>Daily</option>
+            <option value={CUSTODIAN_SCHEDULE_PRESET.WEEKLY}>Weekly</option>
+            <option value={CUSTODIAN_SCHEDULE_PRESET.CUSTOM}>
+              Custom cron
+            </option>
+          </select>
+        </div>
+
+        {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.DAILY ||
+        schedulePreset === CUSTODIAN_SCHEDULE_PRESET.WEEKLY ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="custodian-schedule-hour">Hour (0–23)</Label>
+            <Input
+              id="custodian-schedule-hour"
+              type="number"
+              min={0}
+              max={23}
+              {...form.register("scheduleHour")}
+            />
+          </div>
+        ) : null}
+
+        {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.WEEKLY ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="custodian-schedule-weekday">Day of week</Label>
+            <select
+              id="custodian-schedule-weekday"
+              className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
+              {...form.register("scheduleWeekday")}
+            >
+              {WEEKDAYS.map((day) => (
+                <option key={day.value} value={day.value}>
+                  {day.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.CUSTOM ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="custodian-schedule-cron">
+              Cron (minute hour day month weekday)
+            </Label>
+            <Input
+              id="custodian-schedule-cron"
+              className="font-mono text-sm"
+              placeholder="0 9 * * 1-5"
+              {...form.register("scheduleCron")}
+            />
+            {form.formState.errors.scheduleCron ? (
+              <p className="text-text-error text-sm">
+                {form.formState.errors.scheduleCron.message}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {schedulePreset !== CUSTODIAN_SCHEDULE_PRESET.DISABLED ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="custodian-schedule-timezone">Timezone</Label>
+            <Input
+              id="custodian-schedule-timezone"
+              placeholder="UTC"
+              {...form.register("scheduleTimezone")}
+            />
+          </div>
+        ) : null}
+      </fieldset>
 
       {error ? <p className="text-text-error text-sm">{error}</p> : null}
 

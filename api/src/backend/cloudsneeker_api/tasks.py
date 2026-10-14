@@ -101,3 +101,19 @@ def custodian_dry_run_task(tenant_id: str, run_id: str):
     from cloudsneeker_api.services.custodian import process_custodian_dry_run
 
     return process_custodian_dry_run(tenant_id=tenant_id, run_id=run_id)
+
+
+@shared_task(
+    base=RLSTask,
+    name="cloudsneeker-custodian-scheduled-dry-run",
+    queue="scans",
+)
+@set_tenant(keep_tenant=True)
+def custodian_scheduled_dry_run_task(tenant_id: str, policy_id: str):
+    """Celery Beat entrypoint: enqueue a scheduled Custodian dry-run."""
+    from cloudsneeker_api.services.custodian_schedule import enqueue_scheduled_dry_run
+
+    run = enqueue_scheduled_dry_run(tenant_id=tenant_id, policy_id=policy_id)
+    if run is None:
+        return {"status": "skipped", "policy_id": str(policy_id)}
+    return {"status": "enqueued", "run_id": str(run.id), "policy_id": str(policy_id)}

@@ -5,6 +5,7 @@ import { getProviders } from "@/actions/providers/providers";
 import { getCustodianPolicy } from "@/cloudsneeker/actions/custodian";
 import { CustodianPolicyForm } from "@/cloudsneeker/components/custodian-policy-form";
 import { CUSTODIAN_PROVIDER_FILTER } from "@/cloudsneeker/lib/custodian-providers";
+import { presetFromCron } from "@/cloudsneeker/lib/custodian-schedule";
 import type { CustodianPolicyResource } from "@/cloudsneeker/types/custodian";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 
@@ -43,6 +44,11 @@ export default async function EditCustodianPolicyPage({
       .join(" · "),
   }));
 
+  const schedule = presetFromCron(
+    Boolean(policy.attributes.schedule_enabled),
+    policy.attributes.schedule_cron ?? "",
+  );
+
   return (
     <ContentLayout title={`Edit ${policy.attributes.name}`} icon={<Shield />}>
       <CustodianPolicyForm
@@ -53,6 +59,11 @@ export default async function EditCustodianPolicyPage({
           description: policy.attributes.description ?? "",
           providerId: policy.attributes.provider_id,
           policyYaml: policy.attributes.policy_yaml,
+          schedulePreset: schedule.preset,
+          scheduleHour: schedule.hour,
+          scheduleWeekday: schedule.weekday,
+          scheduleTimezone: policy.attributes.schedule_timezone ?? "UTC",
+          scheduleCron: policy.attributes.schedule_cron ?? "",
         }}
       />
     </ContentLayout>

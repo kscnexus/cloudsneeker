@@ -374,9 +374,20 @@ def run_custodian_dryrun(
             bundle.close()
 
 
-def enqueue_custodian_dry_run(*, tenant_id: str, policy_id: str) -> CustodianRun:
+def enqueue_custodian_dry_run(
+    *,
+    tenant_id: str,
+    policy_id: str,
+    trigger: str = CustodianRun.Trigger.MANUAL,
+) -> CustodianRun:
     """Create a pending dry-run and enqueue the Celery worker after commit."""
     from cloudsneeker_api.tasks import custodian_dry_run_task
+
+    if trigger not in {
+        CustodianRun.Trigger.MANUAL,
+        CustodianRun.Trigger.SCHEDULED,
+    }:
+        raise CustodianDryRunError(f"Unknown Custodian run trigger: {trigger}")
 
     with rls_transaction(tenant_id):
         policy = CustodianPolicy.objects.select_related("provider").get(
@@ -393,6 +404,7 @@ def enqueue_custodian_dry_run(*, tenant_id: str, policy_id: str) -> CustodianRun
             provider=policy.provider,
             status=CustodianRun.Status.PENDING,
             mode=CustodianRun.Mode.DRYRUN,
+            trigger=trigger,
         )
 
     run_id = str(run.id)

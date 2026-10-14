@@ -24,6 +24,7 @@ from cloudsneeker_api.serializers_custodian import (
     CustodianPolicySerializer,
     CustodianPolicyWriteSerializer,
     CustodianRunSerializer,
+    CustodianScheduleBulkSerializer,
 )
 from cloudsneeker_api.serializers_ingestions import FindingIngestionSerializer
 from cloudsneeker_api.serializers_scan_config import (
@@ -32,6 +33,11 @@ from cloudsneeker_api.serializers_scan_config import (
 )
 from cloudsneeker_api.services.alert_conditions import preview_condition
 from cloudsneeker_api.services.custodian import CustodianDryRunError, enqueue_custodian_dry_run
+from cloudsneeker_api.services.custodian_schedule import (
+    CustodianScheduleError,
+    apply_schedule_to_policies,
+    delete_policy_schedule,
+)
 from cloudsneeker_api.services.ocsf_import import parse_ocsf_payload
 from django.db import transaction
 from django.utils import timezone
@@ -175,6 +181,11 @@ class CustodianPolicyViewSet(BaseRLSViewSet):
             CustodianPolicySerializer(policy, context=self.get_serializer_context()).data
         )
 
+    def perform_destroy(self, instance):
+        policy_id = str(instance.id)
+        super().perform_destroy(instance)
+        delete_policy_schedule(policy_id)
+
     @action(
         detail=True,
         methods=["post"],
@@ -198,6 +209,49 @@ class CustodianPolicyViewSet(BaseRLSViewSet):
         return Response(
             CustodianRunSerializer(run, context=self.get_serializer_context()).data,
             status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="schedule-bulk",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
+    def schedule_bulk(self, request):
+        """Apply one schedule to many policies (by id list or provider)."""
+        payload = request.data
+        if isinstance(payload, dict) and "data" in payload:
+            attributes = payload.get("data", {}).get("attributes", payload)
+        else:
+            attributes = payload
+        serializer = CustodianScheduleBulkSerializer(data=attributes)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            policies = apply_schedule_to_policies(
+                tenant_id=str(request.tenant_id),
+                schedule_enabled=data["schedule_enabled"],
+                schedule_cron=data.get("schedule_cron", ""),
+                schedule_timezone=data.get("schedule_timezone", "UTC"),
+                policy_ids=(
+                    [str(pid) for pid in data["policy_ids"]]
+                    if data.get("policy_ids")
+                    else None
+                ),
+                provider_id=(
+                    str(data["provider_id"]) if data.get("provider_id") else None
+                ),
+            )
+        except CustodianScheduleError as exc:
+            return Response(
+                {"errors": [{"detail": str(exc)}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            CustodianPolicySerializer(
+                policies, many=True, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_200_OK,
         )
 
 

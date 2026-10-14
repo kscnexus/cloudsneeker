@@ -16,6 +16,17 @@ export interface CustodianPolicyPayload {
   description?: string;
   policyYaml: string;
   providerId: string;
+  scheduleEnabled?: boolean;
+  scheduleCron?: string;
+  scheduleTimezone?: string;
+}
+
+export interface CustodianScheduleBulkPayload {
+  scheduleEnabled: boolean;
+  scheduleCron?: string;
+  scheduleTimezone?: string;
+  policyIds?: string[];
+  providerId?: string;
 }
 
 const buildPolicyEnvelope = (
@@ -30,6 +41,9 @@ const buildPolicyEnvelope = (
       description: payload.description ?? "",
       policy_yaml: payload.policyYaml,
       provider_id: payload.providerId,
+      schedule_enabled: payload.scheduleEnabled ?? false,
+      schedule_cron: payload.scheduleCron ?? "",
+      schedule_timezone: payload.scheduleTimezone ?? "UTC",
     },
   },
 });
@@ -161,6 +175,37 @@ export const listCustodianRuns = async (
   try {
     const response = await fetch(url.toString(), { headers });
     return handleApiResponse(response);
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const bulkScheduleCustodianPolicies = async (
+  payload: CustodianScheduleBulkPayload,
+) => {
+  const headers = await getAuthHeaders({ contentType: true });
+  const url = new URL(`${apiBaseUrl}${POLICIES_PATH}/schedule-bulk`);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        data: {
+          type: POLICY_TYPE,
+          attributes: {
+            schedule_enabled: payload.scheduleEnabled,
+            schedule_cron: payload.scheduleCron ?? "",
+            schedule_timezone: payload.scheduleTimezone ?? "UTC",
+            ...(payload.policyIds ? { policy_ids: payload.policyIds } : {}),
+            ...(payload.providerId ? { provider_id: payload.providerId } : {}),
+          },
+        },
+      }),
+    });
+    const result = await handleApiResponse(response, REVALIDATE_PATH);
+    revalidatePath(REVALIDATE_PATH);
+    return result;
   } catch (error) {
     return handleApiError(error);
   }

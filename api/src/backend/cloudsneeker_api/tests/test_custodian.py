@@ -194,6 +194,9 @@ class TestCustodianPolicyViewSetWiring:
         parsers = CustodianPolicyViewSet.dry_run.kwargs.get("parser_classes", [])
         assert LenientJSONAPIParser in parsers or JSONParser in parsers or True
 
+    def test_schedule_bulk_action_is_post(self):
+        assert CustodianPolicyViewSet.schedule_bulk.url_path == "schedule-bulk"
+
 
 @pytest.mark.django_db
 class TestCustodianPolicySerializers:
@@ -447,3 +450,227 @@ class TestCustodianDryRunTask:
             run.refresh_from_db()
             assert run.status == CustodianRun.Status.FAILED
             assert "boom" in run.error
+
+
+class TestCustodianScheduleValidation:
+    def test_parse_cron_accepts_five_fields(self):
+        from cloudsneeker_api.services.custodian_schedule import parse_cron_fields
+
+        assert parse_cron_fields("0 9 * * 1") == ("0", "9", "*", "*", "1")
+
+    def test_parse_cron_rejects_bad_expression(self):
+        from cloudsneeker_api.services.custodian_schedule import (
+            CustodianScheduleError,
+            parse_cron_fields,
+        )
+
+        with pytest.raises(CustodianScheduleError, match="5-field"):
+            parse_cron_fields("0 9 * *")
+
+    def test_validate_timezone_rejects_unknown(self):
+        from cloudsneeker_api.services.custodian_schedule import (
+            CustodianScheduleError,
+            validate_timezone,
+        )
+
+        with pytest.raises(CustodianScheduleError, match="Unknown timezone"):
+            validate_timezone("Not/A_Zone")
+
+
+@pytest.mark.django_db
+class TestCustodianScheduleSync:
+    def test_enable_creates_periodic_task(self, tenants_fixture, aws_provider):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.services.custodian_schedule import (
+            PERIODIC_TASK_PREFIX,
+            sync_policy_schedule,
+        )
+        from django_celery_beat.models import PeriodicTask
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            policy = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="scheduled-policy",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+                schedule_enabled=True,
+                schedule_cron="0 9 * * *",
+                schedule_timezone="UTC",
+            )
+            sync_policy_schedule(policy)
+            policy.refresh_from_db()
+
+        task = PeriodicTask.objects.get(
+            name=f"{PERIODIC_TASK_PREFIX}{policy.id}"
+        )
+        assert task.enabled is True
+        assert task.task == "cloudsneeker-custodian-scheduled-dry-run"
+        assert policy.scheduler_task_id == task.id
+        assert policy.next_run_at is not None
+
+    def test_disable_clears_periodic_task(self, tenants_fixture, aws_provider):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.services.custodian_schedule import sync_policy_schedule
+        from django_celery_beat.models import PeriodicTask
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            policy = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="disable-schedule",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+                schedule_enabled=True,
+                schedule_cron="30 * * * *",
+                schedule_timezone="UTC",
+            )
+            sync_policy_schedule(policy)
+            policy.schedule_enabled = False
+            policy.save(update_fields=["schedule_enabled"])
+            sync_policy_schedule(policy)
+            policy.refresh_from_db()
+
+        task = PeriodicTask.objects.get(
+            name=f"custodian-dry-run-scheduled-{policy.id}"
+        )
+        assert task.enabled is False
+        assert policy.scheduler_task_id is None
+        assert policy.next_run_at is None
+
+    def test_policy_delete_removes_periodic_task(
+        self, tenants_fixture, aws_provider
+    ):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.services.custodian_schedule import (
+            delete_policy_schedule,
+            sync_policy_schedule,
+        )
+        from django_celery_beat.models import PeriodicTask
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            policy = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="delete-schedule",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+                schedule_enabled=True,
+                schedule_cron="0 */2 * * *",
+                schedule_timezone="UTC",
+            )
+            sync_policy_schedule(policy)
+            policy_id = str(policy.id)
+            policy.delete()
+        delete_policy_schedule(policy_id)
+        assert not PeriodicTask.objects.filter(
+            name=f"custodian-dry-run-scheduled-{policy_id}"
+        ).exists()
+
+    def test_bulk_schedule_by_provider(self, tenants_fixture, aws_provider):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.services.custodian_schedule import (
+            apply_schedule_to_policies,
+        )
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="bulk-a",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+            )
+            CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="bulk-b",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+            )
+            updated = apply_schedule_to_policies(
+                tenant_id=str(tenant.id),
+                schedule_enabled=True,
+                schedule_cron="15 6 * * 1-5",
+                schedule_timezone="UTC",
+                provider_id=str(aws_provider.id),
+            )
+        assert len(updated) == 2
+        assert all(p.schedule_enabled for p in updated)
+        assert all(p.schedule_cron == "15 6 * * 1-5" for p in updated)
+
+
+@pytest.mark.django_db
+class TestCustodianScheduledEnqueue:
+    def test_scheduled_task_enqueues_with_trigger(
+        self, tenants_fixture, aws_provider
+    ):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.tasks import custodian_scheduled_dry_run_task
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            policy = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="beat-fire",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+                schedule_enabled=True,
+                schedule_cron="0 9 * * *",
+                schedule_timezone="UTC",
+            )
+
+        with patch(
+            "cloudsneeker_api.tasks.custodian_dry_run_task.delay"
+        ) as mock_delay, patch(
+            "django.db.transaction.on_commit", side_effect=lambda fn: fn()
+        ):
+            result = custodian_scheduled_dry_run_task(
+                tenant_id=str(tenant.id),
+                policy_id=str(policy.id),
+            )
+
+        assert result["status"] == "enqueued"
+        mock_delay.assert_called_once()
+        with rls_transaction(str(tenant.id)):
+            run = CustodianRun.objects.get(id=result["run_id"])
+            assert run.trigger == CustodianRun.Trigger.SCHEDULED
+
+    def test_overlap_skips_second_fire(self, tenants_fixture, aws_provider):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.services.custodian_schedule import (
+            enqueue_scheduled_dry_run,
+        )
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            policy = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="overlap-policy",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+                schedule_enabled=True,
+                schedule_cron="0 9 * * *",
+                schedule_timezone="UTC",
+            )
+            CustodianRun.objects.create(
+                tenant_id=tenant.id,
+                policy=policy,
+                provider=aws_provider,
+                status=CustodianRun.Status.RUNNING,
+                mode=CustodianRun.Mode.DRYRUN,
+                trigger=CustodianRun.Trigger.SCHEDULED,
+            )
+
+        with patch("cloudsneeker_api.tasks.custodian_dry_run_task.delay"):
+            skipped = enqueue_scheduled_dry_run(
+                tenant_id=str(tenant.id),
+                policy_id=str(policy.id),
+            )
+        assert skipped is None

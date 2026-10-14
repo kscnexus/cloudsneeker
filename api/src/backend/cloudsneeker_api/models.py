@@ -377,6 +377,17 @@ class CustodianPolicy(CloudsneekerRLSModel):
         on_delete=models.CASCADE,
         related_name="cloudsneeker_custodian_policies",
     )
+    schedule_enabled = models.BooleanField(default=False)
+    schedule_cron = models.CharField(max_length=64, blank=True, default="")
+    schedule_timezone = models.CharField(max_length=64, default="UTC")
+    scheduler_task = models.ForeignKey(
+        "django_celery_beat.PeriodicTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_custodian_policies",
+    )
+    next_run_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}custodian_policies"
@@ -408,6 +419,10 @@ class CustodianRun(CloudsneekerRLSModel):
     class Mode(models.TextChoices):
         DRYRUN = "dryrun", "Dry-run"
 
+    class Trigger(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        SCHEDULED = "scheduled", "Scheduled"
+
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True, editable=False)
@@ -426,6 +441,9 @@ class CustodianRun(CloudsneekerRLSModel):
     )
     mode = models.CharField(
         max_length=32, choices=Mode.choices, default=Mode.DRYRUN
+    )
+    trigger = models.CharField(
+        max_length=32, choices=Trigger.choices, default=Trigger.MANUAL
     )
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)

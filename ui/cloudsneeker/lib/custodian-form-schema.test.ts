@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { custodianPolicyFormSchema } from "./custodian-form-schema";
+import { CUSTODIAN_SCHEDULE_PRESET } from "./custodian-schedule";
 
 const VALID = {
   name: "unused-ebs",
@@ -18,6 +19,9 @@ describe("custodianPolicyFormSchema", () => {
   it("accepts a valid Custodian policy form", () => {
     const parsed = custodianPolicyFormSchema.safeParse(VALID);
     expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.scheduleEnabled).toBe(false);
+    }
   });
 
   it("rejects a short name", () => {
@@ -40,6 +44,30 @@ describe("custodianPolicyFormSchema", () => {
     const parsed = custodianPolicyFormSchema.safeParse({
       ...VALID,
       providerId: "not-a-uuid",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("maps daily preset to cron", () => {
+    const parsed = custodianPolicyFormSchema.safeParse({
+      ...VALID,
+      schedulePreset: CUSTODIAN_SCHEDULE_PRESET.DAILY,
+      scheduleHour: 7,
+      scheduleTimezone: "America/New_York",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.scheduleEnabled).toBe(true);
+      expect(parsed.data.scheduleCron).toBe("0 7 * * *");
+      expect(parsed.data.scheduleTimezone).toBe("America/New_York");
+    }
+  });
+
+  it("rejects custom cron without five fields", () => {
+    const parsed = custodianPolicyFormSchema.safeParse({
+      ...VALID,
+      schedulePreset: CUSTODIAN_SCHEDULE_PRESET.CUSTOM,
+      scheduleCron: "0 9 * *",
     });
     expect(parsed.success).toBe(false);
   });

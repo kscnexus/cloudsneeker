@@ -68,6 +68,19 @@ const SSRCustodianPolicyList = async () => {
                 ? ` — ${policy.attributes.description}`
                 : ""}
             </span>
+            {policy.attributes.schedule_enabled ? (
+              <span className="text-text-neutral-secondary text-xs">
+                Schedule: {policy.attributes.schedule_cron} (
+                {policy.attributes.schedule_timezone || "UTC"})
+                {policy.attributes.next_run_at
+                  ? ` · next ${new Date(policy.attributes.next_run_at).toLocaleString()}`
+                  : ""}
+              </span>
+            ) : (
+              <span className="text-text-neutral-secondary text-xs">
+                Schedule: off
+              </span>
+            )}
           </Link>
         </li>
       ))}
