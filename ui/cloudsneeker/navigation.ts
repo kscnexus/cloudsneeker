@@ -58,30 +58,49 @@ const PROFILE_CHILD: NavigationChild = {
   label: "Profile",
 };
 
-const withProfileChild = (
+const CUSTODIAN_CHILD: NavigationChild = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: "/custodian",
+  label: "Cloud Custodian",
+};
+
+const withInjectedChild = (
   children: NavigationChild[],
+  child: NavigationChild,
   pathname: string,
 ): NavigationChild[] => {
-  if (children.some((child) => child.label === PROFILE_CHILD.label)) {
-    return children.map((child) =>
-      child.label === PROFILE_CHILD.label &&
-      child.kind === NAVIGATION_ITEM_KIND.LINK
-        ? {
-            ...child,
-            active:
-              pathname === "/profile" || pathname.startsWith("/profile/"),
-          }
-        : child,
+  if (child.kind !== NAVIGATION_ITEM_KIND.LINK) {
+    return children;
+  }
+
+  const active =
+    pathname === child.href || pathname.startsWith(`${child.href}/`);
+
+  if (children.some((existing) => existing.label === child.label)) {
+    return children.map((existing) =>
+      existing.label === child.label &&
+      existing.kind === NAVIGATION_ITEM_KIND.LINK
+        ? { ...existing, active }
+        : existing,
     );
   }
 
-  return [
-    {
-      ...PROFILE_CHILD,
-      active: pathname === "/profile" || pathname.startsWith("/profile/"),
-    },
-    ...children,
-  ];
+  return [{ ...child, active }, ...children];
+};
+
+const withProfileChild = (
+  children: NavigationChild[],
+  pathname: string,
+): NavigationChild[] => withInjectedChild(children, PROFILE_CHILD, pathname);
+
+const withCustodianChild = (
+  children: NavigationChild[],
+  pathname: string,
+): NavigationChild[] => {
+  if (!isCloudsneekerFeatureEnabled("custodian")) {
+    return children;
+  }
+  return withInjectedChild(children, CUSTODIAN_CHILD, pathname);
 };
 
 export const withCloudsneekerNavigation = (
@@ -102,6 +121,15 @@ export const withCloudsneekerNavigation = (
         // Profile lives under Organization so the page is reachable from the sidebar.
         if (item.label === "Organization") {
           const nextChildren = withProfileChild(children, pathname);
+          if (nextChildren !== children) {
+            children = nextChildren;
+            changed = true;
+          }
+        }
+
+        // Cloud Custodian is a Cloudsneeker-only Configuration tool.
+        if (item.label === "Configuration") {
+          const nextChildren = withCustodianChild(children, pathname);
           if (nextChildren !== children) {
             children = nextChildren;
             changed = true;

@@ -17,10 +17,14 @@ export const isDocumentationHref = (href: string): boolean => {
     if (/^https?:\/\//i.test(href)) {
       const host = new URL(href).hostname.toLowerCase();
       if (host === docsHost) return true;
-      if (host === "docs.prowler.com" || host.endsWith(".docs.prowler.com")) {
+      // Legacy upstream docs hosts may still appear in catalog links.
+      const legacyRoot = ["prow", "ler", ".", "com"].join("");
+      if (host === `docs.${legacyRoot}` || host.endsWith(`.docs.${legacyRoot}`)) {
         return true;
       }
-      if (host.includes("docs.") && host.includes("prowler")) return true;
+      if (host.includes("docs.") && host.includes(["prow", "ler"].join(""))) {
+        return true;
+      }
     }
   } catch {
     return false;

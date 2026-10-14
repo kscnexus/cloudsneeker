@@ -92,3 +92,12 @@ def evaluate_alert_rules_task(tenant_id: str, scan_id: str | None = None):
             if emails or channel_ids:
                 notified += 1
         return {"rules_notified": notified}
+
+
+@shared_task(base=RLSTask, name="cloudsneeker-custodian-dry-run", queue="scans")
+@set_tenant(keep_tenant=True)
+def custodian_dry_run_task(tenant_id: str, run_id: str):
+    """Run a Cloud Custodian policy in dry-run mode only."""
+    from cloudsneeker_api.services.custodian import process_custodian_dry_run
+
+    return process_custodian_dry_run(tenant_id=tenant_id, run_id=run_id)

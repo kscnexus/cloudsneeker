@@ -17,6 +17,8 @@ from cloudsneeker_api.views_features import (
     AlertRecipientViewSet,
     AlertRuleViewSet,
     AlertSlackChannelsView,
+    CustodianPolicyViewSet,
+    CustodianRunViewSet,
     IngestionViewSet,
     ScanConfigurationViewSet,
 )
@@ -38,6 +40,10 @@ router.register(
     EmailDeliveryConfigViewSet,
     basename="email-delivery-config",
 )
+router.register(
+    r"custodian-policies", CustodianPolicyViewSet, basename="custodian-policies"
+)
+router.register(r"custodian-runs", CustodianRunViewSet, basename="custodian-runs")
 
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),

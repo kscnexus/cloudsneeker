@@ -13,6 +13,16 @@
 ARG BASE_IMAGE=cloudsneeker/api-base:local
 FROM ${BASE_IMAGE}
 
+# Cloud Custodian lives in an isolated venv: its urllib3/tabulate/boto3 pins
+# conflict with the API lock. Workers invoke it via ``C7N_BIN`` / PATH.
+ARG C7N_VERSION=0.9.53
+USER root
+RUN python -m venv /opt/c7n \
+    && /opt/c7n/bin/pip install --no-cache-dir "c7n==${C7N_VERSION}" \
+    && chown -R prowler:prowler /opt/c7n
+ENV C7N_BIN=/opt/c7n/bin/custodian
+ENV PATH="/opt/c7n/bin:${PATH}"
+
 USER prowler
 WORKDIR /home/prowler
 

@@ -8,6 +8,7 @@ export const CLOUDSNEEKER_FEATURES = {
   cliImport: true,
   emailDelivery: true,
   slack: true,
+  custodian: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;

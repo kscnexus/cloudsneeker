@@ -1,0 +1,19 @@
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { CustodianEmptyState } from "./custodian-empty-state";
+
+describe("CustodianEmptyState", () => {
+  it("explains dry-run only and links to create", () => {
+    render(<CustodianEmptyState />);
+
+    expect(
+      screen.getByText(/No Custodian policies yet/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Apply mode is not available/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Create policy/i })).toHaveAttribute(
+      "href",
+      "/custodian/new",
+    );
+  });
+});

@@ -312,3 +312,87 @@ class FindingIngestion(CloudsneekerRLSModel):
 
     class JSONAPIMeta:
         resource_name = "ingestions"
+
+
+class CustodianPolicy(CloudsneekerRLSModel):
+    """Cloud Custodian policy YAML bound to one AWS provider."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    name = models.CharField(max_length=100, validators=[MinLengthValidator(3)])
+    description = models.TextField(blank=True, default="")
+    policy_yaml = models.TextField()
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_custodian_policies",
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}custodian_policies"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id", "name"),
+                name="unique_cs_custodian_policy_name_per_tenant",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}custodian-policies"
+
+
+class CustodianRun(CloudsneekerRLSModel):
+    """One dry-run execution of a Custodian policy against a provider."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    class Mode(models.TextChoices):
+        DRYRUN = "dryrun", "Dry-run"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    policy = models.ForeignKey(
+        CustodianPolicy,
+        on_delete=models.CASCADE,
+        related_name="runs",
+    )
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_custodian_runs",
+    )
+    status = models.CharField(
+        max_length=32, choices=Status.choices, default=Status.PENDING
+    )
+    mode = models.CharField(
+        max_length=32, choices=Mode.choices, default=Mode.DRYRUN
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    summary = models.JSONField(default=dict, blank=True)
+    output = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True, default="")
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}custodian_runs"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}custodian-runs"

@@ -154,6 +154,11 @@ describe("withCloudsneekerNavigation", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       children: [
+        {
+          label: "Cloud Custodian",
+          href: "/custodian",
+          kind: NAVIGATION_ITEM_KIND.LINK,
+        },
         { label: "Providers", href: "/providers" },
         { label: "Alerts", href: "/alerts", kind: NAVIGATION_ITEM_KIND.LINK },
         {
@@ -176,6 +181,42 @@ describe("withCloudsneekerNavigation", () => {
         { label: "Scans", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
         { label: "CLI Import", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
         { label: "Integrations" },
+      ],
+    });
+  });
+
+  it("marks Cloud Custodian active on custodian routes", () => {
+    const sections: NavigationSection[] = [
+      {
+        label: "SETTINGS",
+        items: [
+          {
+            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+            label: "Configuration",
+            icon: Info,
+            defaultOpen: true,
+            children: [
+              {
+                kind: NAVIGATION_ITEM_KIND.LINK,
+                href: "/providers",
+                label: "Providers",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = withCloudsneekerNavigation(sections, "/custodian/abc");
+
+    expect(result[0]?.items[0]).toMatchObject({
+      children: [
+        {
+          label: "Cloud Custodian",
+          href: "/custodian",
+          active: true,
+        },
+        { label: "Providers", href: "/providers" },
       ],
     });
   });
