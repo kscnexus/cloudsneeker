@@ -8,7 +8,7 @@ export const custodianPolicyFormSchema = z.object({
     .trim()
     .min(3, "Name must be at least 3 characters")
     .max(100, "Name must be at most 100 characters"),
-  description: z.string().max(2000).optional().default(""),
+  description: z.string().max(2000).default(""),
   providerId: z.uuid("Select an AWS provider"),
   policyYaml: z
     .string()
