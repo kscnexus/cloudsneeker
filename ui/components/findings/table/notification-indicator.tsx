@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/shadcn/popover";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import { cn } from "@/lib/utils";
 import { FINDING_DELTA, type FindingDelta } from "@/types";
@@ -119,21 +120,23 @@ function DeltaIndicator({
               ? "New finding."
               : "Status changed since the previous scan."}
           </span>
-          <Button
-            aria-label="Learn more about findings"
-            variant="link"
-            size="default"
-            className="text-button-primary h-auto min-w-0 p-0 text-xs"
-            asChild
-          >
-            <a
-              href={DOCS_URLS.FINDINGS_ANALYSIS}
-              target="_blank"
-              rel="noopener noreferrer"
+          {showDocumentationLinks() && (
+            <Button
+              aria-label="Learn more about findings"
+              variant="link"
+              size="default"
+              className="text-button-primary h-auto min-w-0 p-0 text-xs"
+              asChild
             >
-              Learn more
-            </a>
-          </Button>
+              <a
+                href={DOCS_URLS.FINDINGS_ANALYSIS}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Learn more
+              </a>
+            </Button>
+          )}
         </div>
       </PopoverContent>
     </Popover>

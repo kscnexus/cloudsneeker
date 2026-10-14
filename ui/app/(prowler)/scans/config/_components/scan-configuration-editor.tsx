@@ -21,6 +21,7 @@ import {
 } from "@/components/shadcn";
 import { CustomLink } from "@/components/shadcn/custom/custom-link";
 import { Modal } from "@/components/shadcn/modal";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import {
   convertToYaml,
@@ -189,11 +190,17 @@ function ScanConfigurationForm({
             <code className="bg-bg-neutral-tertiary text-text-neutral-secondary rounded px-1 py-0.5 font-mono">
               prowler/config/config.yaml
             </code>
-            ; include only the keys you want to override. Learn more{" "}
-            <CustomLink size="xs" href={DOCS_URLS.SCAN_CONFIGURATION}>
-              here
-            </CustomLink>
-            .
+            ; include only the keys you want to override.
+            {showDocumentationLinks() && (
+              <>
+                {" "}
+                Learn more{" "}
+                <CustomLink size="xs" href={DOCS_URLS.SCAN_CONFIGURATION}>
+                  here
+                </CustomLink>
+                .
+              </>
+            )}
           </li>
           <li>The configuration is validated on save.</li>
         </ul>

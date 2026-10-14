@@ -4,6 +4,7 @@ import { Upload } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { Alert, AlertTitle } from "@/components/shadcn";
 import { useMountEffect } from "@/hooks/use-mount-effect";
 import { DOCS_URLS } from "@/lib/external-urls";
@@ -34,15 +35,20 @@ export const CliImportBanner = ({ className }: { className?: string }) => {
     >
       <Upload />
       <AlertTitle>
-        Import findings from Prowler CLI —{" "}
-        <Link
-          href={DOCS_URLS.FINDINGS_INGESTION}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-normal underline underline-offset-2"
-        >
-          Learn more
-        </Link>
+        Import findings from Cloudsneeker CLI
+        {showDocumentationLinks() && (
+          <>
+            {" — "}
+            <Link
+              href={DOCS_URLS.FINDINGS_INGESTION}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-normal underline underline-offset-2"
+            >
+              Learn more
+            </Link>
+          </>
+        )}
       </AlertTitle>
     </Alert>
   );

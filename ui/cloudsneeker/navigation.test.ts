@@ -65,6 +65,49 @@ describe("withCloudsneekerNavigation", () => {
     expect(sections[1]?.items).toHaveLength(helpItemCount ?? -1);
   });
 
+  it("adds Profile under Organization", () => {
+    const sections: NavigationSection[] = [
+      {
+        label: "SETTINGS",
+        items: [
+          {
+            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+            label: "Organization",
+            icon: Info,
+            defaultOpen: false,
+            children: [
+              {
+                kind: NAVIGATION_ITEM_KIND.LINK,
+                href: "/users",
+                label: "Users",
+              },
+              {
+                kind: NAVIGATION_ITEM_KIND.LINK,
+                href: "/roles",
+                label: "Roles",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = withCloudsneekerNavigation(sections, "/profile");
+
+    expect(result[0]?.items[0]).toMatchObject({
+      children: [
+        {
+          label: "Profile",
+          href: "/profile",
+          kind: NAVIGATION_ITEM_KIND.LINK,
+          active: true,
+        },
+        { label: "Users", href: "/users" },
+        { label: "Roles", href: "/roles" },
+      ],
+    });
+  });
+
   it("turns cloud-only configuration controls into working product links", () => {
     const sections: NavigationSection[] = [
       {

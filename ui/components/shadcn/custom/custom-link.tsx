@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { type AnchorHTMLAttributes, forwardRef, type ReactNode } from "react";
 
+import { shouldRenderDocumentationHref } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { cn } from "@/lib/utils";
 
 interface CustomLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
@@ -35,6 +36,10 @@ export const CustomLink = forwardRef<HTMLAnchorElement, CustomLinkProps>(
     },
     ref,
   ) => {
+    if (!shouldRenderDocumentationHref(href)) {
+      return null;
+    }
+
     const linkClassName = cn(
       `text-${size} text-button-tertiary p-0`,
       className,

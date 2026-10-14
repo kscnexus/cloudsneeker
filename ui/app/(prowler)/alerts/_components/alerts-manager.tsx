@@ -17,6 +17,7 @@ import {
 } from "@/app/(prowler)/alerts/_types";
 import { Button, useToast } from "@/components/shadcn";
 import { Modal } from "@/components/shadcn/modal";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import type { MetaDataProps, ScanEntity } from "@/types";
 import type { ProviderProps } from "@/types/providers";
@@ -179,21 +180,25 @@ export const AlertsManager = ({
               <Link href={ALERTS_FINDINGS_HREF}>Findings</Link>
             </Button>
             <span>.</span>
-            <span>Learn more about configuring the Alerts</span>
-            <Button
-              variant="link"
-              size="link-sm"
-              className="h-auto p-0"
-              asChild
-            >
-              <a
-                href={DOCS_URLS.ALERTS}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span>here.</span>
-              </a>
-            </Button>
+            {showDocumentationLinks() && (
+              <>
+                <span>Learn more about configuring the Alerts</span>
+                <Button
+                  variant="link"
+                  size="link-sm"
+                  className="h-auto p-0"
+                  asChild
+                >
+                  <a
+                    href={DOCS_URLS.ALERTS}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>here.</span>
+                  </a>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

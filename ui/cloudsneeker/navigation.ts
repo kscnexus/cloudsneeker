@@ -52,6 +52,38 @@ const toCloudsneekerChild = (
   };
 };
 
+const PROFILE_CHILD: NavigationChild = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: "/profile",
+  label: "Profile",
+};
+
+const withProfileChild = (
+  children: NavigationChild[],
+  pathname: string,
+): NavigationChild[] => {
+  if (children.some((child) => child.label === PROFILE_CHILD.label)) {
+    return children.map((child) =>
+      child.label === PROFILE_CHILD.label &&
+      child.kind === NAVIGATION_ITEM_KIND.LINK
+        ? {
+            ...child,
+            active:
+              pathname === "/profile" || pathname.startsWith("/profile/"),
+          }
+        : child,
+    );
+  }
+
+  return [
+    {
+      ...PROFILE_CHILD,
+      active: pathname === "/profile" || pathname.startsWith("/profile/"),
+    },
+    ...children,
+  ];
+};
+
 export const withCloudsneekerNavigation = (
   sections: NavigationSection[],
   pathname: string,
@@ -63,9 +95,18 @@ export const withCloudsneekerNavigation = (
       const items = section.items.map((item) => {
         if (item.kind !== NAVIGATION_ITEM_KIND.COLLAPSIBLE) return item;
 
-        const children = item.children
+        let children = item.children
           .map((child) => toCloudsneekerChild(child, pathname))
           .filter((child): child is NavigationChild => child !== null);
+
+        // Profile lives under Organization so the page is reachable from the sidebar.
+        if (item.label === "Organization") {
+          const nextChildren = withProfileChild(children, pathname);
+          if (nextChildren !== children) {
+            children = nextChildren;
+            changed = true;
+          }
+        }
 
         if (
           children.length === item.children.length &&

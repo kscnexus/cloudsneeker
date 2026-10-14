@@ -19,21 +19,27 @@ import {
   MultiSelectTrigger,
   MultiSelectValue,
 } from "@/components/shadcn/select/multiselect";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import type { SlackChannelOption } from "@/types/integrations";
 
 const INVITE_HINT = (
   <>
     A private channel only appears here after someone invites{" "}
-    <SlackInlineCode>@Prowler Cloud</SlackInlineCode> to it in Slack. Invite it,
-    then refresh.{" "}
-    <CustomLink
-      href={DOCS_URLS.SLACK_INTEGRATION_PRIVATE_CHANNELS}
-      ariaLabel="Learn more about why a private channel is missing from the channel list"
-      size="xs"
-    >
-      Learn more
-    </CustomLink>
+    <SlackInlineCode>@Cloudsneeker</SlackInlineCode> to it in Slack. Invite it,
+    then refresh.
+    {showDocumentationLinks() && (
+      <>
+        {" "}
+        <CustomLink
+          href={DOCS_URLS.SLACK_INTEGRATION_PRIVATE_CHANNELS}
+          ariaLabel="Learn more about why a private channel is missing from the channel list"
+          size="xs"
+        >
+          Learn more
+        </CustomLink>
+      </>
+    )}
   </>
 );
 

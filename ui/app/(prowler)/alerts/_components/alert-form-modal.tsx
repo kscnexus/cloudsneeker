@@ -91,6 +91,11 @@ interface FormErrors {
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const isValidRecipientEmail = (email: string): boolean =>
+  EMAIL_PATTERN.test(normalizeEmail(email));
+
 const getRecipientEmails = (selectedEmails: Set<string>): string[] =>
   Array.from(selectedEmails);
 
@@ -258,6 +263,8 @@ const AlertRecipientsSelect = ({
   const [recipients, setRecipients] = useState<AlertRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [draftEmail, setDraftEmail] = useState("");
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   useMountEffect(() => {
     listAlertRecipients({
@@ -278,6 +285,23 @@ const AlertRecipientsSelect = ({
   const selectedValues = Array.from(selectedEmails);
   const options = getRecipientOptions(recipients, selectedValues);
 
+  const addDraftEmail = () => {
+    const email = normalizeEmail(draftEmail);
+    if (!email) {
+      setDraftError("Enter an email address.");
+      return;
+    }
+    if (!isValidRecipientEmail(email)) {
+      setDraftError("Enter a valid email address.");
+      return;
+    }
+    if (!selectedEmails.has(email)) {
+      onValuesChange([...selectedValues, email]);
+    }
+    setDraftEmail("");
+    setDraftError(null);
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <MultiSelect values={selectedValues} onValuesChange={onValuesChange}>
@@ -287,23 +311,33 @@ const AlertRecipientsSelect = ({
           size="default"
         >
           <MultiSelectValue
-            placeholder={loading ? "Loading recipients" : "Select emails"}
+            placeholder={
+              loading
+                ? "Loading recipients"
+                : selectedValues.length > 0
+                  ? "Select emails"
+                  : "Select or add emails"
+            }
           />
         </MultiSelectTrigger>
         <MultiSelectContent
           search={{
             placeholder: "Search recipients...",
-            emptyMessage: "No confirmed recipients found.",
+            emptyMessage: "No saved recipients yet. Add an email below.",
           }}
           width="wide"
         >
-          <MultiSelectSelectAll
-            mode="select"
-            values={options.map((option) => option.email)}
-          >
-            Select All
-          </MultiSelectSelectAll>
-          <MultiSelectSeparator />
+          {options.length > 0 && (
+            <>
+              <MultiSelectSelectAll
+                mode="select"
+                values={options.map((option) => option.email)}
+              >
+                Select All
+              </MultiSelectSelectAll>
+              <MultiSelectSeparator />
+            </>
+          )}
           {options.map((option) => (
             <MultiSelectItem
               key={option.email}
@@ -321,7 +355,42 @@ const AlertRecipientsSelect = ({
           ))}
         </MultiSelectContent>
       </MultiSelect>
-      {error && <p className="text-text-error-primary text-xs">{error}</p>}
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
+        <Input
+          id="alert-recipient-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="name@company.com"
+          aria-label="Add recipient email"
+          value={draftEmail}
+          onChange={(event) => {
+            setDraftEmail(event.target.value);
+            if (draftError) setDraftError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addDraftEmail();
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="shrink-0"
+          onClick={addDraftEmail}
+        >
+          Add email
+        </Button>
+      </div>
+      <p className="text-text-neutral-tertiary text-xs">
+        Type an email and click Add email. Saved recipients also appear in the
+        list above.
+      </p>
+      {(draftError || error) && (
+        <p className="text-text-error-primary text-xs">{draftError ?? error}</p>
+      )}
     </div>
   );
 };

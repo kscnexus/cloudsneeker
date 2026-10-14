@@ -44,11 +44,11 @@ describe("CliImportBanner", () => {
     render(<CliImportBanner />);
 
     expect(
-      screen.getByText(/Import findings from Prowler CLI/),
+      screen.getByText(/Import findings from Cloudsneeker CLI/),
     ).toBeInTheDocument();
   });
 
-  it("renders a link to the documentation", () => {
+  it("renders a link to the documentation when documentation links are enabled", () => {
     render(<CliImportBanner />);
 
     const link = screen.getByRole("link", { name: "Learn more" });

@@ -18,6 +18,11 @@ describe("BRAND", () => {
     const actual = await vi.importActual<BrandModule>("./brand");
     expect(actual.BRAND.showUpsell).toBe(false);
   });
+
+  it("hides documentation hyperlinks in the shipped config", async () => {
+    const actual = await vi.importActual<BrandModule>("./brand");
+    expect(actual.BRAND.showDocumentationLinks).toBe(false);
+  });
 });
 
 describe("docsUrl", () => {

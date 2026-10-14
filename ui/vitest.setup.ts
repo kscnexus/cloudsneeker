@@ -10,7 +10,16 @@ delete process.env.UI_CLOUD_ENABLED;
 // The product ships with it off; `ui/cloudsneeker/brand.test.ts` covers that.
 vi.mock("@/cloudsneeker/brand", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/cloudsneeker/brand")>();
-  return { ...actual, BRAND: { ...actual.BRAND, showUpsell: true } };
+  return {
+    ...actual,
+    // Upstream suites assert Learn more / upsell affordances; product defaults
+    // stay off and are covered by cloudsneeker brand and docs-links tests.
+    BRAND: {
+      ...actual.BRAND,
+      showUpsell: true,
+      showDocumentationLinks: true,
+    },
+  };
 });
 
 class MockStorage implements Storage {

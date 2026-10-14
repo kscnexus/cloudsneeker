@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/select/select";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import { ScanConfigurationData } from "@/types/scan-configurations";
 
@@ -185,13 +186,16 @@ function ManageScanConfigForm({
         </Select>
         <p className="text-text-neutral-tertiary text-xs">
           <strong>Default</strong>
-          {
-            " uses Prowler's scan configuration baseline. Read more about it in the "
-          }
-          <CustomLink size="xs" href={DOCS_URLS.SCAN_CONFIGURATION}>
-            documentation
-          </CustomLink>
-          .
+          {" uses the built-in scan configuration baseline."}
+          {showDocumentationLinks() && (
+            <>
+              {" Read more about it in the "}
+              <CustomLink size="xs" href={DOCS_URLS.SCAN_CONFIGURATION}>
+                documentation
+              </CustomLink>
+              .
+            </>
+          )}
         </p>
       </div>
 

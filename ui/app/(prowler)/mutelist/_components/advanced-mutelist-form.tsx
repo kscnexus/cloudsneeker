@@ -9,6 +9,7 @@ import {
   getMutedFindingsConfig,
   updateMutedFindingsConfig,
 } from "@/actions/processors";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import {
   Button,
   Card,
@@ -220,16 +221,18 @@ export function AdvancedMutelistForm() {
                   Use this for pattern-based muting with wildcards, regions, and
                   tags.
                 </li>
-                <li>
-                  Learn more about configuring the Mutelist{" "}
-                  <CustomLink
-                    size="sm"
-                    href="https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/prowler-app-mute-findings"
-                  >
-                    here
-                  </CustomLink>
-                  .
-                </li>
+                {showDocumentationLinks() && (
+                  <li>
+                    Learn more about configuring the Mutelist{" "}
+                    <CustomLink
+                      size="sm"
+                      href="https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/prowler-app-mute-findings"
+                    >
+                      here
+                    </CustomLink>
+                    .
+                  </li>
+                )}
                 <li>
                   A default Mutelist is used to exclude certain predefined
                   resources if no Mutelist is provided.

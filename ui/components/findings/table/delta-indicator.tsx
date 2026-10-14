@@ -1,3 +1,4 @@
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { Button } from "@/components/shadcn";
 import {
   Tooltip,
@@ -33,21 +34,23 @@ export const DeltaIndicator = ({ delta }: DeltaIndicatorProps) => {
               ? "New finding."
               : "Status changed since the previous scan."}
           </span>
-          <Button
-            aria-label="Learn more about findings"
-            variant="link"
-            size="default"
-            className="text-button-primary h-auto min-w-0 p-0 text-xs"
-            asChild
-          >
-            <a
-              href={DOCS_URLS.FINDINGS_ANALYSIS}
-              target="_blank"
-              rel="noopener noreferrer"
+          {showDocumentationLinks() && (
+            <Button
+              aria-label="Learn more about findings"
+              variant="link"
+              size="default"
+              className="text-button-primary h-auto min-w-0 p-0 text-xs"
+              asChild
             >
-              Learn more
-            </a>
-          </Button>
+              <a
+                href={DOCS_URLS.FINDINGS_ANALYSIS}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Learn more
+              </a>
+            </Button>
+          )}
         </div>
       </TooltipContent>
     </Tooltip>

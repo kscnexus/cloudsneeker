@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/shadcn/tooltip";
 import { formatLocalDate } from "@/lib/date-utils";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import { useCloudUpgradeStore } from "@/store";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
@@ -218,7 +219,7 @@ export function FindingNoteModal({
           unbreakable content (e.g. resource UIDs) widens the grid track past
           the modal instead of truncating. */}
       <form className="flex min-w-0 flex-col gap-5" onSubmit={handleSubmit}>
-        {!isManualPassDetails && (
+        {!isManualPassDetails && showDocumentationLinks() && (
           <div className="text-text-neutral-secondary flex flex-wrap items-center gap-2 text-sm">
             <Info className="size-4 shrink-0" />
             <span>Learn how triage states work in the</span>

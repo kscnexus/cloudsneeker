@@ -14,6 +14,7 @@ import { Button, Card, useToast } from "@/components/shadcn";
 import { CustomLink } from "@/components/shadcn/custom/custom-link";
 import { Modal } from "@/components/shadcn/modal";
 import { DataTable } from "@/components/shadcn/table";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import { ProviderProps } from "@/types/providers";
 import { ScanConfigurationData } from "@/types/scan-configurations";
@@ -152,13 +153,19 @@ export function ScanConfigurationsManager({
       <div className="text-text-neutral-secondary mb-6 flex max-w-3xl items-start gap-2 text-sm">
         <Info className="mt-0.5 size-4 shrink-0" />
         <p>
-          By default, every provider uses Prowler&apos;s built-in configuration
-          baseline. Create a Scan Configuration to override specific values and
-          attach it to the providers that should use it. Learn more{" "}
-          <CustomLink size="sm" href={DOCS_URLS.SCAN_CONFIGURATION}>
-            here
-          </CustomLink>
-          .
+          By default, every provider uses the built-in configuration baseline.
+          Create a Scan Configuration to override specific values and attach it
+          to the providers that should use it.
+          {showDocumentationLinks() && (
+            <>
+              {" "}
+              Learn more{" "}
+              <CustomLink size="sm" href={DOCS_URLS.SCAN_CONFIGURATION}>
+                here
+              </CustomLink>
+              .
+            </>
+          )}
         </p>
       </div>
 

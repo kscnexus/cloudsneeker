@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 import { logOut } from "@/actions/auth";
@@ -10,7 +11,6 @@ import {
   AvatarImage,
 } from "@/components/shadcn/avatar/avatar";
 import { Button } from "@/components/shadcn/button/button";
-import { CustomLink } from "@/components/shadcn/custom/custom-link";
 import {
   Tooltip,
   TooltipContent,
@@ -41,17 +41,29 @@ export const UserNav = () => {
             className="border-border-input-primary-fill rounded-full"
             asChild
           >
-            <CustomLink href="/profile" target="_self" aria-label="Account">
+            <Link href="/profile" aria-label="Profile">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="#" alt="Avatar" />
+                <AvatarImage src="#" alt="" />
                 <AvatarFallback className="bg-transparent text-xs font-bold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-            </CustomLink>
+            </Link>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Account Settings</TooltipContent>
+        <TooltipContent>Profile</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-1.5 px-2" asChild>
+            <Link href="/profile" aria-label="Open profile">
+              <UserRound className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Profile</span>
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="sm:hidden">Profile</TooltipContent>
       </Tooltip>
 
       <Tooltip>

@@ -2,6 +2,7 @@
 
 import { ExternalLink, Info, Loader2 } from "lucide-react";
 
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { AzureOrgSetupForm } from "@/components/providers/organizations/azure-org-setup-form";
 import { GcpOrgSetupForm } from "@/components/providers/organizations/gcp-org-setup-form";
 import { OrgAccountSelection } from "@/components/providers/organizations/org-account-selection";
@@ -121,16 +122,18 @@ export function ProviderWizardModal({
         <DialogTitle className="text-lg font-semibold">
           {modalTitle}
         </DialogTitle>
-        <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-          <Info className="size-4 shrink-0" />
-          <span>For assistance connecting a Provider visit</span>
-          <Button variant="link" size="link-sm" className="h-auto p-0" asChild>
-            <a href={docsLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="size-3.5 shrink-0" />
-              <span>{`${docsDestination} Documentation`}</span>
-            </a>
-          </Button>
-        </div>
+        {showDocumentationLinks() && (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+            <Info className="size-4 shrink-0" />
+            <span>For assistance connecting a Provider visit</span>
+            <Button variant="link" size="link-sm" className="h-auto p-0" asChild>
+              <a href={docsLink} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="size-3.5 shrink-0" />
+                <span>{`${docsDestination} Documentation`}</span>
+              </a>
+            </Button>
+          </div>
+        )}
       </DialogHeader>
 
       <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden lg:mt-8">
