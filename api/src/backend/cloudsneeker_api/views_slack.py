@@ -18,11 +18,25 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 
-def _require_manage_integrations(request) -> None:
-    role = get_role(request.user, request.tenant_id)
+def _tenant_id(request) -> str:
+    """Read tenant from JWT/API-key auth.
+
+    Plain ``APIView`` does not run ``BaseRLSViewSet.initial``, so
+    ``request.tenant_id`` is never set. Auth payloads carry ``tenant_id``.
+    """
+    tenant_id = request.auth.get("tenant_id") if request.auth else None
+    if not tenant_id:
+        raise PermissionDenied("Tenant context is required.")
+    return str(tenant_id)
+
+
+def _require_manage_integrations(request) -> str:
+    tenant_id = _tenant_id(request)
+    role = get_role(request.user, tenant_id)
     roles = [role] if role else []
     if not roles_have_permissions(roles, [Permissions.MANAGE_INTEGRATIONS]):
         raise PermissionDenied("You do not have permission to manage integrations.")
+    return tenant_id
 
 
 def _integration_document(integration: Integration) -> dict:
@@ -67,7 +81,7 @@ class SlackOAuthAuthorizeUrlView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        _require_manage_integrations(request)
+        tenant_id = _require_manage_integrations(request)
         if not slack_app_configured():
             return _error_response(
                 "Slack is not configured for this deployment.",
@@ -75,7 +89,7 @@ class SlackOAuthAuthorizeUrlView(APIView):
             )
         try:
             authorize_url = build_authorize_url(
-                tenant_id=str(request.tenant_id),
+                tenant_id=tenant_id,
                 user_id=str(request.user.id),
             )
         except ValidationError as exc:
@@ -90,7 +104,7 @@ class SlackOAuthExchangeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        _require_manage_integrations(request)
+        tenant_id = _require_manage_integrations(request)
         if not slack_app_configured():
             return _error_response(
                 "Slack is not configured for this deployment.",
@@ -111,7 +125,7 @@ class SlackOAuthExchangeView(APIView):
 
         try:
             integration = exchange_oauth_code(
-                tenant_id=str(request.tenant_id),
+                tenant_id=tenant_id,
                 user_id=str(request.user.id),
                 code=code,
                 state=state,
@@ -141,11 +155,11 @@ class SlackChannelsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, integration_id, *args, **kwargs):
-        _require_manage_integrations(request)
-        with rls_transaction(request.tenant_id):
+        tenant_id = _require_manage_integrations(request)
+        with rls_transaction(tenant_id):
             integration = get_object_or_404(
                 Integration.objects.filter(
-                    tenant_id=request.tenant_id,
+                    tenant_id=tenant_id,
                     integration_type=Integration.IntegrationChoices.SLACK,
                 ),
                 pk=integration_id,
