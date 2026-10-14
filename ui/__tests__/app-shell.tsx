@@ -39,6 +39,7 @@ const TEST_SESSION: Session = {
   user: {
     name: "Test User",
     email: "test@example.com",
+    dateJoined: "2026-01-01T00:00:00Z",
     permissions: {
       manage_users: true,
       manage_account: true,
