@@ -15,6 +15,7 @@ export interface CustodianPolicyAttributes {
   provider_id: string;
   provider_uid?: string;
   provider_alias?: string | null;
+  provider_type?: string;
   inserted_at?: string;
   updated_at?: string;
 }

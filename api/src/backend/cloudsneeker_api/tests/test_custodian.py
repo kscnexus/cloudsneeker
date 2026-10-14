@@ -6,9 +6,12 @@ import pytest
 from cloudsneeker_api.models import CustodianPolicy, CustodianRun, JSON_API_TYPE_PREFIX
 from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.services.custodian import (
+    CUSTODIAN_SUPPORTED_PROVIDERS,
     DRY_RUN_MODE,
     CustodianDryRunError,
     assert_dry_run_only,
+    assert_policy_matches_provider,
+    is_custodian_supported_provider,
     parse_policy_yaml,
     run_custodian_dryrun,
 )
@@ -23,6 +26,34 @@ policies:
     filters:
       - Attachments: []
 """
+
+VALID_AZURE_POLICY_YAML = """
+policies:
+  - name: stopped-vm
+    resource: azure.vm
+    filters:
+      - type: value
+        key: properties.powerState
+        value: stopped
+"""
+
+
+class TestSupportedProviders:
+    def test_includes_custodian_clouds(self):
+        assert is_custodian_supported_provider("aws")
+        assert is_custodian_supported_provider("azure")
+        assert is_custodian_supported_provider("gcp")
+        assert is_custodian_supported_provider("kubernetes")
+        assert CUSTODIAN_SUPPORTED_PROVIDERS == {
+            "aws",
+            "azure",
+            "gcp",
+            "kubernetes",
+        }
+
+    def test_excludes_non_custodian_clouds(self):
+        assert not is_custodian_supported_provider("github")
+        assert not is_custodian_supported_provider("m365")
 
 
 class TestParsePolicyYaml:
@@ -69,13 +100,20 @@ class TestDryRunGuard:
             assert_dry_run_only("")
 
 
+class TestPolicyMatchesProvider:
+    def test_accepts_matching_azure_resource(self):
+        parsed = assert_policy_matches_provider(VALID_AZURE_POLICY_YAML, "azure")
+        assert parsed["policies"][0]["resource"] == "azure.vm"
+
+    def test_rejects_aws_policy_on_azure_provider(self):
+        with pytest.raises(CustodianDryRunError, match="does not match"):
+            assert_policy_matches_provider(VALID_POLICY_YAML, "azure")
+
+
 class TestRunCustodianDryrun:
     def test_forces_dryrun_and_never_calls_apply(self):
-        credentials = {
-            "aws_access_key_id": "AKIATEST",
-            "aws_secret_access_key": "secret",
-            "aws_session_token": "token",
-        }
+        provider = MagicMock()
+        provider.provider = "aws"
         fake_result = {
             "mode": DRY_RUN_MODE,
             "resource_count": 2,
@@ -84,12 +122,20 @@ class TestRunCustodianDryrun:
         }
 
         with patch(
+            "cloudsneeker_api.services.custodian.credentials_from_provider"
+        ) as mock_creds, patch(
             "cloudsneeker_api.services.custodian._execute_c7n_dryrun",
             return_value=fake_result,
         ) as mock_execute:
+            mock_bundle = MagicMock()
+            mock_bundle.env = {
+                "AWS_ACCESS_KEY_ID": "AKIATEST",
+                "AWS_SECRET_ACCESS_KEY": "secret",
+            }
+            mock_creds.return_value = mock_bundle
             result = run_custodian_dryrun(
                 policy_yaml=VALID_POLICY_YAML,
-                aws_credentials=credentials,
+                provider=provider,
             )
 
         mock_execute.assert_called_once()
@@ -97,12 +143,11 @@ class TestRunCustodianDryrun:
         assert call_kwargs["dryrun"] is True
         assert result["mode"] == DRY_RUN_MODE
         assert result["resource_count"] == 2
+        mock_bundle.close.assert_called_once()
 
     def test_raises_when_executor_requests_apply(self):
-        credentials = {
-            "aws_access_key_id": "AKIATEST",
-            "aws_secret_access_key": "secret",
-        }
+        provider = MagicMock()
+        provider.provider = "aws"
 
         def _bad_executor(**kwargs):
             if kwargs.get("dryrun") is not True:
@@ -110,13 +155,18 @@ class TestRunCustodianDryrun:
             raise CustodianDryRunError("simulated failure")
 
         with patch(
+            "cloudsneeker_api.services.custodian.credentials_from_provider"
+        ) as mock_creds, patch(
             "cloudsneeker_api.services.custodian._execute_c7n_dryrun",
             side_effect=_bad_executor,
         ):
+            mock_bundle = MagicMock()
+            mock_bundle.env = {"AWS_ACCESS_KEY_ID": "AKIATEST"}
+            mock_creds.return_value = mock_bundle
             with pytest.raises(CustodianDryRunError):
                 run_custodian_dryrun(
                     policy_yaml=VALID_POLICY_YAML,
-                    aws_credentials=credentials,
+                    provider=provider,
                 )
 
 
@@ -147,7 +197,29 @@ class TestCustodianPolicyViewSetWiring:
 
 @pytest.mark.django_db
 class TestCustodianPolicySerializers:
-    def test_write_serializer_rejects_non_aws_provider(
+    def test_write_serializer_rejects_unsupported_provider(
+        self, tenants_fixture, provider_factory
+    ):
+        from api.db_utils import rls_transaction
+        from api.models import Provider
+        from cloudsneeker_api.serializers_custodian import CustodianPolicyWriteSerializer
+
+        tenant = tenants_fixture[0]
+        github = provider_factory(Provider.ProviderChoices.GITHUB.value, tenant=tenant)
+        with rls_transaction(str(tenant.id)):
+            serializer = CustodianPolicyWriteSerializer(
+                data={
+                    "name": "github-policy",
+                    "description": "",
+                    "policy_yaml": VALID_POLICY_YAML,
+                    "provider_id": github.id,
+                },
+                context={"tenant_id": str(tenant.id)},
+            )
+            assert serializer.is_valid() is False
+            assert "provider_id" in serializer.errors
+
+    def test_write_serializer_accepts_azure_provider(
         self, tenants_fixture, provider_factory
     ):
         from api.db_utils import rls_transaction
@@ -160,14 +232,16 @@ class TestCustodianPolicySerializers:
             serializer = CustodianPolicyWriteSerializer(
                 data={
                     "name": "azure-policy",
-                    "description": "",
-                    "policy_yaml": VALID_POLICY_YAML,
+                    "description": "Stopped VMs",
+                    "policy_yaml": VALID_AZURE_POLICY_YAML,
                     "provider_id": azure.id,
                 },
                 context={"tenant_id": str(tenant.id)},
             )
-            assert serializer.is_valid() is False
-            assert "provider_id" in serializer.errors
+            assert serializer.is_valid(), serializer.errors
+            policy = serializer.save()
+            assert policy.name == "azure-policy"
+            assert policy.provider_id == azure.id
 
     def test_write_serializer_accepts_aws_provider(
         self, tenants_fixture, aws_provider
@@ -190,6 +264,27 @@ class TestCustodianPolicySerializers:
             policy = serializer.save()
             assert policy.name == "aws-policy"
             assert policy.provider_id == aws_provider.id
+
+    def test_write_serializer_rejects_mismatched_resource(
+        self, tenants_fixture, provider_factory
+    ):
+        from api.db_utils import rls_transaction
+        from api.models import Provider
+        from cloudsneeker_api.serializers_custodian import CustodianPolicyWriteSerializer
+
+        tenant = tenants_fixture[0]
+        azure = provider_factory(Provider.ProviderChoices.AZURE.value, tenant=tenant)
+        with rls_transaction(str(tenant.id)):
+            serializer = CustodianPolicyWriteSerializer(
+                data={
+                    "name": "mismatch",
+                    "policy_yaml": VALID_POLICY_YAML,
+                    "provider_id": azure.id,
+                },
+                context={"tenant_id": str(tenant.id)},
+            )
+            assert serializer.is_valid() is False
+            assert "policy_yaml" in serializer.errors
 
     def test_write_serializer_rejects_bad_yaml(
         self, tenants_fixture, aws_provider

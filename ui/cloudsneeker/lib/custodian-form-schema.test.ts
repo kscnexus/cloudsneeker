@@ -15,7 +15,7 @@ const VALID = {
 };
 
 describe("custodianPolicyFormSchema", () => {
-  it("accepts a valid AWS policy form", () => {
+  it("accepts a valid Custodian policy form", () => {
     const parsed = custodianPolicyFormSchema.safeParse(VALID);
     expect(parsed.success).toBe(true);
   });

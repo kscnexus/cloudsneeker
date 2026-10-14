@@ -315,7 +315,7 @@ class FindingIngestion(CloudsneekerRLSModel):
 
 
 class CustodianPolicy(CloudsneekerRLSModel):
-    """Cloud Custodian policy YAML bound to one AWS provider."""
+    """Cloud Custodian policy YAML bound to one supported cloud provider."""
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)

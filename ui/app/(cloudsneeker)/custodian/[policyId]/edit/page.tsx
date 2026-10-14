@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getProviders } from "@/actions/providers/providers";
 import { getCustodianPolicy } from "@/cloudsneeker/actions/custodian";
 import { CustodianPolicyForm } from "@/cloudsneeker/components/custodian-policy-form";
+import { CUSTODIAN_PROVIDER_FILTER } from "@/cloudsneeker/lib/custodian-providers";
 import type { CustodianPolicyResource } from "@/cloudsneeker/types/custodian";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 
@@ -29,15 +30,17 @@ export default async function EditCustodianPolicyPage({
   const policy = policyResponse.data as CustodianPolicyResource;
   const providersResponse = await getProviders({
     pageSize: 100,
-    filters: { "filter[provider]": "aws" },
+    filters: { ...CUSTODIAN_PROVIDER_FILTER },
   });
 
   const providers = (providersResponse?.data ?? []).map((provider) => ({
     id: provider.id,
-    label:
-      provider.attributes.alias ||
-      provider.attributes.uid ||
-      provider.id,
+    label: [
+      provider.attributes.provider,
+      provider.attributes.alias || provider.attributes.uid || provider.id,
+    ]
+      .filter(Boolean)
+      .join(" · "),
   }));
 
   return (

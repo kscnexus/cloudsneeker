@@ -10,6 +10,9 @@ describe("CustodianEmptyState", () => {
     expect(
       screen.getByText(/No Custodian policies yet/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/AWS, Azure, GCP, or Kubernetes/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Apply mode is not available/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Create policy/i })).toHaveAttribute(
       "href",

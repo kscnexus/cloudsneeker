@@ -3,7 +3,11 @@
 from api.models import Provider
 from api.v1.serializers import BaseWriteSerializer, RLSSerializer
 from cloudsneeker_api.models import CustodianPolicy, CustodianRun, JSON_API_TYPE_PREFIX
-from cloudsneeker_api.services.custodian import CustodianDryRunError, parse_policy_yaml
+from cloudsneeker_api.services.custodian import (
+    CustodianDryRunError,
+    assert_policy_matches_provider,
+    is_custodian_supported_provider,
+)
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -16,6 +20,7 @@ class CustodianPolicySerializer(RLSSerializer):
     provider_alias = serializers.CharField(
         source="provider.alias", read_only=True, allow_null=True
     )
+    provider_type = serializers.CharField(source="provider.provider", read_only=True)
 
     class Meta:
         model = CustodianPolicy
@@ -29,6 +34,7 @@ class CustodianPolicySerializer(RLSSerializer):
             "provider_id",
             "provider_uid",
             "provider_alias",
+            "provider_type",
         ]
 
     class JSONAPIMeta:
@@ -36,7 +42,7 @@ class CustodianPolicySerializer(RLSSerializer):
 
 
 class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
-    """Create/update serializer; AWS providers only."""
+    """Create/update serializer for Custodian-supported cloud providers."""
 
     provider_id = serializers.UUIDField(write_only=True)
 
@@ -72,21 +78,39 @@ class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
             raise ValidationError("A Custodian policy with this name already exists.")
         return value
 
-    def validate_policy_yaml(self, value):
-        try:
-            parse_policy_yaml(value)
-        except CustodianDryRunError as exc:
-            raise ValidationError(str(exc)) from exc
-        return value
-
     def validate_provider_id(self, value):
         tenant_id = self.context.get("tenant_id")
         provider = Provider.objects.filter(tenant_id=tenant_id, id=value).first()
         if provider is None:
             raise ValidationError("Unknown provider ID for this tenant.")
-        if provider.provider != Provider.ProviderChoices.AWS.value:
-            raise ValidationError("Cloud Custodian dry-run supports AWS providers only.")
+        if not is_custodian_supported_provider(provider.provider):
+            raise ValidationError(
+                "Cloud Custodian supports AWS, Azure, GCP, and Kubernetes providers only."
+            )
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        provider_id = attrs.get("provider_id")
+        policy_yaml = attrs.get("policy_yaml")
+        if provider_id is None and self.instance is not None:
+            provider_type = self.instance.provider.provider
+        else:
+            tenant_id = self.context.get("tenant_id")
+            provider = Provider.objects.filter(
+                tenant_id=tenant_id, id=provider_id
+            ).first()
+            if provider is None:
+                raise ValidationError({"provider_id": "Unknown provider ID for this tenant."})
+            provider_type = provider.provider
+        if policy_yaml is None and self.instance is not None:
+            policy_yaml = self.instance.policy_yaml
+        if policy_yaml is not None:
+            try:
+                assert_policy_matches_provider(policy_yaml, provider_type)
+            except CustodianDryRunError as exc:
+                raise ValidationError({"policy_yaml": str(exc)}) from exc
+        return attrs
 
     def create(self, validated_data):
         provider_id = validated_data.pop("provider_id")

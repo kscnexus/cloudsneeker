@@ -14,7 +14,7 @@ export const CustodianEmptyState = () => (
       </h3>
       <p className="text-text-neutral-secondary max-w-md text-sm">
         Create a Cloud Custodian YAML policy and dry-run it against a connected
-        AWS provider. Apply mode is not available.
+        AWS, Azure, GCP, or Kubernetes provider. Apply mode is not available.
       </p>
     </div>
     <Button asChild size="sm">

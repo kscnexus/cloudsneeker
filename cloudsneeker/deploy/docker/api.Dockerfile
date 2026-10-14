@@ -15,10 +15,18 @@ FROM ${BASE_IMAGE}
 
 # Cloud Custodian lives in an isolated venv: its urllib3/tabulate/boto3 pins
 # conflict with the API lock. Workers invoke it via ``C7N_BIN`` / PATH.
+# Install every Custodian cloud package Cloudsneeker can attach providers for.
 ARG C7N_VERSION=0.9.53
+ARG C7N_AZURE_VERSION=0.7.52
+ARG C7N_GCP_VERSION=0.4.52
+ARG C7N_KUBE_VERSION=0.2.52
 USER root
 RUN python -m venv /opt/c7n \
-    && /opt/c7n/bin/pip install --no-cache-dir "c7n==${C7N_VERSION}" \
+    && /opt/c7n/bin/pip install --no-cache-dir \
+        "c7n==${C7N_VERSION}" \
+        "c7n-azure==${C7N_AZURE_VERSION}" \
+        "c7n-gcp==${C7N_GCP_VERSION}" \
+        "c7n-kube==${C7N_KUBE_VERSION}" \
     && chown -R prowler:prowler /opt/c7n
 ENV C7N_BIN=/opt/c7n/bin/custodian
 ENV PATH="/opt/c7n/bin:${PATH}"

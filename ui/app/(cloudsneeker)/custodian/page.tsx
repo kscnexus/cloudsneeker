@@ -13,8 +13,8 @@ export default function CustodianPage() {
     <ContentLayout title="Cloud Custodian" icon={<Shield />}>
       <div className="mb-4 flex items-center justify-between gap-4">
         <p className="text-text-neutral-secondary text-sm">
-          Manage Cloud Custodian policies and dry-run them against connected AWS
-          providers. Apply mode is disabled.
+          Manage Cloud Custodian policies and dry-run them against connected AWS,
+          Azure, GCP, or Kubernetes providers. Apply mode is disabled.
         </p>
         <Button asChild size="sm">
           <Link href="/custodian/new">Create policy</Link>

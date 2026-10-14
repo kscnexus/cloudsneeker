@@ -109,14 +109,14 @@ export const CustodianPolicyForm = ({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="custodian-provider">AWS provider</Label>
+        <Label htmlFor="custodian-provider">Cloud provider</Label>
         <select
           id="custodian-provider"
           className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
           {...form.register("providerId")}
         >
           {providers.length === 0 ? (
-            <option value="">No AWS providers connected</option>
+            <option value="">No supported providers connected</option>
           ) : (
             providers.map((provider) => (
               <option key={provider.id} value={provider.id}>
