@@ -121,7 +121,7 @@ describe("ScanComparisonOverview", () => {
     render(
       await ScanComparisonOverview({
         searchParams: {},
-        scans,
+        scans: scans as never,
       }),
     );
 
@@ -134,7 +134,7 @@ describe("ScanComparisonOverview", () => {
     render(
       await ScanComparisonOverview({
         searchParams: {},
-        scans: [scans[0]],
+        scans: [scans[0]] as never,
       }),
     );
 

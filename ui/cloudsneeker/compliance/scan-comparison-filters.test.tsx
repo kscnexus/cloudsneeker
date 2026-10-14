@@ -67,16 +67,16 @@ const scans = [
 describe("ScanComparisonFilters", () => {
   beforeEach(() => {
     pushMock.mockClear();
-    for (const key of [...searchParamsMock.keys()]) {
+    Array.from(searchParamsMock.keys()).forEach((key) => {
       searchParamsMock.delete(key);
-    }
+    });
   });
 
   it("updates the compare scan in the URL without pinning Single Scan", async () => {
     const user = userEvent.setup();
     render(
       <ScanComparisonFilters
-        scans={scans}
+        scans={scans as never}
         baselineScanId="scan-a"
         compareScanId="scan-b"
       />,

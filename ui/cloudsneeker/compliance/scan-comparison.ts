@@ -119,7 +119,10 @@ export function compareFrameworks(
     ]),
   );
 
-  const keys = new Set([...baselineByKey.keys(), ...compareByKey.keys()]);
+  const keys = new Set([
+    ...Array.from(baselineByKey.keys()),
+    ...Array.from(compareByKey.keys()),
+  ]);
 
   return Array.from(keys)
     .map((key) => {
@@ -160,7 +163,7 @@ export function resolveDefaultScanPair(
     byProvider.set(scan.providerType, group);
   }
 
-  for (const group of byProvider.values()) {
+  for (const group of Array.from(byProvider.values())) {
     if (group.length >= 2) {
       return {
         baselineScanId: group[1].id,
