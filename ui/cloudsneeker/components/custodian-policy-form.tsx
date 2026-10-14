@@ -11,6 +11,7 @@ import {
 } from "@/cloudsneeker/actions/custodian";
 import {
   custodianPolicyFormSchema,
+  type CustodianPolicyFormInput,
   type CustodianPolicyFormValues,
 } from "@/cloudsneeker/lib/custodian-form-schema";
 import { Button, Input, Label, Textarea } from "@/components/shadcn";
@@ -35,7 +36,13 @@ export const CustodianPolicyForm = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const form = useForm<CustodianPolicyFormValues>({
+  // `.default("")` on description makes input/output types differ — match
+  // scan-configuration-editor so RHF and zodResolver line up.
+  const form = useForm<
+    CustodianPolicyFormInput,
+    unknown,
+    CustodianPolicyFormValues
+  >({
     resolver: zodResolver(custodianPolicyFormSchema),
     defaultValues: initialValues ?? {
       name: "",

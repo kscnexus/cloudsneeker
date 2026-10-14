@@ -19,4 +19,7 @@ export const custodianPolicyFormSchema = z.object({
     }),
 });
 
-export type CustodianPolicyFormValues = z.infer<typeof custodianPolicyFormSchema>;
+export type CustodianPolicyFormInput = z.input<typeof custodianPolicyFormSchema>;
+export type CustodianPolicyFormValues = z.output<
+  typeof custodianPolicyFormSchema
+>;
