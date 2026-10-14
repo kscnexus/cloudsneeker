@@ -12,4 +12,9 @@ describe("CLOUDSNEEKER_FEATURES", () => {
     expect(isCloudsneekerFeatureEnabled("emailDelivery")).toBe(true);
     expect(isCloudsneekerFeatureEnabled("slack")).toBe(true);
   });
+
+  it("enables scan comparison for the Multiple Scans compliance tab", () => {
+    expect(CLOUDSNEEKER_FEATURES.scanComparison).toBe(true);
+    expect(isCloudsneekerFeatureEnabled("scanComparison")).toBe(true);
+  });
 });

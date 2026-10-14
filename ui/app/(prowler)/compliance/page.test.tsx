@@ -78,6 +78,10 @@ vi.mock("./_components/cross-provider-overview", () => ({
   CrossProviderOverview: () => <div>Cross-provider overview</div>,
 }));
 
+vi.mock("@/cloudsneeker/compliance/scan-comparison-overview", () => ({
+  ScanComparisonOverview: () => <div>Scan comparison overview</div>,
+}));
+
 vi.mock("./_components/multiple-scans-skeleton", () => ({
   CrossAccountOverviewSkeleton: () => <div>Cross-account loading</div>,
   CrossProviderOverviewSkeleton: () => <div>Cross-provider loading</div>,
@@ -152,6 +156,11 @@ describe("Compliance overview page", () => {
   it("uses layout-matched skeletons for the Multiple Scans islands", () => {
     expect(source).toContain("<CrossProviderOverviewSkeleton />");
     expect(source).toContain("<CrossAccountOverviewSkeleton />");
+  });
+
+  it("wires Cloudsneeker scan comparison into Multiple Scans without cloud", () => {
+    expect(source).toContain('isCloudsneekerFeatureEnabled("scanComparison")');
+    expect(source).toContain("ScanComparisonOverview");
   });
 });
 

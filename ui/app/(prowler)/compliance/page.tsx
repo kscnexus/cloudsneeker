@@ -8,6 +8,8 @@ import {
 } from "@/actions/compliances";
 import { getThreatScore } from "@/actions/overview";
 import { getScan, getScans, getScansByState } from "@/actions/scans";
+import { ScanComparisonOverview } from "@/cloudsneeker/compliance/scan-comparison-overview"; // cloudsneeker-hook
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import {
   ComplianceSkeletonGrid,
   NoScansAvailable,
@@ -74,11 +76,11 @@ export default async function Compliance({
   const resolvedSearchParams = await searchParams;
   const searchParamsKey = JSON.stringify(resolvedSearchParams || {});
 
-  // Cross-Provider is Prowler Cloud-only (the OSS API has no
-  // cross-provider-compliance-overviews endpoint). It is the landing tab in
-  // Cloud; in OSS its trigger only carries the upsell badge, so Per Scan
-  // stays active regardless of `?tab=`.
-  const crossProviderEnabled = isCloud();
+  // Cross-Provider aggregation is Prowler Cloud-only. Cloudsneeker serves a
+  // scan-to-scan comparison on the same Multiple Scans tab when cloud APIs
+  // are unavailable (UI_CLOUD_ENABLED=false).
+  const crossProviderEnabled =
+    isCloud() || isCloudsneekerFeatureEnabled("scanComparison"); // cloudsneeker-hook
   const activeTab = crossProviderEnabled
     ? getComplianceTab(resolvedSearchParams.tab, resolvedSearchParams.scanId)
     : COMPLIANCE_TAB.PER_SCAN;
@@ -101,6 +103,74 @@ export default async function Compliance({
     const hasCompletedScan = Array.isArray(scansByState?.data)
       ? scansByState.data.length > 0
       : true;
+
+    // cloudsneeker-hook: without cloud APIs, Multiple Scans compares two scans.
+    if (!isCloud() && isCloudsneekerFeatureEnabled("scanComparison")) {
+      const scansData = await getScans({
+        filters: {
+          "filter[state]": "completed",
+        },
+        pageSize: 50,
+        fields: {
+          scans: "name,completed_at,provider",
+        },
+        include: "provider",
+      });
+
+      const expandedScansData: ExpandedScanData[] = (scansData?.data || [])
+        .filter((scan: ScanProps) => scan.relationships?.provider?.data?.id)
+        .map((scan: ScanProps) => {
+          const providerId = scan.relationships!.provider!.data!.id;
+          const providerData = scansData?.included?.find(
+            (item: { type: string; id: string }) =>
+              item.type === "providers" && item.id === providerId,
+          );
+          if (!providerData) return null;
+          return {
+            ...scan,
+            providerInfo: {
+              provider: providerData.attributes.provider,
+              uid: providerData.attributes.uid,
+              alias: providerData.attributes.alias,
+            },
+          };
+        })
+        .filter(Boolean) as ExpandedScanData[];
+
+      return (
+        <ContentLayout
+          title="Compliance"
+          icon={<ShieldCheck />}
+          onboardingAction={
+            hasCompletedScan
+              ? { flowId: "view-compliance" }
+              : {
+                  flowId: "view-compliance",
+                  fallbackFlowId: "view-first-scan",
+                  useFallback: true,
+                }
+          }
+        >
+          <CompliancePageTabs
+            activeTab={activeTab}
+            crossProviderEnabled={crossProviderEnabled}
+            watchlistControls={watchlistControls}
+            perScanContent={null}
+            crossProviderContent={
+              <Suspense
+                key={`scan-comparison-${searchParamsKey}`}
+                fallback={<CrossProviderOverviewSkeleton />}
+              >
+                <ScanComparisonOverview
+                  searchParams={resolvedSearchParams}
+                  scans={expandedScansData}
+                />
+              </Suspense>
+            }
+          />
+        </ContentLayout>
+      );
+    }
 
     return (
       <ContentLayout

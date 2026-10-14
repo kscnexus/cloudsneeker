@@ -9,6 +9,8 @@ export const CLOUDSNEEKER_FEATURES = {
   emailDelivery: true,
   slack: true,
   custodian: true,
+  /** Multiple Scans tab: side-by-side compliance comparison between two scans. */
+  scanComparison: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;
