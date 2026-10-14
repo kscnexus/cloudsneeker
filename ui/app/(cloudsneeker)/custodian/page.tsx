@@ -2,88 +2,110 @@ import { Shield } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { listCustodianPolicies } from "@/cloudsneeker/actions/custodian";
-import { CustodianEmptyState } from "@/cloudsneeker/components/custodian-empty-state";
-import type { CustodianPolicyResource } from "@/cloudsneeker/types/custodian";
+import {
+  listCustodianPolicies,
+  listCustodianRuns,
+} from "@/cloudsneeker/actions/custodian";
+import { CustodianDashboardPanel } from "@/cloudsneeker/components/custodian-dashboard-panel";
+import { CustodianPageTabs } from "@/cloudsneeker/components/custodian-page-tabs";
+import { CustodianPolicyList } from "@/cloudsneeker/components/custodian-policy-list";
+import { CustodianReportsTable } from "@/cloudsneeker/components/custodian-reports-table";
+import {
+  buildCustodianDashboard,
+  buildCustodianReportRows,
+  getCustodianTab,
+} from "@/cloudsneeker/lib/custodian-dashboard";
+import type {
+  CustodianPolicyResource,
+  CustodianRunResource,
+} from "@/cloudsneeker/types/custodian";
 import { Button, Skeleton } from "@/components/shadcn";
+import { Card, CardContent } from "@/components/shadcn/card/card";
 import { ContentLayout } from "@/components/shadcn/content-layout";
+import type { SearchParamsProps } from "@/types";
 
-export default function CustodianPage() {
+interface CustodianPageProps {
+  searchParams: Promise<SearchParamsProps>;
+}
+
+export default async function CustodianPage({
+  searchParams,
+}: CustodianPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const activeTab = getCustodianTab(resolvedSearchParams.tab);
+
   return (
     <ContentLayout title="Cloud Custodian" icon={<Shield />}>
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4">
         <p className="text-text-neutral-secondary text-sm">
-          Manage Cloud Custodian policies and dry-run them against connected AWS,
-          Azure, GCP, or Kubernetes providers. Apply mode is disabled.
+          Manage Cloud Custodian policies, review dry-run reports, and track
+          matched resources. Apply mode is disabled.
         </p>
-        <Button asChild size="sm">
-          <Link href="/custodian/new">Create policy</Link>
-        </Button>
       </div>
-      <Suspense fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
-        <SSRCustodianPolicyList />
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+        <SSRCustodianWorkspace activeTab={activeTab} />
       </Suspense>
     </ContentLayout>
   );
 }
 
-const SSRCustodianPolicyList = async () => {
-  const response = await listCustodianPolicies({
-    "page[size]": "50",
-    sort: "-inserted_at",
-  });
+const SSRCustodianWorkspace = async ({
+  activeTab,
+}: {
+  activeTab: ReturnType<typeof getCustodianTab>;
+}) => {
+  const [policiesResponse, runsResponse] = await Promise.all([
+    listCustodianPolicies({
+      "page[size]": "100",
+      sort: "-inserted_at",
+    }),
+    listCustodianRuns({
+      "page[size]": "100",
+      sort: "-inserted_at",
+    }),
+  ]);
 
-  if (response && "error" in response && response.error) {
+  const policyError =
+    policiesResponse && "error" in policiesResponse
+      ? policiesResponse.error
+      : null;
+  const runError =
+    runsResponse && "error" in runsResponse ? runsResponse.error : null;
+
+  if (policyError || runError) {
     return (
       <p className="text-text-error text-sm">
-        {typeof response.error === "string"
-          ? response.error
-          : "Unable to load Custodian policies."}
+        {typeof policyError === "string"
+          ? policyError
+          : typeof runError === "string"
+            ? runError
+            : "Unable to load Custodian workspace."}
       </p>
     );
   }
 
-  const policies = (response?.data ?? []) as CustodianPolicyResource[];
-
-  if (policies.length === 0) {
-    return <CustodianEmptyState />;
-  }
+  const policies = (policiesResponse?.data ?? []) as CustodianPolicyResource[];
+  const runs = (runsResponse?.data ?? []) as CustodianRunResource[];
+  const metrics = buildCustodianDashboard({ policies, runs });
+  const reportRows = buildCustodianReportRows({ policies, runs });
 
   return (
-    <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
-      {policies.map((policy) => (
-        <li key={policy.id}>
-          <Link
-            href={`/custodian/${policy.id}`}
-            className="hover:bg-bg-neutral-secondary flex flex-col gap-1 px-4 py-3"
-          >
-            <span className="text-text-neutral-primary font-medium">
-              {policy.attributes.name}
-            </span>
-            <span className="text-text-neutral-secondary text-sm">
-              {policy.attributes.provider_alias ||
-                policy.attributes.provider_uid ||
-                policy.attributes.provider_id}
-              {policy.attributes.description
-                ? ` — ${policy.attributes.description}`
-                : ""}
-            </span>
-            {policy.attributes.schedule_enabled ? (
-              <span className="text-text-neutral-secondary text-xs">
-                Schedule: {policy.attributes.schedule_cron} (
-                {policy.attributes.schedule_timezone || "UTC"})
-                {policy.attributes.next_run_at
-                  ? ` · next ${new Date(policy.attributes.next_run_at).toLocaleString()}`
-                  : ""}
-              </span>
-            ) : (
-              <span className="text-text-neutral-secondary text-xs">
-                Schedule: off
-              </span>
-            )}
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <CustodianPageTabs
+      activeTab={activeTab}
+      actions={
+        <Button asChild size="sm">
+          <Link href="/custodian/new">Create policy</Link>
+        </Button>
+      }
+      dashboardContent={<CustodianDashboardPanel metrics={metrics} />}
+      policiesContent={<CustodianPolicyList policies={policies} />}
+      reportsContent={
+        <Card variant="base" padding="none" className="w-full shadow-sm">
+          <CardContent className="p-4">
+            <CustodianReportsTable rows={reportRows} />
+          </CardContent>
+        </Card>
+      }
+    />
   );
 };

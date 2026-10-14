@@ -310,6 +310,40 @@ class TestCustodianPolicySerializers:
 
 
 @pytest.mark.django_db
+@pytest.mark.django_db
+class TestCustodianRunSerializer:
+    def test_includes_policy_and_provider_labels(
+        self, tenants_fixture, aws_provider
+    ):
+        from api.db_utils import rls_transaction
+        from cloudsneeker_api.serializers_custodian import CustodianRunSerializer
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            policy = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="unused-ebs",
+                description="",
+                policy_yaml=VALID_POLICY_YAML,
+                provider=aws_provider,
+            )
+            run = CustodianRun.objects.select_related("policy", "provider").create(
+                tenant_id=tenant.id,
+                policy=policy,
+                provider=aws_provider,
+                status=CustodianRun.Status.COMPLETED,
+                mode=CustodianRun.Mode.DRYRUN,
+                trigger=CustodianRun.Trigger.MANUAL,
+                summary={"resource_count": 3},
+            )
+            payload = CustodianRunSerializer(run).data
+
+        assert payload["policy_name"] == "unused-ebs"
+        assert payload["provider_uid"] == aws_provider.uid
+        assert payload["provider_type"] == "aws"
+        assert payload["summary"]["resource_count"] == 3
+
+
 class TestCustodianDryRunEnqueue:
     def test_dry_run_creates_pending_run_and_enqueues(
         self, tenants_fixture, aws_provider

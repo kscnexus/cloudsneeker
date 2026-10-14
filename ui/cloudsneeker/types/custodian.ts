@@ -47,6 +47,10 @@ export interface CustodianRunSummary {
 export interface CustodianRunAttributes {
   policy_id: string;
   provider_id: string;
+  policy_name?: string;
+  provider_uid?: string;
+  provider_alias?: string | null;
+  provider_type?: string;
   status: CustodianRunStatus;
   mode: string;
   trigger?: CustodianRunTrigger | string;

@@ -205,6 +205,15 @@ class CustodianScheduleBulkSerializer(serializers.Serializer):
 class CustodianRunSerializer(RLSSerializer):
     """Read serializer for Custodian dry-run jobs."""
 
+    policy_name = serializers.CharField(source="policy.name", read_only=True)
+    provider_uid = serializers.CharField(source="provider.uid", read_only=True)
+    provider_alias = serializers.CharField(
+        source="provider.alias", read_only=True, allow_null=True
+    )
+    provider_type = serializers.CharField(
+        source="provider.provider", read_only=True
+    )
+
     class Meta:
         model = CustodianRun
         fields = [
@@ -213,6 +222,10 @@ class CustodianRunSerializer(RLSSerializer):
             "updated_at",
             "policy_id",
             "provider_id",
+            "policy_name",
+            "provider_uid",
+            "provider_alias",
+            "provider_type",
             "status",
             "mode",
             "trigger",
