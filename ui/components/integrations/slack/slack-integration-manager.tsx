@@ -10,6 +10,8 @@ import {
   getSlackChannels,
   setSlackAuthorizedChannels,
 } from "@/actions/integrations/slack";
+import type { SlackAppConfigResource } from "@/cloudsneeker/actions/slack-app"; // cloudsneeker-hook
+import { SlackAppConfigForm } from "@/cloudsneeker/components/slack-app-config-form"; // cloudsneeker-hook
 import { SlackIcon } from "@/components/icons/services/IconServices";
 import { IntegrationCardHeader } from "@/components/integrations/shared";
 import { SlackChannelMultiSelect } from "@/components/integrations/slack/slack-channel-multi-select";
@@ -199,6 +201,9 @@ interface SlackIntegrationManagerProps {
   unavailable: boolean;
   rateLimitMessage: string | null;
   loadError: string | null;
+  /** cloudsneeker-hook — tenant Slack app Client ID/Secret from Integrations. */
+  slackAppConfig?: SlackAppConfigResource | null;
+  redirectUri?: string;
 }
 
 export const SlackIntegrationManager = ({
@@ -207,6 +212,8 @@ export const SlackIntegrationManager = ({
   unavailable,
   rateLimitMessage,
   loadError,
+  slackAppConfig = null,
+  redirectUri = "",
 }: SlackIntegrationManagerProps) => {
   const [isTesting, setIsTesting] = useState(false);
   // A check's finding outlives its toast: the card keeps saying where the
@@ -722,16 +729,22 @@ export const SlackIntegrationManager = ({
       {/* Replaces the cards, not the whole page: an early return here would
           swallow the rate-limit and load-error notices above. */}
       {unavailable ? (
-        <Alert variant="info">
-          <AlertTitle>
-            Slack is not available in this environment yet
-          </AlertTitle>
-          <AlertDescription>
-            The Prowler Slack app is not configured here, so no workspace can be
-            connected. Nothing to do on your side — this page starts working as
-            soon as it is.
-          </AlertDescription>
-        </Alert>
+        // cloudsneeker-hook — tenants configure Slack app credentials in-app.
+        <Card variant="base">
+          <CardHeader>
+            <IntegrationCardHeader
+              icon={<SlackIcon size={32} />}
+              title="Configure your Slack app"
+              subtitle="Save the Client ID and Client Secret from your Slack app, then connect a workspace."
+            />
+          </CardHeader>
+          <CardContent>
+            <SlackAppConfigForm
+              initial={slackAppConfig}
+              redirectUri={redirectUri}
+            />
+          </CardContent>
+        </Card>
       ) : integration && !disconnected ? (
         <Card variant="base">
           <CardHeader className="gap-3">

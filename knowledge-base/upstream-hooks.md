@@ -80,6 +80,10 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `app/(prowler)/integrations/integrations-content.tsx` | Slack when `isCloud() \|\| isCloudsneekerFeatureEnabled("slack")`; Email card when `emailDelivery` | Unlocks Slack and Email on Integrations. |
 | `app/(prowler)/integrations/slack/page.tsx` | also allows `isCloudsneekerFeatureEnabled("slack")` | Opens Slack settings without cloud. |
 | `app/(prowler)/integrations/slack/callback/route.ts` | also allows `isCloudsneekerFeatureEnabled("slack")` | Completes Slack OAuth without cloud. |
+| `app/(prowler)/integrations/slack/slack-integration-content.tsx` | loads `getSlackAppConfig` and passes `slackAppConfig`/`redirectUri` | Tenant Slack app credentials for OAuth. |
+| `components/integrations/slack/slack-integration-manager.tsx` | unavailable state renders `SlackAppConfigForm` | Users save Client ID/Secret in-app instead of deploy secrets. |
+| `ui/__tests__/msw/handlers/slack.ts` | `GET /slack-app-config` empty list | Browser Slack suite does not trip on missing handler. |
+| `ui/app/(prowler)/integrations/slack/slack-integration.harness.ts` | unavailable copy matches configure form | Asserts in-app config UI. |
 | `api/v1/serializers.py`, `serializer_utils/integrations.py` | Slack credential/config serializers and PATCH channel update | Slack channel save on existing Integration API. |
 | `api/utils.py`, `tasks/jobs/connection.py`, `api/v1/views.py` (`IntegrationViewSet.connection`) | Slack connection test and channel guard | Connection check posts confirmations to authorized channels. |
 | `components/scans/scans-page-shell.tsx` | CLI Import banner/modal when feature enabled | Uses `manage_scans` via Cloudsneeker permission mapping. |

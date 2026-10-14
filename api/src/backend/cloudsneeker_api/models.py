@@ -270,6 +270,55 @@ class EmailDeliveryConfig(CloudsneekerRLSModel):
         self._password = fernet.encrypt(value.encode())
 
 
+class SlackAppConfig(CloudsneekerRLSModel):
+    """Per-tenant Slack app credentials used for the OAuth install flow."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    enabled = models.BooleanField(default=True)
+    client_id = models.CharField(max_length=255)
+    _client_secret = models.BinaryField(
+        db_column="client_secret", null=True, blank=True
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}slack_app_configs"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id",),
+                name="unique_cs_slack_app_config_per_tenant",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = "slack-app-configs"
+
+    @property
+    def client_secret(self) -> str:
+        if not self._client_secret:
+            return ""
+        if isinstance(self._client_secret, memoryview):
+            encrypted_bytes = self._client_secret.tobytes()
+        elif isinstance(self._client_secret, str):
+            encrypted_bytes = self._client_secret.encode()
+        else:
+            encrypted_bytes = self._client_secret
+        return fernet.decrypt(encrypted_bytes).decode()
+
+    @client_secret.setter
+    def client_secret(self, value: str | None) -> None:
+        if value is None or value == "":
+            self._client_secret = None
+            return
+        self._client_secret = fernet.encrypt(value.encode())
+
+
 class FindingIngestion(CloudsneekerRLSModel):
     """Upload job that imports a CLI OCSF finding report."""
 

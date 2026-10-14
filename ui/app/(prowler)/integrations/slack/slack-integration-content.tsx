@@ -2,9 +2,11 @@ import { Suspense } from "react";
 
 import { getIntegrations } from "@/actions/integrations/integrations";
 import { getSlackAuthorizeUrl } from "@/actions/integrations/slack";
+import { getSlackAppConfig } from "@/cloudsneeker/actions/slack-app"; // cloudsneeker-hook
 import { SlackConnectNotice } from "@/components/integrations/slack/slack-connect-notice";
 import { SlackIntegrationManager } from "@/components/integrations/slack/slack-integration-manager";
-import { GENERIC_SERVER_ERROR_MESSAGE } from "@/lib/helper";
+import { baseUrl, GENERIC_SERVER_ERROR_MESSAGE } from "@/lib/helper";
+import { SLACK_CALLBACK_PATH } from "@/lib/integrations/slack-connect-status";
 import { INTEGRATION_TYPE, type IntegrationProps } from "@/types/integrations";
 
 /**
@@ -42,6 +44,10 @@ export async function SlackIntegrationContent() {
     (integrations?.data?.[0] as IntegrationProps | undefined) ?? null;
 
   const authorize = integration ? null : await getSlackAuthorizeUrl();
+  const slackApp = await getSlackAppConfig(); // cloudsneeker-hook
+  const slackAppConfig =
+    slackApp && !("error" in slackApp) ? slackApp : null;
+  const redirectUri = `${(baseUrl || "").replace(/\/$/, "")}${SLACK_CALLBACK_PATH}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,8 +70,11 @@ export async function SlackIntegrationContent() {
         }
         loadError={
           loadError ??
-          (authorize && "error" in authorize ? authorize.error : null)
+          (authorize && "error" in authorize ? authorize.error : null) ??
+          (slackApp && "error" in slackApp ? slackApp.error : null)
         }
+        slackAppConfig={slackAppConfig}
+        redirectUri={redirectUri}
       />
     </div>
   );

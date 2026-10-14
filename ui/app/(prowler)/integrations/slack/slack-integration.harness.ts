@@ -227,11 +227,13 @@ export class SlackIntegrationHarness extends BrowserHarness<SlackFixture> {
   }
 
   async waitForUnavailable(): Promise<void> {
-    await this.waitForText(/Slack is not available in this environment yet/);
+    // cloudsneeker-hook — in-app Slack app Client ID/Secret form
+    await this.waitForText(/Configure your Slack app/);
   }
 
   saysUnavailable(): boolean {
-    return this.containsText(/Slack is not available in this environment yet/);
+    // cloudsneeker-hook — in-app Slack app Client ID/Secret form
+    return this.containsText(/Configure your Slack app/);
   }
 
   saysLoadFailed(): boolean {

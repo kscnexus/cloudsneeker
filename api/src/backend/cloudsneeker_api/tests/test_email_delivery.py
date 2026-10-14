@@ -123,6 +123,36 @@ class TestSlackHelpers:
         assert "client_id=client" in url
         assert "redirect_uri=" in url
 
+    def test_tenant_credentials_preferred_over_settings(self):
+        from cloudsneeker_api.services.slack import get_slack_app_credentials
+
+        config = MagicMock()
+        config.client_id = "tenant-client"
+        config.client_secret = "tenant-secret"
+        objects = MagicMock()
+        objects.filter.return_value.order_by.return_value.first.return_value = (
+            config
+        )
+        model = MagicMock()
+        model.objects = objects
+        with (
+            patch(
+                "cloudsneeker_api.services.slack.rls_transaction",
+                MagicMock(),
+            ),
+            patch(
+                "cloudsneeker_api.models.SlackAppConfig",
+                model,
+            ),
+            override_settings(
+                SLACK_CLIENT_ID="deploy-client",
+                SLACK_CLIENT_SECRET="deploy-secret",
+            ),
+        ):
+            assert get_slack_app_credentials(
+                "11111111-1111-1111-1111-111111111111"
+            ) == ("tenant-client", "tenant-secret")
+
     def test_post_alert_skips_without_integration(self):
         with patch(
             "cloudsneeker_api.services.slack.get_tenant_slack_integration",

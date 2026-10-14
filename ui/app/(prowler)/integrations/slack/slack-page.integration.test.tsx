@@ -99,8 +99,8 @@ describe("starting the install", () => {
   }, 30000);
 
   it("says so when the deployment has no Slack app, instead of offering an install", async () => {
-    // Given — no SLACK_CLIENT_ID/SECRET/REDIRECT_URI, which the API answers
-    // with a 503.
+    // Given — no tenant Slack app Client ID/Secret (and no deploy fallback),
+    // which the API answers with a 503. Cloudsneeker shows the in-app form.
     const harness = new SlackIntegrationHarness(
       slackFixture({ appConfigured: false }),
     );

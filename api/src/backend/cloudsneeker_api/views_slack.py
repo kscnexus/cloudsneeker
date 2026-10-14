@@ -82,9 +82,9 @@ class SlackOAuthAuthorizeUrlView(APIView):
 
     def post(self, request, *args, **kwargs):
         tenant_id = _require_manage_integrations(request)
-        if not slack_app_configured():
+        if not slack_app_configured(tenant_id):
             return _error_response(
-                "Slack is not configured for this deployment.",
+                "Slack is not configured for this tenant.",
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         try:
@@ -105,9 +105,9 @@ class SlackOAuthExchangeView(APIView):
 
     def post(self, request, *args, **kwargs):
         tenant_id = _require_manage_integrations(request)
-        if not slack_app_configured():
+        if not slack_app_configured(tenant_id):
             return _error_response(
-                "Slack is not configured for this deployment.",
+                "Slack is not configured for this tenant.",
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 

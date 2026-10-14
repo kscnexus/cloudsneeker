@@ -28,6 +28,7 @@ class TestAppRegistration:
             "AlertRecipient",
             "FindingIngestion",
             "EmailDeliveryConfig",
+            "SlackAppConfig",
         }.issubset(model_names)
 
     def test_table_prefix_constant(self):

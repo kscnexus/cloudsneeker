@@ -37,19 +37,43 @@ class SlackConnectionResult(Connection):
     failed_channel_id: str | None = None
 
 
-def slack_app_configured() -> bool:
-    """True when Slack app client id and secret are present."""
-    client_id = (settings.SLACK_CLIENT_ID or "").strip()
-    client_secret = (settings.SLACK_CLIENT_SECRET or "").strip()
-    if not client_id or not client_secret:
-        return False
-    # Deploy seeds empty installs with this placeholder so ECS can resolve the key.
-    if client_id in {"unconfigured", "none"} or client_secret in {
-        "unconfigured",
-        "none",
-    }:
-        return False
-    return True
+def _usable_credential(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text or text in {"unconfigured", "none"}:
+        return ""
+    return text
+
+
+def get_slack_app_credentials(tenant_id: str | None = None) -> tuple[str, str] | None:
+    """Return Slack app Client ID/Secret for OAuth.
+
+    Prefers the tenant's in-app configuration; falls back to deploy env when set.
+    """
+    if tenant_id:
+        from cloudsneeker_api.models import SlackAppConfig
+
+        with rls_transaction(tenant_id):
+            config = (
+                SlackAppConfig.objects.filter(tenant_id=tenant_id, enabled=True)
+                .order_by("-updated_at")
+                .first()
+            )
+        if config:
+            client_id = _usable_credential(config.client_id)
+            client_secret = _usable_credential(config.client_secret)
+            if client_id and client_secret:
+                return client_id, client_secret
+
+    client_id = _usable_credential(settings.SLACK_CLIENT_ID)
+    client_secret = _usable_credential(settings.SLACK_CLIENT_SECRET)
+    if client_id and client_secret:
+        return client_id, client_secret
+    return None
+
+
+def slack_app_configured(tenant_id: str | None = None) -> bool:
+    """True when Slack app client id and secret are present for this tenant."""
+    return get_slack_app_credentials(tenant_id) is not None
 
 
 def slack_redirect_uri() -> str:
@@ -139,14 +163,16 @@ def consume_oauth_state(state: str, tenant_id: str) -> dict[str, str]:
 
 def build_authorize_url(tenant_id: str, user_id: str) -> str:
     """Return Slack's consent URL for this tenant."""
-    if not slack_app_configured():
+    credentials = get_slack_app_credentials(tenant_id)
+    if credentials is None:
         raise ValidationError(
-            {"detail": "Slack is not configured for this deployment."}
+            {"detail": "Slack is not configured for this tenant."}
         )
+    client_id, _client_secret = credentials
     state = mint_oauth_state(tenant_id, user_id)
     query = urlencode(
         {
-            "client_id": settings.SLACK_CLIENT_ID,
+            "client_id": client_id,
             "scope": SLACK_OAUTH_SCOPES,
             "redirect_uri": slack_redirect_uri(),
             "state": state,
@@ -187,17 +213,19 @@ def public_configuration(configuration: dict[str, Any]) -> dict[str, Any]:
 
 def exchange_oauth_code(*, tenant_id: str, user_id: str, code: str, state: str) -> Integration:
     """Exchange an OAuth code and upsert the tenant Slack integration."""
-    if not slack_app_configured():
+    credentials = get_slack_app_credentials(tenant_id)
+    if credentials is None:
         raise ValidationError(
-            {"detail": "Slack is not configured for this deployment."}
+            {"detail": "Slack is not configured for this tenant."}
         )
+    client_id, client_secret = credentials
     consume_oauth_state(state, tenant_id)
 
     response = requests.post(
         f"{SLACK_API}/oauth.v2.access",
         data={
-            "client_id": settings.SLACK_CLIENT_ID,
-            "client_secret": settings.SLACK_CLIENT_SECRET,
+            "client_id": client_id,
+            "client_secret": client_secret,
             "code": code,
             "redirect_uri": slack_redirect_uri(),
         },

@@ -189,6 +189,10 @@ export const handlersForSlack = (fx: SlackFixture) => {
     );
 
   return [
+    // cloudsneeker-hook — tenant Slack app credentials (Client ID/Secret)
+    http.get(`${API}/slack-app-config`, () =>
+      HttpResponse.json({ data: [] }),
+    ),
     // --- OAuth ------------------------------------------------------------
     http.post(`${API}/integrations/slack/oauth/authorize-url`, () => {
       if (!fx.appConfigured) return unconfigured();

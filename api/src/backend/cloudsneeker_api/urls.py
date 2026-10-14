@@ -11,6 +11,7 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 
 from cloudsneeker_api.views import BrandView
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
+from cloudsneeker_api.views_slack_app import SlackAppConfigViewSet
 from cloudsneeker_api.views_features import (
     AlertRecipientConfirmView,
     AlertRecipientUnsubscribeView,
@@ -39,6 +40,11 @@ router.register(
     r"email-delivery-config",
     EmailDeliveryConfigViewSet,
     basename="email-delivery-config",
+)
+router.register(
+    r"slack-app-config",
+    SlackAppConfigViewSet,
+    basename="slack-app-config",
 )
 router.register(
     r"custodian-policies", CustodianPolicyViewSet, basename="custodian-policies"
