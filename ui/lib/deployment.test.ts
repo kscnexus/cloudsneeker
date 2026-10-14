@@ -10,15 +10,15 @@ describe("enterprise feature flags", () => {
     vi.unstubAllEnvs();
   });
 
-  it("should keep grouped Jira dispatch disabled outside cloud", async () => {
-    // Given
+  it("enables grouped Jira dispatch outside cloud via Cloudsneeker", async () => {
+    // Given — OSS cloud flag off; Cloudsneeker feature still on.
     vi.stubEnv("UI_CLOUD_ENABLED", "false");
 
     // When
     const { isGroupedJiraDispatchEnabled } = await importFresh();
 
     // Then
-    expect(isGroupedJiraDispatchEnabled()).toBe(false);
+    expect(isGroupedJiraDispatchEnabled()).toBe(true);
   });
 
   it("should enable grouped Jira dispatch in cloud without an enterprise flag", async () => {

@@ -17,4 +17,9 @@ describe("CLOUDSNEEKER_FEATURES", () => {
     expect(CLOUDSNEEKER_FEATURES.scanComparison).toBe(true);
     expect(isCloudsneekerFeatureEnabled("scanComparison")).toBe(true);
   });
+
+  it("enables grouped Jira dispatch", () => {
+    expect(CLOUDSNEEKER_FEATURES.jiraGroupedDispatch).toBe(true);
+    expect(isCloudsneekerFeatureEnabled("jiraGroupedDispatch")).toBe(true);
+  });
 });

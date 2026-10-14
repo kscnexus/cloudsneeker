@@ -103,7 +103,7 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `app/api/health/route.ts` | `serviceId: BRAND.serviceId` | `cloudsneeker-ui`. |
 | `lib/external-urls.ts` | `PROWLER_HUB_URL = BRAND.docsUrl`; `PROWLER_CF_TEMPLATE_URL = BRAND.cloudformationTemplateUrl`; `BILLING_URL`; `DOCS_URLS` built with `docsUrl()` | Keep upstream export names. |
 | `lib/cloud-upgrade.ts` | `CLOUD_SIGN_UP_URL = BRAND.websiteUrl`; `PRICING_URL = BRAND.pricingUrl || BRAND.websiteUrl` | — |
-| `lib/deployment.ts` | `PROWLER_CLOUD_ONLY_TOOLTIP = BRAND.unavailableFeatureCopy` | Keep the export name. |
+| `lib/deployment.ts` | `PROWLER_CLOUD_ONLY_TOOLTIP = BRAND.unavailableFeatureCopy`; `isGroupedJiraDispatchEnabled` also checks `jiraGroupedDispatch` | Keep the export names. |
 | `lib/vulnerability-references.ts` | `HUB` label `View in ${BRAND.name} documentation`; hostname match against the brand docs host | — |
 | `lib/lighthouse-v1/system-prompt.ts` | `brandSystemPrompt` from `ui/cloudsneeker/lighthouse-prompt.ts` replaces the product paragraph | The agent speaks as the product and cites product docs. |
 | `store/cloud-upgrade/store.ts` | upsell modal opens only when `BRAND.showUpsell` | — |
