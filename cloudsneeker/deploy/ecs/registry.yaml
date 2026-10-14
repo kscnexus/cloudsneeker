@@ -1,14 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Image registry and build project for the Cloudsneeker service images.
+Description: Image registry for the Cloudsneeker service images. GitHub Actions publishes them.
 
 Parameters:
   RepositoryName:
     Type: String
     Default: cloudsneeker
     AllowedPattern: "[a-z0-9][a-z0-9./_-]{1,200}"
-  CodeCommitRepository:
+  GitHubRepository:
     Type: String
-    Default: cloudsneeker
+    Default: ""
+    Description: GitHub repository allowed to publish images, as owner/name.
+    AllowedPattern: "^$|^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+
+Conditions:
+  HasGitHubRepository: !Not [!Equals [!Ref GitHubRepository, ""]]
 
 Resources:
   ApiRepository:
@@ -59,46 +64,49 @@ Resources:
       LifecyclePolicy:
         LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"Keep the last 10 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
 
-  BuildLogGroup:
-    Type: AWS::Logs::LogGroup
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: HasGitHubRepository
     Properties:
-      LogGroupName: /codebuild/cloudsneeker-images
-      RetentionInDays: 30
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
 
-  BuildRole:
+  GitHubActionsRole:
     Type: AWS::IAM::Role
+    Condition: HasGitHubRepository
     Properties:
-      RoleName: cloudsneeker-image-build
+      RoleName: cloudsneeker-github-actions
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              Service: codebuild.amazonaws.com
-            Action: sts:AssumeRole
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${GitHubRepository}:ref:refs/heads/main
+                  - !Sub repo:${GitHubRepository}:ref:refs/tags/cloudsneeker-v*
       Policies:
-        - PolicyName: build
+        - PolicyName: publish-images
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action:
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !Sub ${BuildLogGroup.Arn}:*
-              - Effect: Allow
-                Action:
-                  - codecommit:GitPull
-                Resource: !Sub arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepository}
-              - Effect: Allow
-                Action:
-                  - ecr:GetAuthorizationToken
+                Action: ecr:GetAuthorizationToken
                 Resource: "*"
               - Effect: Allow
                 Action:
                   - ecr:BatchCheckLayerAvailability
                   - ecr:BatchGetImage
                   - ecr:CompleteLayerUpload
+                  - ecr:DescribeImages
                   - ecr:DescribeRepositories
                   - ecr:GetDownloadUrlForLayer
                   - ecr:InitiateLayerUpload
@@ -109,40 +117,42 @@ Resources:
                   - !GetAtt UiRepository.Arn
                   - !GetAtt McpRepository.Arn
                   - !GetAtt Neo4jRepository.Arn
-
-  ImageBuild:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: cloudsneeker-images
-      Description: Build the service images from the rebranded tree and push them.
-      ServiceRole: !GetAtt BuildRole.Arn
-      TimeoutInMinutes: 120
-      Source:
-        Type: CODECOMMIT
-        Location: !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/${CodeCommitRepository}
-        BuildSpec: cloudsneeker/deploy/ecs/buildspec.yml
-        GitCloneDepth: 1
-      Artifacts:
-        Type: NO_ARTIFACTS
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_LARGE
-        Image: aws/codebuild/standard:7.0
-        PrivilegedMode: true
-        EnvironmentVariables:
-          - Name: DOCKER_BUILDKIT
-            Value: "1"
-          - Name: PUSH
-            Value: "1"
-          - Name: SKIP_CLI
-            Value: "1"
-      LogsConfig:
-        CloudWatchLogs:
-          Status: ENABLED
-          GroupName: !Ref BuildLogGroup
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:GetTemplate
+                  - cloudformation:UpdateStack
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/cloudsneeker/*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/cloudsneeker-registry/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::cloudsneeker-cfn-${AWS::AccountId}-${AWS::Region}
+                  - !Sub arn:${AWS::Partition}:s3:::cloudsneeker-cfn-${AWS::AccountId}-${AWS::Region}/*
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cloudsneeker-task
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cloudsneeker-task-execution
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                Resource: "*"
 
 Outputs:
-  BuildProject:
-    Value: !Ref ImageBuild
   Registry:
     Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}
+  GitHubActionsRoleArn:
+    Condition: HasGitHubRepository
+    Value: !GetAtt GitHubActionsRole.Arn

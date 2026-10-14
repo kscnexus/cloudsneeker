@@ -65,7 +65,7 @@ foreach ($key in @("PlatformMode", "ImageTag", "AppSecretArn", "DomainName", "Ce
 }
 
 Write-Host "==> Removing compute and keeping stored data"
-Invoke-Aws @(
+$deployArgs = @(
     "cloudformation", "deploy",
     "--stack-name", "cloudsneeker",
     "--template-file", (Join-Path $EcsDir "platform.yaml"),
@@ -74,7 +74,8 @@ Invoke-Aws @(
     "--capabilities", "CAPABILITY_NAMED_IAM",
     "--no-fail-on-empty-changeset",
     "--parameter-overrides"
-) + $overrides | Out-Host
+) + $overrides
+Invoke-Aws $deployArgs | Out-Host
 
 Write-Host "==> Stopping the database"
 $status = Invoke-AwsText @("rds", "describe-db-instances", "--db-instance-identifier", "cloudsneeker", "--query", "DBInstances[0].DBInstanceStatus")

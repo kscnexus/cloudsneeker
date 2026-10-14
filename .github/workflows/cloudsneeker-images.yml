@@ -1,0 +1,86 @@
+name: 'Cloudsneeker: Publish images'
+# Publishes the service images to the account registry and rolls the
+# existing platform onto that tag. The stack keeps its current
+# PlatformMode, so a push does not start a parked environment.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cloudsneeker-images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  AWS_REGION: us-east-1
+  NEO4J_IMAGE: graphstack/dozerdb:5.26.27.0@sha256:9b54d6b3a98a76c00bd23e8e78d8c82081ff168162aebd47b25c234e092cb0a0
+
+jobs:
+  publish:
+    name: Publish to ECR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.12'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN || 'arn:aws:iam::352285844868:role/cloudsneeker-github-actions' }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Build and push the service images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}/cloudsneeker
+          PUSH: '1'
+          SKIP_CLI: '1'
+        run: |
+          set -euo pipefail
+          tag="$(printf '%s' "$GITHUB_SHA" | cut -c1-12)"
+          bash cloudsneeker/deploy/scripts/build.sh "$tag"
+          docker pull "$NEO4J_IMAGE"
+          docker tag "$NEO4J_IMAGE" "${REGISTRY}/neo4j:${tag}"
+          docker push "${REGISTRY}/neo4j:${tag}"
+          echo "IMAGE_TAG=${tag}" >> "$GITHUB_ENV"
+
+      - name: Roll the platform onto the published tag
+        run: |
+          set -euo pipefail
+          if ! aws cloudformation describe-stacks --stack-name cloudsneeker --query "Stacks[0].StackStatus" --output text > /tmp/stack-status 2>/tmp/stack-error; then
+            echo "Platform stack is not deployed. Images are in the registry as ${IMAGE_TAG}."
+            exit 0
+          fi
+          echo "Stack status: $(cat /tmp/stack-status)"
+          aws cloudformation describe-stacks --stack-name cloudsneeker --query "Stacks[0].Parameters" --output json > parameters.json
+          python3 -c "import json,os; tag=os.environ['IMAGE_TAG']; current=json.load(open('parameters.json')); updated=[{'ParameterKey': item['ParameterKey'], **({'ParameterValue': tag} if item['ParameterKey']=='ImageTag' else {'UsePreviousValue': True})} for item in current]; json.dump(updated, open('parameters-next.json','w'))"
+          set +e
+          update_output="$(aws cloudformation update-stack --stack-name cloudsneeker --use-previous-template --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters-next.json 2>&1)"
+          update_status=$?
+          set -e
+          if [ "$update_status" -ne 0 ]; then
+            if printf '%s' "$update_output" | grep -q "No updates are to be performed"; then
+              echo "Services already use ${IMAGE_TAG}."
+              exit 0
+            fi
+            printf '%s\n' "$update_output"
+            exit "$update_status"
+          fi
+          aws cloudformation wait stack-update-complete --stack-name cloudsneeker

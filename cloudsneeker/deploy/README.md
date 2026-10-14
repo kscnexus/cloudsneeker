@@ -72,20 +72,23 @@ in `values.yaml`. Passing secrets through `--set` is for development only.
 
 ## Amazon ECS
 
-`ecs/` is the hosted stack. `deploy.ps1` creates the image registry and
-CodeBuild project, then a Fargate platform in a dedicated VPC: private tasks,
-a public load balancer, encrypted PostgreSQL and Valkey, Neo4j on encrypted
-shared storage, and Secrets Manager for credentials. Container images are
-built in AWS from this repository, not on a workstation.
+`ecs/` is the hosted stack. `deploy.ps1` creates the image registry and a
+Fargate platform in a dedicated VPC: private tasks, a public load balancer,
+encrypted PostgreSQL and Valkey, Neo4j on encrypted shared storage, and
+Secrets Manager for credentials. GitHub Actions builds the images from
+`main` and pushes them to the registry. The workflow then rolls the services
+onto that tag and leaves `PlatformMode` as it is.
 
 ```powershell
-pwsh cloudsneeker/deploy/ecs/deploy.ps1
+pwsh cloudsneeker/deploy/ecs/deploy.ps1 -GitHubRepository owner/cloudsneeker
 ```
 
-The first run takes about an hour because the images are built in CodeBuild
-while the data stores are created. The script prints the load balancer URL
-when the services are steady. Add a domain later by redeploying with
-`-DomainName` and `-CertificateArn`.
+Pass `-GitHubRepository` as `owner/name` once. That creates the role
+`cloudsneeker-github-actions`, which only `main` and `cloudsneeker-v*` tags
+can assume. The script prints the load balancer URL when the services are
+steady. Add a domain later by redeploying with `-DomainName` and
+`-CertificateArn`. Pass `-ImageTag` to roll the services onto a tag that is
+already in the registry.
 
 `PlatformMode` is `running` or `parked`. Parking removes the tasks, load
 balancer, NAT gateway, interface endpoints, and Valkey cache, then stops

@@ -29,7 +29,7 @@ git fetch upstream --tags
 | Product identity (names, URLs, prefixes, flags) | Brand modules: `cloudsneeker/brand.py`, `api/src/backend/cloudsneeker_api/brand.py`, `ui/cloudsneeker/brand.ts`, `mcp_server/prowler_mcp_server/cloudsneeker/brand.py` | Upstream files read them through one-line hooks |
 | Display copy in upstream files | `cloudsneeker/tools/rebrand.rules.toml` | Applied to a build-tree copy, never to source |
 | Documentation | `cloudsneeker/docs/` (guides) plus generated check and framework pages from `cloudsneeker/tools/gen_check_docs.py` | Upstream `docs/` is untouched |
-| Deployment | `cloudsneeker/deploy/` (compose, Dockerfiles, Helm) and `.github/workflows/cloudsneeker-release.yml` | Upstream compose files and workflows are untouched |
+| Deployment | `cloudsneeker/deploy/` (compose, Dockerfiles, Helm), `.github/workflows/cloudsneeker-release.yml`, and `.github/workflows/cloudsneeker-images.yml` | Upstream compose files and workflows are untouched |
 
 Every edit that still has to land in an upstream file is a hook. Record it in [Upstream Hooks](upstream-hooks.md).
 

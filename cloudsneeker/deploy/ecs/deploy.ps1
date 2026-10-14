@@ -4,11 +4,12 @@ Deploy Cloudsneeker on ECS in us-east-1.
 
 .DESCRIPTION
 Creates the application secret, the image registry, and the Fargate platform.
-CodeBuild builds the images from CodeCommit while the data stores are created,
-then the services are started.
+GitHub Actions builds the images when main is pushed. This script starts the
+data stores and, when -ImageTag is set, rolls the services onto that tag.
 
 .EXAMPLE
 pwsh cloudsneeker/deploy/ecs/deploy.ps1
+pwsh cloudsneeker/deploy/ecs/deploy.ps1 -GitHubRepository owner/cloudsneeker
 pwsh cloudsneeker/deploy/ecs/deploy.ps1 -DomainName app.example.com -CertificateArn arn:aws:acm:...
 #>
 [CmdletBinding()]
@@ -17,14 +18,14 @@ param(
     [string]$Profile = "kscnexus",
     [string]$DomainName = "",
     [string]$CertificateArn = "",
-    [string]$ImageTag = ""
+    [string]$ImageTag = "",
+    [string]$GitHubRepository = ""
 )
 
 $ErrorActionPreference = "Stop"
 if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
-$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $EcsDir = $PSScriptRoot
 $Account = "352285844868"
 $SecretName = "cloudsneeker/app"
@@ -110,14 +111,24 @@ if (-not $bucketExists) {
     Invoke-Aws @("s3api", "put-bucket-encryption", "--bucket", $ArtifactBucket, "--server-side-encryption-configuration", "Rules=[{ApplyServerSideEncryptionByDefault={SSEAlgorithm=AES256}}]") | Out-Null
 }
 
-Write-Host "==> Image registry and build project"
-Invoke-Aws @("cloudformation", "deploy", "--stack-name", "cloudsneeker-registry", "--template-file", (Join-Path $EcsDir "registry.yaml"), "--s3-bucket", $ArtifactBucket, "--s3-prefix", "ecs", "--capabilities", "CAPABILITY_NAMED_IAM", "--no-fail-on-empty-changeset") | Out-Host
-
-$sha = (& git -C $Root rev-parse HEAD).Trim()
-if (-not $ImageTag) { $ImageTag = $sha.Substring(0, 12) }
-Write-Host "==> Starting image build $ImageTag"
-$buildJson = Invoke-Aws @("codebuild", "start-build", "--project-name", "cloudsneeker-images", "--source-version", $sha)
-$buildId = ($buildJson | ConvertFrom-Json).build.id
+Write-Host "==> Image registry"
+$registryArgs = @(
+    "cloudformation", "deploy",
+    "--stack-name", "cloudsneeker-registry",
+    "--template-file", (Join-Path $EcsDir "registry.yaml"),
+    "--s3-bucket", $ArtifactBucket,
+    "--s3-prefix", "ecs",
+    "--capabilities", "CAPABILITY_NAMED_IAM",
+    "--no-fail-on-empty-changeset"
+)
+if ($GitHubRepository) {
+    $registryArgs += @("--parameter-overrides", "GitHubRepository=$GitHubRepository")
+}
+Invoke-Aws $registryArgs | Out-Host
+if ($GitHubRepository) {
+    $roleArn = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker-registry", "--query", "Stacks[0].Outputs[?OutputKey=='GitHubActionsRoleArn'].OutputValue | [0]")
+    Write-Host "GitHub Actions role: $roleArn"
+}
 
 function Start-RetainedDatabase {
     Write-Host "==> Database"
@@ -149,6 +160,7 @@ try {
     $existingTag = ""
 }
 if ($existingTag -eq "None") { $existingTag = "" }
+if (-not $ImageTag) { $ImageTag = $existingTag }
 
 Write-Host "==> Platform (data stores and network)"
 Invoke-Aws @(
@@ -159,31 +171,9 @@ Invoke-Aws @(
     "--s3-prefix", "ecs",
     "--capabilities", "CAPABILITY_NAMED_IAM",
     "--no-fail-on-empty-changeset",
-    "--parameter-overrides", "PlatformMode=running", "ImageTag=$existingTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
-) | Out-Host
-
-Write-Host "==> Waiting for image build"
-$deadline = (Get-Date).AddHours(2)
-do {
-    Start-Sleep -Seconds 30
-    $status = Invoke-AwsText @("codebuild", "batch-get-builds", "--ids", $buildId, "--query", "builds[0].buildStatus")
-    Write-Host "build status: $status"
-    if ($status -eq "SUCCEEDED") { break }
-    if ($status -ne "IN_PROGRESS") { throw "image build $status ($buildId)" }
-} while ((Get-Date) -lt $deadline)
-if ($status -ne "SUCCEEDED") { throw "image build timed out ($buildId)" }
-
-Write-Host "==> Starting services with image $ImageTag"
-Invoke-Aws @(
-    "cloudformation", "deploy",
-    "--stack-name", "cloudsneeker",
-    "--template-file", (Join-Path $EcsDir "platform.yaml"),
-    "--s3-bucket", $ArtifactBucket,
-    "--s3-prefix", "ecs",
-    "--capabilities", "CAPABILITY_NAMED_IAM",
-    "--no-fail-on-empty-changeset",
     "--parameter-overrides", "PlatformMode=running", "ImageTag=$ImageTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
 ) | Out-Host
+Write-Host "GitHub Actions publishes images when main is pushed. Pass -ImageTag to roll the services onto a tag that is already in the registry."
 
 $url = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker", "--query", "Stacks[0].Outputs[?OutputKey=='ServiceUrl'].OutputValue | [0]")
 Write-Host ""
