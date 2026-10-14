@@ -1,6 +1,9 @@
 /* Cloudsneeker presentation layer.
    Loaded after the upstream theme. Severity, pass, and fail colors stay so
-   findings keep their meaning. Surfaces, type, chrome, and accents change. */
+   findings keep their meaning. Surfaces, type, chrome, and accents change.
+
+   Accent is electric signal blue (#2583FF), matching the wordmark — not
+   washed neon cyan. Primary buttons stay light enough for black label text. */
 
 :root {
   --bg-neutral-primary: #eef3f4;
@@ -22,35 +25,35 @@
   --bg-input-primary: #ffffff;
   --border-input-primary: #b7c9d0;
   --border-input-primary-press: #0c1b24;
-  --border-input-primary-pressed: #0891b2;
+  --border-input-primary-pressed: #2583ff;
   --border-input-primary-fill: #5c7380;
 
-  --bg-button-primary: #67e8f9;
-  --bg-button-primary-hover: #a5f3fc;
-  --bg-button-primary-press: #22d3ee;
+  --bg-button-primary: #7eb8ff;
+  --bg-button-primary-hover: #a8cfff;
+  --bg-button-primary-press: #5ba3ff;
   --bg-button-secondary: #0c1b24;
   --bg-button-secondary-press: #163041;
-  --bg-button-tertiary: #0e7490;
-  --bg-button-tertiary-hover: #0891b2;
-  --bg-button-tertiary-active: #155e75;
+  --bg-button-tertiary: #1a6ae6;
+  --bg-button-tertiary-hover: #2583ff;
+  --bg-button-tertiary-active: #1557c7;
   --bg-button-disabled: #d5e1e6;
 
-  --bg-sidebar-active: rgba(8, 145, 178, 0.1);
+  --bg-sidebar-active: rgba(37, 131, 255, 0.1);
   --bg-sidebar-hover: rgba(12, 27, 36, 0.04);
-  --bg-sidebar-subitem-active: rgba(8, 145, 178, 0.12);
+  --bg-sidebar-subitem-active: rgba(37, 131, 255, 0.12);
   --bg-sidebar-toggle: rgba(255, 255, 255, 0.06);
-  --border-sidebar-active: rgba(8, 145, 178, 0.28);
+  --border-sidebar-active: rgba(37, 131, 255, 0.28);
   --border-sidebar-hover: rgba(12, 27, 36, 0.08);
-  --border-sidebar-guide: rgba(103, 232, 249, 0.22);
+  --border-sidebar-guide: rgba(126, 184, 255, 0.28);
   --border-sidebar-toggle: rgba(255, 255, 255, 0.08);
-  --sidebar-active-bar: #0891b2;
-  --sidebar-active-icon: #0e7490;
+  --sidebar-active-bar: #2583ff;
+  --sidebar-active-icon: #1a6ae6;
   --shadow-sidebar-active: 0 8px 20px rgba(7, 20, 31, 0.06);
 
-  --text-lighthouse: #0e7490;
-  --border-lighthouse: rgba(8, 145, 178, 0.4);
-  --gradient-lighthouse-from: #22d3ee;
-  --gradient-lighthouse-to: #6366f1;
+  --text-lighthouse: #1a6ae6;
+  --border-lighthouse: rgba(37, 131, 255, 0.4);
+  --gradient-lighthouse-from: #2583ff;
+  --gradient-lighthouse-to: #0d9488;
   --gradient-lighthouse: linear-gradient(
     96deg,
     var(--gradient-lighthouse-from) 3.55%,
@@ -58,15 +61,15 @@
   );
   --gradient-lighthouse-soft: linear-gradient(
     96deg,
-    rgba(34, 211, 238, 0.12),
-    rgba(99, 102, 241, 0.1)
+    rgba(37, 131, 255, 0.12),
+    rgba(13, 148, 136, 0.1)
   );
-  --gradient-feature-cloud: linear-gradient(112deg, #22d3ee 3.5%, #6366f1 98.8%);
-  --bg-feature-new: #0891b2;
+  --gradient-feature-cloud: linear-gradient(112deg, #2583ff 3.5%, #0d9488 98.8%);
+  --bg-feature-new: #2583ff;
   --gradient-sidebar-halo: radial-gradient(
     circle,
-    rgba(34, 211, 238, 0.14) 0%,
-    rgba(99, 102, 241, 0.05) 42%,
+    rgba(37, 131, 255, 0.14) 0%,
+    rgba(13, 148, 136, 0.05) 42%,
     transparent 72%
   );
 }
@@ -90,38 +93,38 @@
 
   --bg-input-primary: #0c1620;
   --border-input-primary: #2a4454;
-  --border-input-primary-press: #67e8f9;
-  --border-input-primary-pressed: #67e8f9;
+  --border-input-primary-press: #7eb8ff;
+  --border-input-primary-pressed: #7eb8ff;
   --border-input-primary-fill: #c5d8de;
 
-  --bg-button-primary: #67e8f9;
-  --bg-button-primary-hover: #a5f3fc;
-  --bg-button-primary-press: #22d3ee;
+  --bg-button-primary: #7eb8ff;
+  --bg-button-primary-hover: #a8cfff;
+  --bg-button-primary-press: #5ba3ff;
   --bg-button-secondary: #e7f2f4;
-  --bg-button-secondary-press: #cffafe;
-  --bg-button-tertiary: #67e8f9;
-  --bg-button-tertiary-hover: #a5f3fc;
-  --bg-button-tertiary-active: #22d3ee;
+  --bg-button-secondary-press: #dbeafe;
+  --bg-button-tertiary: #7eb8ff;
+  --bg-button-tertiary-hover: #a8cfff;
+  --bg-button-tertiary-active: #5ba3ff;
   --bg-button-disabled: #1c3040;
 
-  --bg-sidebar-active: rgba(103, 232, 249, 0.12);
+  --bg-sidebar-active: rgba(126, 184, 255, 0.12);
   --bg-sidebar-hover: rgba(231, 242, 244, 0.05);
-  --bg-sidebar-subitem-active: rgba(103, 232, 249, 0.1);
+  --bg-sidebar-subitem-active: rgba(126, 184, 255, 0.1);
   --bg-sidebar-toggle: rgba(231, 242, 244, 0.04);
-  --border-sidebar-active: rgba(103, 232, 249, 0.28);
+  --border-sidebar-active: rgba(126, 184, 255, 0.28);
   --border-sidebar-hover: rgba(231, 242, 244, 0.08);
-  --border-sidebar-guide: rgba(103, 232, 249, 0.2);
+  --border-sidebar-guide: rgba(126, 184, 255, 0.22);
   --border-sidebar-toggle: rgba(231, 242, 244, 0.08);
-  --sidebar-active-bar: #67e8f9;
-  --sidebar-active-icon: #67e8f9;
+  --sidebar-active-bar: #7eb8ff;
+  --sidebar-active-icon: #7eb8ff;
   --shadow-sidebar-active: 0 10px 24px rgba(0, 0, 0, 0.28);
 
-  --text-lighthouse: #67e8f9;
-  --border-lighthouse: rgba(103, 232, 249, 0.4);
+  --text-lighthouse: #7eb8ff;
+  --border-lighthouse: rgba(126, 184, 255, 0.4);
   --gradient-sidebar-halo: radial-gradient(
     circle,
-    rgba(103, 232, 249, 0.12) 0%,
-    rgba(99, 102, 241, 0.05) 42%,
+    rgba(126, 184, 255, 0.12) 0%,
+    rgba(13, 148, 136, 0.05) 42%,
     transparent 72%
   );
 }
@@ -143,7 +146,7 @@ h2 {
 /* Navigation is a floating control surface, separate from the page canvas. */
 aside.fixed.inset-y-0 {
   background:
-    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, 0.12), transparent 30%),
+    radial-gradient(circle at 8% 0%, rgba(37, 131, 255, 0.12), transparent 30%),
     color-mix(in srgb, var(--bg-neutral-secondary) 94%, transparent);
   box-shadow: 18px 0 50px rgba(12, 27, 36, 0.06);
   backdrop-filter: blur(22px);
@@ -152,7 +155,7 @@ aside.fixed.inset-y-0 {
 
 .dark aside.fixed.inset-y-0 {
   background:
-    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, 0.12), transparent 30%),
+    radial-gradient(circle at 8% 0%, rgba(37, 131, 255, 0.12), transparent 30%),
     rgba(7, 16, 24, 0.94);
   box-shadow: 18px 0 55px rgba(0, 0, 0, 0.22);
 }
@@ -175,7 +178,7 @@ header.sticky.top-0 {
 
 [data-slot="input"]:focus,
 [data-slot="textarea"]:focus {
-  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.16);
+  box-shadow: 0 0 0 3px rgba(37, 131, 255, 0.16);
 }
 
 [data-slot="card"] {
@@ -205,11 +208,11 @@ header.sticky.top-0 {
   display: flex;
   min-height: 100dvh;
   overflow: hidden;
-  color: #eafcff;
+  color: #eaf2ff;
   background:
-    radial-gradient(circle at 22% 18%, rgba(34, 211, 238, 0.3), transparent 28%),
-    radial-gradient(circle at 82% 76%, rgba(99, 102, 241, 0.28), transparent 32%),
-    linear-gradient(145deg, #071724 0%, #0b2536 54%, #111d39 100%);
+    radial-gradient(circle at 22% 18%, rgba(37, 131, 255, 0.32), transparent 28%),
+    radial-gradient(circle at 82% 76%, rgba(13, 148, 136, 0.24), transparent 32%),
+    linear-gradient(145deg, #07111f 0%, #0b1a36 54%, #0f2438 100%);
 }
 
 .cloudsneeker-auth-story::after {
@@ -218,8 +221,8 @@ header.sticky.top-0 {
   inset: 0;
   opacity: 0.22;
   background-image:
-    linear-gradient(rgba(103, 232, 249, 0.14) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(103, 232, 249, 0.14) 1px, transparent 1px);
+    linear-gradient(rgba(126, 184, 255, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126, 184, 255, 0.14) 1px, transparent 1px);
   background-size: 52px 52px;
   mask-image: linear-gradient(to bottom right, #000, transparent 72%);
 }
@@ -230,11 +233,11 @@ header.sticky.top-0 {
   right: -12rem;
   width: 32rem;
   height: 32rem;
-  border: 1px solid rgba(103, 232, 249, 0.2);
+  border: 1px solid rgba(126, 184, 255, 0.22);
   border-radius: 999px;
   box-shadow:
-    0 0 0 5rem rgba(103, 232, 249, 0.025),
-    0 0 0 10rem rgba(99, 102, 241, 0.025);
+    0 0 0 5rem rgba(126, 184, 255, 0.025),
+    0 0 0 10rem rgba(13, 148, 136, 0.025);
 }
 
 .cloudsneeker-auth-story-content {
@@ -249,7 +252,7 @@ header.sticky.top-0 {
 }
 
 .cloudsneeker-auth-story .text-text-neutral-primary {
-  color: #f4fdff;
+  color: #f4f8ff;
 }
 
 .cloudsneeker-auth-copy {
@@ -259,7 +262,7 @@ header.sticky.top-0 {
 .cloudsneeker-auth-eyebrow,
 .cloudsneeker-auth-card-kicker {
   margin-bottom: 0.9rem;
-  color: #67e8f9;
+  color: #7eb8ff;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -278,7 +281,7 @@ header.sticky.top-0 {
 .cloudsneeker-auth-copy > p:last-child {
   max-width: 34rem;
   margin-top: 1.75rem;
-  color: #b7d1d9;
+  color: #b7c8d9;
   font-size: clamp(1rem, 1.4vw, 1.2rem);
   line-height: 1.65;
 }
@@ -295,7 +298,7 @@ header.sticky.top-0 {
   flex-direction: column;
   gap: 0.85rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(103, 232, 249, 0.2);
+  border-top: 1px solid rgba(126, 184, 255, 0.2);
 }
 
 .cloudsneeker-auth-signals strong,
@@ -310,7 +313,7 @@ header.sticky.top-0 {
 
 .cloudsneeker-auth-signals small {
   margin-top: 0.35rem;
-  color: #8eafb8;
+  color: #8ea0b8;
   font-size: 0.7rem;
   line-height: 1.45;
 }
@@ -320,10 +323,10 @@ header.sticky.top-0 {
   width: 2.25rem;
   height: 2.25rem;
   place-items: center;
-  color: #67e8f9;
-  border: 1px solid rgba(103, 232, 249, 0.18);
+  color: #7eb8ff;
+  border: 1px solid rgba(126, 184, 255, 0.18);
   border-radius: 0.75rem;
-  background: rgba(103, 232, 249, 0.07);
+  background: rgba(126, 184, 255, 0.07);
 }
 
 .cloudsneeker-auth-signal-icon svg {
@@ -339,7 +342,7 @@ header.sticky.top-0 {
   justify-content: center;
   padding: clamp(1.5rem, 5vw, 5rem);
   background:
-    radial-gradient(circle at 90% 8%, rgba(34, 211, 238, 0.12), transparent 24%),
+    radial-gradient(circle at 90% 8%, rgba(37, 131, 255, 0.12), transparent 24%),
     var(--bg-neutral-primary);
 }
 

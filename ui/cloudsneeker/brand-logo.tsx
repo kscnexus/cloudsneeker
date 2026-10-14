@@ -14,14 +14,14 @@ const MarkPaths = () => (
   <>
     <defs>
       <linearGradient id="cloudsneeker-cloud" x1="8" y1="18" x2="56" y2="47">
-        <stop stopColor="#22D3EE" />
+        <stop stopColor="#5BA3FF" />
         <stop offset="0.52" stopColor="#2583FF" />
-        <stop offset="1" stopColor="#8B5CF6" />
+        <stop offset="1" stopColor="#0D9488" />
       </linearGradient>
       <linearGradient id="cloudsneeker-shield" x1="23" y1="37" x2="43" y2="58">
         <stop stopColor="#2DD4BF" />
         <stop offset="0.5" stopColor="#2583FF" />
-        <stop offset="1" stopColor="#8B5CF6" />
+        <stop offset="1" stopColor="#1A6AE6" />
       </linearGradient>
     </defs>
     <rect width="64" height="64" rx="16" fill="#07111F" />
@@ -43,7 +43,7 @@ const MarkPaths = () => (
     <path
       d="m26.5 37 4 1.2-4.4 1.2M37.5 37l-4 1.2 4.4 1.2"
       fill="none"
-      stroke="#67E8F9"
+      stroke="#7EB8FF"
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -52,7 +52,7 @@ const MarkPaths = () => (
       data-brand-symbol="shield"
       d="m32 34 11 4v8.2c0 6.4-4.5 10.5-11 13.8-6.5-3.3-11-7.4-11-13.8V38l11-4Z"
       fill="url(#cloudsneeker-shield)"
-      stroke="#A5F3FC"
+      stroke="#C5DCFF"
       strokeWidth="1.5"
       strokeLinejoin="round"
     />

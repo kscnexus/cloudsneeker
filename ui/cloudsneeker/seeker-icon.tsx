@@ -55,9 +55,9 @@ export const SeekerIcon: React.FC<SeekerIconProps> = ({
           y2="25"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#22D3EE" />
+          <stop stopColor="#5BA3FF" />
           <stop offset="0.55" stopColor="#2583FF" />
-          <stop offset="1" stopColor="#8B5CF6" />
+          <stop offset="1" stopColor="#0D9488" />
         </linearGradient>
         <linearGradient
           id={gradientId("iris")}
@@ -78,8 +78,8 @@ export const SeekerIcon: React.FC<SeekerIconProps> = ({
           y2="18"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#E0FBFF" />
-          <stop offset="1" stopColor="#67E8F9" />
+          <stop stopColor="#E8F2FF" />
+          <stop offset="1" stopColor="#7EB8FF" />
         </linearGradient>
         {animatedAura ? (
           <radialGradient
@@ -89,8 +89,8 @@ export const SeekerIcon: React.FC<SeekerIconProps> = ({
             r="13"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stopColor="#22D3EE" />
-            <stop offset="1" stopColor="#22D3EE" stopOpacity="0" />
+            <stop stopColor="#5BA3FF" />
+            <stop offset="1" stopColor="#5BA3FF" stopOpacity="0" />
           </radialGradient>
         ) : null}
       </defs>
