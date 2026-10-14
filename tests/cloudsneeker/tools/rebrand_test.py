@@ -27,6 +27,11 @@ def tree(tmp_path: Path) -> Path:
     )
     _write(
         tmp_path,
+        "ui/components/x/assistant.tsx",
+        'export const a = "Lighthouse AI";\nconst b = "Ask Lighthouse";\n',
+    )
+    _write(
+        tmp_path,
         "ui/components/x/launch.test.tsx",
         'expect(screen.getByText("connected to Prowler"))\n',
     )
@@ -73,7 +78,7 @@ class TestLoadRules:
     def test_parses_shipped_rules(self):
         rules = rebrand.load_rules(RULES, Brand())
 
-        assert [r.id for r in rules.rules][:1] == ["prowler-cloud-tier"]
+        assert [r.id for r in rules.rules][:1] == ["assistant-phrase"]
         assert "NOTICE" in rules.exclude
 
     def test_unknown_alias_raises(self, tmp_path: Path):

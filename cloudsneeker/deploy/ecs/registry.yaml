@@ -11,9 +11,23 @@ Parameters:
     Default: ""
     Description: GitHub repository allowed to publish images, as owner/name.
     AllowedPattern: "^$|^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+  GitHubOrgId:
+    Type: String
+    Default: ""
+    Description: Numeric GitHub organization id used in the immutable OIDC subject.
+    AllowedPattern: "^$|^[0-9]+$"
+  GitHubRepoId:
+    Type: String
+    Default: ""
+    Description: Numeric GitHub repository id used in the immutable OIDC subject.
+    AllowedPattern: "^$|^[0-9]+$"
 
 Conditions:
   HasGitHubRepository: !Not [!Equals [!Ref GitHubRepository, ""]]
+  HasGitHubIds: !And
+    - !Condition HasGitHubRepository
+    - !Not [!Equals [!Ref GitHubOrgId, ""]]
+    - !Not [!Equals [!Ref GitHubRepoId, ""]]
 
 Resources:
   ApiRepository:
@@ -90,9 +104,20 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
-                token.actions.githubusercontent.com:sub:
-                  - !Sub repo:${GitHubRepository}:ref:refs/heads/main
-                  - !Sub repo:${GitHubRepository}:ref:refs/tags/cloudsneeker-v*
+                token.actions.githubusercontent.com:sub: !If
+                  - HasGitHubIds
+                  - - !Sub repo:${GitHubRepository}:ref:refs/heads/main
+                    - !Sub repo:${GitHubRepository}:ref:refs/tags/cloudsneeker-v*
+                    - !Sub
+                      - "repo:${Owner}@${GitHubOrgId}/${Name}@${GitHubRepoId}:ref:refs/heads/main"
+                      - Owner: !Select [0, !Split ["/", !Ref GitHubRepository]]
+                        Name: !Select [1, !Split ["/", !Ref GitHubRepository]]
+                    - !Sub
+                      - "repo:${Owner}@${GitHubOrgId}/${Name}@${GitHubRepoId}:ref:refs/tags/cloudsneeker-v*"
+                      - Owner: !Select [0, !Split ["/", !Ref GitHubRepository]]
+                        Name: !Select [1, !Split ["/", !Ref GitHubRepository]]
+                  - - !Sub repo:${GitHubRepository}:ref:refs/heads/main
+                    - !Sub repo:${GitHubRepository}:ref:refs/tags/cloudsneeker-v*
       Policies:
         - PolicyName: publish-images
           PolicyDocument:

@@ -71,6 +71,7 @@ def test_registry_trusts_github_actions_instead_of_codebuild():
     assert "refs/heads/main" in REGISTRY
     assert "refs/tags/cloudsneeker-v*" in REGISTRY
     assert "repo:${GitHubRepository}:*" not in REGISTRY
+    assert "repo:${Owner}@${GitHubOrgId}/${Name}@${GitHubRepoId}:ref:refs/heads/main" in REGISTRY
 
 
 def test_image_workflow_publishes_each_image_and_keeps_platform_mode():
