@@ -75,9 +75,10 @@ in `values.yaml`. Passing secrets through `--set` is for development only.
 `ecs/` is the hosted stack. `deploy.ps1` creates the image registry and a
 Fargate platform in a dedicated VPC: private tasks, a public load balancer,
 encrypted PostgreSQL and Valkey, Neo4j on encrypted shared storage, and
-Secrets Manager for credentials. GitHub Actions builds the images from
-`main` and pushes them to the registry. The workflow then rolls the services
-onto that tag and leaves `PlatformMode` as it is.
+Secrets Manager for credentials. GitHub Actions builds the API, UI, MCP, and Neo4j images as separate jobs
+and deploys each image to the services that use it. A push to `main` builds
+every image. Run the "Cloudsneeker: Publish images" workflow by hand to
+build one image. The workflow leaves `PlatformMode` as it is.
 
 ```powershell
 pwsh cloudsneeker/deploy/ecs/deploy.ps1 -GitHubRepository owner/cloudsneeker

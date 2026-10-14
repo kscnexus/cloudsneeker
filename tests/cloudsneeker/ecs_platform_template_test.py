@@ -73,11 +73,18 @@ def test_registry_trusts_github_actions_instead_of_codebuild():
     assert "repo:${GitHubRepository}:*" not in REGISTRY
 
 
-def test_image_workflow_publishes_to_ecr_and_keeps_platform_mode():
+def test_image_workflow_publishes_each_image_and_keeps_platform_mode():
     assert "id-token: write" in IMAGES
     assert "amazon-ecr-login" in IMAGES
     assert "UsePreviousValue" in IMAGES
     assert "PlatformMode=running" not in IMAGES
     assert "pull_request:" not in IMAGES
+    assert "build.sh" not in IMAGES
+    assert 'images=["api","ui","mcp","neo4j"]' in IMAGES
+    assert 'services="api worker beat"' in IMAGES
+    assert 'services="ui"' in IMAGES
+    assert 'services="mcp"' in IMAGES
+    assert 'services="neo4j"' in IMAGES
+    assert "workflow_dispatch:" in IMAGES
     assert "codebuild" not in DEPLOY.lower()
     assert "GitHub Actions" in DEPLOY
