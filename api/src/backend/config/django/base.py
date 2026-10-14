@@ -323,6 +323,11 @@ DJANGO_DELETION_BATCH_SIZE = env.int("DJANGO_DELETION_BATCH_SIZE", 5000)
 # default, so self-hosted deployments emit no links unless they configure it.
 UI_BASE_URL = env.str("DJANGO_UI_BASE_URL", "").rstrip("/")
 
+# Slack app credentials for the Cloudsneeker Integrations OAuth flow.
+# Empty by default so self-hosted installs without a Slack app return 503.
+SLACK_CLIENT_ID = env.str("DJANGO_SLACK_CLIENT_ID", default="")
+SLACK_CLIENT_SECRET = env.str("DJANGO_SLACK_CLIENT_SECRET", default="")
+
 # SAML requirement
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True

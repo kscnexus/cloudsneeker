@@ -10,6 +10,7 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 """
 
 from cloudsneeker_api.views import BrandView
+from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_features import (
     AlertRecipientConfirmView,
     AlertRecipientUnsubscribeView,
@@ -19,6 +20,11 @@ from cloudsneeker_api.views_features import (
     IngestionViewSet,
     ScanConfigurationViewSet,
 )
+from cloudsneeker_api.views_slack import (
+    SlackChannelsView,
+    SlackOAuthAuthorizeUrlView,
+    SlackOAuthExchangeView,
+)
 from django.urls import include, path
 from rest_framework_nested import routers
 
@@ -27,6 +33,11 @@ router.register(r"scan-configurations", ScanConfigurationViewSet, basename="scan
 router.register(r"alerts/rules", AlertRuleViewSet, basename="alert-rules")
 router.register(r"alerts/recipients", AlertRecipientViewSet, basename="alert-recipients")
 router.register(r"ingestions", IngestionViewSet, basename="ingestions")
+router.register(
+    r"email-delivery-config",
+    EmailDeliveryConfigViewSet,
+    basename="email-delivery-config",
+)
 
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),
@@ -44,6 +55,21 @@ urlpatterns = [
         "alerts/recipients/unsubscribe",
         AlertRecipientUnsubscribeView.as_view(),
         name="alert-recipient-unsubscribe",
+    ),
+    path(
+        "integrations/slack/oauth/authorize-url",
+        SlackOAuthAuthorizeUrlView.as_view(),
+        name="slack-oauth-authorize-url",
+    ),
+    path(
+        "integrations/slack/oauth/exchange",
+        SlackOAuthExchangeView.as_view(),
+        name="slack-oauth-exchange",
+    ),
+    path(
+        "integrations/<uuid:integration_id>/slack/channels",
+        SlackChannelsView.as_view(),
+        name="slack-channels",
     ),
     path("", include(router.urls)),
 ]

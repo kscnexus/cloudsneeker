@@ -6,12 +6,24 @@ from api.db_router import MainRouter
 from api.db_utils import rls_transaction
 from api.models import Finding
 from api.rbac.permissions import Permissions
-from cloudsneeker_api.models import AlertRecipient, AlertRule, FindingIngestion, ScanConfiguration
+from cloudsneeker_api.models import (
+    AlertRecipient,
+    AlertRule,
+    CustodianPolicy,
+    CustodianRun,
+    FindingIngestion,
+    ScanConfiguration,
+)
 from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.serializers_alerts import (
     AlertRecipientSerializer,
     AlertRuleSerializer,
     AlertRuleWriteSerializer,
+)
+from cloudsneeker_api.serializers_custodian import (
+    CustodianPolicySerializer,
+    CustodianPolicyWriteSerializer,
+    CustodianRunSerializer,
 )
 from cloudsneeker_api.serializers_ingestions import FindingIngestionSerializer
 from cloudsneeker_api.serializers_scan_config import (
@@ -19,6 +31,7 @@ from cloudsneeker_api.serializers_scan_config import (
     ScanConfigurationWriteSerializer,
 )
 from cloudsneeker_api.services.alert_conditions import preview_condition
+from cloudsneeker_api.services.custodian import CustodianDryRunError, enqueue_custodian_dry_run
 from cloudsneeker_api.services.ocsf_import import parse_ocsf_payload
 from django.db import transaction
 from django.utils import timezone
@@ -86,6 +99,128 @@ class ScanConfigurationViewSet(BaseRLSViewSet):
         config = serializer.save()
         return Response(
             ScanConfigurationSerializer(config, context=self.get_serializer_context()).data
+        )
+
+
+class CustodianPolicyFilter(filters.FilterSet):
+    class Meta:
+        model = CustodianPolicy
+        fields = {
+            "name": ["exact", "icontains"],
+            "provider": ["exact"],
+        }
+
+
+class CustodianRunFilter(filters.FilterSet):
+    status = filters.CharFilter()
+    policy = filters.UUIDFilter(field_name="policy_id")
+
+    class Meta:
+        model = CustodianRun
+        fields = ["status", "policy"]
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Custodian"], summary="List Custodian policies"),
+    retrieve=extend_schema(tags=["Custodian"], summary="Get a Custodian policy"),
+    create=extend_schema(tags=["Custodian"], summary="Create a Custodian policy"),
+    partial_update=extend_schema(tags=["Custodian"], summary="Update a Custodian policy"),
+    destroy=extend_schema(tags=["Custodian"], summary="Delete a Custodian policy"),
+)
+class CustodianPolicyViewSet(BaseRLSViewSet):
+    """CRUD for Cloud Custodian policies plus dry-run enqueue."""
+
+    queryset = CustodianPolicy.objects.all()
+    serializer_class = CustodianPolicySerializer
+    filterset_class = CustodianPolicyFilter
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    search_fields = ["name", "description"]
+    ordering = ["-inserted_at"]
+    ordering_fields = ["name", "inserted_at", "updated_at"]
+    required_permissions = [Permissions.MANAGE_SCANS]
+
+    def get_queryset(self):
+        return (
+            CustodianPolicy.objects.filter(tenant_id=self.request.tenant_id)
+            .select_related("provider")
+            .all()
+        )
+
+    def get_serializer_class(self):
+        if self.action in ("create", "partial_update"):
+            return CustodianPolicyWriteSerializer
+        return CustodianPolicySerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        policy = serializer.save()
+        policy = (
+            CustodianPolicy.objects.select_related("provider").get(pk=policy.pk)
+        )
+        return Response(
+            CustodianPolicySerializer(policy, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        policy = serializer.save()
+        policy = (
+            CustodianPolicy.objects.select_related("provider").get(pk=policy.pk)
+        )
+        return Response(
+            CustodianPolicySerializer(policy, context=self.get_serializer_context()).data
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="dry-run",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
+    def dry_run(self, request, pk=None):
+        """Enqueue a dry-run for this policy; never applies mutations."""
+        policy = self.get_object()
+        try:
+            run = enqueue_custodian_dry_run(
+                tenant_id=str(request.tenant_id),
+                policy_id=str(policy.id),
+            )
+        except CustodianDryRunError as exc:
+            return Response(
+                {"errors": [{"detail": str(exc)}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        run = CustodianRun.objects.select_related("policy", "provider").get(pk=run.pk)
+        return Response(
+            CustodianRunSerializer(run, context=self.get_serializer_context()).data,
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Custodian"], summary="List Custodian dry-runs"),
+    retrieve=extend_schema(tags=["Custodian"], summary="Get a Custodian dry-run"),
+)
+class CustodianRunViewSet(BaseRLSViewSet):
+    """Read-only Custodian dry-run history."""
+
+    queryset = CustodianRun.objects.all()
+    serializer_class = CustodianRunSerializer
+    filterset_class = CustodianRunFilter
+    http_method_names = ["get", "head", "options"]
+    ordering = ["-inserted_at"]
+    ordering_fields = ["inserted_at", "status", "finished_at"]
+    required_permissions = [Permissions.MANAGE_SCANS]
+
+    def get_queryset(self):
+        return (
+            CustodianRun.objects.filter(tenant_id=self.request.tenant_id)
+            .select_related("policy", "provider")
+            .all()
         )
 
 
@@ -245,15 +380,46 @@ class AlertSlackChannelsView(APIView):
 
     def get(self, request, *args, **kwargs):
         tenant_id = request.auth.get("tenant_id") if request.auth else None
+        from cloudsneeker_api.services.slack import (
+            get_tenant_slack_integration,
+            public_configuration,
+        )
+
+        integration = (
+            get_tenant_slack_integration(str(tenant_id)) if tenant_id else None
+        )
+        if integration is None:
+            return Response(
+                {
+                    "data": {
+                        "type": "alert-slack-channels",
+                        "id": str(tenant_id or "unknown"),
+                        "attributes": {
+                            "connected": None,
+                            "workspace_name": None,
+                            "channels": [],
+                        },
+                    }
+                }
+            )
+
+        configuration = public_configuration(integration.configuration or {})
         return Response(
             {
                 "data": {
                     "type": "alert-slack-channels",
                     "id": str(tenant_id or "unknown"),
                     "attributes": {
-                        "connected": None,
-                        "workspace_name": None,
-                        "channels": [],
+                        "connected": integration.connected,
+                        "workspace_name": configuration.get("team_name"),
+                        "channels": [
+                            {
+                                "id": channel["id"],
+                                "name": channel["name"],
+                                "is_private": channel["is_private"],
+                            }
+                            for channel in configuration.get("channels") or []
+                        ],
                     },
                 }
             }

@@ -137,6 +137,24 @@ class JiraCredentialSerializer(BaseValidateSerializer):
         resource_name = "integrations"
 
 
+class SlackCredentialSerializer(BaseValidateSerializer):
+    # cloudsneeker-hook — Slack bot token stored via OAuth; never written by the UI.
+    token = serializers.CharField(required=True)
+
+    class Meta:
+        resource_name = "integrations"
+
+
+class SlackConfigSerializer(BaseValidateSerializer):
+    # cloudsneeker-hook — channel authorization PATCH from the Slack UI.
+    channels = serializers.ListField(
+        child=serializers.DictField(), required=False, allow_empty=True
+    )
+
+    class Meta:
+        resource_name = "integrations"
+
+
 @extend_schema_field(
     {
         "oneOf": [

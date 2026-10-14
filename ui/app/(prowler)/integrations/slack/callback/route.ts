@@ -9,6 +9,7 @@ import {
 } from "@/lib/integrations/slack-connect-status";
 import type { SlackConnectOutcomeInput } from "@/lib/integrations/slack-connect-status";
 import { SLACK_ERROR_CODE } from "@/lib/integrations/slack-errors";
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { isCloud } from "@/lib/shared/env";
 
 /**
@@ -62,7 +63,7 @@ export function HEAD(): Response {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  if (!isCloud()) return redirectTo("/");
+  if (!isCloud() && !isCloudsneekerFeatureEnabled("slack")) return redirectTo("/"); // cloudsneeker-hook
 
   // A speculative fetch would burn the single-use code before the user
   // arrives — answer it nothing instead.

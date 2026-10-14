@@ -109,11 +109,19 @@ def check_integration_connection(integration_id: str):
         raise e
 
     # Update integration connection status
-    integration.connected = result.is_connected
-    integration.connection_last_checked_at = datetime.now(tz=UTC)
-    integration.save()
+    # Slack connection tests persist connected/checked_at themselves. # cloudsneeker-hook
+    from api.models import Integration as IntegrationModel
 
-    return {
+    if integration.integration_type != IntegrationModel.IntegrationChoices.SLACK:
+        integration.connected = result.is_connected
+        integration.connection_last_checked_at = datetime.now(tz=UTC)
+        integration.save()
+
+    payload = {
         "connected": result.is_connected,
         "error": str(result.error) if result.error else None,
     }
+    failed_channel_id = getattr(result, "failed_channel_id", None)
+    if failed_channel_id is not None:
+        payload["channel"] = failed_channel_id  # cloudsneeker-hook
+    return payload

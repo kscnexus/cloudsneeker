@@ -27,6 +27,7 @@ class TestAppRegistration:
             "AlertRule",
             "AlertRecipient",
             "FindingIngestion",
+            "EmailDeliveryConfig",
         }.issubset(model_names)
 
     def test_table_prefix_constant(self):

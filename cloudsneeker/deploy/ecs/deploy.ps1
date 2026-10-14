@@ -87,6 +87,8 @@ payload = {
     "djangoSecretsEncryptionKey": base64.urlsafe_b64encode(os.urandom(32)).decode("ascii"),
     "djangoTokenSigningKey": one_line(key_path),
     "djangoTokenVerifyingKey": one_line(pub_path),
+    "slackClientId": "unconfigured",
+    "slackClientSecret": "unconfigured",
 }
 with open(out_path, "w", encoding="ascii") as handle:
     json.dump(payload, handle)
@@ -99,6 +101,33 @@ with open(out_path, "w", encoding="ascii") as handle:
     Invoke-Aws @("secretsmanager", "create-secret", "--name", $SecretName, "--description", "Cloudsneeker application credentials", "--secret-string", "file://$secretFile") | Out-Null
     Remove-Item -Force $secretFile, $keyFile, $pubFile, $generator
     $secretArn = Invoke-AwsText @("secretsmanager", "describe-secret", "--secret-id", $SecretName, "--query", "ARN")
+} else {
+    # Ensure Slack OAuth keys exist on older secrets (empty until an app is configured).
+    $current = Invoke-AwsText @("secretsmanager", "get-secret-value", "--secret-id", $SecretName, "--query", "SecretString")
+    $mergeWork = Join-Path $env:TEMP "cloudsneeker-secret-merge"
+    New-Item -ItemType Directory -Force -Path $mergeWork | Out-Null
+    $mergePy = Join-Path $mergeWork "merge_secret.py"
+    $mergeIn = Join-Path $mergeWork "in.json"
+    $mergeOut = Join-Path $mergeWork "out.json"
+    Set-Content -Path $mergeIn -Value $current -Encoding ascii
+    @'
+import json, sys
+src, dst = sys.argv[1:3]
+payload = json.load(open(src, encoding="utf-8"))
+changed = False
+for key in ("slackClientId", "slackClientSecret"):
+    if key not in payload:
+        payload[key] = "unconfigured"
+        changed = True
+json.dump(payload, open(dst, "w", encoding="ascii"))
+sys.exit(0 if changed else 2)
+'@ | Set-Content -Path $mergePy -Encoding ascii
+    & python $mergePy $mergeIn $mergeOut
+    if ($LASTEXITCODE -eq 0) {
+        Invoke-Aws @("secretsmanager", "put-secret-value", "--secret-id", $SecretName, "--secret-string", "file://$mergeOut") | Out-Null
+        Write-Host "Added Slack OAuth keys to application secret"
+    }
+    Remove-Item -Force -ErrorAction SilentlyContinue $mergePy, $mergeIn, $mergeOut
 }
 
 Write-Host "==> Template bucket"

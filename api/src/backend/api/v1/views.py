@@ -6835,11 +6835,22 @@ class IntegrationViewSet(BaseRLSViewSet):
     )
     @action(detail=True, methods=["post"], url_name="connection")
     def connection(self, request, pk=None):
-        get_object_or_404(self.get_queryset(), pk=pk)
+        integration = get_object_or_404(self.get_queryset(), pk=pk)
+        # cloudsneeker-hook — Slack requires at least one authorized channel.
+        from cloudsneeker_api.services.slack import (
+            begin_verification,
+            validate_slack_connection_request,
+        )
+
+        slack_error = validate_slack_connection_request(integration)
+        if slack_error:
+            raise ValidationError({"detail": slack_error})
         with transaction.atomic():
             task = check_integration_connection_task.delay(
                 integration_id=pk, tenant_id=self.request.tenant_id
             )
+        if integration.integration_type == Integration.IntegrationChoices.SLACK:
+            begin_verification(integration, str(task.id))
         prowler_task = Task.objects.get(id=task.id)
         serializer = TaskSerializer(prowler_task)
         return Response(

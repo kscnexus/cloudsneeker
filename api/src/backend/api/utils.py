@@ -527,7 +527,10 @@ def prowler_integration_connection_test(integration: Integration) -> Connection:
             integration.save()
         return jira_connection
     elif integration.integration_type == Integration.IntegrationChoices.SLACK:
-        pass
+        # cloudsneeker-hook
+        from cloudsneeker_api.services.slack import test_slack_connection
+
+        return test_slack_connection(integration)
     else:
         raise ValueError(
             f"Integration type {integration.integration_type} not supported"

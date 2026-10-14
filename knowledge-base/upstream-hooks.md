@@ -76,6 +76,11 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `app/(prowler)/findings/_components/findings-filters-section.tsx` | `isCloudEnabled={isCloud() \|\| isCloudsneekerFeatureEnabled("alerts")}` | Seed-from-findings works without cloud. |
 | `app/(prowler)/scans/config/page.tsx` | also allows `isCloudsneekerFeatureEnabled("scanConfiguration")` | Opens Scan profiles without cloud. |
 | `app/api/ingestions/route.ts`, `[ingestionId]/route.ts` | also allow `isCloudsneekerFeatureEnabled("cliImport")` | CLI Import proxy works without cloud. |
+| `app/(prowler)/integrations/integrations-content.tsx` | Slack when `isCloud() \|\| isCloudsneekerFeatureEnabled("slack")`; Email card when `emailDelivery` | Unlocks Slack and Email on Integrations. |
+| `app/(prowler)/integrations/slack/page.tsx` | also allows `isCloudsneekerFeatureEnabled("slack")` | Opens Slack settings without cloud. |
+| `app/(prowler)/integrations/slack/callback/route.ts` | also allows `isCloudsneekerFeatureEnabled("slack")` | Completes Slack OAuth without cloud. |
+| `api/v1/serializers.py`, `serializer_utils/integrations.py` | Slack credential/config serializers and PATCH channel update | Slack channel save on existing Integration API. |
+| `api/utils.py`, `tasks/jobs/connection.py`, `api/v1/views.py` (`IntegrationViewSet.connection`) | Slack connection test and channel guard | Connection check posts confirmations to authorized channels. |
 | `components/scans/scans-page-shell.tsx` | CLI Import banner/modal when feature enabled | Uses `manage_scans` via Cloudsneeker permission mapping. |
 | `actions/auth/auth.ts` | `withCloudsneekerPermissions(...)` on `/users/me` permissions | Maps `manage_scans` onto alerts/ingestions keys. |
 | `components/layout/app-sidebar/app-sidebar-content.tsx` | `aria-label={`${BRAND.name} home`}`; upsell block gated by `BRAND.showUpsell` | — |

@@ -10,7 +10,7 @@ upstream tables on merge. New tables ship with a new migration under
 
 from uuid import uuid4
 
-from api.models import Provider, User
+from api.models import Provider, User, fernet
 from api.rls import RowLevelSecurityConstraint, RowLevelSecurityProtectedModel
 from django.core.validators import MinLengthValidator
 from django.db import models
@@ -216,6 +216,58 @@ class AlertRuleRecipient(CloudsneekerRLSModel):
                 name="unique_cs_alert_rule_recipient",
             ),
         ]
+
+
+class EmailDeliveryConfig(CloudsneekerRLSModel):
+    """Per-tenant SMTP settings used to deliver alert emails."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    enabled = models.BooleanField(default=True)
+    host = models.CharField(max_length=255)
+    port = models.PositiveIntegerField(default=587)
+    use_tls = models.BooleanField(default=True)
+    use_ssl = models.BooleanField(default=False)
+    username = models.CharField(max_length=255, blank=True, default="")
+    _password = models.BinaryField(db_column="password", null=True, blank=True)
+    from_email = models.EmailField()
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}email_delivery_configs"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id",),
+                name="unique_cs_email_delivery_config_per_tenant",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = "email-delivery-configs"
+
+    @property
+    def password(self) -> str:
+        if not self._password:
+            return ""
+        if isinstance(self._password, memoryview):
+            encrypted_bytes = self._password.tobytes()
+        elif isinstance(self._password, str):
+            encrypted_bytes = self._password.encode()
+        else:
+            encrypted_bytes = self._password
+        return fernet.decrypt(encrypted_bytes).decode()
+
+    @password.setter
+    def password(self, value: str | None) -> None:
+        if value is None or value == "":
+            self._password = None
+            return
+        self._password = fernet.encrypt(value.encode())
 
 
 class FindingIngestion(CloudsneekerRLSModel):

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { isCloud } from "@/lib/shared/env";
 
@@ -8,7 +9,7 @@ import { SlackIntegrationContent } from "./slack-integration-content";
 export default async function SlackIntegrationPage() {
   // The Slack API is cloud-only, so self-hosted has nothing behind this page.
   // Mirrors `/alerts`.
-  if (!isCloud()) {
+  if (!isCloud() && !isCloudsneekerFeatureEnabled("slack")) { // cloudsneeker-hook
     redirect("/");
   }
 

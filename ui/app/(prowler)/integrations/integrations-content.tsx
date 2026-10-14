@@ -4,6 +4,8 @@ import { S3IntegrationCard } from "@/components/integrations/s3/s3-integration-c
 import { SecurityHubIntegrationCard } from "@/components/integrations/security-hub/security-hub-integration-card";
 import { SlackIntegrationCard } from "@/components/integrations/slack/slack-integration-card";
 import { SsoLinkCard } from "@/components/integrations/sso/sso-link-card";
+import { EmailDeliveryCard } from "@/cloudsneeker/components/email-delivery-card"; // cloudsneeker-hook
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { isCloud } from "@/lib/shared/env";
 
 /**
@@ -31,7 +33,12 @@ export function IntegrationsContent() {
         <JiraIntegrationCard />
 
         {/* Slack Integration - cloud-only API, nothing to manage self-hosted */}
-        {isCloud() && <SlackIntegrationCard />}
+        {(isCloud() || isCloudsneekerFeatureEnabled("slack")) && ( // cloudsneeker-hook
+          <SlackIntegrationCard />
+        )}
+
+        {/* Email delivery for alert notifications */}
+        {isCloudsneekerFeatureEnabled("emailDelivery") && <EmailDeliveryCard />} {/* cloudsneeker-hook */}
 
         {/* SSO Configuration - redirects to Profile */}
         <SsoLinkCard />

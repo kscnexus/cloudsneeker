@@ -1200,6 +1200,10 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
             - Name: DJANGO_SECRETS_ENCRYPTION_KEY
               ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+            - Name: DJANGO_SLACK_CLIENT_ID
+              ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
+            - Name: DJANGO_SLACK_CLIENT_SECRET
+              ValueFrom: !Sub "${AppSecretArn}:slackClientSecret::"
 
   WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -1302,6 +1306,10 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
             - Name: DJANGO_SECRETS_ENCRYPTION_KEY
               ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+            - Name: DJANGO_SLACK_CLIENT_ID
+              ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
+            - Name: DJANGO_SLACK_CLIENT_SECRET
+              ValueFrom: !Sub "${AppSecretArn}:slackClientSecret::"
 
   BeatTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -1381,6 +1389,10 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
             - Name: DJANGO_SECRETS_ENCRYPTION_KEY
               ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+            - Name: DJANGO_SLACK_CLIENT_ID
+              ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
+            - Name: DJANGO_SLACK_CLIENT_SECRET
+              ValueFrom: !Sub "${AppSecretArn}:slackClientSecret::"
 
   UiTaskDefinition:
     Type: AWS::ECS::TaskDefinition

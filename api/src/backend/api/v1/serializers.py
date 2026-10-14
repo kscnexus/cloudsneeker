@@ -49,6 +49,8 @@ from api.v1.serializer_utils.integrations import (
     JiraCredentialSerializer,
     S3ConfigSerializer,
     SecurityHubConfigSerializer,
+    SlackConfigSerializer,  # cloudsneeker-hook
+    SlackCredentialSerializer,  # cloudsneeker-hook
     replace_integration_providers,
 )
 from api.v1.serializer_utils.lighthouse import (
@@ -3006,6 +3008,15 @@ class BaseWriteIntegrationSerializer(BaseWriteSerializer):
                 }
             )
             credentials_serializers = [JiraCredentialSerializer]
+        elif integration_type == Integration.IntegrationChoices.SLACK:  # cloudsneeker-hook
+            if providers:
+                raise serializers.ValidationError(
+                    {
+                        "providers": "Relationship field is not accepted. This integration applies to all providers."
+                    }
+                )
+            config_serializer = SlackConfigSerializer
+            credentials_serializers = [SlackCredentialSerializer]
         else:
             raise serializers.ValidationError(
                 {
@@ -3072,6 +3083,16 @@ class IntegrationSerializer(IntegrationProviderVisibilityMixin, RLSSerializer):
                 **representation["configuration"],
                 "domain": instance.credentials.get("domain"),
             }
+        # cloudsneeker-hook
+        if (
+            instance.integration_type == Integration.IntegrationChoices.SLACK
+            and "configuration" in representation
+        ):
+            from cloudsneeker_api.services.slack import public_configuration
+
+            representation["configuration"] = public_configuration(
+                instance.configuration or {}
+            )
         return representation
 
 
@@ -3199,6 +3220,28 @@ class IntegrationUpdateSerializer(
                 existing_regions = instance.configuration.get("regions", {})
                 validated_data["configuration"]["regions"] = existing_regions
 
+        # cloudsneeker-hook — enrich Slack channel ids and reset connection state.
+        if (
+            instance.integration_type == Integration.IntegrationChoices.SLACK
+            and "configuration" in validated_data
+            and "channels" in validated_data["configuration"]
+        ):
+            from cloudsneeker_api.services.slack import (
+                apply_channel_update,
+                resolve_authorized_channels,
+            )
+
+            channel_ids = [
+                channel.get("id")
+                for channel in validated_data["configuration"].get("channels") or []
+                if channel.get("id")
+            ]
+            channels = resolve_authorized_channels(instance, channel_ids)
+            apply_channel_update(instance, channels)
+            validated_data.pop("configuration", None)
+            if not validated_data:
+                return instance
+
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
@@ -3215,6 +3258,16 @@ class IntegrationUpdateSerializer(
                 **representation["configuration"],
                 "domain": instance.credentials.get("domain"),
             }
+        # cloudsneeker-hook
+        if (
+            instance.integration_type == Integration.IntegrationChoices.SLACK
+            and "configuration" in representation
+        ):
+            from cloudsneeker_api.services.slack import public_configuration
+
+            representation["configuration"] = public_configuration(
+                instance.configuration or {}
+            )
         return representation
 
 
