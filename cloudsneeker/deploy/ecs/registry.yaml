@@ -161,6 +161,11 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::cloudsneeker-cfn-${AWS::AccountId}-${AWS::Region}
                   - !Sub arn:${AWS::Partition}:s3:::cloudsneeker-cfn-${AWS::AccountId}-${AWS::Region}/*
               - Effect: Allow
+                Action: iam:GetRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cloudsneeker-task
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cloudsneeker-task-execution
+              - Effect: Allow
                 Action: iam:PassRole
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cloudsneeker-task
