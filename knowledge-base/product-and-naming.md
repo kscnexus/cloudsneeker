@@ -28,7 +28,7 @@ Upstream files read those modules through one-line `cloudsneeker-hook` edits (li
 | Surface | Name to use | Where it lives |
 | --- | --- | --- |
 | Product, vendor, tagline, URLs | Cloudsneeker values | Brand modules above |
-| In-app assistant | Seeker | `Brand.assistant_name`, `BRAND.assistantName` |
+| In-app assistant | Seeker AI | `Brand.assistant_name`, `BRAND.assistantName` |
 | Finding UIDs, ASFF ids, Jira labels, output file names | `cloudsneeker-...` | `Brand.finding_uid_prefix`, `jira_label_prefix`, `output_file_prefix` |
 | CLI command | `cloudsneeker` (and `prowler`, kept for scripts) | `pyproject.toml` `[project.scripts]` |
 | Python package and imports | `prowler` | `prowler/`, `import prowler` |
@@ -39,7 +39,7 @@ Upstream files read those modules through one-line `cloudsneeker-hook` edits (li
 | UI route groups | `(prowler)` for inherited pages, `(cloudsneeker)` for new ones | `ui/app/` |
 | Upstream documentation source | Prowler | `docs/` (not published); the product site is `cloudsneeker/docs/` |
 
-Help links still use the `cloudsneeker.example` placeholders until a real domain is set. The mark is a cyan lens on a navy tile (the product looks for issues; Seeker is the assistant). Artwork lives in `ui/public/brand/`, `cloudsneeker/docs/logo/`, and `api/src/backend/tasks/assets/img/cloudsneeker_logo.png`.
+Help links still use the `cloudsneeker.example` placeholders until a real domain is set. The mark is a cyan lens on a navy tile (the product looks for issues; Seeker AI is the assistant). Artwork lives in `ui/public/brand/`, `cloudsneeker/docs/logo/`, and `api/src/backend/tasks/assets/img/cloudsneeker_logo.png`.
 
 ## Product Surfaces in This Tree
 

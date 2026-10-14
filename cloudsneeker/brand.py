@@ -20,7 +20,7 @@ class Brand:
 
     name: str = "Cloudsneeker"
     # In-app assistant. Routes and code identifiers stay as they are.
-    assistant_name: str = "Seeker"
+    assistant_name: str = "Seeker AI"
     short_name: str = "Cloudsneeker"
     vendor: str = "Cloudsneeker"
     slug: str = "cloudsneeker"

@@ -67,9 +67,11 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | --- | --- | --- |
 | `config/site.ts` | `siteConfig.name` and `description` read `BRAND` | Comment line marks the file; no literal name. |
 | `components/icons/prowler/ProwlerIcons.tsx` | `ProwlerExtended`/`ProwlerShort` render the artwork from `ui/cloudsneeker/brand-logo.tsx` | Keep the component names; they are imported across the app. |
+| `components/icons/Icons.tsx` | `LighthouseIcon` re-exports `SeekerIcon` from `ui/cloudsneeker/seeker-icon.tsx` | The assistant mark is a lens, not the inherited glyph. |
 | `components/auth/oss/auth-layout.tsx` | re-exports the responsive split-screen experience from `ui/cloudsneeker/auth-layout.tsx` | Form children and submission behavior remain inherited. |
 | `components/compliance/threatscore-logo.tsx` | re-exports product artwork from `ui/cloudsneeker/threatscore-logo.tsx` | Prevents inherited vendor artwork from appearing on the overview. |
-| `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | `withCloudsneekerNavigation` drops HELP and turns built-in cloud features into real links. |
+| `components/layout/app-sidebar/navigation-config.ts` | imports `BRAND`, `docsUrl`, `withCloudsneekerNavigation`; `apiReferenceUrl = apiDocsUrl`; Documentation `docsUrl()`, Support `BRAND.supportUrl`, Check Catalog `docsUrl("checks")`; final `filterNavigationByPermissions(withCloudsneekerNavigation(sections, pathname), permissions)` | `withCloudsneekerNavigation` drops HELP, adds Profile under Organization, and turns built-in cloud features into real links. |
+| `components/shadcn/custom/custom-link.tsx` | `shouldRenderDocumentationHref(href)` short-circuits docs destinations | Product `BRAND.showDocumentationLinks` is false, so Learn more docs links do not render. |
 | `app/(prowler)/alerts/page.tsx` | also allows `isCloudsneekerFeatureEnabled("alerts")` | Opens Alerts without `UI_CLOUD_ENABLED`. |
 | `app/(prowler)/findings/_components/findings-filters-section.tsx` | `isCloudEnabled={isCloud() \|\| isCloudsneekerFeatureEnabled("alerts")}` | Seed-from-findings works without cloud. |
 | `app/(prowler)/scans/config/page.tsx` | also allows `isCloudsneekerFeatureEnabled("scanConfiguration")` | Opens Scan profiles without cloud. |

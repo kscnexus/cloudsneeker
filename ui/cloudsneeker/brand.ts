@@ -5,7 +5,7 @@
 export const BRAND = {
   name: "Cloudsneeker",
   // In-app assistant. Chat routes and component names stay unchanged.
-  assistantName: "Seeker",
+  assistantName: "Seeker AI",
   shortName: "Cloudsneeker",
   vendor: "Cloudsneeker",
   tagline: "Cloud security posture, continuously.",
@@ -36,6 +36,8 @@ export const BRAND = {
   unavailableFeatureCopy: "Not available in this edition",
   // Hosted-tier upsell. The product has one edition, so prompts stay hidden.
   showUpsell: false,
+  // In-product "Learn more" / docs catalog links stay off for this edition.
+  showDocumentationLinks: false,
 } as const;
 
 export type Brand = typeof BRAND;
