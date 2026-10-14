@@ -68,6 +68,7 @@ COPY --from=builder --chown=prowler /app/pyproject.toml /app/pyproject.toml
 
 # 4. Entrypoint helper script for selecting runtime mode
 COPY --from=builder --chown=prowler /app/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh # cloudsneeker-hook
 
 # Add virtual environment to PATH so prowler-mcp command is available
 ENV PATH="/app/.venv/bin:$PATH"

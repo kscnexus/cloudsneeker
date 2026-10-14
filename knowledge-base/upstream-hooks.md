@@ -57,6 +57,7 @@ Test-side hooks (SDK): `tests/conftest.py` applies `cloudsneeker.testing.UPSTREA
 | `tasks/jobs/reports/cis.py`, `ens.py`, `nis2.py` | `prowler_logo_path = report_logo_path(...)`; `ens.py` footer `pdf_footer()` | Keep upstream variable names. |
 | `tasks/jobs/reports/config.py` | `display_name=threatscore_display_name()` for the built-in risk framework | "Cloudsneeker ThreatScore". |
 | `tasks/jobs/scan.py` | after a successful scan, enqueue `evaluate_alert_rules_task` | Alerts stay Cloudsneeker-only; failures are logged and ignored. |
+| `Dockerfile` | `RUN chmod +x ./docker-entrypoint.sh` after the entrypoint copy | The exported build tree does not keep the executable bit. | |
 
 Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations.py`, and `tasks/tests/test_reports_base.py` assert against `cloudsneeker_api.brand` values. `cloudsneeker_api/tests/` covers the brand helpers, the app registration, `/api/v1/cloudsneeker/brand`, and the OpenAPI entry.
 
@@ -109,6 +110,7 @@ These upstream UI files were edited for product copy before the transform rules 
 
 | File | Hook | Re-apply by |
 | --- | --- | --- |
+| `Dockerfile` | `RUN chmod +x /app/entrypoint.sh` after the entrypoint copy | The exported build tree does not keep the executable bit. |
 | `server.py` | `from prowler_mcp_server.cloudsneeker.brand import brand`; `FastMCP(name=brand.server_name)`; `setup_main_server(server=None)` mounts onto a caller's server; Hub tools behind `brand.mcp_hub_tools`, docs tools behind `brand.mcp_docs_tools` (both off); health `serviceId`/`description` from brand | Hub and docs tools stay disabled: they would call upstream hosts. |
 | `main.py` | argparse `description=brand.description` | — |
 | `lib/logger.py` | `get_logger(brand.server_name)` | — |

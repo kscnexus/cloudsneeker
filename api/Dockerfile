@@ -172,6 +172,7 @@ USER prowler
 
 COPY --chown=prowler:prowler src/backend/ ./backend/
 COPY --chown=prowler:prowler docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh # cloudsneeker-hook
 
 WORKDIR /home/prowler/backend
 
