@@ -11,6 +11,10 @@ vi.mock("./saml-config-form", () => ({
   SamlConfigForm: () => <div>SAML form</div>,
 }));
 
+vi.mock("@/hooks/use-auth", () => ({
+  useAuth: () => ({ permissions: { manage_account: true } }),
+}));
+
 vi.mock("@/components/shadcn", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useToast: () => ({ toast: vi.fn() }),

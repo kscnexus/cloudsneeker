@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/shadcn";
+import { useAuth } from "@/hooks/use-auth";
 import { IntegrationProps } from "@/types/integrations";
 
 interface IntegrationActionButtonsProps {
@@ -32,6 +33,9 @@ export const IntegrationActionButtons = ({
   isTesting = false,
   showCredentialsButton = true,
 }: IntegrationActionButtonsProps) => {
+  const { permissions } = useAuth();
+  const canDelete = permissions.manage_account === true;
+
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <Button
@@ -76,15 +80,17 @@ export const IntegrationActionButtons = ({
         <Power size={14} />
         {integration.attributes.enabled ? "Disable" : "Enable"}
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => onDelete(integration)}
-        className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
-      >
-        <Trash2Icon size={14} />
-        Delete
-      </Button>
+      {canDelete && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onDelete(integration)}
+          className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
+        >
+          <Trash2Icon size={14} />
+          Delete
+        </Button>
+      )}
     </div>
   );
 };

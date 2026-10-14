@@ -1735,6 +1735,76 @@ class TestLimitedVisibility:
 
 
 @pytest.mark.django_db
+class TestIntegrationDeleteRequiresAdmin:
+    """Deleting integrations requires manage_account (admin), not only manage_integrations."""
+
+    @pytest.fixture
+    def integrations_manager_without_account(
+        self, django_db_blocker, tenants_fixture
+    ):
+        with django_db_blocker.unblock():
+            tenant = tenants_fixture[0]
+            user = User.objects.create_user(
+                name="integrations_manager",
+                email="integrations_manager@rbac.com",
+                password=TEST_PASSWORD,
+            )
+            Membership.objects.create(
+                user=user,
+                tenant=tenant,
+                role=Membership.RoleChoices.OWNER,
+            )
+            role = Role.objects.create(
+                name="integrations_manager",
+                tenant_id=tenant.id,
+                manage_users=False,
+                manage_account=False,
+                manage_billing=False,
+                manage_providers=False,
+                manage_integrations=True,
+                manage_scans=False,
+                unlimited_visibility=True,
+            )
+            UserRoleRelationship.objects.create(
+                user=user,
+                role=role,
+                tenant_id=tenant.id,
+            )
+        return user
+
+    @pytest.fixture
+    def authenticated_integrations_manager(
+        self,
+        integrations_manager_without_account,
+        tenants_fixture,
+        authenticated_client_for_tenant_factory,
+    ):
+        return authenticated_client_for_tenant_factory(
+            integrations_manager_without_account, tenants_fixture[0]
+        )
+
+    def test_delete_denied_without_manage_account(
+        self, authenticated_integrations_manager, integrations_fixture
+    ):
+        integration = integrations_fixture[0]
+
+        response = authenticated_integrations_manager.delete(
+            reverse("integration-detail", kwargs={"pk": integration.id})
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Integration.objects.filter(id=integration.id).exists()
+
+    def test_list_still_allowed_without_manage_account(
+        self, authenticated_integrations_manager, integrations_fixture
+    ):
+        response = authenticated_integrations_manager.get(reverse("integration-list"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.json()["data"]) == len(integrations_fixture)
+
+
+@pytest.mark.django_db
 class TestRolePermissions:
     def test_role_create_with_manage_account_only_allowed(
         self, authenticated_client_rbac_manage_account

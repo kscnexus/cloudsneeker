@@ -6760,8 +6760,8 @@ class ScheduleViewSet(ProviderVisibilityMixin, BaseRLSViewSet):
     destroy=extend_schema(
         tags=["Integration"],
         summary="Delete an integration",
-        description="Remove an integration from the system by its ID. Integrations attached to providers outside "
-        "the visibility of the role cannot be deleted by it.",
+        description="Remove an integration from the system by its ID. Requires manage_account (admin). "
+        "Integrations attached to providers outside the visibility of the role cannot be deleted by it.",
     ),
 )
 @method_decorator(CACHE_DECORATOR, name="list")
@@ -6774,6 +6774,13 @@ class IntegrationViewSet(BaseRLSViewSet):
     ordering = ["integration_type", "-inserted_at"]
     # RBAC required permissions
     required_permissions = [Permissions.MANAGE_INTEGRATIONS]
+
+    def set_required_permissions(self):
+        # cloudsneeker-hook — only admin (manage_account) may delete integrations
+        if self.request.method == "DELETE":
+            self.required_permissions = [Permissions.MANAGE_ACCOUNT]
+        else:
+            self.required_permissions = [Permissions.MANAGE_INTEGRATIONS]
 
     @cached_property
     def allowed_providers(self):

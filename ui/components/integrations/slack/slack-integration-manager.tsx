@@ -32,6 +32,7 @@ import {
   useToast,
 } from "@/components/shadcn";
 import { Modal } from "@/components/shadcn/modal";
+import { useAuth } from "@/hooks/use-auth";
 import {
   isSlackTokenErrorCode,
   SLACK_REASON_TOKEN,
@@ -215,6 +216,8 @@ export const SlackIntegrationManager = ({
   slackAppConfig = null,
   redirectUri = "",
 }: SlackIntegrationManagerProps) => {
+  const { permissions } = useAuth();
+  const canDisconnect = permissions.manage_account === true;
   const [isTesting, setIsTesting] = useState(false);
   // A check's finding outlives its toast: the card keeps saying where the
   // workspace stands until a change to the channels makes the finding moot.
@@ -786,15 +789,17 @@ export const SlackIntegrationManager = ({
                     <TestTube size={14} />
                     {isTesting ? "Testing..." : "Test connection"}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={isDisconnecting}
-                    onClick={() => setIsDisconnectOpen(true)}
-                  >
-                    <Unplug size={14} />
-                    Disconnect
-                  </Button>
+                  {canDisconnect && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={isDisconnecting}
+                      onClick={() => setIsDisconnectOpen(true)}
+                    >
+                      <Unplug size={14} />
+                      Disconnect
+                    </Button>
+                  )}
                 </>
               }
             />

@@ -15,6 +15,7 @@ import {
 } from "@/components/shadcn";
 import { CustomLink } from "@/components/shadcn/custom/custom-link";
 import { Modal } from "@/components/shadcn/modal";
+import { useAuth } from "@/hooks/use-auth";
 import type { SamlConfiguration } from "@/types/saml";
 
 import { SamlConfigForm } from "./saml-config-form";
@@ -28,6 +29,8 @@ export const SamlIntegrationCard = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+  const { permissions } = useAuth();
+  const canRemove = permissions.manage_account === true;
   const id = samlConfig?.id;
   const statusLabel = id ? "Enabled" : "Disabled";
 
@@ -138,7 +141,7 @@ export const SamlIntegrationCard = ({
             <Button size="sm" onClick={() => setIsSamlModalOpen(true)}>
               {id ? "Update" : "Enable"}
             </Button>
-            {id && (
+            {id && canRemove && (
               <Button
                 size="sm"
                 variant="destructive"

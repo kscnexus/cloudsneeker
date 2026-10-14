@@ -35,6 +35,24 @@ const TEST_SESSION: Session = {
   tenantId: TENANT_ID,
   accessToken: "test-access-token",
   expires: "2999-01-01T00:00:00Z",
+  // Admin-capable session so disconnect/delete controls stay testable.
+  user: {
+    name: "Test User",
+    email: "test@example.com",
+    permissions: {
+      manage_users: true,
+      manage_account: true,
+      manage_providers: true,
+      manage_scans: true,
+      manage_ingestions: true,
+      manage_integrations: true,
+      manage_billing: true,
+      manage_alerts: true,
+      manage_lighthouse_ai_configuration: true,
+      manage_registry: true,
+      unlimited_visibility: true,
+    },
+  },
 };
 
 interface TestAppShellProps extends PropsWithChildren {

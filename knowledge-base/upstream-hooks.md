@@ -81,7 +81,11 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `app/(prowler)/integrations/slack/page.tsx` | also allows `isCloudsneekerFeatureEnabled("slack")` | Opens Slack settings without cloud. |
 | `app/(prowler)/integrations/slack/callback/route.ts` | also allows `isCloudsneekerFeatureEnabled("slack")` | Completes Slack OAuth without cloud. |
 | `app/(prowler)/integrations/slack/slack-integration-content.tsx` | loads `getSlackAppConfig` and passes `slackAppConfig`/`redirectUri` | Tenant Slack app credentials for OAuth. |
-| `components/integrations/slack/slack-integration-manager.tsx` | unavailable state renders `SlackAppConfigForm` | Users save Client ID/Secret in-app instead of deploy secrets. |
+| `components/integrations/slack/slack-integration-manager.tsx` | unavailable state renders `SlackAppConfigForm`; Disconnect gated on `manage_account` | Users save Client ID/Secret in-app; only admin disconnects. |
+| `api/v1/views.py` (`IntegrationViewSet.set_required_permissions`) | DELETE requires `Permissions.MANAGE_ACCOUNT` | Only admin may remove integrations. |
+| `components/integrations/shared/integration-action-buttons.tsx` | Delete button gated on `manage_account` | S3 / Security Hub / Jira delete matches API. |
+| `components/integrations/saml/saml-integration-card.tsx` | Remove gated on `manage_account` | Matches SAML API account permission. |
+| `ui/__tests__/app-shell.tsx` | test session includes `manage_account` | Browser Slack disconnect suites keep the control. |
 | `ui/__tests__/msw/handlers/slack.ts` | `GET /slack-app-config` empty list | Browser Slack suite does not trip on missing handler. |
 | `ui/app/(prowler)/integrations/slack/slack-integration.harness.ts` | unavailable copy matches configure form | Asserts in-app config UI. |
 | `api/v1/serializers.py`, `serializer_utils/integrations.py` | Slack credential/config serializers and PATCH channel update | Slack channel save on existing Integration API. |
