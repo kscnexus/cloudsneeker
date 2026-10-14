@@ -4,7 +4,7 @@
 //
 // Build order for remaining cloud-gated work (one feature at a time):
 // 1. jiraGroupedDispatch (this file / deployment hook)
-// 2. advancedScheduling — weekly/monthly/interval schedules API
+// 2. advancedScheduling (in progress) — weekly/monthly/interval schedules API
 // 3. findingTriage — status + notes models and API
 // 4. crossProviderCompliance — watchlist / across-provider overview
 // 5. samlDomains — multi-domain SAML extras
@@ -22,6 +22,8 @@ export const CLOUDSNEEKER_FEATURES = {
   scanComparison: true,
   /** Send multiple findings or a finding group to Jira in one dispatch. */
   jiraGroupedDispatch: true,
+  /** Weekly / monthly / interval provider scan schedules via /schedules. */
+  advancedScheduling: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;

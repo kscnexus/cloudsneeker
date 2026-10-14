@@ -22,4 +22,9 @@ describe("CLOUDSNEEKER_FEATURES", () => {
     expect(CLOUDSNEEKER_FEATURES.jiraGroupedDispatch).toBe(true);
     expect(isCloudsneekerFeatureEnabled("jiraGroupedDispatch")).toBe(true);
   });
+
+  it("enables advanced scan scheduling", () => {
+    expect(CLOUDSNEEKER_FEATURES.advancedScheduling).toBe(true);
+    expect(isCloudsneekerFeatureEnabled("advancedScheduling")).toBe(true);
+  });
 });

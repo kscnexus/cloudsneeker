@@ -429,9 +429,10 @@ describe("browser timezone", () => {
 });
 
 describe("scan schedule capability", () => {
-  it("returns DAILY_LEGACY for non-Cloud (OSS)", () => {
+  it("returns ADVANCED outside Cloud when Cloudsneeker advancedScheduling is on", () => {
+    // cloudsneeker-hook — feature flag defaults on for this product
     expect(getScanScheduleCapability(false)).toBe(
-      SCAN_SCHEDULE_CAPABILITY.DAILY_LEGACY,
+      SCAN_SCHEDULE_CAPABILITY.ADVANCED,
     );
   });
 

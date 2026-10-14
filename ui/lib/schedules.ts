@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import type { ScanScheduleSummary } from "@/types/scans";
 import {
   SCAN_SCHEDULE_CAPABILITY,
@@ -62,9 +63,11 @@ export const scheduleUpdatePayloadSchema = z.object({
 export function getScanScheduleCapability(
   isCloud: boolean,
 ): ScanScheduleCapability {
-  return isCloud
-    ? SCAN_SCHEDULE_CAPABILITY.ADVANCED
-    : SCAN_SCHEDULE_CAPABILITY.DAILY_LEGACY;
+  // cloudsneeker-hook — advanced schedules without hosted cloud edition
+  if (isCloud || isCloudsneekerFeatureEnabled("advancedScheduling")) {
+    return SCAN_SCHEDULE_CAPABILITY.ADVANCED;
+  }
+  return SCAN_SCHEDULE_CAPABILITY.DAILY_LEGACY;
 }
 
 export function formatScheduleHour(hour: number): string {

@@ -33,7 +33,6 @@ from api.v1.views import (
     SAMLInitiateAPIView,
     SAMLTokenValidateView,
     ScanViewSet,
-    ScheduleViewSet,
     SchemaView,
     TaskViewSet,
     TenantApiKeyViewSet,
@@ -43,6 +42,7 @@ from api.v1.views import (
     UserRoleRelationshipView,
     UserViewSet,
 )
+from cloudsneeker_api.views_schedules import ScheduleViewSet  # cloudsneeker-hook
 from django.http import JsonResponse
 from django.urls import include, path
 from django.views.decorators.csrf import csrf_exempt
