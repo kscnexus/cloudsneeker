@@ -55,6 +55,7 @@ class CustodianCredentialBundle:
 
     env: dict[str, str]
     cleanup_paths: list[Path] = field(default_factory=list)
+    regions: list[str] = field(default_factory=list)
 
     def close(self) -> None:
         for path in self.cleanup_paths:
@@ -165,6 +166,43 @@ def credentials_from_provider(
     return _kubernetes_credentials(provider, work_dir=work_dir)
 
 
+def _aws_regions_for_provider(cloud_provider: Any, provider: Provider) -> list[str]:
+    """Resolve AWS regions for Custodian (account-enabled, then session default).
+
+    Without explicit regions Cloud Custodian scans a single default region, so
+    unused EBS (and other regional resources) in other regions appear as zero.
+    """
+    scanner_args = provider.scanner_args or {}
+    configured = scanner_args.get("regions") or scanner_args.get("aws_regions")
+    if isinstance(configured, (list, tuple, set)) and configured:
+        return sorted({str(region).strip() for region in configured if str(region).strip()})
+
+    regions: set[str] = set()
+    enabled = getattr(cloud_provider, "_enabled_regions", None)
+    if enabled:
+        regions.update(str(region) for region in enabled if region)
+    identity = getattr(cloud_provider, "identity", None)
+    audited = getattr(identity, "audited_regions", None) if identity else None
+    if audited:
+        regions.update(str(region) for region in audited if region)
+
+    if not regions:
+        try:
+            session = cloud_provider.session.current_session
+            discovered = cloud_provider.get_aws_enabled_regions(session)
+            if discovered:
+                regions.update(str(region) for region in discovered if region)
+        except Exception:  # noqa: BLE001
+            pass
+
+    if not regions:
+        session = cloud_provider.session.current_session
+        fallback = session.region_name or "us-east-1"
+        regions.add(fallback)
+
+    return sorted(regions)
+
+
 def _aws_credentials(provider: Provider) -> CustodianCredentialBundle:
     cloud_provider = initialize_prowler_provider(provider)
     session = cloud_provider.session.current_session
@@ -172,13 +210,17 @@ def _aws_credentials(provider: Provider) -> CustodianCredentialBundle:
     if credentials is None:
         raise CustodianDryRunError("Provider has no usable AWS credentials.")
     frozen = credentials.get_frozen_credentials()
+    regions = _aws_regions_for_provider(cloud_provider, provider)
+    default_region = regions[0] if regions else (session.region_name or "us-east-1")
     env = {
         "AWS_ACCESS_KEY_ID": frozen.access_key,
         "AWS_SECRET_ACCESS_KEY": frozen.secret_key,
+        "AWS_DEFAULT_REGION": default_region,
+        "AWS_REGION": default_region,
     }
     if frozen.token:
         env["AWS_SESSION_TOKEN"] = frozen.token
-    return CustodianCredentialBundle(env=env)
+    return CustodianCredentialBundle(env=env, regions=regions)
 
 
 def _azure_credentials(provider: Provider) -> CustodianCredentialBundle:
@@ -295,6 +337,7 @@ def _execute_c7n_dryrun(
     output_dir: Path,
     credential_env: dict[str, str],
     dryrun: bool,
+    regions: list[str] | None = None,
 ) -> dict[str, Any]:
     """Invoke Cloud Custodian against a policy file via the CLI.
 
@@ -314,6 +357,8 @@ def _execute_c7n_dryrun(
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "AWS_SESSION_TOKEN",
+        "AWS_DEFAULT_REGION",
+        "AWS_REGION",
         "AZURE_CLIENT_ID",
         "AZURE_CLIENT_SECRET",
         "AZURE_TENANT_ID",
@@ -332,8 +377,10 @@ def _execute_c7n_dryrun(
         "--dryrun",
         "-s",
         str(output_dir),
-        str(policy_path),
     ]
+    for region in regions or []:
+        command.extend(["--region", region])
+    command.append(str(policy_path))
     completed = subprocess.run(
         command,
         env=env,
@@ -344,7 +391,10 @@ def _execute_c7n_dryrun(
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "custodian failed").strip()
         raise CustodianDryRunError(detail[:4000])
-    return _collect_output(output_dir)
+    output = _collect_output(output_dir)
+    if regions:
+        output["regions"] = list(regions)
+    return output
 
 
 def run_custodian_dryrun(
@@ -369,6 +419,7 @@ def run_custodian_dryrun(
                 output_dir=output_dir,
                 credential_env=bundle.env,
                 dryrun=True,
+                regions=bundle.regions,
             )
         finally:
             bundle.close()
@@ -441,6 +492,7 @@ def process_custodian_dry_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
             "policies": output.get("policies", []),
             "mode": DRY_RUN_MODE,
             "provider_type": provider.provider,
+            "regions": output.get("regions", []),
         }
         with rls_transaction(tenant_id):
             run = CustodianRun.objects.get(tenant_id=tenant_id, id=run_id)

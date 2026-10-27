@@ -110,6 +110,32 @@ class TestPolicyMatchesProvider:
             assert_policy_matches_provider(VALID_POLICY_YAML, "azure")
 
 
+class TestAwsRegionsForProvider:
+    def test_uses_scanner_args_regions(self):
+        from cloudsneeker_api.services.custodian import _aws_regions_for_provider
+
+        provider = MagicMock()
+        provider.scanner_args = {"regions": ["eu-west-1", "ap-south-1"]}
+        cloud = MagicMock()
+        assert _aws_regions_for_provider(cloud, provider) == [
+            "ap-south-1",
+            "eu-west-1",
+        ]
+
+    def test_falls_back_to_enabled_regions(self):
+        from cloudsneeker_api.services.custodian import _aws_regions_for_provider
+
+        provider = MagicMock()
+        provider.scanner_args = {}
+        cloud = MagicMock()
+        cloud._enabled_regions = {"us-west-2", "us-east-1"}
+        cloud.identity.audited_regions = None
+        assert _aws_regions_for_provider(cloud, provider) == [
+            "us-east-1",
+            "us-west-2",
+        ]
+
+
 class TestRunCustodianDryrun:
     def test_forces_dryrun_and_never_calls_apply(self):
         provider = MagicMock()
@@ -132,6 +158,7 @@ class TestRunCustodianDryrun:
                 "AWS_ACCESS_KEY_ID": "AKIATEST",
                 "AWS_SECRET_ACCESS_KEY": "secret",
             }
+            mock_bundle.regions = ["us-east-1", "eu-west-1"]
             mock_creds.return_value = mock_bundle
             result = run_custodian_dryrun(
                 policy_yaml=VALID_POLICY_YAML,
@@ -141,9 +168,40 @@ class TestRunCustodianDryrun:
         mock_execute.assert_called_once()
         call_kwargs = mock_execute.call_args.kwargs
         assert call_kwargs["dryrun"] is True
+        assert call_kwargs["regions"] == ["us-east-1", "eu-west-1"]
         assert result["mode"] == DRY_RUN_MODE
         assert result["resource_count"] == 2
         mock_bundle.close.assert_called_once()
+
+    def test_execute_passes_region_flags(self):
+        from cloudsneeker_api.services.custodian import _execute_c7n_dryrun
+
+        with patch(
+            "cloudsneeker_api.services.custodian._resolve_custodian_bin",
+            return_value="custodian",
+        ), patch("subprocess.run") as mock_run, patch(
+            "cloudsneeker_api.services.custodian._collect_output",
+            return_value={
+                "mode": DRY_RUN_MODE,
+                "resource_count": 0,
+                "policies": [],
+                "resources": [],
+            },
+        ):
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = _execute_c7n_dryrun(
+                policy_path=MagicMock(),
+                output_dir=MagicMock(),
+                credential_env={"AWS_ACCESS_KEY_ID": "AKIATEST"},
+                dryrun=True,
+                regions=["us-east-1", "ap-south-1"],
+            )
+
+        command = mock_run.call_args.args[0]
+        assert command.count("--region") == 2
+        assert "us-east-1" in command
+        assert "ap-south-1" in command
+        assert result["regions"] == ["us-east-1", "ap-south-1"]
 
     def test_raises_when_executor_requests_apply(self):
         provider = MagicMock()
@@ -162,6 +220,7 @@ class TestRunCustodianDryrun:
         ):
             mock_bundle = MagicMock()
             mock_bundle.env = {"AWS_ACCESS_KEY_ID": "AKIATEST"}
+            mock_bundle.regions = []
             mock_creds.return_value = mock_bundle
             with pytest.raises(CustodianDryRunError):
                 run_custodian_dryrun(

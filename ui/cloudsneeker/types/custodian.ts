@@ -42,6 +42,8 @@ export interface CustodianRunSummary {
   resource_count?: number;
   mode?: string;
   policies?: Array<{ name?: string; resource_count?: number }>;
+  regions?: string[];
+  provider_type?: string;
 }
 
 export interface CustodianRunAttributes {

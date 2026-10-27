@@ -114,6 +114,11 @@ export default async function CustodianPolicyDetailPage({
                     resources:{" "}
                     {run.attributes.summary?.resource_count ?? "—"}
                   </span>
+                  {run.attributes.summary?.regions?.length ? (
+                    <span className="text-text-neutral-secondary">
+                      regions: {run.attributes.summary.regions.join(", ")}
+                    </span>
+                  ) : null}
                 </div>
                 {run.attributes.error ? (
                   <p className="text-text-error text-sm">
