@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -293,6 +294,38 @@ def _kubernetes_credentials(
     return CustodianCredentialBundle(env=env, cleanup_paths=[kubeconfig_path])
 
 
+_AWS_REGION_RE = re.compile(
+    r"^(?:af|ap|ca|eu|il|me|sa|us|cn|us-gov)-[a-z0-9-]+$"
+)
+
+
+def _infer_region_from_path(resources_file: Path, output_dir: Path) -> str | None:
+    """Pick a region folder from Custodian's multi-region output layout."""
+    try:
+        relative = resources_file.relative_to(output_dir)
+    except ValueError:
+        relative = resources_file
+    for part in relative.parts[:-1]:
+        if _AWS_REGION_RE.match(part) or part in {"global", "all"}:
+            return part
+    return None
+
+
+def _stamp_resource_metadata(
+    item: dict[str, Any],
+    *,
+    policy_name: str,
+    region: str | None,
+) -> dict[str, Any]:
+    """Attach policy/region metadata used by the report UI."""
+    stamped = dict(item)
+    if policy_name and "c7n:policy" not in stamped:
+        stamped["c7n:policy"] = policy_name
+    if region and "c7n:region" not in stamped:
+        stamped["c7n:region"] = region
+    return stamped
+
+
 def _collect_output(output_dir: Path) -> dict[str, Any]:
     """Read Custodian resources.json files under an output directory."""
     resources: list[dict[str, Any]] = []
@@ -303,14 +336,30 @@ def _collect_output(output_dir: Path) -> dict[str, Any]:
             payload = json.loads(resources_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        if isinstance(payload, list):
-            resources.extend(item for item in payload if isinstance(item, dict))
-            policies.append(
-                {
-                    "name": resources_file.parent.name,
-                    "resource_count": len(payload),
-                }
+        if not isinstance(payload, list):
+            continue
+        policy_name = resources_file.parent.name
+        region = _infer_region_from_path(resources_file, output_dir)
+        # Region folder can sit above the policy folder: out/us-east-1/policy/…
+        if region and policy_name == region:
+            policy_name = (
+                resources_file.parent.parent.name
+                if resources_file.parent.parent != output_dir
+                else policy_name
             )
+        stamped = [
+            _stamp_resource_metadata(item, policy_name=policy_name, region=region)
+            for item in payload
+            if isinstance(item, dict)
+        ]
+        resources.extend(stamped)
+        policies.append(
+            {
+                "name": policy_name,
+                "resource_count": len(payload),
+                **({"region": region} if region else {}),
+            }
+        )
 
     return {
         "mode": DRY_RUN_MODE,

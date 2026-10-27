@@ -101,19 +101,25 @@ export default async function CustodianPolicyDetailPage({
             {runs.map((run) => (
               <li key={run.id} className="flex flex-col gap-1 px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <span className="text-text-neutral-primary font-medium capitalize">
+                  <Link
+                    href={`/custodian/${policyId}/runs/${run.id}`}
+                    className="text-text-neutral-primary font-medium capitalize hover:underline"
+                  >
                     {run.attributes.status}
-                  </span>
+                  </Link>
                   <span className="text-text-neutral-secondary">
                     mode: {run.attributes.mode}
                   </span>
                   <span className="text-text-neutral-secondary capitalize">
                     trigger: {run.attributes.trigger ?? "manual"}
                   </span>
-                  <span className="text-text-neutral-secondary">
+                  <Link
+                    href={`/custodian/${policyId}/runs/${run.id}`}
+                    className="text-text-neutral-secondary hover:underline"
+                  >
                     resources:{" "}
                     {run.attributes.summary?.resource_count ?? "—"}
-                  </span>
+                  </Link>
                   {run.attributes.summary?.regions?.length ? (
                     <span className="text-text-neutral-secondary">
                       regions: {run.attributes.summary.regions.join(", ")}

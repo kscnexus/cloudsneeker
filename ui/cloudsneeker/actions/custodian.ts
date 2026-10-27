@@ -180,6 +180,18 @@ export const listCustodianRuns = async (
   }
 };
 
+export const getCustodianRun = async (runId: string) => {
+  const headers = await getAuthHeaders({ contentType: false });
+  const url = new URL(`${apiBaseUrl}${RUNS_PATH}/${runId}`);
+
+  try {
+    const response = await fetch(url.toString(), { headers });
+    return handleApiResponse(response);
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
 export const bulkScheduleCustodianPolicies = async (
   payload: CustodianScheduleBulkPayload,
 ) => {

@@ -45,7 +45,7 @@ export const CustodianReportsTable = ({ rows }: CustodianReportsTableProps) => {
           <TableRow key={row.runId}>
             <TableCell className="font-medium">
               <Link
-                href={`/custodian/${row.policyId}`}
+                href={`/custodian/${row.policyId}/runs/${row.runId}`}
                 className="hover:underline"
               >
                 {row.policyName}
@@ -64,7 +64,16 @@ export const CustodianReportsTable = ({ rows }: CustodianReportsTableProps) => {
             </TableCell>
             <TableCell className="capitalize">{row.trigger}</TableCell>
             <TableCell>
-              {row.resourcesMatched === null ? "—" : row.resourcesMatched}
+              {row.resourcesMatched === null ? (
+                "—"
+              ) : (
+                <Link
+                  href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                  className="hover:underline"
+                >
+                  {row.resourcesMatched}
+                </Link>
+              )}
             </TableCell>
             <TableCell>{formatDuration(row.durationMs)}</TableCell>
             <TableCell>

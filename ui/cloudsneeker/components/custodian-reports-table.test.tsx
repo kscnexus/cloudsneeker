@@ -30,7 +30,11 @@ describe("CustodianReportsTable", () => {
 
     expect(screen.getByRole("link", { name: "unused-ebs" })).toHaveAttribute(
       "href",
-      "/custodian/policy-1",
+      "/custodian/policy-1/runs/run-1",
+    );
+    expect(screen.getByRole("link", { name: "4" })).toHaveAttribute(
+      "href",
+      "/custodian/policy-1/runs/run-1",
     );
     expect(screen.getByText("Prod")).toBeInTheDocument();
     expect(screen.getByText("completed")).toBeInTheDocument();

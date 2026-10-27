@@ -49,7 +49,7 @@ describe("CustodianDashboardPanel", () => {
     expect(screen.getByText("Recent dry-runs")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "unused-ebs" })[0]).toHaveAttribute(
       "href",
-      "/custodian/policy-1",
+      "/custodian/policy-1/runs/run-1",
     );
     expect(screen.getByText("Top policies by resources")).toBeInTheDocument();
   });

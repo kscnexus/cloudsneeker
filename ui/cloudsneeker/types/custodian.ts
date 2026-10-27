@@ -41,9 +41,17 @@ export interface CustodianPolicyResource {
 export interface CustodianRunSummary {
   resource_count?: number;
   mode?: string;
-  policies?: Array<{ name?: string; resource_count?: number }>;
+  policies?: Array<{ name?: string; resource_count?: number; region?: string }>;
   regions?: string[];
   provider_type?: string;
+}
+
+export interface CustodianRunOutput {
+  mode?: string;
+  resource_count?: number;
+  policies?: Array<{ name?: string; resource_count?: number; region?: string }>;
+  resources?: Record<string, unknown>[];
+  regions?: string[];
 }
 
 export interface CustodianRunAttributes {
@@ -59,7 +67,7 @@ export interface CustodianRunAttributes {
   started_at?: string | null;
   finished_at?: string | null;
   summary?: CustodianRunSummary;
-  output?: Record<string, unknown>;
+  output?: CustodianRunOutput;
   error?: string;
   inserted_at?: string;
 }

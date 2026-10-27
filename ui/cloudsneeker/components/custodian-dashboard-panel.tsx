@@ -87,7 +87,7 @@ export const CustodianDashboardPanel = ({
                   <li key={row.runId} className="flex flex-col gap-1 px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/custodian/${row.policyId}`}
+                        href={`/custodian/${row.policyId}/runs/${row.runId}`}
                         className="text-text-neutral-primary text-sm font-medium hover:underline"
                       >
                         {row.policyName}
@@ -100,12 +100,15 @@ export const CustodianDashboardPanel = ({
                       </span>
                     </div>
                     <div className="text-text-neutral-secondary flex flex-wrap gap-3 text-xs">
-                      <span>
+                      <Link
+                        href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                        className="hover:underline"
+                      >
                         Resources:{" "}
                         {row.resourcesMatched === null
                           ? "—"
                           : row.resourcesMatched}
-                      </span>
+                      </Link>
                       {row.insertedAt ? (
                         <span>
                           {new Date(row.insertedAt).toLocaleString()}

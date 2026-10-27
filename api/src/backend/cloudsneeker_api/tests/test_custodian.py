@@ -136,6 +136,41 @@ class TestAwsRegionsForProvider:
         ]
 
 
+class TestCollectOutput:
+    def test_stamps_region_and_policy_from_path(self, tmp_path):
+        from cloudsneeker_api.services.custodian import _collect_output
+
+        region_dir = tmp_path / "us-east-1" / "unused-ebs"
+        region_dir.mkdir(parents=True)
+        (region_dir / "resources.json").write_text(
+            '[{"VolumeId": "vol-1"}, {"VolumeId": "vol-2"}]',
+            encoding="utf-8",
+        )
+
+        result = _collect_output(tmp_path)
+
+        assert result["resource_count"] == 2
+        assert result["policies"][0]["name"] == "unused-ebs"
+        assert result["policies"][0]["region"] == "us-east-1"
+        assert result["resources"][0]["c7n:region"] == "us-east-1"
+        assert result["resources"][0]["c7n:policy"] == "unused-ebs"
+        assert result["resources"][1]["VolumeId"] == "vol-2"
+
+    def test_keeps_existing_metadata(self, tmp_path):
+        from cloudsneeker_api.services.custodian import _collect_output
+
+        policy_dir = tmp_path / "unused-ebs"
+        policy_dir.mkdir()
+        (policy_dir / "resources.json").write_text(
+            '[{"VolumeId": "vol-9", "c7n:region": "eu-west-1"}]',
+            encoding="utf-8",
+        )
+
+        result = _collect_output(tmp_path)
+        assert result["resources"][0]["c7n:region"] == "eu-west-1"
+        assert result["resources"][0]["c7n:policy"] == "unused-ebs"
+
+
 class TestRunCustodianDryrun:
     def test_forces_dryrun_and_never_calls_apply(self):
         provider = MagicMock()
