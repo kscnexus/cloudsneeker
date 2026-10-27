@@ -115,7 +115,7 @@ const SSRCustodianWorkspace = async ({
     }
   }
   const findingSuggestions: CustodianFindingSuggestion[] = templatesForProwlerChecks(
-    [...failedCheckIds],
+    Array.from(failedCheckIds),
   ).flatMap((template) =>
     template.prowlerCheckIds
       .filter((checkId) => failedCheckIds.has(checkId))

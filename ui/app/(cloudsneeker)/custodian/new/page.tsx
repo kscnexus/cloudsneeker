@@ -39,11 +39,11 @@ export default async function NewCustodianPolicyPage({
   const preferredProviders = template
     ? [
         ...providers.filter((provider) =>
-          template.providerTypes.includes(provider.providerType),
+          template.providerTypes.includes(provider.providerType ?? ""),
         ),
         ...providers.filter(
           (provider) =>
-            !template.providerTypes.includes(provider.providerType),
+            !template.providerTypes.includes(provider.providerType ?? ""),
         ),
       ]
     : providers;

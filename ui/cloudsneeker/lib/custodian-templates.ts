@@ -128,7 +128,7 @@ export const CUSTODIAN_TEMPLATES = [
         value: TERMINATED
 `,
   },
-] as const satisfies readonly CustodianTemplate[];
+] satisfies readonly CustodianTemplate[];
 
 export const CUSTODIAN_PACKS = [
   {
@@ -143,7 +143,7 @@ export const CUSTODIAN_PACKS = [
       "aws-unattached-eip",
     ],
   },
-] as const satisfies readonly CustodianPack[];
+] satisfies readonly CustodianPack[];
 
 export function templatesForProvider(
   providerType: string | undefined,
@@ -185,5 +185,5 @@ export function allMappedProwlerCheckIds(): string[] {
   for (const item of CUSTODIAN_TEMPLATES) {
     for (const checkId of item.prowlerCheckIds) ids.add(checkId);
   }
-  return [...ids];
+  return Array.from(ids);
 }
