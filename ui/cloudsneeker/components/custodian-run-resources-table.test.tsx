@@ -49,4 +49,29 @@ describe("CustodianRunResourcesTable", () => {
       screen.getByText(/No resources matched this dry-run/i),
     ).toBeInTheDocument();
   });
+
+  it("shows delta summary and findings link when provided", () => {
+    render(
+      <CustodianRunResourcesTable
+        resources={[RESOURCE]}
+        providerType="aws"
+        delta={{
+          new: ["vol-1"],
+          gone: [],
+          still_matched: [],
+          new_count: 1,
+          gone_count: 0,
+          still_matched_count: 0,
+        }}
+        prowlerCheckIds={["ec2_ebs_volume_unused"]}
+        runId="run-9"
+      />,
+    );
+
+    expect(screen.getByText(/Delta: 1 new/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Open related Findings/i }),
+    ).toHaveAttribute("href", expect.stringContaining("ec2_ebs_volume_unused"));
+    expect(screen.getByText("new")).toBeInTheDocument();
+  });
 });

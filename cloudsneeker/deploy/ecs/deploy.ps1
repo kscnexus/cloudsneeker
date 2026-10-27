@@ -182,6 +182,31 @@ function Start-RetainedDatabase {
 
 Start-RetainedDatabase
 
+function Wait-CloudsneekerStackIdle {
+    Write-Host "==> Wait for platform stack to finish any in-flight update"
+    $deadline = (Get-Date).AddMinutes(45)
+    while ((Get-Date) -lt $deadline) {
+        $status = ""
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $status = (& aws --profile $Profile --region $Region --output text cloudformation describe-stacks --stack-name cloudsneeker --query "Stacks[0].StackStatus" 2>$null | Out-String).Trim()
+        $describeExit = $LASTEXITCODE
+        $ErrorActionPreference = $previous
+        if ($describeExit -ne 0 -or -not $status -or $status -eq "None") {
+            Write-Host "Platform stack is not created yet"
+            return
+        }
+        Write-Host "Stack status: $status"
+        if ($status -notmatch "IN_PROGRESS") {
+            return
+        }
+        Start-Sleep -Seconds 20
+    }
+    throw "Timed out waiting for cloudsneeker stack to leave an IN_PROGRESS state"
+}
+
+Wait-CloudsneekerStackIdle
+
 $existingTag = ""
 try {
     $existingTag = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker", "--query", "Stacks[0].Parameters[?ParameterKey=='ImageTag'].ParameterValue | [0]")
@@ -189,7 +214,12 @@ try {
     $existingTag = ""
 }
 if ($existingTag -eq "None") { $existingTag = "" }
+# Prefer an explicit -ImageTag. Otherwise keep the stack's current tag so a
+# concurrent GitHub Actions image publish is not overwritten by an empty/stale value.
 if (-not $ImageTag) { $ImageTag = $existingTag }
+if (-not $ImageTag) {
+    throw "ImageTag is required. Pass -ImageTag <sha> or let GitHub Actions publish images first."
+}
 
 Write-Host "==> Platform (data stores and network)"
 Invoke-Aws @(

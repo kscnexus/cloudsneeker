@@ -1,8 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
+import {
+  downloadTextFile,
+  resourcesToCsv,
+  resourcesToJson,
+} from "@/cloudsneeker/lib/custodian-export";
 import type { CustodianMatchedResource } from "@/cloudsneeker/lib/custodian-resources";
+import { findingsHrefForChecks } from "@/cloudsneeker/lib/custodian-templates";
+import type { CustodianRunDelta } from "@/cloudsneeker/types/custodian";
 import { Button } from "@/components/shadcn";
 import { Badge } from "@/components/shadcn/badge/badge";
 import { CodeSnippet } from "@/components/shadcn/code-snippet/code-snippet";
@@ -28,6 +36,9 @@ import type { ProviderType } from "@/types/providers";
 interface CustodianRunResourcesTableProps {
   resources: CustodianMatchedResource[];
   providerType?: string;
+  delta?: CustodianRunDelta;
+  prowlerCheckIds?: string[];
+  runId?: string;
 }
 
 const DETAIL_KEYS = [
@@ -43,11 +54,21 @@ const DETAIL_KEYS = [
 export const CustodianRunResourcesTable = ({
   resources,
   providerType,
+  delta,
+  prowlerCheckIds = [],
+  runId = "run",
 }: CustodianRunResourcesTableProps) => {
   const [selected, setSelected] = useState<CustodianMatchedResource | null>(
     null,
   );
   const cloudProvider = (providerType || undefined) as ProviderType | undefined;
+  const findingsHref = findingsHrefForChecks(prowlerCheckIds);
+  const deltaByUid = new Map<string, string>();
+  for (const uid of delta?.new ?? []) deltaByUid.set(uid, "new");
+  for (const uid of delta?.gone ?? []) deltaByUid.set(uid, "gone");
+  for (const uid of delta?.still_matched ?? []) {
+    if (!deltaByUid.has(uid)) deltaByUid.set(uid, "still");
+  }
 
   if (resources.length === 0) {
     return (
@@ -59,6 +80,48 @@ export const CustodianRunResourcesTable = ({
 
   return (
     <>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            downloadTextFile(
+              `custodian-${runId}.csv`,
+              resourcesToCsv(resources),
+              "text/csv",
+            )
+          }
+        >
+          Export CSV
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            downloadTextFile(
+              `custodian-${runId}.json`,
+              resourcesToJson(resources),
+              "application/json",
+            )
+          }
+        >
+          Export JSON
+        </Button>
+        {findingsHref ? (
+          <Button asChild variant="ghost" size="sm">
+            <Link href={findingsHref}>Open related Findings</Link>
+          </Button>
+        ) : null}
+        {delta ? (
+          <span className="text-text-neutral-secondary text-xs">
+            Delta: {delta.new_count ?? 0} new · {delta.gone_count ?? 0} gone ·{" "}
+            {delta.still_matched_count ?? 0} still matched
+          </span>
+        ) : null}
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -66,6 +129,7 @@ export const CustodianRunResourcesTable = ({
             <TableHead>Type</TableHead>
             <TableHead>Region</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Delta</TableHead>
             <TableHead>Policy</TableHead>
             <TableHead className="w-24">Details</TableHead>
           </TableRow>
@@ -95,6 +159,11 @@ export const CustodianRunResourcesTable = ({
               <TableCell>
                 <Badge variant="tag" className="capitalize">
                   {resource.status}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant="tag" className="capitalize">
+                  {deltaByUid.get(resource.uid) ?? "matched"}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm">{resource.policyName}</TableCell>

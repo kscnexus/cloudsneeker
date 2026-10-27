@@ -32,6 +32,25 @@ export interface CustodianDashboardTopPolicy {
   providerLabel: string;
 }
 
+export interface CustodianResourceTrendPoint {
+  runId: string;
+  policyId: string;
+  policyName: string;
+  insertedAt: string;
+  resourcesMatched: number;
+  deltaNew: number;
+  deltaGone: number;
+}
+
+export interface CustodianFindingSuggestion {
+  checkId: string;
+  templateId: string;
+  templateName: string;
+  providerType: string;
+  findingsHref: string;
+  newPolicyHref: string;
+}
+
 export interface CustodianDashboardMetrics {
   policyCount: number;
   scheduledPolicyCount: number;
@@ -42,6 +61,8 @@ export interface CustodianDashboardMetrics {
   resourcesMatched: number;
   recentRuns: CustodianDashboardRecentRun[];
   topPolicies: CustodianDashboardTopPolicy[];
+  resourceTrends: CustodianResourceTrendPoint[];
+  findingSuggestions: CustodianFindingSuggestion[];
 }
 
 export interface CustodianReportRow {
@@ -64,6 +85,8 @@ interface CustodianDashboardInput {
   runs: CustodianRunResource[];
   recentLimit?: number;
   topLimit?: number;
+  trendLimit?: number;
+  findingSuggestions?: CustodianFindingSuggestion[];
 }
 
 const ACTIVE_STATUSES = new Set<CustodianRunStatus>([
@@ -104,6 +127,8 @@ export function buildCustodianDashboard({
   runs,
   recentLimit = 8,
   topLimit = 5,
+  trendLimit = 10,
+  findingSuggestions = [],
 }: CustodianDashboardInput): CustodianDashboardMetrics {
   const names = policyNameById(policies);
   const policyById = new Map(policies.map((policy) => [policy.id, policy]));
@@ -136,13 +161,37 @@ export function buildCustodianDashboard({
     );
   }
 
-  const recentRuns = [...runs]
-    .sort((left, right) => {
-      const leftAt = left.attributes.inserted_at ?? "";
-      const rightAt = right.attributes.inserted_at ?? "";
-      return rightAt.localeCompare(leftAt);
-    })
-    .slice(0, recentLimit)
+  const sortedRuns = [...runs].sort((left, right) => {
+    const leftAt = left.attributes.inserted_at ?? "";
+    const rightAt = right.attributes.inserted_at ?? "";
+    return rightAt.localeCompare(leftAt);
+  });
+
+  const recentRuns = sortedRuns.slice(0, recentLimit).map((run) => ({
+    runId: run.id,
+    policyId: run.attributes.policy_id,
+    policyName:
+      run.attributes.policy_name ||
+      names.get(run.attributes.policy_id) ||
+      "Unknown policy",
+    status: run.attributes.status,
+    trigger: String(run.attributes.trigger ?? "manual"),
+    resourcesMatched:
+      typeof run.attributes.summary?.resource_count === "number"
+        ? run.attributes.summary.resource_count
+        : null,
+    insertedAt: run.attributes.inserted_at ?? null,
+    error: run.attributes.error ?? "",
+  }));
+
+  const resourceTrends = sortedRuns
+    .filter(
+      (run) =>
+        run.attributes.status === CUSTODIAN_RUN_STATUS.COMPLETED &&
+        typeof run.attributes.summary?.resource_count === "number" &&
+        run.attributes.inserted_at,
+    )
+    .slice(0, trendLimit)
     .map((run) => ({
       runId: run.id,
       policyId: run.attributes.policy_id,
@@ -150,14 +199,10 @@ export function buildCustodianDashboard({
         run.attributes.policy_name ||
         names.get(run.attributes.policy_id) ||
         "Unknown policy",
-      status: run.attributes.status,
-      trigger: String(run.attributes.trigger ?? "manual"),
-      resourcesMatched:
-        typeof run.attributes.summary?.resource_count === "number"
-          ? run.attributes.summary.resource_count
-          : null,
-      insertedAt: run.attributes.inserted_at ?? null,
-      error: run.attributes.error ?? "",
+      insertedAt: run.attributes.inserted_at as string,
+      resourcesMatched: run.attributes.summary?.resource_count ?? 0,
+      deltaNew: run.attributes.summary?.delta?.new_count ?? 0,
+      deltaGone: run.attributes.summary?.delta?.gone_count ?? 0,
     }));
 
   const topPolicies = Array.from(runsByPolicy.keys())
@@ -202,6 +247,8 @@ export function buildCustodianDashboard({
     resourcesMatched,
     recentRuns,
     topPolicies,
+    resourceTrends,
+    findingSuggestions,
   };
 }
 

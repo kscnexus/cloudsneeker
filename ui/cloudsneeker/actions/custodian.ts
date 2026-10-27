@@ -19,6 +19,7 @@ export interface CustodianPolicyPayload {
   scheduleEnabled?: boolean;
   scheduleCron?: string;
   scheduleTimezone?: string;
+  regionsOverride?: string[];
 }
 
 export interface CustodianScheduleBulkPayload {
@@ -44,6 +45,7 @@ const buildPolicyEnvelope = (
       schedule_enabled: payload.scheduleEnabled ?? false,
       schedule_cron: payload.scheduleCron ?? "",
       schedule_timezone: payload.scheduleTimezone ?? "UTC",
+      regions_override: payload.regionsOverride ?? [],
     },
   },
 });
@@ -187,6 +189,55 @@ export const getCustodianRun = async (runId: string) => {
   try {
     const response = await fetch(url.toString(), { headers });
     return handleApiResponse(response);
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const installCustodianPack = async (payload: {
+  packId: string;
+  providerId: string;
+}) => {
+  const headers = await getAuthHeaders({ contentType: true });
+  const url = new URL(`${apiBaseUrl}${POLICIES_PATH}/install-pack`);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        data: {
+          type: POLICY_TYPE,
+          attributes: {
+            pack_id: payload.packId,
+            provider_id: payload.providerId,
+          },
+        },
+      }),
+    });
+    const result = await handleApiResponse(response, REVALIDATE_PATH);
+    revalidatePath(REVALIDATE_PATH);
+    return result;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const cancelCustodianRun = async (runId: string) => {
+  const headers = await getAuthHeaders({ contentType: true });
+  const url = new URL(`${apiBaseUrl}${RUNS_PATH}/${runId}/cancel`);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        data: { type: "cloudsneeker-custodian-runs", attributes: {} },
+      }),
+    });
+    const result = await handleApiResponse(response);
+    revalidatePath(REVALIDATE_PATH);
+    return result;
   } catch (error) {
     return handleApiError(error);
   }

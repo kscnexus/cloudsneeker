@@ -27,6 +27,7 @@ export interface CustodianPolicyAttributes {
   schedule_enabled?: boolean;
   schedule_cron?: string;
   schedule_timezone?: string;
+  regions_override?: string[];
   next_run_at?: string | null;
   inserted_at?: string;
   updated_at?: string;
@@ -38,12 +39,30 @@ export interface CustodianPolicyResource {
   attributes: CustodianPolicyAttributes;
 }
 
+export interface CustodianRunDelta {
+  new?: string[];
+  gone?: string[];
+  still_matched?: string[];
+  new_count?: number;
+  gone_count?: number;
+  still_matched_count?: number;
+}
+
 export interface CustodianRunSummary {
   resource_count?: number;
   mode?: string;
   policies?: Array<{ name?: string; resource_count?: number; region?: string }>;
   regions?: string[];
   provider_type?: string;
+  resources_preview?: Array<{
+    uid?: string;
+    name?: string;
+    region?: string;
+    type?: string;
+    policy?: string;
+  }>;
+  delta?: CustodianRunDelta;
+  prowler_check_ids?: string[];
 }
 
 export interface CustodianRunOutput {
@@ -69,6 +88,8 @@ export interface CustodianRunAttributes {
   summary?: CustodianRunSummary;
   output?: CustodianRunOutput;
   error?: string;
+  error_class?: string;
+  triggered_by_id?: string | null;
   inserted_at?: string;
 }
 

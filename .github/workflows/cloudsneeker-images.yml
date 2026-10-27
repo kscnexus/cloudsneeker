@@ -196,16 +196,32 @@ jobs:
           echo "Stack status: $(cat /tmp/stack-status)"
           aws cloudformation describe-stacks --stack-name cloudsneeker --query "Stacks[0].Parameters" --output json > parameters.json
           IMAGE_TAG="$tag" python3 -c "import json,os; tag=os.environ['IMAGE_TAG']; current=json.load(open('parameters.json')); updated=[{'ParameterKey': item['ParameterKey'], **({'ParameterValue': tag} if item['ParameterKey']=='ImageTag' else {'UsePreviousValue': True})} for item in current]; json.dump(updated, open('parameters-next.json','w'))"
-          set +e
-          update_output="$(aws cloudformation update-stack --stack-name cloudsneeker --use-previous-template --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters-next.json 2>&1)"
-          update_status=$?
-          set -e
-          if [ "$update_status" -ne 0 ]; then
+          # Retry briefly when deploy.ps1 (or another updater) holds the stack.
+          attempt=1
+          max_attempts=6
+          while true; do
+            set +e
+            update_output="$(aws cloudformation update-stack --stack-name cloudsneeker --use-previous-template --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters-next.json 2>&1)"
+            update_status=$?
+            set -e
+            if [ "$update_status" -eq 0 ]; then
+              break
+            fi
             if printf '%s' "$update_output" | grep -q "No updates are to be performed"; then
               echo "Services already use ${tag}."
               exit 0
             fi
+            if printf '%s' "$update_output" | grep -Eqi "UPDATE_IN_PROGRESS|Another update|ResourceConflict|Concurrent"; then
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                printf '%s\n' "$update_output"
+                exit "$update_status"
+              fi
+              echo "Stack busy (attempt ${attempt}/${max_attempts}); waiting before retry…"
+              sleep 30
+              attempt=$((attempt + 1))
+              continue
+            fi
             printf '%s\n' "$update_output"
             exit "$update_status"
-          fi
+          done
           aws cloudformation wait stack-update-complete --stack-name cloudsneeker

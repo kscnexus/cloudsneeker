@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from api.models import Provider, User, fernet
 from api.rls import RowLevelSecurityConstraint, RowLevelSecurityProtectedModel
+from django.conf import settings
 from django.core.validators import MinLengthValidator
 from django.db import models
 
@@ -380,6 +381,8 @@ class CustodianPolicy(CloudsneekerRLSModel):
     schedule_enabled = models.BooleanField(default=False)
     schedule_cron = models.CharField(max_length=64, blank=True, default="")
     schedule_timezone = models.CharField(max_length=64, default="UTC")
+    # Optional AWS region override; empty means use provider scanner regions.
+    regions_override = models.JSONField(default=list, blank=True)
     scheduler_task = models.ForeignKey(
         "django_celery_beat.PeriodicTask",
         on_delete=models.SET_NULL,
@@ -450,6 +453,14 @@ class CustodianRun(CloudsneekerRLSModel):
     summary = models.JSONField(default=dict, blank=True)
     output = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True, default="")
+    error_class = models.CharField(max_length=32, blank=True, default="")
+    triggered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_custodian_runs",
+    )
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}custodian_runs"

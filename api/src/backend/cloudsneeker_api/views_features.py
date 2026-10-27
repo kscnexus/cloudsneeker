@@ -4,9 +4,10 @@ from api.authentication import CombinedJWTOrAPIKeyAuthentication
 from api.base_views import BaseRLSViewSet
 from api.db_router import MainRouter
 from api.db_utils import rls_transaction
-from api.models import Finding
+from api.models import Finding, Provider
 from api.rbac.permissions import Permissions
 from cloudsneeker_api.models import (
+    JSON_API_TYPE_PREFIX,
     AlertRecipient,
     AlertRule,
     CustodianPolicy,
@@ -21,6 +22,7 @@ from cloudsneeker_api.serializers_alerts import (
     AlertRuleWriteSerializer,
 )
 from cloudsneeker_api.serializers_custodian import (
+    CustodianInstallPackSerializer,
     CustodianPolicySerializer,
     CustodianPolicyWriteSerializer,
     CustodianRunSerializer,
@@ -32,11 +34,21 @@ from cloudsneeker_api.serializers_scan_config import (
     ScanConfigurationWriteSerializer,
 )
 from cloudsneeker_api.services.alert_conditions import preview_condition
-from cloudsneeker_api.services.custodian import CustodianDryRunError, enqueue_custodian_dry_run
+from cloudsneeker_api.services.custodian import (
+    CustodianDryRunError,
+    cancel_custodian_dry_run,
+    enqueue_custodian_dry_run,
+)
 from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
     apply_schedule_to_policies,
     delete_policy_schedule,
+)
+from cloudsneeker_api.services.custodian_templates import (
+    get_pack,
+    get_template,
+    list_packs,
+    list_templates,
 )
 from cloudsneeker_api.services.ocsf_import import parse_ocsf_payload
 from django.db import transaction
@@ -195,20 +207,128 @@ class CustodianPolicyViewSet(BaseRLSViewSet):
     def dry_run(self, request, pk=None):
         """Enqueue a dry-run for this policy; never applies mutations."""
         policy = self.get_object()
+        triggered_by_id = getattr(request.user, "id", None)
         try:
             run = enqueue_custodian_dry_run(
                 tenant_id=str(request.tenant_id),
                 policy_id=str(policy.id),
+                triggered_by_id=str(triggered_by_id) if triggered_by_id else None,
             )
         except CustodianDryRunError as exc:
             return Response(
-                {"errors": [{"detail": str(exc)}]},
+                {"errors": [{"detail": str(exc), "code": "invalid_policy"}]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         run = CustodianRun.objects.select_related("policy", "provider").get(pk=run.pk)
         return Response(
             CustodianRunSerializer(run, context=self.get_serializer_context()).data,
             status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="templates",
+    )
+    def templates(self, request):
+        """List curated dry-run policy templates."""
+        provider_type = request.query_params.get("provider_type")
+        return Response(
+            {
+                "data": [
+                    {
+                        "type": f"{JSON_API_TYPE_PREFIX}custodian-templates",
+                        "id": item["id"],
+                        "attributes": item,
+                    }
+                    for item in list_templates(provider_type=provider_type)
+                ]
+            }
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="packs",
+    )
+    def packs(self, request):
+        """List curated template packs."""
+        provider_type = request.query_params.get("provider_type")
+        return Response(
+            {
+                "data": [
+                    {
+                        "type": f"{JSON_API_TYPE_PREFIX}custodian-packs",
+                        "id": item["id"],
+                        "attributes": item,
+                    }
+                    for item in list_packs(provider_type=provider_type)
+                ]
+            }
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="install-pack",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
+    def install_pack(self, request):
+        """Create policies from a curated pack for one provider."""
+        payload = request.data
+        if isinstance(payload, dict) and "data" in payload:
+            attributes = payload.get("data", {}).get("attributes", payload)
+        else:
+            attributes = payload
+        serializer = CustodianInstallPackSerializer(data=attributes)
+        serializer.is_valid(raise_exception=True)
+        pack = get_pack(serializer.validated_data["pack_id"])
+        if pack is None:
+            return Response(
+                {"errors": [{"detail": "Unknown pack id."}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        provider_id = serializer.validated_data["provider_id"]
+        provider = Provider.objects.filter(
+            tenant_id=request.tenant_id, id=provider_id
+        ).first()
+        if provider is None:
+            return Response(
+                {"errors": [{"detail": "Unknown provider ID for this tenant."}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if provider.provider not in pack["provider_types"]:
+            return Response(
+                {"errors": [{"detail": "Pack does not support this provider type."}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = []
+        with rls_transaction(str(request.tenant_id)):
+            for template_id in pack["template_ids"]:
+                template = get_template(template_id)
+                if template is None:
+                    continue
+                name = template["name"]
+                existing = CustodianPolicy.objects.filter(
+                    tenant_id=request.tenant_id, name=name
+                ).exists()
+                if existing:
+                    name = f"{name} ({template_id})"
+                policy = CustodianPolicy.objects.create(
+                    tenant_id=request.tenant_id,
+                    name=name[:100],
+                    description=template["description"],
+                    policy_yaml=template["policy_yaml"],
+                    provider=provider,
+                )
+                created.append(policy)
+
+        return Response(
+            CustodianPolicySerializer(
+                created, many=True, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_201_CREATED,
         )
 
     @action(
@@ -260,12 +380,12 @@ class CustodianPolicyViewSet(BaseRLSViewSet):
     retrieve=extend_schema(tags=["Custodian"], summary="Get a Custodian dry-run"),
 )
 class CustodianRunViewSet(BaseRLSViewSet):
-    """Read-only Custodian dry-run history."""
+    """Custodian dry-run history with cancel for pending jobs."""
 
     queryset = CustodianRun.objects.all()
     serializer_class = CustodianRunSerializer
     filterset_class = CustodianRunFilter
-    http_method_names = ["get", "head", "options"]
+    http_method_names = ["get", "post", "head", "options"]
     ordering = ["-inserted_at"]
     ordering_fields = ["inserted_at", "status", "finished_at"]
     required_permissions = [Permissions.MANAGE_SCANS]
@@ -273,8 +393,31 @@ class CustodianRunViewSet(BaseRLSViewSet):
     def get_queryset(self):
         return (
             CustodianRun.objects.filter(tenant_id=self.request.tenant_id)
-            .select_related("policy", "provider")
+            .select_related("policy", "provider", "triggered_by")
             .all()
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="cancel",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
+    def cancel(self, request, pk=None):
+        """Cancel a pending dry-run before the worker starts."""
+        try:
+            run = cancel_custodian_dry_run(
+                tenant_id=str(request.tenant_id),
+                run_id=str(pk),
+            )
+        except CustodianDryRunError as exc:
+            return Response(
+                {"errors": [{"detail": str(exc)}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        run = CustodianRun.objects.select_related("policy", "provider").get(pk=run.pk)
+        return Response(
+            CustodianRunSerializer(run, context=self.get_serializer_context()).data
         )
 
 

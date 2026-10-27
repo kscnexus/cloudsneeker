@@ -67,6 +67,50 @@ export const CustodianDashboardPanel = ({
         />
       </div>
 
+      {metrics.findingSuggestions.length > 0 ? (
+        <Section>
+          <SectionHeader>
+            <SectionTitle>Suggested from Findings</SectionTitle>
+            <SectionDescription>
+              Failed Findings checks that map to Custodian dry-run starters.
+            </SectionDescription>
+          </SectionHeader>
+          <SectionContent>
+            <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
+              {metrics.findingSuggestions.map((item) => (
+                <li
+                  key={`${item.checkId}-${item.templateId}`}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-text-neutral-primary text-sm font-medium">
+                      {item.templateName}
+                    </span>
+                    <span className="text-text-neutral-secondary text-xs">
+                      {item.checkId} · {item.providerType}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={item.findingsHref}
+                      className="text-text-neutral-secondary text-xs hover:underline"
+                    >
+                      View findings
+                    </Link>
+                    <Link
+                      href={item.newPolicyHref}
+                      className="text-text-neutral-primary text-xs font-medium hover:underline"
+                    >
+                      Create Custodian dry-run
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </SectionContent>
+        </Section>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Section>
           <SectionHeader>
@@ -165,6 +209,50 @@ export const CustodianDashboardPanel = ({
           </SectionContent>
         </Section>
       </div>
+
+      <Section>
+        <SectionHeader>
+          <SectionTitle>Resource-match trends</SectionTitle>
+          <SectionDescription>
+            Completed dry-runs with new / gone deltas versus the prior run.
+          </SectionDescription>
+        </SectionHeader>
+        <SectionContent>
+          {metrics.resourceTrends.length === 0 ? (
+            <p className="text-text-neutral-secondary text-sm">
+              Trends appear after completed dry-runs report matched resources.
+            </p>
+          ) : (
+            <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
+              {metrics.resourceTrends.map((row) => (
+                <li
+                  key={row.runId}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <Link
+                      href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                      className="text-text-neutral-primary truncate text-sm font-medium hover:underline"
+                    >
+                      {row.policyName}
+                    </Link>
+                    <span className="text-text-neutral-secondary text-xs">
+                      {new Date(row.insertedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-text-neutral-secondary flex flex-wrap gap-3 text-xs">
+                    <span className="text-text-neutral-primary font-semibold">
+                      {row.resourcesMatched} matched
+                    </span>
+                    <span>+{row.deltaNew} new</span>
+                    <span>-{row.deltaGone} gone</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionContent>
+      </Section>
     </div>
   );
 };

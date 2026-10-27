@@ -178,6 +178,8 @@ Resources:
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
                   - ecs:RegisterTaskDefinition
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:ListTaskDefinitions
                   - ecs:UpdateService
                 Resource: "*"
 

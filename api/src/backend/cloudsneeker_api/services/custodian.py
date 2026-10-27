@@ -14,6 +14,7 @@ import os
 import re
 import tempfile
 from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -430,13 +431,20 @@ def _execute_c7n_dryrun(
     for region in regions or []:
         command.extend(["--region", region])
     command.append(str(policy_path))
-    completed = subprocess.run(
-        command,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    timeout_seconds = int(os.environ.get("C7N_DRYRUN_TIMEOUT", "900"))
+    try:
+        completed = subprocess.run(
+            command,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise CustodianDryRunError(
+            f"Cloud Custodian dry-run timed out after {timeout_seconds}s."
+        ) from exc
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "custodian failed").strip()
         raise CustodianDryRunError(detail[:4000])
@@ -450,9 +458,15 @@ def run_custodian_dryrun(
     *,
     policy_yaml: str,
     provider: Provider,
+    regions_override: list[str] | None = None,
 ) -> dict[str, Any]:
     """Validate policy YAML and execute Cloud Custodian in dry-run mode only."""
+    from cloudsneeker_api.services.custodian_validate import (
+        validate_custodian_policy_schema,
+    )
+
     assert_policy_matches_provider(policy_yaml, provider.provider)
+    validate_custodian_policy_schema(policy_yaml)
     assert_dry_run_only(DRY_RUN_MODE)
 
     with tempfile.TemporaryDirectory(prefix="cs-custodian-") as tmp:
@@ -463,12 +477,17 @@ def run_custodian_dryrun(
         policy_path.write_text(policy_yaml, encoding="utf-8")
         bundle = credentials_from_provider(provider, work_dir=tmp_path)
         try:
+            regions = (
+                sorted({str(region).strip() for region in regions_override if str(region).strip()})
+                if regions_override
+                else bundle.regions
+            )
             return _execute_c7n_dryrun(
                 policy_path=policy_path,
                 output_dir=output_dir,
                 credential_env=bundle.env,
                 dryrun=True,
-                regions=bundle.regions,
+                regions=regions,
             )
         finally:
             bundle.close()
@@ -479,8 +498,12 @@ def enqueue_custodian_dry_run(
     tenant_id: str,
     policy_id: str,
     trigger: str = CustodianRun.Trigger.MANUAL,
+    triggered_by_id: str | None = None,
 ) -> CustodianRun:
     """Create a pending dry-run and enqueue the Celery worker after commit."""
+    from cloudsneeker_api.services.custodian_validate import (
+        validate_custodian_policy_schema,
+    )
     from cloudsneeker_api.tasks import custodian_dry_run_task
 
     if trigger not in {
@@ -498,6 +521,21 @@ def enqueue_custodian_dry_run(
                 "Cloud Custodian supports AWS, Azure, GCP, and Kubernetes providers only."
             )
         assert_policy_matches_provider(policy.policy_yaml, policy.provider.provider)
+        validate_custodian_policy_schema(policy.policy_yaml)
+        active = CustodianRun.objects.filter(
+            tenant_id=tenant_id,
+            policy_id=policy_id,
+            status__in=[
+                CustodianRun.Status.PENDING,
+                CustodianRun.Status.RUNNING,
+            ],
+        ).count()
+        max_concurrent = int(os.environ.get("C7N_MAX_CONCURRENT_PER_POLICY", "2"))
+        if active >= max_concurrent:
+            raise CustodianDryRunError(
+                f"Policy already has {active} active dry-run(s); "
+                f"limit is {max_concurrent}."
+            )
         run = CustodianRun.objects.create(
             tenant_id=tenant_id,
             policy=policy,
@@ -505,6 +543,7 @@ def enqueue_custodian_dry_run(
             status=CustodianRun.Status.PENDING,
             mode=CustodianRun.Mode.DRYRUN,
             trigger=trigger,
+            triggered_by_id=triggered_by_id,
         )
 
     run_id = str(run.id)
@@ -514,8 +553,45 @@ def enqueue_custodian_dry_run(
     return run
 
 
+def cancel_custodian_dry_run(*, tenant_id: str, run_id: str) -> CustodianRun:
+    """Cancel a pending dry-run before the worker starts."""
+    from cloudsneeker_api.services.custodian_validate import ERROR_CANCELLED
+
+    with rls_transaction(tenant_id):
+        run = CustodianRun.objects.filter(tenant_id=tenant_id, id=run_id).first()
+        if run is None:
+            raise CustodianDryRunError(f"Custodian run {run_id} was not found.")
+        if run.status != CustodianRun.Status.PENDING:
+            raise CustodianDryRunError(
+                "Only pending dry-runs can be cancelled."
+            )
+        run.status = CustodianRun.Status.FAILED
+        run.finished_at = timezone.now()
+        run.error = "Dry-run cancelled before start."
+        run.error_class = ERROR_CANCELLED
+        run.save(
+            update_fields=[
+                "status",
+                "finished_at",
+                "error",
+                "error_class",
+                "updated_at",
+            ]
+        )
+        return run
+
+
 def process_custodian_dry_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
     """Execute a pending Custodian dry-run and persist results."""
+    from cloudsneeker_api.services.custodian_templates import (
+        prowler_check_ids_for_policy_yaml,
+    )
+    from cloudsneeker_api.services.custodian_validate import (
+        build_resources_preview,
+        classify_custodian_error,
+        compute_resource_delta,
+    )
+
     with rls_transaction(tenant_id):
         run = (
             CustodianRun.objects.select_related("policy", "provider", "provider__secret")
@@ -524,32 +600,76 @@ def process_custodian_dry_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
         )
         if run is None:
             raise CustodianDryRunError(f"Custodian run {run_id} was not found.")
+        if run.status == CustodianRun.Status.FAILED and run.error_class == "cancelled":
+            return {"status": CustodianRun.Status.FAILED, "run_id": str(run_id)}
 
         assert_dry_run_only(run.mode)
         run.status = CustodianRun.Status.RUNNING
         run.started_at = timezone.now()
         run.error = ""
-        run.save(update_fields=["status", "started_at", "error", "updated_at"])
+        run.error_class = ""
+        run.save(
+            update_fields=[
+                "status",
+                "started_at",
+                "error",
+                "error_class",
+                "updated_at",
+            ]
+        )
 
         policy_yaml = run.policy.policy_yaml
         provider = run.provider
+        regions_override = list(run.policy.regions_override or [])
+        policy_id = str(run.policy_id)
 
     try:
-        output = run_custodian_dryrun(policy_yaml=policy_yaml, provider=provider)
-        summary = {
-            "resource_count": output.get("resource_count", 0),
-            "policies": output.get("policies", []),
-            "mode": DRY_RUN_MODE,
-            "provider_type": provider.provider,
-            "regions": output.get("regions", []),
-        }
+        output = run_custodian_dryrun(
+            policy_yaml=policy_yaml,
+            provider=provider,
+            regions_override=regions_override or None,
+        )
+        resources = [
+            item
+            for item in output.get("resources", [])
+            if isinstance(item, dict)
+        ]
+        # Retention: keep a bounded raw payload; summary carries the preview.
+        max_resources = int(os.environ.get("C7N_OUTPUT_RESOURCE_LIMIT", "200"))
+        output["resources"] = resources[:max_resources]
+
         with rls_transaction(tenant_id):
+            previous = (
+                CustodianRun.objects.filter(
+                    tenant_id=tenant_id,
+                    policy_id=policy_id,
+                    status=CustodianRun.Status.COMPLETED,
+                )
+                .exclude(id=run_id)
+                .order_by("-finished_at")
+                .first()
+            )
+            previous_resources = (
+                previous.output.get("resources", []) if previous and previous.output else []
+            )
+            delta = compute_resource_delta(resources, previous_resources)
+            summary = {
+                "resource_count": output.get("resource_count", 0),
+                "policies": output.get("policies", []),
+                "mode": DRY_RUN_MODE,
+                "provider_type": provider.provider,
+                "regions": output.get("regions", []),
+                "resources_preview": build_resources_preview(resources),
+                "delta": delta,
+                "prowler_check_ids": prowler_check_ids_for_policy_yaml(policy_yaml),
+            }
             run = CustodianRun.objects.get(tenant_id=tenant_id, id=run_id)
             run.status = CustodianRun.Status.COMPLETED
             run.finished_at = timezone.now()
             run.summary = summary
             run.output = output
             run.error = ""
+            run.error_class = ""
             run.save(
                 update_fields=[
                     "status",
@@ -557,15 +677,48 @@ def process_custodian_dry_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                     "summary",
                     "output",
                     "error",
+                    "error_class",
                     "updated_at",
                 ]
             )
         return {"status": CustodianRun.Status.COMPLETED, "run_id": str(run_id)}
     except Exception as exc:  # noqa: BLE001
+        message = str(exc)[:4000]
         with rls_transaction(tenant_id):
             run = CustodianRun.objects.get(tenant_id=tenant_id, id=run_id)
             run.status = CustodianRun.Status.FAILED
             run.finished_at = timezone.now()
-            run.error = str(exc)[:4000]
-            run.save(update_fields=["status", "finished_at", "error", "updated_at"])
+            run.error = message
+            run.error_class = classify_custodian_error(message)
+            run.save(
+                update_fields=[
+                    "status",
+                    "finished_at",
+                    "error",
+                    "error_class",
+                    "updated_at",
+                ]
+            )
         return {"status": CustodianRun.Status.FAILED, "run_id": str(run_id)}
+
+
+def trim_old_custodian_run_output(*, tenant_id: str, older_than_days: int = 30) -> int:
+    """Clear raw resource lists from completed runs older than N days."""
+    cutoff = timezone.now() - timedelta(days=older_than_days)
+    trimmed = 0
+    with rls_transaction(tenant_id):
+        runs = CustodianRun.objects.filter(
+            tenant_id=tenant_id,
+            status=CustodianRun.Status.COMPLETED,
+            finished_at__lt=cutoff,
+        )
+        for run in runs.iterator():
+            output = dict(run.output or {})
+            if not output.get("resources"):
+                continue
+            output["resources"] = []
+            output["resources_trimmed"] = True
+            run.output = output
+            run.save(update_fields=["output", "updated_at"])
+            trimmed += 1
+    return trimmed

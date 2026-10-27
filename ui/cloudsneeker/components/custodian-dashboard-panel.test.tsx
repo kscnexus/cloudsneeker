@@ -38,6 +38,18 @@ describe("CustodianDashboardPanel", () => {
               providerLabel: "Prod",
             },
           ],
+          resourceTrends: [
+            {
+              runId: "run-1",
+              policyId: "policy-1",
+              policyName: "unused-ebs",
+              insertedAt: "2026-03-01T10:00:00Z",
+              resourcesMatched: 12,
+              deltaNew: 2,
+              deltaGone: 1,
+            },
+          ],
+          findingSuggestions: [],
         }}
       />,
     );
@@ -52,5 +64,7 @@ describe("CustodianDashboardPanel", () => {
       "/custodian/policy-1/runs/run-1",
     );
     expect(screen.getByText("Top policies by resources")).toBeInTheDocument();
+    expect(screen.getByText("Resource-match trends")).toBeInTheDocument();
+    expect(screen.getByText("+2 new")).toBeInTheDocument();
   });
 });

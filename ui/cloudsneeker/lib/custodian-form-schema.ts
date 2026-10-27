@@ -43,6 +43,7 @@ export const custodianPolicyFormSchema = z
     scheduleWeekday: z.coerce.number().int().min(0).max(6).default(1),
     scheduleTimezone: z.string().trim().min(1).default("UTC"),
     scheduleCron: z.string().default(""),
+    regionsOverride: z.string().default(""),
   })
   .superRefine((values, ctx) => {
     if (values.schedulePreset === CUSTODIAN_SCHEDULE_PRESET.CUSTOM) {
@@ -63,10 +64,15 @@ export const custodianPolicyFormSchema = z
       weekday: values.scheduleWeekday,
       customCron: values.scheduleCron,
     });
+    const regionsOverride = values.regionsOverride
+      .split(/[,\s]+/)
+      .map((region) => region.trim())
+      .filter(Boolean);
     return {
       ...values,
       scheduleEnabled: mapped.enabled,
       scheduleCron: mapped.cron,
+      regionsOverrideList: regionsOverride,
     };
   });
 

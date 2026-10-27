@@ -36,6 +36,7 @@ export default async function EditCustodianPolicyPage({
 
   const providers = (providersResponse?.data ?? []).map((provider) => ({
     id: provider.id,
+    providerType: provider.attributes.provider,
     label: [
       provider.attributes.provider,
       provider.attributes.alias || provider.attributes.uid || provider.id,
@@ -64,6 +65,7 @@ export default async function EditCustodianPolicyPage({
           scheduleWeekday: schedule.weekday,
           scheduleTimezone: policy.attributes.schedule_timezone ?? "UTC",
           scheduleCron: policy.attributes.schedule_cron ?? "",
+          regionsOverride: (policy.attributes.regions_override ?? []).join(", "),
         }}
       />
     </ContentLayout>

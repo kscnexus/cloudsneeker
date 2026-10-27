@@ -21,6 +21,21 @@ describe("custodianPolicyFormSchema", () => {
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.scheduleEnabled).toBe(false);
+      expect(parsed.data.regionsOverrideList).toStrictEqual([]);
+    }
+  });
+
+  it("parses comma-separated region overrides", () => {
+    const parsed = custodianPolicyFormSchema.safeParse({
+      ...VALID,
+      regionsOverride: "us-east-1, eu-west-1",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.regionsOverrideList).toStrictEqual([
+        "us-east-1",
+        "eu-west-1",
+      ]);
     }
   });
 

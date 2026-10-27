@@ -117,3 +117,18 @@ def custodian_scheduled_dry_run_task(tenant_id: str, policy_id: str):
     if run is None:
         return {"status": "skipped", "policy_id": str(policy_id)}
     return {"status": "enqueued", "run_id": str(run.id), "policy_id": str(policy_id)}
+
+
+@shared_task(name="cloudsneeker-custodian-trim-outputs", queue="scans")
+def custodian_trim_outputs_task(older_than_days: int = 30):
+    """Clear raw resource lists from old completed Custodian runs (all tenants)."""
+    from api.models import Tenant
+    from cloudsneeker_api.services.custodian import trim_old_custodian_run_output
+
+    trimmed_total = 0
+    for tenant_id in Tenant.objects.values_list("id", flat=True):
+        trimmed_total += trim_old_custodian_run_output(
+            tenant_id=str(tenant_id),
+            older_than_days=older_than_days,
+        )
+    return {"trimmed_runs": trimmed_total}

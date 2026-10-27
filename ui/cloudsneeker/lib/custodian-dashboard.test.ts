@@ -81,7 +81,36 @@ describe("buildCustodianDashboard", () => {
       failedRunCount: 1,
       activeRunCount: 2,
       resourcesMatched: 12,
+      resourceTrends: [],
+      findingSuggestions: [],
     });
+  });
+
+  it("builds resource-match trends from completed runs", () => {
+    const dashboard = buildCustodianDashboard({
+      policies: [policy("p1", "unused-ebs")],
+      runs: [
+        run("r1", "p1", CUSTODIAN_RUN_STATUS.COMPLETED, 4, {
+          inserted_at: "2026-03-02T00:00:00Z",
+          summary: {
+            resource_count: 4,
+            delta: { new_count: 1, gone_count: 0 },
+          },
+        }),
+      ],
+    });
+
+    expect(dashboard.resourceTrends).toStrictEqual([
+      {
+        runId: "r1",
+        policyId: "p1",
+        policyName: "unused-ebs",
+        insertedAt: "2026-03-02T00:00:00Z",
+        resourcesMatched: 4,
+        deltaNew: 1,
+        deltaGone: 0,
+      },
+    ]);
   });
 
   it("lists recent runs newest first and ranks policies by resources", () => {

@@ -6,12 +6,18 @@ import {
   getCustodianPolicy,
   getCustodianRun,
 } from "@/cloudsneeker/actions/custodian";
+import { CustodianCancelRunButton } from "@/cloudsneeker/components/custodian-cancel-run-button";
 import { CustodianRunResourcesTable } from "@/cloudsneeker/components/custodian-run-resources-table";
-import { formatDuration, runDurationMs } from "@/cloudsneeker/lib/custodian-dashboard";
+import {
+  formatDuration,
+  runDurationMs,
+} from "@/cloudsneeker/lib/custodian-dashboard";
 import { normalizeCustodianResources } from "@/cloudsneeker/lib/custodian-resources";
-import type {
-  CustodianPolicyResource,
-  CustodianRunResource,
+import { findingsHrefForChecks } from "@/cloudsneeker/lib/custodian-templates";
+import {
+  CUSTODIAN_RUN_STATUS,
+  type CustodianPolicyResource,
+  type CustodianRunResource,
 } from "@/cloudsneeker/types/custodian";
 import { Button } from "@/components/shadcn";
 import { Badge } from "@/components/shadcn/badge/badge";
@@ -23,6 +29,8 @@ import {
   SectionHeader,
   SectionTitle,
 } from "@/components/shadcn/section/section";
+
+import { CustodianDownloadYamlButton } from "./download-yaml-button";
 
 interface CustodianRunDetailPageProps {
   params: Promise<{ policyId: string; runId: string }>;
@@ -74,6 +82,9 @@ export default async function CustodianRunDetailPage({
     policy.attributes.provider_alias ||
     policy.attributes.provider_uid ||
     "—";
+  const prowlerCheckIds = run.attributes.summary?.prowler_check_ids ?? [];
+  const findingsHref = findingsHrefForChecks(prowlerCheckIds);
+  const isPending = run.attributes.status === CUSTODIAN_RUN_STATUS.PENDING;
 
   return (
     <ContentLayout title={policy.attributes.name} icon={<Shield />}>
@@ -86,6 +97,11 @@ export default async function CustodianRunDetailPage({
             <Badge variant="tag" className="capitalize">
               {run.attributes.trigger ?? "manual"}
             </Badge>
+            {run.attributes.error_class ? (
+              <Badge variant="tag" className="capitalize">
+                {run.attributes.error_class.replaceAll("_", " ")}
+              </Badge>
+            ) : null}
             <span className="text-text-neutral-secondary text-sm">
               dry-run report
             </span>
@@ -110,20 +126,37 @@ export default async function CustodianRunDetailPage({
             </p>
           ) : null}
           {run.attributes.error ? (
-            <p className="text-text-error text-sm">{run.attributes.error}</p>
+            <p className="text-text-error text-sm">
+              {run.attributes.error_class
+                ? `[${run.attributes.error_class}] `
+                : ""}
+              {run.attributes.error}
+            </p>
           ) : null}
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href={`/custodian/${policyId}`}>Back to policy</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <CustodianDownloadYamlButton
+            filename={`custodian-policy-${policyId}.yml`}
+            yaml={policy.attributes.policy_yaml}
+          />
+          {findingsHref ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link href={findingsHref}>Related Findings</Link>
+            </Button>
+          ) : null}
+          {isPending ? <CustodianCancelRunButton runId={runId} /> : null}
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/custodian/${policyId}`}>Back to policy</Link>
+          </Button>
+        </div>
       </div>
 
       <Section>
         <SectionHeader>
           <SectionTitle>Matched resources</SectionTitle>
           <SectionDescription>
-            Same detail pattern as Findings — open a row to inspect the full
-            Custodian resource payload.
+            Findings-style detail — export CSV/JSON, compare deltas, and open a
+            row for Overview / Metadata / Raw. Apply mode stays disabled.
           </SectionDescription>
         </SectionHeader>
         <SectionContent>
@@ -132,6 +165,9 @@ export default async function CustodianRunDetailPage({
             providerType={
               run.attributes.provider_type || policy.attributes.provider_type
             }
+            delta={run.attributes.summary?.delta}
+            prowlerCheckIds={prowlerCheckIds}
+            runId={runId}
           />
         </SectionContent>
       </Section>

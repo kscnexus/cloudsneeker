@@ -2,6 +2,7 @@ import { Shield } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { getLatestFindings } from "@/actions/findings/findings";
 import {
   listCustodianPolicies,
   listCustodianRuns,
@@ -14,7 +15,13 @@ import {
   buildCustodianDashboard,
   buildCustodianReportRows,
   getCustodianTab,
+  type CustodianFindingSuggestion,
 } from "@/cloudsneeker/lib/custodian-dashboard";
+import {
+  allMappedProwlerCheckIds,
+  findingsHrefForChecks,
+  templatesForProwlerChecks,
+} from "@/cloudsneeker/lib/custodian-templates";
 import type {
   CustodianPolicyResource,
   CustodianRunResource,
@@ -54,7 +61,8 @@ const SSRCustodianWorkspace = async ({
 }: {
   activeTab: ReturnType<typeof getCustodianTab>;
 }) => {
-  const [policiesResponse, runsResponse] = await Promise.all([
+  const mappedChecks = allMappedProwlerCheckIds();
+  const [policiesResponse, runsResponse, findingsResponse] = await Promise.all([
     listCustodianPolicies({
       "page[size]": "100",
       sort: "-inserted_at",
@@ -63,6 +71,16 @@ const SSRCustodianWorkspace = async ({
       "page[size]": "100",
       sort: "-inserted_at",
     }),
+    mappedChecks.length > 0
+      ? getLatestFindings({
+          page: 1,
+          pageSize: 25,
+          filters: {
+            "filter[status]": "FAIL",
+            "filter[check_id__in]": mappedChecks.join(","),
+          },
+        })
+      : Promise.resolve(undefined),
   ]);
 
   const policyError =
@@ -86,7 +104,36 @@ const SSRCustodianWorkspace = async ({
 
   const policies = (policiesResponse?.data ?? []) as CustodianPolicyResource[];
   const runs = (runsResponse?.data ?? []) as CustodianRunResource[];
-  const metrics = buildCustodianDashboard({ policies, runs });
+
+  const failedCheckIds = new Set<string>();
+  const findingsData = findingsResponse?.data;
+  if (Array.isArray(findingsData)) {
+    for (const finding of findingsData) {
+      const checkId = (finding as { attributes?: { check_id?: string } })
+        ?.attributes?.check_id;
+      if (checkId) failedCheckIds.add(checkId);
+    }
+  }
+  const findingSuggestions: CustodianFindingSuggestion[] = templatesForProwlerChecks(
+    [...failedCheckIds],
+  ).flatMap((template) =>
+    template.prowlerCheckIds
+      .filter((checkId) => failedCheckIds.has(checkId))
+      .map((checkId) => ({
+        checkId,
+        templateId: template.id,
+        templateName: template.name,
+        providerType: template.providerTypes[0] ?? "aws",
+        findingsHref: findingsHrefForChecks([checkId]) ?? "/findings",
+        newPolicyHref: `/custodian/new?template=${template.id}`,
+      })),
+  );
+
+  const metrics = buildCustodianDashboard({
+    policies,
+    runs,
+    findingSuggestions,
+  });
   const reportRows = buildCustodianReportRows({ policies, runs });
 
   return (

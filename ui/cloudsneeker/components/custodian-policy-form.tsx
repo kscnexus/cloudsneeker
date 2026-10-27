@@ -7,23 +7,36 @@ import { useForm, useWatch } from "react-hook-form";
 
 import {
   createCustodianPolicy,
+  installCustodianPack,
   updateCustodianPolicy,
 } from "@/cloudsneeker/actions/custodian";
+import {
+  CUSTODIAN_BUILDER_RESOURCE,
+  CUSTODIAN_BUILDER_RESOURCES,
+  buildCustodianPolicyYaml,
+  filtersForResource,
+  type CustodianBuilderResource,
+} from "@/cloudsneeker/lib/custodian-builder";
 import {
   custodianPolicyFormSchema,
   type CustodianPolicyFormInput,
   type CustodianPolicyFormValues,
 } from "@/cloudsneeker/lib/custodian-form-schema";
 import { CUSTODIAN_SCHEDULE_PRESET } from "@/cloudsneeker/lib/custodian-schedule";
+import {
+  packsForProvider,
+  templatesForProvider,
+} from "@/cloudsneeker/lib/custodian-templates";
 import { Button, Input, Label, Textarea } from "@/components/shadcn";
 
-interface AwsProviderOption {
+interface ProviderOption {
   id: string;
   label: string;
+  providerType?: string;
 }
 
 interface CustodianPolicyFormProps {
-  providers: AwsProviderOption[];
+  providers: ProviderOption[];
   initialValues?: CustodianPolicyFormInput;
   policyId?: string;
 }
@@ -46,6 +59,10 @@ export const CustodianPolicyForm = ({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [builderResource, setBuilderResource] =
+    useState<CustodianBuilderResource>(CUSTODIAN_BUILDER_RESOURCE.AWS_EBS);
+  const [builderFilters, setBuilderFilters] = useState<string[]>(["unattached"]);
+  const [packMessage, setPackMessage] = useState<string | null>(null);
 
   const form = useForm<
     CustodianPolicyFormInput,
@@ -68,6 +85,7 @@ export const CustodianPolicyForm = ({
       scheduleWeekday: 1,
       scheduleTimezone: "UTC",
       scheduleCron: "",
+      regionsOverride: "",
     },
   });
 
@@ -75,6 +93,14 @@ export const CustodianPolicyForm = ({
     control: form.control,
     name: "schedulePreset",
   });
+  const providerId = useWatch({
+    control: form.control,
+    name: "providerId",
+  });
+  const selectedProvider = providers.find((item) => item.id === providerId);
+  const templates = templatesForProvider(selectedProvider?.providerType);
+  const packs = packsForProvider(selectedProvider?.providerType);
+  const builderFilterOptions = filtersForResource(builderResource);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
@@ -87,6 +113,7 @@ export const CustodianPolicyForm = ({
       scheduleEnabled: values.scheduleEnabled,
       scheduleCron: values.scheduleCron,
       scheduleTimezone: values.scheduleTimezone,
+      regionsOverride: values.regionsOverrideList,
     };
     const result = policyId
       ? await updateCustodianPolicy(policyId, payload)
@@ -112,6 +139,49 @@ export const CustodianPolicyForm = ({
     router.push(savedId ? `/custodian/${savedId}` : "/custodian");
     router.refresh();
   });
+
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    form.setValue("policyYaml", template.policyYaml, { shouldValidate: true });
+    if (!form.getValues("name")) {
+      form.setValue("name", template.name.slice(0, 100), {
+        shouldValidate: true,
+      });
+    }
+    if (!form.getValues("description")) {
+      form.setValue("description", template.description);
+    }
+  };
+
+  const applyBuilder = () => {
+    const name = form.getValues("name") || "generated-policy";
+    const yaml = buildCustodianPolicyYaml({
+      name: name.toLowerCase().replace(/\s+/g, "-").slice(0, 64),
+      resource: builderResource,
+      filterIds: builderFilters,
+      description: form.getValues("description") || undefined,
+    });
+    form.setValue("policyYaml", yaml, { shouldValidate: true });
+  };
+
+  const installPack = async (packId: string) => {
+    if (!providerId) return;
+    setPackMessage(null);
+    setSaving(true);
+    const result = await installCustodianPack({ packId, providerId });
+    setSaving(false);
+    if (result && "error" in result && result.error) {
+      setError(
+        typeof result.error === "string"
+          ? result.error
+          : "Failed to install pack.",
+      );
+      return;
+    }
+    setPackMessage("Pack installed. Policies appear on the Custodian list.");
+    router.refresh();
+  };
 
   return (
     <form className="flex max-w-3xl flex-col gap-4" onSubmit={onSubmit}>
@@ -154,6 +224,121 @@ export const CustodianPolicyForm = ({
         ) : null}
       </div>
 
+      {!policyId && templates.length > 0 ? (
+        <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
+          <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
+            Starter templates
+          </legend>
+          <p className="text-text-neutral-secondary text-xs">
+            Load a validated dry-run starter. Actions / remediate are never
+            included.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((template) => (
+              <Button
+                key={template.id}
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => applyTemplate(template.id)}
+              >
+                {template.name}
+              </Button>
+            ))}
+          </div>
+          {packs.map((pack) => (
+            <div key={pack.id} className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving || !providerId}
+                onClick={() => installPack(pack.id)}
+              >
+                Install {pack.name}
+              </Button>
+              <span className="text-text-neutral-secondary text-xs">
+                {pack.description}
+              </span>
+            </div>
+          ))}
+          {packMessage ? (
+            <p className="text-text-neutral-secondary text-sm">{packMessage}</p>
+          ) : null}
+        </fieldset>
+      ) : null}
+
+      <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
+        <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
+          Visual builder
+        </legend>
+        <p className="text-text-neutral-secondary text-xs">
+          Pick a resource and filters, then write YAML into the editor. Dry-run
+          only — actions stay hidden.
+        </p>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="custodian-builder-resource">Resource</Label>
+          <select
+            id="custodian-builder-resource"
+            className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
+            value={builderResource}
+            onChange={(event) => {
+              const next = event.target.value as CustodianBuilderResource;
+              setBuilderResource(next);
+              const first = filtersForResource(next)[0];
+              setBuilderFilters(first ? [first.id] : []);
+            }}
+          >
+            {CUSTODIAN_BUILDER_RESOURCES.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium">Filters</span>
+          {builderFilterOptions.map((option) => {
+            const checked = builderFilters.includes(option.id);
+            return (
+              <label
+                key={option.id}
+                className="text-text-neutral-primary flex items-start gap-2 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={checked}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      setBuilderFilters([...builderFilters, option.id]);
+                    } else {
+                      setBuilderFilters(
+                        builderFilters.filter((id) => id !== option.id),
+                      );
+                    }
+                  }}
+                />
+                <span>
+                  {option.label}{" "}
+                  <a
+                    href={option.docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-text-neutral-secondary underline"
+                  >
+                    docs
+                  </a>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={applyBuilder}>
+          Write YAML from builder
+        </Button>
+      </fieldset>
+
       <div className="flex flex-col gap-2">
         <Label htmlFor="custodian-yaml">Policy YAML</Label>
         <Textarea
@@ -166,6 +351,21 @@ export const CustodianPolicyForm = ({
             {form.formState.errors.policyYaml.message}
           </p>
         ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="custodian-regions">
+          Region override (optional, comma-separated)
+        </Label>
+        <Input
+          id="custodian-regions"
+          placeholder="us-east-1, eu-west-1"
+          className="font-mono text-sm"
+          {...form.register("regionsOverride")}
+        />
+        <p className="text-text-neutral-secondary text-xs">
+          Leave blank to use the provider scanner regions.
+        </p>
       </div>
 
       <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">

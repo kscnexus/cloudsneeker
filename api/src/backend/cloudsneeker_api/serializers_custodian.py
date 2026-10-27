@@ -8,6 +8,9 @@ from cloudsneeker_api.services.custodian import (
     assert_policy_matches_provider,
     is_custodian_supported_provider,
 )
+from cloudsneeker_api.services.custodian_validate import (
+    validate_custodian_policy_schema,
+)
 from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
     parse_cron_fields,
@@ -44,6 +47,7 @@ class CustodianPolicySerializer(RLSSerializer):
             "schedule_enabled",
             "schedule_cron",
             "schedule_timezone",
+            "regions_override",
             "next_run_at",
         ]
 
@@ -69,6 +73,7 @@ class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
             "schedule_enabled",
             "schedule_cron",
             "schedule_timezone",
+            "regions_override",
             "next_run_at",
         ]
         extra_kwargs = {
@@ -82,6 +87,7 @@ class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
             "schedule_enabled": {"required": False},
             "schedule_cron": {"required": False},
             "schedule_timezone": {"required": False},
+            "regions_override": {"required": False},
         }
 
     class JSONAPIMeta:
@@ -137,8 +143,24 @@ class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
         if policy_yaml is not None and provider_type is not None:
             try:
                 assert_policy_matches_provider(policy_yaml, provider_type)
+                validate_custodian_policy_schema(policy_yaml)
             except CustodianDryRunError as exc:
                 raise ValidationError({"policy_yaml": str(exc)}) from exc
+
+        regions_override = attrs.get("regions_override")
+        if regions_override is not None:
+            if not isinstance(regions_override, list):
+                raise ValidationError(
+                    {"regions_override": "Must be a list of region strings."}
+                )
+            cleaned = []
+            for region in regions_override:
+                if not isinstance(region, str) or not region.strip():
+                    raise ValidationError(
+                        {"regions_override": "Each region must be a non-empty string."}
+                    )
+                cleaned.append(region.strip())
+            attrs["regions_override"] = cleaned
 
         schedule_enabled = attrs.get(
             "schedule_enabled",
@@ -213,6 +235,9 @@ class CustodianRunSerializer(RLSSerializer):
     provider_type = serializers.CharField(
         source="provider.provider", read_only=True
     )
+    triggered_by_id = serializers.UUIDField(
+        source="triggered_by.id", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = CustodianRun
@@ -234,8 +259,18 @@ class CustodianRunSerializer(RLSSerializer):
             "summary",
             "output",
             "error",
+            "error_class",
+            "triggered_by_id",
         ]
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}custodian-runs"
+
+
+class CustodianInstallPackSerializer(serializers.Serializer):
+    """Install a curated template pack onto one provider."""
+
+    pack_id = serializers.CharField()
+    provider_id = serializers.UUIDField()
+
 
