@@ -14,6 +14,10 @@ from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from celery.utils.log import get_task_logger
+from cloudsneeker_api.llm_compat import (  # cloudsneeker-hook
+    openai_compatible_client_kwargs,
+    openai_compatible_models_list_kwargs,
+)
 
 logger = get_task_logger(__name__)
 
@@ -129,8 +133,11 @@ def _list_openai_compatible_models(base_url: str, api_key: str):
                 api_key=api_key,
                 base_url=base_url,
                 http_client=http_client,
+                **openai_compatible_client_kwargs(base_url, api_key),  # cloudsneeker-hook
             )
-            return client.models.list()
+            return client.models.list(
+                **openai_compatible_models_list_kwargs(base_url)  # cloudsneeker-hook
+            )
     except Exception as error:
         raise _OpenAICompatibleProviderError(
             _sanitize_openai_compatible_error(error)
