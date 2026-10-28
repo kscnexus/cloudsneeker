@@ -40,6 +40,26 @@ def _schedule_document(provider: Provider, attributes: dict) -> dict:
     }
 
 
+def _provider_resource(provider: Provider) -> dict:
+    return {
+        "type": "providers",
+        "id": str(provider.id),
+        "attributes": {
+            "provider": provider.provider,
+            "uid": provider.uid,
+            "alias": provider.alias,
+        },
+    }
+
+
+def _positive_int(value: str | None, default: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return number if number > 0 else default
+
+
 @extend_schema_view(
     list=extend_schema(
         tags=["Schedule"],
@@ -71,23 +91,51 @@ class ScheduleViewSet(UpstreamScheduleViewSet):
         return self.get_provider_queryset()
 
     def list(self, request, *args, **kwargs):
+        # Hand-built envelopes; disable JSON:API re-wrapping (no ``data.data``).
+        self.resource_name = False
         providers = self.filter_queryset(self.get_queryset())
-        configured_only = request.query_params.get("filter[configured]") == "true"
-        data = []
+        params = request.query_params
+        configured_only = params.get("filter[configured]") == "true"
+        rows = []
         for provider in providers:
             attributes = read_schedule_attributes(provider)
             if configured_only and not attributes.get("scan_enabled"):
                 continue
-            data.append(_schedule_document(provider, attributes))
-        return Response({"data": data})
+            rows.append((provider, attributes))
+
+        page_size = _positive_int(params.get("page[size]"), default=len(rows) or 1)
+        page_number = _positive_int(params.get("page[number]"), default=1)
+        pages = max(1, -(-len(rows) // page_size))
+        page_rows = rows[(page_number - 1) * page_size : page_number * page_size]
+
+        document = {
+            "data": [
+                _schedule_document(provider, attributes)
+                for provider, attributes in page_rows
+            ],
+            "meta": {
+                "pagination": {
+                    "page": page_number,
+                    "pages": pages,
+                    "count": len(rows),
+                }
+            },
+        }
+        if "provider" in (params.get("include") or "").split(","):
+            document["included"] = [
+                _provider_resource(provider) for provider, _ in page_rows
+            ]
+        return Response(document)
 
     def retrieve(self, request, *args, **kwargs):
+        self.resource_name = False
         provider = self.get_object()
         return Response(
             {"data": _schedule_document(provider, read_schedule_attributes(provider))}
         )
 
     def partial_update(self, request, *args, **kwargs):
+        self.resource_name = False
         provider = self.get_object()
         payload = request.data or {}
         attributes = payload.get("attributes") or payload
@@ -121,6 +169,7 @@ class ScheduleViewSet(UpstreamScheduleViewSet):
         parser_classes=[LenientJSONAPIParser, JSONParser],
     )
     def bulk(self, request, *args, **kwargs):
+        self.resource_name = False
         payload = request.data or {}
         attributes = payload.get("attributes") or payload
         if isinstance(payload.get("data"), dict):

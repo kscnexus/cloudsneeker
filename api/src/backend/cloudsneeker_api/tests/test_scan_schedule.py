@@ -1,15 +1,20 @@
 """Unit tests for provider scan schedule beat sync and the ``/schedules`` API."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 from cloudsneeker_api.services.scan_schedule import (
     ScanScheduleError,
+    advance_past_now,
+    next_run_after,
     periodic_task_name,
+    scheduled_scan_window,
     sync_provider_scan_schedule,
 )
 from django.urls import reverse
+from freezegun import freeze_time
 from rest_framework import status
 
 
@@ -149,3 +154,113 @@ class TestScheduleViewSetDocuments:
         assert response.status_code == status.HTTP_200_OK
         ids = {item["id"] for item in _primary_data(response)}
         assert str(aws_provider.id) in ids
+
+    def test_list_is_a_single_wrapped_document(
+        self, authenticated_client, aws_provider
+    ):
+        # The UI spreads ``result.data``; a nested ``data.data`` object broke it.
+        response = authenticated_client.get(reverse("schedule-list"))
+
+        body = response.json()
+        assert isinstance(body["data"], list)
+        assert body["data"][0]["type"] == "schedules"
+        assert body["meta"]["pagination"]["page"] == 1
+
+    def test_list_includes_providers_and_paginates(
+        self, authenticated_client, aws_provider
+    ):
+        response = authenticated_client.get(
+            reverse("schedule-list"),
+            {"include": "provider", "page[size]": "1", "page[number]": "1"},
+        )
+
+        body = response.json()
+        assert len(body["data"]) == 1
+        assert body["included"][0]["type"] == "providers"
+        assert body["included"][0]["id"] == body["data"][0]["id"]
+        assert body["meta"]["pagination"]["pages"] == body["meta"]["pagination"]["count"]
+
+
+def _crontab_task(hour="9", day_of_week="*", tz="UTC"):
+    from django_celery_beat.models import CrontabSchedule
+
+    task = MagicMock()
+    task.interval_id = None
+    task.interval = None
+    task.crontab_id = 7
+    task.crontab = CrontabSchedule(
+        minute="0",
+        hour=hour,
+        day_of_month="*",
+        month_of_year="*",
+        day_of_week=day_of_week,
+        timezone=tz,
+    )
+    return task
+
+
+def _interval_task(hours=24):
+    task = MagicMock()
+    task.crontab_id = None
+    task.crontab = None
+    task.interval_id = 3
+    task.interval.period = "hours"
+    task.interval.every = hours
+    return task
+
+
+class TestCrontabAwareScheduling:
+    @freeze_time("2026-10-28 15:30:00", tz_offset=0)
+    def test_next_run_after_daily_crontab_is_the_next_fire_time(self):
+        after = datetime(2026, 10, 28, 15, 30, tzinfo=UTC)
+        assert next_run_after(_crontab_task(hour="9"), after) == datetime(
+            2026, 10, 29, 9, 0, tzinfo=UTC
+        )
+
+    @freeze_time("2026-10-28 15:30:00", tz_offset=0)
+    def test_next_run_after_weekly_crontab_respects_the_day(self):
+        after = datetime(2026, 10, 28, 15, 30, tzinfo=UTC)  # Wednesday
+        # day_of_week 1 = Monday in celery crontab
+        assert next_run_after(_crontab_task(day_of_week="1"), after) == datetime(
+            2026, 11, 2, 9, 0, tzinfo=UTC
+        )
+
+    def test_next_run_after_interval_adds_the_interval(self):
+        after = datetime(2026, 10, 28, 15, 30, tzinfo=UTC)
+        assert next_run_after(_interval_task(48), after) == after + timedelta(
+            hours=48
+        )
+
+    @freeze_time("2026-10-28 15:30:00", tz_offset=0)
+    def test_scheduled_scan_window_for_crontab_runs_now(self):
+        upstream_next = MagicMock()
+        next_dt, current_dt = scheduled_scan_window(
+            _crontab_task(hour="9"), upstream_next
+        )
+
+        assert current_dt == datetime(2026, 10, 28, 15, 30, tzinfo=UTC)
+        assert next_dt == datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
+        upstream_next.assert_not_called()
+
+    def test_scheduled_scan_window_for_interval_keeps_upstream_math(self):
+        upstream = datetime(2026, 10, 29, 15, 0, tzinfo=UTC)
+        next_dt, current_dt = scheduled_scan_window(
+            _interval_task(24), lambda: upstream
+        )
+
+        assert next_dt == upstream
+        assert current_dt == upstream - timedelta(hours=24)
+
+    @freeze_time("2026-10-28 15:30:00", tz_offset=0)
+    def test_advance_past_now_skips_missed_crontab_runs(self):
+        stale = datetime(2026, 10, 20, 9, 0, tzinfo=UTC)
+        assert advance_past_now(_crontab_task(hour="9"), stale) == datetime(
+            2026, 10, 29, 9, 0, tzinfo=UTC
+        )
+
+    def test_unscheduled_task_is_rejected(self):
+        task = MagicMock()
+        task.interval_id = None
+        task.crontab_id = None
+        with pytest.raises(ScanScheduleError):
+            next_run_after(task, datetime(2026, 10, 28, tzinfo=UTC))

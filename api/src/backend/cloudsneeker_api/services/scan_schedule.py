@@ -7,6 +7,7 @@ on top of the existing ``scan-perform-scheduled`` Celery task name used by OSS.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -27,6 +28,65 @@ class ScanScheduleError(ValueError):
 
 def periodic_task_name(provider_id: str) -> str:
     return f"{TASK_NAME_PREFIX}{provider_id}"
+
+
+def next_run_after(periodic_task: PeriodicTask, after: datetime) -> datetime:
+    """Return the first run of ``periodic_task`` strictly after ``after``.
+
+    OSS scan tasks always use an interval; DAILY / WEEKLY / MONTHLY schedules
+    created here use a crontab, which the upstream scheduled-scan task cannot
+    step through on its own.
+
+    Args:
+        periodic_task: The provider's ``scan-perform-scheduled`` beat task.
+        after: Timezone-aware reference time.
+
+    Returns:
+        The next run time in UTC.
+
+    Raises:
+        ScanScheduleError: The task has neither an interval nor a crontab.
+    """
+    if periodic_task.interval_id:
+        interval = periodic_task.interval
+        return after + timedelta(**{interval.period: interval.every})
+    if periodic_task.crontab_id:
+        schedule = periodic_task.crontab.schedule
+        remaining = schedule.remaining_estimate(after)
+        return (schedule.now() + remaining).astimezone(UTC).replace(microsecond=0)
+    raise ScanScheduleError("Scheduled scan task has no interval or crontab.")
+
+
+def advance_past_now(periodic_task: PeriodicTask, next_dt: datetime) -> datetime:
+    """Step ``next_dt`` forward until it is in the future."""
+    now = datetime.now(UTC)
+    while next_dt <= now:
+        next_dt = next_run_after(periodic_task, next_dt)
+    return next_dt
+
+
+def scheduled_scan_window(
+    periodic_task: PeriodicTask, upstream_next: Callable[[], datetime]
+) -> tuple[datetime, datetime]:
+    """Return ``(next_run, current_run)`` for a scheduled scan execution.
+
+    Interval tasks keep the upstream calculation unchanged. Crontab tasks run
+    now and schedule the next crontab fire time.
+
+    Args:
+        periodic_task: The provider's ``scan-perform-scheduled`` beat task.
+        upstream_next: Upstream ``get_next_execution_datetime`` bound to the run.
+
+    Returns:
+        The next run time and the time this run is recorded for.
+    """
+    if periodic_task.interval_id:
+        next_dt = upstream_next()
+        interval = periodic_task.interval
+        return next_dt, next_dt - timedelta(**{interval.period: interval.every})
+
+    now = datetime.now(UTC)
+    return next_run_after(periodic_task, now), now
 
 
 def validate_timezone(name: str) -> str:
@@ -69,13 +129,15 @@ def _ensure_available_scan(
     periodic_task: PeriodicTask,
     schedule_label: str,
 ) -> Scan:
+    scheduled_at = next_run_after(periodic_task, datetime.now(UTC))
     with rls_transaction(tenant_id):
         existing = (
             Scan.objects.filter(
                 tenant_id=tenant_id,
                 provider_id=provider_id,
                 trigger=Scan.TriggerChoices.SCHEDULED,
-                state=StateChoices.AVAILABLE,
+                state__in=(StateChoices.AVAILABLE, StateChoices.SCHEDULED),
+                task__isnull=True,
             )
             .order_by("-inserted_at")
             .first()
@@ -83,9 +145,10 @@ def _ensure_available_scan(
         if existing:
             existing.scheduler_task_id = periodic_task.id
             existing.name = schedule_label
-            existing.scheduled_at = datetime.now(UTC)
+            existing.scheduled_at = scheduled_at
+            existing.state = StateChoices.SCHEDULED
             existing.save(
-                update_fields=["scheduler_task_id", "name", "scheduled_at"]
+                update_fields=["scheduler_task_id", "name", "scheduled_at", "state"]
             )
             return existing
 
@@ -94,8 +157,8 @@ def _ensure_available_scan(
             name=schedule_label,
             provider_id=provider_id,
             trigger=Scan.TriggerChoices.SCHEDULED,
-            state=StateChoices.AVAILABLE,
-            scheduled_at=datetime.now(UTC),
+            state=StateChoices.SCHEDULED,
+            scheduled_at=scheduled_at,
             scheduler_task_id=periodic_task.id,
         )
         attack_paths_db_utils.create_attack_paths_scan(
@@ -134,7 +197,8 @@ def sync_provider_scan_schedule(
                 tenant_id=tenant_id,
                 provider_id=provider_id,
                 trigger=Scan.TriggerChoices.SCHEDULED,
-                state=StateChoices.AVAILABLE,
+                state__in=(StateChoices.AVAILABLE, StateChoices.SCHEDULED),
+                task__isnull=True,
             ).update(state=StateChoices.CANCELLED)
         return _disabled_attributes(scan_timezone)
 

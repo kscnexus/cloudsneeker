@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime  # cloudsneeker-hook: UTC/timedelta moved to scan_schedule helpers
 from pathlib import Path
 from shutil import rmtree
 from uuid import uuid4
@@ -26,6 +26,10 @@ from api.utils import initialize_prowler_provider
 from api.v1.serializers import ScanTaskSerializer
 from celery import chain, group, shared_task, states
 from celery.utils.log import get_task_logger
+from cloudsneeker_api.services.scan_schedule import (  # cloudsneeker-hook
+    advance_past_now,
+    scheduled_scan_window,
+)
 from config.celery import RLSTask
 from config.django.base import DJANGO_FINDINGS_BATCH_SIZE, DJANGO_TMP_OUTPUT_DIRECTORY
 from django.db import transaction
@@ -299,10 +303,7 @@ def _get_or_create_next_scheduled_scan(
     periodic_task_instance: PeriodicTask,
     next_scan_datetime: datetime,
 ) -> Scan:
-    interval = periodic_task_instance.interval
-    now = datetime.now(UTC)
-    while next_scan_datetime <= now:
-        next_scan_datetime += timedelta(**{interval.period: interval.every})
+    next_scan_datetime = advance_past_now(periodic_task_instance, next_scan_datetime)  # cloudsneeker-hook: crontab-aware
 
     return _get_or_create_scheduled_scan(
         tenant_id=tenant_id,
@@ -608,10 +609,9 @@ def perform_scheduled_scan_task(self, tenant_id: str, provider_id: str):
             logger.warning(f"Duplicated scheduled scan for provider {provider_id}.")
             return ScanTaskSerializer(instance=executed_scan).data
 
-        interval = periodic_task_instance.interval
-        next_scan_datetime = get_next_execution_datetime(task_id, provider_id)
-        current_scan_datetime = next_scan_datetime - timedelta(
-            **{interval.period: interval.every}
+        next_scan_datetime, current_scan_datetime = scheduled_scan_window(  # cloudsneeker-hook: crontab-aware
+            periodic_task_instance,
+            lambda: get_next_execution_datetime(task_id, provider_id),
         )
 
         # TEMPORARY WORKAROUND: Clean up orphan scans from transaction isolation issue

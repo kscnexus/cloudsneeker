@@ -134,6 +134,14 @@ def custodian_trim_outputs_task(older_than_days: int = 30):
     return {"trimmed_runs": trimmed_total}
 
 
+@shared_task(name="cloudsneeker-fail-orphaned-scans", queue="celery")
+def fail_orphaned_scans_task():
+    """Celery Beat entrypoint: fail scans whose worker died and release the queue."""
+    from cloudsneeker_api.services.orphan_scans import fail_orphaned_scans_all_tenants
+
+    return fail_orphaned_scans_all_tenants()
+
+
 @shared_task(base=RLSTask, name="cloudsneeker-trivy-scan", queue="scans")
 @set_tenant(keep_tenant=True)
 def trivy_scan_task(tenant_id: str, run_id: str):
