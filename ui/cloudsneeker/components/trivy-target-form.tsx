@@ -118,8 +118,8 @@ export const TrivyTargetForm = ({
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
     let binary = "";
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
+    for (let index = 0; index < bytes.length; index += 1) {
+      binary += String.fromCharCode(bytes[index]);
     }
     form.setValue("archiveB64", btoa(binary), { shouldValidate: true });
   };
