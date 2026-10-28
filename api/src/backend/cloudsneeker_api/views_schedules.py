@@ -135,9 +135,11 @@ class ScheduleViewSet(UpstreamScheduleViewSet):
         )
 
     def partial_update(self, request, *args, **kwargs):
-        self.resource_name = False
         provider = self.get_object()
         payload = request.data or {}
+        # Parse first: the JSON:API parser reads resource_name. Then disable
+        # re-wrapping for the hand-built response.
+        self.resource_name = False
         attributes = payload.get("attributes") or payload
         if isinstance(payload.get("data"), dict):
             attributes = payload["data"].get("attributes") or attributes
@@ -169,8 +171,8 @@ class ScheduleViewSet(UpstreamScheduleViewSet):
         parser_classes=[LenientJSONAPIParser, JSONParser],
     )
     def bulk(self, request, *args, **kwargs):
-        self.resource_name = False
         payload = request.data or {}
+        self.resource_name = False
         attributes = payload.get("attributes") or payload
         if isinstance(payload.get("data"), dict):
             attributes = payload["data"].get("attributes") or attributes
