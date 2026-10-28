@@ -8,6 +8,7 @@ import {
   captureMessage,
 } from "@sentry/nextjs";
 
+import { canonicalToolName } from "@/cloudsneeker/lighthouse-tools"; // cloudsneeker-hook
 import { getAuthContext } from "@/lib/lighthouse-v1/auth-context";
 import { SentryErrorSource, SentryErrorType } from "@/sentry";
 
@@ -91,10 +92,11 @@ class MCPClientManager {
     // under the bare `prowler_` prefix. Prowler Hub (`prowler_hub_`) and Prowler
     // Docs (`prowler_docs_`) tools are public and need no authentication. The
     // legacy `prowler_app_` prefix also starts with `prowler_`, so it is covered.
+    const toolName = canonicalToolName(name); // cloudsneeker-hook: shipped names use the brand namespace
     const needsAuth =
-      name.startsWith("prowler_") &&
-      !name.startsWith("prowler_hub_") &&
-      !name.startsWith("prowler_docs_");
+      toolName.startsWith("prowler_") &&
+      !toolName.startsWith("prowler_hub_") &&
+      !toolName.startsWith("prowler_docs_");
     if (!needsAuth) {
       return { args };
     }

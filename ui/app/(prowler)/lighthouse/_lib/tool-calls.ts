@@ -1,4 +1,5 @@
 import type { LighthouseV2ToolCallContent } from "@/app/(prowler)/lighthouse/_types";
+import { canonicalToolName } from "@/cloudsneeker/lighthouse-tools"; // cloudsneeker-hook
 
 // Prefixes shared by the MCP-sourced tools; stripped for display so a name like
 // `prowler_search_security_findings` reads as "Search security findings". The
@@ -37,8 +38,9 @@ export function getToolCallContent(
 // title-casing, e.g. `prowler_hub_list_checks` -> "List checks". A humanizer
 // (not a hardcoded map) keeps this in sync as the MCP tool whitelist grows.
 export function formatToolName(toolName: string): string {
-  const prefix = TOOL_NAME_PREFIXES.find((value) => toolName.startsWith(value));
-  const stripped = prefix ? toolName.slice(prefix.length) : toolName;
+  const canonical = canonicalToolName(toolName); // cloudsneeker-hook
+  const prefix = TOOL_NAME_PREFIXES.find((value) => canonical.startsWith(value));
+  const stripped = prefix ? canonical.slice(prefix.length) : canonical;
   const words = stripped.replace(/_/g, " ").trim();
   if (!words) {
     return toolName;
