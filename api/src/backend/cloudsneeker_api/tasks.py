@@ -132,3 +132,32 @@ def custodian_trim_outputs_task(older_than_days: int = 30):
             older_than_days=older_than_days,
         )
     return {"trimmed_runs": trimmed_total}
+
+
+@shared_task(base=RLSTask, name="cloudsneeker-trivy-scan", queue="scans")
+@set_tenant(keep_tenant=True)
+def trivy_scan_task(tenant_id: str, run_id: str):
+    """Run a Trivy Hub scan and import findings into the shared Scan table."""
+    from cloudsneeker_api.services.trivy import process_trivy_run
+
+    return process_trivy_run(tenant_id=tenant_id, run_id=run_id)
+
+
+@shared_task(
+    base=RLSTask,
+    name="cloudsneeker-trivy-scheduled-scan",
+    queue="scans",
+)
+@set_tenant(keep_tenant=True)
+def trivy_scheduled_scan_task(tenant_id: str, target_id: str):
+    """Celery Beat entrypoint: enqueue a scheduled Trivy Hub scan."""
+    from cloudsneeker_api.services.trivy_schedule import enqueue_scheduled_trivy_run
+
+    run = enqueue_scheduled_trivy_run(tenant_id=tenant_id, target_id=target_id)
+    if run is None:
+        return {"status": "skipped", "target_id": str(target_id)}
+    return {
+        "status": "enqueued",
+        "run_id": str(run.id),
+        "target_id": str(target_id),
+    }

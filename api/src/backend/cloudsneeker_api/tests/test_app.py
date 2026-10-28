@@ -29,6 +29,8 @@ class TestAppRegistration:
             "FindingIngestion",
             "EmailDeliveryConfig",
             "SlackAppConfig",
+            "TrivyTarget",
+            "TrivyRun",
         }.issubset(model_names)
 
     def test_table_prefix_constant(self):

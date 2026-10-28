@@ -28,6 +28,7 @@ from cloudsneeker_api.views_slack import (
     SlackOAuthAuthorizeUrlView,
     SlackOAuthExchangeView,
 )
+from cloudsneeker_api.views_trivy import TrivyRunViewSet, TrivyTargetViewSet
 from django.urls import include, path
 from rest_framework_nested import routers
 
@@ -50,6 +51,8 @@ router.register(
     r"custodian-policies", CustodianPolicyViewSet, basename="custodian-policies"
 )
 router.register(r"custodian-runs", CustodianRunViewSet, basename="custodian-runs")
+router.register(r"trivy-targets", TrivyTargetViewSet, basename="trivy-targets")
+router.register(r"trivy-runs", TrivyRunViewSet, basename="trivy-runs")
 
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),

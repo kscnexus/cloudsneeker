@@ -64,6 +64,12 @@ const CUSTODIAN_CHILD: NavigationChild = {
   label: "Cloud Custodian",
 };
 
+const TRIVY_CHILD: NavigationChild = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: "/trivy",
+  label: "Trivy",
+};
+
 const withInjectedChild = (
   children: NavigationChild[],
   child: NavigationChild,
@@ -103,6 +109,16 @@ const withCustodianChild = (
   return withInjectedChild(children, CUSTODIAN_CHILD, pathname);
 };
 
+const withTrivyChild = (
+  children: NavigationChild[],
+  pathname: string,
+): NavigationChild[] => {
+  if (!isCloudsneekerFeatureEnabled("trivy")) {
+    return children;
+  }
+  return withInjectedChild(children, TRIVY_CHILD, pathname);
+};
+
 export const withCloudsneekerNavigation = (
   sections: NavigationSection[],
   pathname: string,
@@ -127,9 +143,10 @@ export const withCloudsneekerNavigation = (
           }
         }
 
-        // Cloud Custodian is a Cloudsneeker-only Configuration tool.
+        // Cloud Custodian and Trivy are Cloudsneeker-only Configuration tools.
         if (item.label === "Configuration") {
-          const nextChildren = withCustodianChild(children, pathname);
+          let nextChildren = withCustodianChild(children, pathname);
+          nextChildren = withTrivyChild(nextChildren, pathname);
           if (nextChildren !== children) {
             children = nextChildren;
             changed = true;

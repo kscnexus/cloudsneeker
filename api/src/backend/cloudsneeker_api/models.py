@@ -474,3 +474,117 @@ class CustodianRun(CloudsneekerRLSModel):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}custodian-runs"
+
+
+class TrivyTarget(CloudsneekerRLSModel):
+    """Named Trivy scan target that feeds the shared Scan/Finding tables."""
+
+    class Mode(models.TextChoices):
+        IAC = "iac", "IaC"
+        IMAGE = "image", "Image"
+        FS = "fs", "Filesystem"
+        REPO = "repo", "Repository"
+        SBOM = "sbom", "SBOM"
+        K8S = "k8s", "Kubernetes"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    name = models.CharField(max_length=100, validators=[MinLengthValidator(3)])
+    description = models.TextField(blank=True, default="")
+    mode = models.CharField(max_length=32, choices=Mode.choices)
+    config = models.JSONField(default=dict, blank=True)
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_trivy_targets",
+    )
+    schedule_enabled = models.BooleanField(default=False)
+    schedule_cron = models.CharField(max_length=64, blank=True, default="")
+    schedule_timezone = models.CharField(max_length=64, default="UTC")
+    scheduler_task = models.ForeignKey(
+        "django_celery_beat.PeriodicTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_trivy_targets",
+    )
+    next_run_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}trivy_targets"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id", "name"),
+                name="unique_cs_trivy_target_name_per_tenant",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}trivy-targets"
+
+
+class TrivyRun(CloudsneekerRLSModel):
+    """One Trivy Hub execution; findings live on the linked Scan."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    class Trigger(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        SCHEDULED = "scheduled", "Scheduled"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    target = models.ForeignKey(
+        TrivyTarget,
+        on_delete=models.CASCADE,
+        related_name="runs",
+    )
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_trivy_runs",
+    )
+    status = models.CharField(
+        max_length=32, choices=Status.choices, default=Status.PENDING
+    )
+    trigger = models.CharField(
+        max_length=32, choices=Trigger.choices, default=Trigger.MANUAL
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    scan_id = models.UUIDField(null=True, blank=True)
+    summary = models.JSONField(default=dict, blank=True)
+    output = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True, default="")
+    error_class = models.CharField(max_length=32, blank=True, default="")
+    triggered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_trivy_runs",
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}trivy_runs"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
