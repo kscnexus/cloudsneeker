@@ -711,6 +711,28 @@ Resources:
                   - elasticfilesystem:ClientWrite
                   - elasticfilesystem:ClientRootAccess
                 Resource: !GetAtt FileSystem.Arn
+        # Container image scans of private Amazon ECR (cloudsneeker_api/ecr_auth.py):
+        # mint short-lived ECR tokens with this role, or assume a customer's
+        # role (with its external ID) to read their registry.
+        - PolicyName: registry-scanning
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                  - ecr:DescribeRepositories
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:ListImages
+                Resource: !Sub arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/*
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: "*"
 
   Cluster:
     Type: AWS::ECS::Cluster
