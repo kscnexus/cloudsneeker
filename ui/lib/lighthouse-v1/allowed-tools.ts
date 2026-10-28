@@ -1,3 +1,5 @@
+import { canonicalToolName } from "@/cloudsneeker/lighthouse-tools"; // cloudsneeker-hook
+
 /**
  * Tools explicitly allowed for the LLM to list and execute.
  * Follows the principle of least privilege - only these tools are accessible.
@@ -59,7 +61,8 @@ const ALLOWED_TOOLS = new Set([
  * `prowler_`. The legacy prefix is normalized here so tools served by
  * an older MCP server (or a mismatched rollout) still resolve.
  */
-export function isAllowedTool(toolName: string): boolean {
+export function isAllowedTool(rawToolName: string): boolean {
+  const toolName = canonicalToolName(rawToolName); // cloudsneeker-hook: shipped MCP names use the brand namespace
   const normalized = toolName.startsWith("prowler_app_")
     ? toolName.replace(/^prowler_app_/, "prowler_")
     : toolName;

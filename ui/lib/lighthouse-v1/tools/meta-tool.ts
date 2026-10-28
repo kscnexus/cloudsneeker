@@ -5,6 +5,7 @@ import { tool } from "@langchain/core/tools";
 import { addBreadcrumb, captureException } from "@sentry/nextjs";
 import { z } from "zod";
 
+import { isSameToolName } from "@/cloudsneeker/lighthouse-tools"; // cloudsneeker-hook
 import { isAllowedTool } from "@/lib/lighthouse-v1/allowed-tools";
 import { getMCPTools, isMCPAvailable } from "@/lib/lighthouse-v1/mcp-client";
 
@@ -59,7 +60,7 @@ export const describeTool = tool(
     }
 
     // Find exact tool by name
-    const targetTool = allTools.find((t) => t.name === toolName);
+    const targetTool = allTools.find((t) => isSameToolName(t.name, toolName)); // cloudsneeker-hook
 
     if (!targetTool) {
       addBreadcrumb({
@@ -133,7 +134,7 @@ export const executeTool = tool(
     }
 
     const allTools = getAllTools();
-    const targetTool = allTools.find((t) => t.name === toolName);
+    const targetTool = allTools.find((t) => isSameToolName(t.name, toolName)); // cloudsneeker-hook
 
     if (!targetTool) {
       addBreadcrumb({

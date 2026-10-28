@@ -28,6 +28,9 @@ export const BRAND = {
   credentialDisplayName: "Cloudsneeker Security Scanner",
   // Service identifier reported by /api/health.
   serviceId: "cloudsneeker-ui",
+  // MCP app-tool namespace; matches `slug` in the MCP server brand, which the
+  // build rebrand uses to rename `prowler_<tool>` to `<slug>_<tool>`.
+  mcpToolNamespace: "cloudsneeker",
   // SAML service-provider entity ID; must match the API's `saml_sp_entity_id`.
   samlSpEntityId: "urn:cloudsneeker:sp",
   // Analytics survey name.
