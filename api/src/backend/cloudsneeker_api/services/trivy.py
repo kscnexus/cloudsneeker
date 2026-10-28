@@ -55,8 +55,43 @@ MAX_ARCHIVE_BYTES = int(os.environ.get("TRIVY_HUB_MAX_ARCHIVE_BYTES", str(50 * 1
 MAX_SBOM_CHARS = int(os.environ.get("TRIVY_HUB_MAX_SBOM_CHARS", str(5 * 1024 * 1024)))
 
 
+PROVIDER_SCAN_PATH = "provider_scan"
+
+SCAN_STATE_TO_RUN_STATUS: dict[str, str] = {
+    StateChoices.AVAILABLE.value: TrivyRun.Status.PENDING,
+    StateChoices.SCHEDULED.value: TrivyRun.Status.PENDING,
+    StateChoices.EXECUTING.value: TrivyRun.Status.RUNNING,
+    StateChoices.COMPLETED.value: TrivyRun.Status.COMPLETED,
+    StateChoices.FAILED.value: TrivyRun.Status.FAILED,
+    StateChoices.CANCELLED.value: TrivyRun.Status.FAILED,
+}
+
+
 class TrivyHubError(ValueError):
     """Raised when a Trivy Hub target or run is invalid."""
+
+
+def effective_run_status(
+    run_status: str, summary: dict | None, scan_state: str | None
+) -> str:
+    """Return the status a run should report to users.
+
+    IaC and image runs finish as soon as they hand off to ``scan-perform``,
+    so their real outcome is the linked scan's state.
+
+    Args:
+        run_status: Stored ``TrivyRun.status``.
+        summary: Stored ``TrivyRun.summary``.
+        scan_state: State of the linked ``Scan``, if any.
+
+    Returns:
+        The run status to expose.
+    """
+    if run_status != TrivyRun.Status.COMPLETED or not scan_state:
+        return run_status
+    if (summary or {}).get("path") != PROVIDER_SCAN_PATH:
+        return run_status
+    return SCAN_STATE_TO_RUN_STATUS.get(scan_state, run_status)
 
 
 @dataclass
@@ -471,7 +506,7 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                 run.finished_at = timezone.now()
                 run.summary = {
                     "mode": mode,
-                    "path": "provider_scan",
+                    "path": PROVIDER_SCAN_PATH,
                     "scan_id": str(scan.id),
                     "finding_count": None,
                 }

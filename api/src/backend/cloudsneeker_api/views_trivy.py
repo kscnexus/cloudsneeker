@@ -1,6 +1,7 @@
 """ViewSets for the Cloudsneeker Trivy Hub."""
 
 from api.base_views import BaseRLSViewSet
+from api.models import Scan
 from api.rbac.permissions import Permissions
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
 from cloudsneeker_api.parsers import LenientJSONAPIParser
@@ -11,6 +12,7 @@ from cloudsneeker_api.serializers_trivy import (
 )
 from cloudsneeker_api.services.trivy import TrivyHubError, enqueue_trivy_run
 from cloudsneeker_api.services.trivy_schedule import delete_target_schedule
+from django.db.models import OuterRef, Subquery
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
@@ -152,5 +154,9 @@ class TrivyRunViewSet(BaseRLSViewSet):
         return (
             TrivyRun.objects.filter(tenant_id=self.request.tenant_id)
             .select_related("target", "provider", "triggered_by")
-            .all()
+            .annotate(
+                linked_scan_state=Subquery(
+                    Scan.objects.filter(id=OuterRef("scan_id")).values("state")[:1]
+                )
+            )
         )

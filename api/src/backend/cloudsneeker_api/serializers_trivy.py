@@ -10,6 +10,7 @@ from cloudsneeker_api.services.custodian_schedule import (
 from cloudsneeker_api.services.trivy import (
     TrivyHubError,
     assert_provider_matches_mode,
+    effective_run_status,
     is_valid_trivy_mode,
     validate_target_config,
 )
@@ -218,6 +219,7 @@ class TrivyRunSerializer(RLSSerializer):
     target_mode = serializers.CharField(source="target.mode", read_only=True)
     provider_id = serializers.UUIDField(source="provider.id", read_only=True)
     provider_uid = serializers.CharField(source="provider.uid", read_only=True)
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = TrivyRun
@@ -243,3 +245,8 @@ class TrivyRunSerializer(RLSSerializer):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
+
+    def get_status(self, obj: TrivyRun) -> str:
+        return effective_run_status(
+            obj.status, obj.summary, getattr(obj, "linked_scan_state", None)
+        )

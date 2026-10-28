@@ -14,6 +14,7 @@ from cloudsneeker_api.services.trivy import (
     TrivyHubError,
     assert_provider_matches_mode,
     build_trivy_command,
+    effective_run_status,
     enqueue_trivy_run,
     is_valid_trivy_mode,
     validate_target_config,
@@ -236,3 +237,50 @@ class TestEnqueueTrivyRun:
             mock_task.delay.assert_called_once_with(
                 tenant_id="tenant-1", run_id="run-1"
             )
+
+
+class TestEffectiveRunStatus:
+    @pytest.mark.parametrize(
+        ("scan_state", "expected"),
+        [
+            ("available", "pending"),
+            ("scheduled", "pending"),
+            ("executing", "running"),
+            ("completed", "completed"),
+            ("failed", "failed"),
+            ("cancelled", "failed"),
+        ],
+    )
+    def test_provider_scan_runs_follow_the_linked_scan(self, scan_state, expected):
+        assert (
+            effective_run_status(
+                TrivyRun.Status.COMPLETED,
+                {"path": "provider_scan"},
+                scan_state,
+            )
+            == expected
+        )
+
+    def test_cli_runs_keep_their_own_status(self):
+        assert (
+            effective_run_status(
+                TrivyRun.Status.COMPLETED, {"path": "trivy_cli"}, "failed"
+            )
+            == TrivyRun.Status.COMPLETED
+        )
+
+    def test_missing_linked_scan_keeps_run_status(self):
+        assert (
+            effective_run_status(
+                TrivyRun.Status.COMPLETED, {"path": "provider_scan"}, None
+            )
+            == TrivyRun.Status.COMPLETED
+        )
+
+    def test_failed_run_stays_failed(self):
+        assert (
+            effective_run_status(
+                TrivyRun.Status.FAILED, {"path": "provider_scan"}, "completed"
+            )
+            == TrivyRun.Status.FAILED
+        )
