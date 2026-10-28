@@ -1,5 +1,4 @@
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -11,6 +10,12 @@ from alive_progress import alive_bar
 from colorama import Fore, Style
 from dulwich import porcelain
 
+from cloudsneeker.git_auth import (  # cloudsneeker-hook
+    authenticated_clone_url,
+    iac_clone_url,
+    redact,
+    redact_exception,
+)
 from prowler.config.config import (
     default_config_file_path,
     load_and_validate_config_file,
@@ -51,6 +56,7 @@ class IacProvider(Provider):
         personal_access_token: str = None,
         oauth_app_token: str = None,
         provider_uid: str = None,
+        username: str = None,  # cloudsneeker-hook
     ):
         logger.info("Instantiating IAC Provider...")
 
@@ -65,6 +71,7 @@ class IacProvider(Provider):
         self._identity = "prowler"
         self._auth_method = "No auth"
         self._temp_clone_dir = None  # Track temporary directory for cleanup
+        self.git_username = username  # cloudsneeker-hook
 
         if scan_repository_url:
             oauth_app_token = oauth_app_token or environ.get("GITHUB_OAUTH_APP_TOKEN")
@@ -329,16 +336,13 @@ class IacProvider(Provider):
         try:
             original_url = repository_url
 
-            if github_username and personal_access_token:
-                repository_url = repository_url.replace(
-                    "https://github.com/",
-                    f"https://{github_username}:{personal_access_token}@github.com/",
-                )
-            elif oauth_app_token:
-                repository_url = repository_url.replace(
-                    "https://github.com/",
-                    f"https://oauth2:{oauth_app_token}@github.com/",
-                )
+            repository_url = iac_clone_url(  # cloudsneeker-hook
+                repository_url,
+                github_username,
+                personal_access_token,
+                oauth_app_token,
+                getattr(self, "git_username", None),
+            )
 
             temporary_directory = tempfile.mkdtemp()
             logger.info(
@@ -382,6 +386,9 @@ class IacProvider(Provider):
 
             return temporary_directory, branch_name
         except Exception as error:
+            error = redact_exception(  # cloudsneeker-hook
+                error, personal_access_token, oauth_app_token
+            )
             logger.critical(
                 f"{error.__class__.__name__}:{error.__traceback__.tb_lineno} -- {error}"
             )
@@ -616,6 +623,7 @@ class IacProvider(Provider):
         access_token: str = None,
         raise_on_exception: bool = True,
         provider_id: str = None,
+        username: str = None,  # cloudsneeker-hook
     ) -> "Connection":
         """Test connection to IaC repository.
 
@@ -655,20 +663,9 @@ class IacProvider(Provider):
             # Try to clone the repository to test the connection
             with tempfile.TemporaryDirectory():
                 try:
-                    if oauth_app_token:
-                        # If token is provided, use it for authentication
-                        # Extract the domain and path from the URL
-                        url_pattern = r"(https?://)([^/]+)/(.+)"
-                        match = re.match(url_pattern, scan_repository_url)
-                        if match:
-                            protocol, domain, path = match.groups()
-                            # Construct URL with token
-                            auth_url = f"{protocol}x-access-token:{oauth_app_token}@{domain}/{path}"
-                        else:
-                            auth_url = scan_repository_url
-                    else:
-                        # Public repository
-                        auth_url = scan_repository_url
+                    auth_url = authenticated_clone_url(  # cloudsneeker-hook
+                        scan_repository_url, oauth_app_token, username
+                    )
 
                     # Use dulwich to test the connection
                     porcelain.ls_remote(auth_url)
@@ -676,7 +673,7 @@ class IacProvider(Provider):
                     return Connection(is_connected=True)
 
                 except Exception as e:
-                    error_msg = str(e)
+                    error_msg = redact(str(e), oauth_app_token)  # cloudsneeker-hook
                     if "authentication" in error_msg.lower() or "401" in error_msg:
                         return Connection(
                             is_connected=False,

@@ -18,6 +18,10 @@ from api.models import (
     UserRoleRelationship,
 )
 from api.v1.serializers import FindingMetadataSerializer
+from cloudsneeker_api.ecr_auth import (  # cloudsneeker-hook
+    apply_ecr_auth,
+    ecr_connection_kwargs,
+)
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
 from django.db.models import Subquery
@@ -242,6 +246,8 @@ def get_prowler_provider_kwargs(
             prowler_provider_kwargs["oauth_app_token"] = provider.secret.secret[
                 "access_token"
             ]
+        if username := provider.secret.secret.get("username"):  # cloudsneeker-hook
+            prowler_provider_kwargs["username"] = username  # cloudsneeker-hook
     elif provider.provider == Provider.ProviderChoices.MONGODBATLAS.value:
         prowler_provider_kwargs = {
             **prowler_provider_kwargs,
@@ -271,6 +277,9 @@ def get_prowler_provider_kwargs(
         # a concrete image reference (e.g. "docker.io/andoniaf/myimage:latest").
         from prowler.providers.image.image_provider import ImageProvider
 
+        prowler_provider_kwargs = apply_ecr_auth(  # cloudsneeker-hook
+            provider.uid, prowler_provider_kwargs
+        )
         if ImageProvider._is_registry_url(provider.uid):
             prowler_provider_kwargs = {
                 "registry": provider.uid,
@@ -402,6 +411,8 @@ def prowler_provider_connection_test(provider: Provider) -> Connection:
         # Add access_token if present in the secret
         if "access_token" in prowler_provider_kwargs:
             iac_test_kwargs["access_token"] = prowler_provider_kwargs["access_token"]
+        if username := prowler_provider_kwargs.get("username"):  # cloudsneeker-hook
+            iac_test_kwargs["username"] = username  # cloudsneeker-hook
         return prowler_provider.test_connection(**iac_test_kwargs)
     elif provider.provider == Provider.ProviderChoices.OPENSTACK.value:
         openstack_kwargs = {
@@ -427,6 +438,12 @@ def prowler_provider_connection_test(provider: Provider) -> Connection:
         }
         return prowler_provider.test_connection(**okta_kwargs)
     elif provider.provider == Provider.ProviderChoices.IMAGE.value:
+        # cloudsneeker-hook: mint Amazon ECR credentials (cloudsneeker_api/ecr_auth.py)
+        ecr_failure, prowler_provider_kwargs = ecr_connection_kwargs(
+            provider.uid, prowler_provider_kwargs
+        )
+        if ecr_failure:  # cloudsneeker-hook
+            return ecr_failure  # cloudsneeker-hook
         image_kwargs = {
             "image": provider.uid,
             "raise_on_exception": False,

@@ -63,6 +63,7 @@ from api.v1.serializer_utils.lighthouse import (
 from api.v1.serializer_utils.processors import ProcessorConfigField
 from api.v1.serializer_utils.providers import ProviderSecretField
 from api.validators import validate_lighthouse_openai_compatible_base_url
+from cloudsneeker_api.ecr_auth import ECR_ROLE_ARN_REGEX  # cloudsneeker-hook
 from cloudsneeker_api.image_filters import (  # cloudsneeker-hook
     validate_image_filter_patterns,
 )
@@ -1918,6 +1919,8 @@ class GithubProviderSecret(serializers.Serializer):
 class IacProviderSecret(serializers.Serializer):
     repository_url = serializers.CharField()
     access_token = serializers.CharField(required=False)
+    # cloudsneeker-hook: Bitbucket / Azure DevOps / generic hosts pair a username
+    username = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         resource_name = "provider-secrets"
@@ -1992,6 +1995,12 @@ class ImageProviderSecret(serializers.Serializer):
     # cloudsneeker-hook: keep the registry filters the provider form collects
     image_filter = serializers.CharField(required=False, allow_blank=True)
     tag_filter = serializers.CharField(required=False, allow_blank=True)
+    # cloudsneeker-hook: ECR IAM auth and insecure registries (ecr_auth.py)
+    ecr_role_arn = serializers.RegexField(
+        ECR_ROLE_ARN_REGEX, required=False, allow_blank=True
+    )
+    ecr_external_id = serializers.CharField(required=False, allow_blank=True)
+    registry_insecure = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         resource_name = "provider-secrets"

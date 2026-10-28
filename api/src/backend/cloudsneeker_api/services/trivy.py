@@ -18,11 +18,18 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import yaml
 from api.db_utils import rls_transaction
 from api.models import Provider, Scan, StateChoices
+from cloudsneeker.git_auth import (
+    authenticated_clone_url,
+    git_host_kind,
+    redact,
+    strip_userinfo,
+)
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
 from django.db import transaction
 from django.utils import timezone
@@ -122,8 +129,65 @@ def is_valid_trivy_mode(mode: str) -> bool:
     return mode in TRIVY_MODES
 
 
-def assert_provider_matches_mode(provider: Provider, mode: str) -> None:
-    """Ensure the linked provider type is allowed for the target mode."""
+def normalize_repository_url(url: str) -> str:
+    """Return a comparable form of a repository URL.
+
+    Drops userinfo, a trailing ``/`` and ``.git``, and lower-cases the scheme
+    and host. The path keeps its case.
+
+    Args:
+        url: Repository URL.
+
+    Returns:
+        The normalized URL.
+    """
+    value = strip_userinfo(str(url or "").strip())
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return value.rstrip("/")
+    path = parts.path.rstrip("/")
+    if path.endswith(".git"):
+        path = path[: -len(".git")]
+    path = path.rstrip("/")
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}{path}"
+
+
+def _has_embedded_credentials(url: str) -> bool:
+    """Return True when ``url`` carries a user name or password.
+
+    The ``<org>@dev.azure.com/<org>/...`` form Azure DevOps puts in clone URLs
+    is not a credential and is allowed.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    if "@" not in parts.netloc:
+        return False
+    if parts.password is not None or not parts.username:
+        return True
+    if git_host_kind(parts.hostname or "") == "azure_devops":
+        first_segment = parts.path.lstrip("/").split("/", 1)[0]
+        return parts.username.lower() != first_segment.lower()
+    return True
+
+
+def assert_provider_matches_mode(
+    provider: Provider, mode: str, config: dict[str, Any] | None = None
+) -> None:
+    """Ensure the linked provider is allowed for the target mode and config.
+
+    Args:
+        provider: Linked provider.
+        mode: Trivy Hub mode.
+        config: Validated target config. In repo mode its ``repository_url``
+            must be the provider's repository, so a target cannot send the
+            provider's token to another URL.
+
+    Raises:
+        TrivyHubError: When the provider type or repository does not match.
+    """
     allowed = MODE_PROVIDER_TYPES.get(mode)
     if allowed is None:
         raise TrivyHubError(f"Unknown Trivy mode: {mode}")
@@ -132,6 +196,13 @@ def assert_provider_matches_mode(provider: Provider, mode: str) -> None:
             f"Mode '{mode}' requires provider type "
             f"{', '.join(sorted(allowed))}; got '{provider.provider}'."
         )
+    if mode == TrivyTarget.Mode.REPO and config and config.get("repository_url"):
+        target_url = normalize_repository_url(config["repository_url"])
+        if target_url != normalize_repository_url(provider.uid or ""):
+            raise TrivyHubError(
+                "config.repository_url must match the linked IaC provider's "
+                "repository URL."
+            )
 
 
 def validate_target_config(mode: str, config: dict[str, Any] | None) -> dict[str, Any]:
@@ -177,20 +248,28 @@ def validate_target_config(mode: str, config: dict[str, Any] | None) -> dict[str
         url = str(cfg.get("repository_url") or cfg.get("url") or "").strip()
         if not url:
             raise TrivyHubError("config.repository_url is required for repo mode.")
+        if _has_embedded_credentials(url):
+            raise TrivyHubError(
+                "config.repository_url must not contain credentials. Save the "
+                "access token (and username) on the IaC provider instead."
+            )
         cfg["repository_url"] = url
 
     if mode == TrivyTarget.Mode.FS:
-        has_path = bool(str(cfg.get("path") or "").strip())
-        has_archive = bool(cfg.get("archive_b64"))
-        if not has_path and not has_archive:
+        # Scanning a worker path would let a tenant read the worker's disk;
+        # only an uploaded archive is scanned.
+        if str(cfg.get("path") or "").strip():
             raise TrivyHubError(
-                "config.path or config.archive_b64 is required for fs mode."
+                "config.path is not supported; upload an archive "
+                "(config.archive_b64) instead."
             )
-        if has_archive:
-            archive = str(cfg.get("archive_b64") or "")
-            # Rough decoded size check without full decode for huge strings.
-            if len(archive) > MAX_ARCHIVE_BYTES * 2:
-                raise TrivyHubError("Filesystem archive exceeds the size limit.")
+        cfg.pop("path", None)
+        archive = str(cfg.get("archive_b64") or "")
+        if not archive:
+            raise TrivyHubError("config.archive_b64 is required for fs mode.")
+        # Rough decoded size check without full decode for huge strings.
+        if len(archive) > MAX_ARCHIVE_BYTES * 2:
+            raise TrivyHubError("Filesystem archive exceeds the size limit.")
 
     if mode == TrivyTarget.Mode.SBOM:
         sbom = cfg.get("sbom")
@@ -268,7 +347,8 @@ def _kubeconfig_env(provider: Provider, work_dir: Path) -> dict[str, str]:
     return {"KUBECONFIG": str(kubeconfig_path)}
 
 
-def _repo_token_env(provider: Provider) -> dict[str, str]:
+def _repo_credentials(provider: Provider) -> tuple[str, str | None]:
+    """Return ``(token, username)`` from the linked IaC provider secret."""
     secret = {}
     if getattr(provider, "secret", None) is not None:
         secret = provider.secret.secret or {}
@@ -278,12 +358,86 @@ def _repo_token_env(provider: Provider) -> dict[str, str]:
         or secret.get("oauth_app_token")
         or ""
     )
+    username = secret.get("username") or secret.get("github_username") or None
+    return str(token), (str(username) if username else None)
+
+
+def _repo_token_env(provider: Provider) -> dict[str, str]:
+    token, _username = _repo_credentials(provider)
     if not token:
         return {}
     return {
-        "GITHUB_TOKEN": str(token),
-        "GITLAB_TOKEN": str(token),
+        "GITHUB_TOKEN": token,
+        "GITLAB_TOKEN": token,
     }
+
+
+def repo_scan_target(
+    repository_url: str, provider: Provider
+) -> tuple[str, dict[str, str], tuple[str, ...]]:
+    """Return the URL, env, and secrets for ``trivy repo``.
+
+    GitHub and GitLab hosts keep Trivy's ``GITHUB_TOKEN`` / ``GITLAB_TOKEN``
+    env. Bitbucket, Azure DevOps, and other hosts get the token in the URL
+    userinfo, built by :func:`cloudsneeker.git_auth.authenticated_clone_url`.
+
+    Args:
+        repository_url: Repository URL from the target config.
+        provider: Linked IaC provider.
+
+    Returns:
+        ``(url, env, secrets)``; ``secrets`` must be redacted from any output.
+    """
+    token, username = _repo_credentials(provider)
+    if not token:
+        return repository_url, {}, ()
+    host = urlsplit(repository_url).hostname or ""
+    if git_host_kind(host) in ("github", "gitlab"):
+        return repository_url, _repo_token_env(provider), (token,)
+    auth_url = authenticated_clone_url(repository_url, token, username)
+    return auth_url, {}, (auth_url, token)
+
+
+def scrub_secrets(value: Any, secrets: tuple[str, ...]) -> Any:
+    """Return ``value`` with every secret string replaced by ``***``.
+
+    Args:
+        value: Parsed JSON (dict, list, str, ...) or text.
+        secrets: Tokens or authenticated URLs.
+
+    Returns:
+        The scrubbed value, same shape as ``value``.
+    """
+    if not secrets:
+        return value
+    if isinstance(value, str):
+        return redact(value, *secrets)
+    if isinstance(value, dict):
+        return {
+            scrub_secrets(key, secrets): scrub_secrets(item, secrets)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [scrub_secrets(item, secrets) for item in value]
+    return value
+
+
+def command_secrets(
+    mode: str, config: dict[str, Any], provider: Provider
+) -> tuple[str, ...]:
+    """Return the secrets a mode's Trivy invocation carries.
+
+    Args:
+        mode: Trivy Hub mode.
+        config: Validated target config.
+        provider: Linked provider.
+
+    Returns:
+        Tokens and authenticated URLs to redact (empty outside repo mode).
+    """
+    if mode != TrivyTarget.Mode.REPO or not config.get("repository_url"):
+        return ()
+    return repo_scan_target(str(config["repository_url"]), provider)[2]
 
 
 def build_trivy_command(
@@ -293,7 +447,18 @@ def build_trivy_command(
     provider: Provider,
     work_dir: Path,
 ) -> tuple[list[str], dict[str, str]]:
-    """Build argv and env for a direct Trivy CLI mode (not iac/image)."""
+    """Build argv and env for a direct Trivy CLI mode (not iac/image).
+
+    Args:
+        mode: Direct CLI mode (fs, repo, sbom, k8s).
+        config: Validated target config.
+        provider: Linked provider.
+        work_dir: Temporary directory for uploaded or generated files.
+
+    Returns:
+        ``(argv, env)``. In repo mode ``argv`` may carry an authenticated URL;
+        :func:`command_secrets` lists what to redact from any output.
+    """
     binary = _resolve_trivy_bin()
     env = {**os.environ}
     common = [
@@ -306,17 +471,17 @@ def build_trivy_command(
     ]
 
     if mode == TrivyTarget.Mode.FS:
-        if config.get("archive_b64"):
-            scan_path = _extract_archive(str(config["archive_b64"]), work_dir)
-        else:
-            scan_path = Path(str(config["path"])).resolve()
-            if not scan_path.exists():
-                raise TrivyHubError(f"Filesystem path does not exist: {scan_path}")
+        if not config.get("archive_b64"):
+            raise TrivyHubError("config.archive_b64 is required for fs mode.")
+        scan_path = _extract_archive(str(config["archive_b64"]), work_dir)
         return [*common, "fs", str(scan_path)], env
 
     if mode == TrivyTarget.Mode.REPO:
-        env.update(_repo_token_env(provider))
-        return [*common, "repo", str(config["repository_url"])], env
+        url, repo_env, _secrets = repo_scan_target(
+            str(config["repository_url"]), provider
+        )
+        env.update(repo_env)
+        return [*common, "repo", url], env
 
     if mode == TrivyTarget.Mode.SBOM:
         sbom_path = work_dir / "sbom.json"
@@ -344,9 +509,22 @@ def run_trivy_cli(
     config: dict[str, Any],
     provider: Provider,
 ) -> dict[str, Any]:
-    """Execute Trivy and return parsed JSON."""
+    """Execute Trivy and return parsed JSON with provider secrets redacted.
+
+    Args:
+        mode: Direct CLI mode.
+        config: Validated target config.
+        provider: Linked provider.
+
+    Returns:
+        The Trivy JSON report.
+
+    Raises:
+        TrivyHubError: When Trivy fails; the message never carries a token.
+    """
     work_dir = Path(tempfile.mkdtemp(prefix="cloudsneeker-trivy-"))
     bundle = TrivyProcessBundle(work_dir=work_dir)
+    secrets = command_secrets(mode, config, provider)
     try:
         argv, env = build_trivy_command(
             mode=mode, config=config, provider=provider, work_dir=work_dir
@@ -362,19 +540,30 @@ def run_trivy_cli(
         # Trivy exits non-zero when vulnerabilities are found; still parse stdout.
         stdout = process.stdout or ""
         if not stdout.strip():
-            stderr = (process.stderr or "").strip()
+            stderr = redact((process.stderr or "").strip(), *secrets)
             raise TrivyHubError(
                 stderr or f"Trivy produced no JSON output (exit {process.returncode})."
             )
         try:
             report = json.loads(stdout)
         except json.JSONDecodeError as exc:
-            raise TrivyHubError(f"Trivy returned invalid JSON: {exc}") from exc
+            raise TrivyHubError(
+                f"Trivy returned invalid JSON: {redact(str(exc), *secrets)}"
+            ) from None
         if not isinstance(report, dict):
             raise TrivyHubError("Trivy JSON root must be an object.")
-        return report
-    except subprocess.TimeoutExpired as exc:
-        raise TrivyHubError("Trivy scan timed out.") from exc
+        return scrub_secrets(report, secrets)
+    except subprocess.TimeoutExpired:
+        # TimeoutExpired carries argv, which may hold an authenticated URL.
+        raise TrivyHubError("Trivy scan timed out.") from None
+    except TrivyHubError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - never surface a token in errors
+        if not secrets:
+            raise
+        raise TrivyHubError(
+            f"Trivy could not run: {redact(str(exc), *secrets)}"
+        ) from None
     finally:
         bundle.close()
 
@@ -431,8 +620,8 @@ def enqueue_trivy_run(
         target = TrivyTarget.objects.select_related("provider").get(
             tenant_id=tenant_id, id=target_id
         )
-        assert_provider_matches_mode(target.provider, target.mode)
-        validate_target_config(target.mode, target.config)
+        config = validate_target_config(target.mode, target.config)
+        assert_provider_matches_mode(target.provider, target.mode, config)
         active = TrivyRun.objects.filter(
             tenant_id=tenant_id,
             target_id=target_id,
@@ -493,10 +682,11 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
         target = run.target
         provider = run.provider
         mode = target.mode
-        config = validate_target_config(mode, target.config)
-        assert_provider_matches_mode(provider, mode)
-
         try:
+            # Inside the try so a target edited after enqueue fails the run
+            # instead of leaving it running.
+            config = validate_target_config(mode, target.config)
+            assert_provider_matches_mode(provider, mode, config)
             if mode in PROWLER_SCAN_MODES:
                 scan = _enqueue_provider_scan(
                     tenant_id=tenant_id,

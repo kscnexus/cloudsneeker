@@ -811,7 +811,7 @@ class TestIacProvider:
             temp_dir, branch_name = provider._clone_repository(
                 url, oauth_app_token="oauth456"
             )
-        expected_url = "https://oauth2:oauth456@github.com/user/repo.git"
+        expected_url = "https://x-access-token:oauth456@github.com/user/repo.git"  # cloudsneeker-hook
         mock_clone.assert_called_with(expected_url, "/tmp/fake-dir", depth=1)
         assert temp_dir == "/tmp/fake-dir"
         assert branch_name == "master"

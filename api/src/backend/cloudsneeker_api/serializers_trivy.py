@@ -148,7 +148,7 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
             provider = self.instance.provider
         if provider is not None and mode is not None:
             try:
-                assert_provider_matches_mode(provider, mode)
+                assert_provider_matches_mode(provider, mode, attrs.get("config"))
             except TrivyHubError as exc:
                 raise ValidationError({"provider_id": str(exc)}) from exc
 
