@@ -52,6 +52,7 @@ export const ProviderCredentialFields = {
   // IaC fields
   REPOSITORY_URL: "repository_url",
   ACCESS_TOKEN: "access_token",
+  IAC_USERNAME: "username", // cloudsneeker-hook: private Git hosts (Bitbucket app passwords, Azure DevOps)
 
   // Image (Container Registry) fields
   REGISTRY_USERNAME: "registry_username",
@@ -59,6 +60,9 @@ export const ProviderCredentialFields = {
   REGISTRY_TOKEN: "registry_token",
   IMAGE_FILTER: "image_filter",
   TAG_FILTER: "tag_filter",
+  ECR_ROLE_ARN: "ecr_role_arn", // cloudsneeker-hook: private Amazon ECR via IAM role
+  ECR_EXTERNAL_ID: "ecr_external_id", // cloudsneeker-hook: private Amazon ECR via IAM role
+  REGISTRY_INSECURE: "registry_insecure", // cloudsneeker-hook: self-signed registries
 
   // OCI fields
   OCI_USER: "user",
@@ -125,11 +129,15 @@ export const ErrorPointers = {
   GITHUB_APP_KEY: "/data/attributes/secret/github_app_key_content",
   REPOSITORY_URL: "/data/attributes/secret/repository_url",
   ACCESS_TOKEN: "/data/attributes/secret/access_token",
+  IAC_USERNAME: "/data/attributes/secret/username", // cloudsneeker-hook: private Git hosts
   REGISTRY_USERNAME: "/data/attributes/secret/registry_username",
   REGISTRY_PASSWORD: "/data/attributes/secret/registry_password",
   REGISTRY_TOKEN: "/data/attributes/secret/registry_token",
   IMAGE_FILTER: "/data/attributes/secret/image_filter",
   TAG_FILTER: "/data/attributes/secret/tag_filter",
+  ECR_ROLE_ARN: "/data/attributes/secret/ecr_role_arn", // cloudsneeker-hook: private Amazon ECR
+  ECR_EXTERNAL_ID: "/data/attributes/secret/ecr_external_id", // cloudsneeker-hook: private Amazon ECR
+  REGISTRY_INSECURE: "/data/attributes/secret/registry_insecure", // cloudsneeker-hook: self-signed registries
   CERTIFICATE_CONTENT: "/data/attributes/secret/certificate_content",
   OCI_USER: "/data/attributes/secret/user",
   OCI_FINGERPRINT: "/data/attributes/secret/fingerprint",

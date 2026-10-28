@@ -19,7 +19,6 @@ export const trivyTargetFormSchema = z
     images: z.string().optional().default(""),
     repositoryUrl: z.string().optional().default(""),
     archiveB64: z.string().optional().default(""),
-    path: z.string().optional().default(""),
     sbom: z.string().optional().default(""),
     namespace: z.string().optional().default(""),
     scheduleEnabled: z.boolean().optional().default(false),
@@ -34,15 +33,11 @@ export const trivyTargetFormSchema = z
         message: "Repository URL is required for repo mode.",
       });
     }
-    if (
-      values.mode === TRIVY_MODE.FS &&
-      !values.archiveB64.trim() &&
-      !values.path.trim()
-    ) {
+    if (values.mode === TRIVY_MODE.FS && !values.archiveB64.trim()) {
       ctx.addIssue({
         code: "custom",
         path: ["archiveB64"],
-        message: "Upload an archive or set a path for filesystem mode.",
+        message: "Upload a zip or tar archive for filesystem mode.",
       });
     }
     if (values.mode === TRIVY_MODE.SBOM && !values.sbom.trim()) {
@@ -88,9 +83,6 @@ export const buildTrivyConfig = (
   if (values.mode === TRIVY_MODE.FS) {
     if (values.archiveB64.trim()) {
       config.archive_b64 = values.archiveB64.trim();
-    }
-    if (values.path.trim()) {
-      config.path = values.path.trim();
     }
   }
   if (values.mode === TRIVY_MODE.SBOM) {

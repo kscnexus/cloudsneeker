@@ -1,3 +1,7 @@
+import {
+  buildIacSecretExtras, // cloudsneeker-hook: private Git hosts
+  buildImageSecretExtras, // cloudsneeker-hook: private Amazon ECR, self-signed registries
+} from "@/cloudsneeker/lib/provider-secret-extras";
 import { filterEmptyValues, getFormValue } from "@/lib";
 import { ProviderType } from "@/types";
 import {
@@ -317,6 +321,7 @@ export const buildIacSecret = (formData: FormData) => {
       formData,
       ProviderCredentialFields.ACCESS_TOKEN,
     ),
+    ...buildIacSecretExtras(formData), // cloudsneeker-hook: private Git hosts
   };
   return filterEmptyValues(secret);
 };
@@ -343,6 +348,7 @@ export const buildImageSecret = (formData: FormData) => {
       formData,
       ProviderCredentialFields.TAG_FILTER,
     ),
+    ...buildImageSecretExtras(formData), // cloudsneeker-hook: private Amazon ECR, self-signed registries
   };
   return filterEmptyValues(secret);
 };

@@ -1,5 +1,6 @@
 import { Control } from "react-hook-form";
 
+import { ImageRegistryExtraFields } from "@/cloudsneeker/components/image-registry-extra-fields"; // cloudsneeker-hook: private Amazon ECR, self-signed registries
 import { WizardInputField } from "@/components/providers/workflow/forms/fields";
 import { ProviderCredentialFields } from "@/lib/provider-credentials/provider-credential-fields";
 import { ImageCredentials } from "@/types";
@@ -50,6 +51,8 @@ export const ImageCredentialsForm = ({
         type="password"
         isRequired={false}
       />
+      {/* cloudsneeker-hook: private Amazon ECR (IAM) and self-signed registries */}
+      <ImageRegistryExtraFields control={control} />
 
       <div className="flex flex-col pt-2">
         <div className="text-md text-text-neutral-primary leading-9 font-bold">

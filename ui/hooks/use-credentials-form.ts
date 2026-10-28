@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 
+import { REGISTRY_INSECURE_VALUE } from "@/cloudsneeker/lib/provider-secret-extras"; // cloudsneeker-hook: self-signed registries
 import { useFormServerErrors } from "@/hooks/use-form-server-errors";
 import { filterEmptyValues } from "@/lib";
 import { PROVIDER_CREDENTIALS_ERROR_MAPPING } from "@/lib/error-mappings";
@@ -243,6 +244,9 @@ export const useCredentialsForm = ({
           [ProviderCredentialFields.REGISTRY_TOKEN]: "",
           [ProviderCredentialFields.IMAGE_FILTER]: "",
           [ProviderCredentialFields.TAG_FILTER]: "",
+          [ProviderCredentialFields.ECR_ROLE_ARN]: "", // cloudsneeker-hook: private Amazon ECR
+          [ProviderCredentialFields.ECR_EXTERNAL_ID]: "", // cloudsneeker-hook: private Amazon ECR
+          [ProviderCredentialFields.REGISTRY_INSECURE]: REGISTRY_INSECURE_VALUE.OFF, // cloudsneeker-hook: self-signed registries
         };
       case "vercel":
         return {

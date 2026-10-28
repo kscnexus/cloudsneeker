@@ -53,7 +53,6 @@ export default async function EditTrivyTargetPage({
     repositoryUrl:
       typeof config.repository_url === "string" ? config.repository_url : "",
     archiveB64: "",
-    path: typeof config.path === "string" ? config.path : "",
     sbom: typeof config.sbom === "string" ? config.sbom : "",
     namespace: typeof config.namespace === "string" ? config.namespace : "",
     scheduleEnabled: Boolean(target.attributes.schedule_enabled),

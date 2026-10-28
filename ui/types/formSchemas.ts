@@ -1,6 +1,7 @@
 import yaml from "js-yaml";
 import { z } from "zod";
 
+import { REGISTRY_INSECURE_VALUES } from "@/cloudsneeker/lib/provider-secret-extras"; // cloudsneeker-hook: self-signed registries
 import { OCI_REGION_VALUES } from "@/lib/provider-credentials/oci-regions";
 import { ProviderCredentialFields } from "@/lib/provider-credentials/provider-credential-fields";
 import { validateMutelistYaml, validateYaml } from "@/lib/yaml";
@@ -311,6 +312,9 @@ export const addCredentialsFormSchema = (
                         [ProviderCredentialFields.ACCESS_TOKEN]: z
                           .string()
                           .optional(),
+                        [ProviderCredentialFields.IAC_USERNAME]: z // cloudsneeker-hook: private Git hosts
+                          .string()
+                          .optional(),
                       }
                     : providerType === "oraclecloud"
                       ? {
@@ -372,6 +376,15 @@ export const addCredentialsFormSchema = (
                                   .optional(),
                                 [ProviderCredentialFields.TAG_FILTER]: z
                                   .string()
+                                  .optional(),
+                                [ProviderCredentialFields.ECR_ROLE_ARN]: z // cloudsneeker-hook: private Amazon ECR
+                                  .string()
+                                  .optional(),
+                                [ProviderCredentialFields.ECR_EXTERNAL_ID]: z // cloudsneeker-hook: private Amazon ECR
+                                  .string()
+                                  .optional(),
+                                [ProviderCredentialFields.REGISTRY_INSECURE]: z // cloudsneeker-hook: self-signed registries
+                                  .enum(REGISTRY_INSECURE_VALUES)
                                   .optional(),
                               }
                             : providerType === "cloudflare"

@@ -58,7 +58,6 @@ export const TrivyTargetForm = ({
       images: "",
       repositoryUrl: "",
       archiveB64: "",
-      path: "",
       sbom: "",
       namespace: "",
       scheduleEnabled: false,
@@ -215,10 +214,6 @@ export const TrivyTargetForm = ({
               accept=".zip,.tar,.tar.gz,.tgz"
               onChange={onArchiveSelected}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="trivy-path">Or worker path</Label>
-            <Input id="trivy-path" {...form.register("path")} />
           </div>
         </>
       ) : null}

@@ -1,6 +1,7 @@
 import { LucideIcon } from "lucide-react";
 import { SVGProps } from "react";
 
+import type { RegistryInsecureValue } from "@/cloudsneeker/lib/provider-secret-extras"; // cloudsneeker-hook: self-signed registries
 import { ProviderCredentialFields } from "@/lib/provider-credentials/provider-credential-fields";
 
 import type { FindingTriageSummary } from "./findings-triage";
@@ -264,6 +265,7 @@ export type KubernetesCredentials = {
 export type IacCredentials = {
   [ProviderCredentialFields.REPOSITORY_URL]: string;
   [ProviderCredentialFields.ACCESS_TOKEN]?: string;
+  [ProviderCredentialFields.IAC_USERNAME]?: string; // cloudsneeker-hook: private Git hosts
   [ProviderCredentialFields.PROVIDER_ID]: string;
 };
 
@@ -273,6 +275,9 @@ export type ImageCredentials = {
   [ProviderCredentialFields.REGISTRY_TOKEN]?: string;
   [ProviderCredentialFields.IMAGE_FILTER]?: string;
   [ProviderCredentialFields.TAG_FILTER]?: string;
+  [ProviderCredentialFields.ECR_ROLE_ARN]?: string; // cloudsneeker-hook: private Amazon ECR
+  [ProviderCredentialFields.ECR_EXTERNAL_ID]?: string; // cloudsneeker-hook: private Amazon ECR
+  [ProviderCredentialFields.REGISTRY_INSECURE]?: RegistryInsecureValue; // cloudsneeker-hook: self-signed registries
   [ProviderCredentialFields.PROVIDER_ID]: string;
 };
 
