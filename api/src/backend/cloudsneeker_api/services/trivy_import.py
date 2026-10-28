@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -166,6 +167,7 @@ def import_trivy_report(
     report: dict[str, Any],
     mode: str,
     scan_name: str | None = None,
+    started_at: datetime | None = None,
 ) -> Scan:
     """Create a completed Scan and Finding rows from a Trivy JSON report.
 
@@ -175,6 +177,7 @@ def import_trivy_report(
         report: Parsed Trivy JSON.
         mode: Hub mode label stored in scanner_args.
         scan_name: Optional scan display name.
+        started_at: When the Trivy CLI run started; sets the scan duration.
 
     Returns:
         The created Scan row.
@@ -195,8 +198,9 @@ def import_trivy_report(
             state=StateChoices.COMPLETED,
             progress=100,
             unique_resource_count=len({row["resource_uid"] for row in rows}),
-            started_at=now,
+            started_at=started_at or now,
             completed_at=now,
+            duration=int((now - (started_at or now)).total_seconds()),
             scanner_args={"source": "trivy_hub", "mode": mode},
         )
 

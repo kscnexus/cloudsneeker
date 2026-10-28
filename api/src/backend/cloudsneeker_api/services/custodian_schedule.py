@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from api.db_utils import rls_transaction
@@ -17,6 +17,7 @@ from cloudsneeker_api.models import CustodianPolicy, CustodianRun
 from cloudsneeker_api.services.custodian import CustodianDryRunError
 from django.utils import timezone
 from django_celery_beat.models import CrontabSchedule, PeriodicTask
+from django_celery_beat.tzcrontab import TzAwareCrontab
 
 SCHEDULED_TASK_NAME = "cloudsneeker-custodian-scheduled-dry-run"
 PERIODIC_TASK_PREFIX = "custodian-dry-run-scheduled-"
@@ -67,26 +68,30 @@ def validate_timezone(tz_name: str) -> str:
 
 
 def compute_next_run_at(cron: str, tz_name: str, *, now: datetime | None = None) -> datetime:
-    """Compute the next fire time in UTC for a cron + timezone."""
+    """Compute the next fire time in UTC for a cron + timezone.
+
+    Uses Celery's crontab, the same parser beat fires the task with, so the
+    shown time matches the real run. The time is always after ``now``.
+    """
     minute, hour, day_of_month, month, day_of_week = parse_cron_fields(cron)
     tz = ZoneInfo(validate_timezone(tz_name))
     base = now or timezone.now()
     if base.tzinfo is None:
-        base = timezone.make_aware(base, timezone=timezone.utc)
-    local_base = base.astimezone(tz)
+        base = base.replace(tzinfo=UTC)
+    local_base = base.astimezone(tz).replace(second=0, microsecond=0)
 
-    try:
-        from croniter import croniter
-    except ImportError:
-        # Fallback: approximate from crontab without croniter.
-        return base
-
-    expr = f"{minute} {hour} {day_of_month} {month} {day_of_week}"
-    iterator = croniter(expr, local_base)
-    nxt = iterator.get_next(datetime)
-    if nxt.tzinfo is None:
-        nxt = nxt.replace(tzinfo=tz)
-    return nxt.astimezone(timezone.utc)
+    schedule = TzAwareCrontab(
+        minute=minute,
+        hour=hour,
+        day_of_month=day_of_month,
+        month_of_year=month,
+        day_of_week=day_of_week,
+        tz=tz,
+    )
+    # Anchor "now" so the result is deterministic for the given ``now``.
+    schedule.nowfun = lambda: local_base
+    nxt = local_base + schedule.remaining_estimate(local_base)
+    return nxt.astimezone(UTC)
 
 
 def _get_or_create_crontab(

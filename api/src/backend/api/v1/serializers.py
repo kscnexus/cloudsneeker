@@ -63,6 +63,9 @@ from api.v1.serializer_utils.lighthouse import (
 from api.v1.serializer_utils.processors import ProcessorConfigField
 from api.v1.serializer_utils.providers import ProviderSecretField
 from api.validators import validate_lighthouse_openai_compatible_base_url
+from cloudsneeker_api.image_filters import (  # cloudsneeker-hook
+    validate_image_filter_patterns,
+)
 from config.custom_logging import BackendLogger
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -1986,11 +1989,15 @@ class ImageProviderSecret(serializers.Serializer):
     registry_username = serializers.CharField(required=False)
     registry_password = serializers.CharField(required=False)
     registry_token = serializers.CharField(required=False)
+    # cloudsneeker-hook: keep the registry filters the provider form collects
+    image_filter = serializers.CharField(required=False, allow_blank=True)
+    tag_filter = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         resource_name = "provider-secrets"
 
     def validate(self, attrs):
+        validate_image_filter_patterns(attrs)  # cloudsneeker-hook
         token = attrs.get("registry_token")
         username = attrs.get("registry_username")
         password = attrs.get("registry_password")

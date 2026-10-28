@@ -539,6 +539,7 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                 report=report,
                 mode=mode,
                 scan_name=f"Trivy {mode}: {target.name}",
+                started_at=run.started_at,
             )
             run.scan_id = scan.id
             run.status = TrivyRun.Status.COMPLETED
