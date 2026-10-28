@@ -162,6 +162,28 @@ describe("resolveDefaultScanPair", () => {
     });
   });
 
+  it("skips Trivy Hub scans because they carry no compliance frameworks", () => {
+    expect(
+      resolveDefaultScanPair([
+        { id: "trivy-repo", providerType: "aws", trivyHub: true },
+        { id: "aws-new", providerType: "aws" },
+        { id: "aws-old", providerType: "aws" },
+      ]),
+    ).toStrictEqual({
+      baselineScanId: "aws-old",
+      compareScanId: "aws-new",
+    });
+  });
+
+  it("returns null when only one compliance scan remains", () => {
+    expect(
+      resolveDefaultScanPair([
+        { id: "trivy-repo", providerType: "aws", trivyHub: true },
+        { id: "aws-1", providerType: "aws" },
+      ]),
+    ).toBeNull();
+  });
+
   it("returns null when fewer than two scans exist", () => {
     expect(resolveDefaultScanPair([{ id: "only", providerType: "aws" }])).toBeNull();
     expect(resolveDefaultScanPair([])).toBeNull();

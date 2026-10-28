@@ -19,6 +19,7 @@ import { ScanComparisonTable } from "./scan-comparison-table";
 import {
   buildFrameworkSnapshot,
   compareFrameworks,
+  isTrivyHubScan,
   parseScanComparisonParams,
   resolveDefaultScanPair,
 } from "./scan-comparison";
@@ -51,6 +52,7 @@ const resolveSelectedScanIds = (
     scans.map((scan) => ({
       id: scan.id,
       providerType: scan.providerInfo.provider,
+      trivyHub: isTrivyHubScan(scan.attributes.scanner_args),
     })),
   );
   if (!defaults) return null;

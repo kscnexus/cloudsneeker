@@ -36,6 +36,17 @@ export interface FrameworkComparisonRow {
 export interface ScanPairCandidate {
   id: string;
   providerType: string;
+  /** Imported by Trivy Hub; such scans have no compliance frameworks. */
+  trivyHub?: boolean;
+}
+
+export const TRIVY_HUB_SCAN_SOURCE = "trivy_hub";
+
+export function isTrivyHubScan(scannerArgs: unknown): boolean {
+  if (!scannerArgs || typeof scannerArgs !== "object") return false;
+  return (
+    (scannerArgs as { source?: unknown }).source === TRIVY_HUB_SCAN_SOURCE
+  );
 }
 
 export interface ResolvedScanPair {
@@ -152,8 +163,9 @@ export function compareFrameworks(
 }
 
 export function resolveDefaultScanPair(
-  scans: ScanPairCandidate[],
+  candidates: ScanPairCandidate[],
 ): ResolvedScanPair | null {
+  const scans = candidates.filter((scan) => !scan.trivyHub);
   if (scans.length < 2) return null;
 
   const byProvider = new Map<string, ScanPairCandidate[]>();

@@ -160,7 +160,12 @@ export const CustodianDashboardPanel = ({
                       ) : null}
                     </div>
                     {row.error ? (
-                      <p className="text-text-error text-xs">{row.error}</p>
+                      <p
+                        className="text-text-error line-clamp-2 text-xs break-all"
+                        title={row.error}
+                      >
+                        {row.error}
+                      </p>
                     ) : null}
                   </li>
                 ))}
