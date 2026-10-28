@@ -41,7 +41,11 @@ class TestTrivyModes:
         assert MODE_PROVIDER_TYPES["iac"] == {"iac"}
         assert MODE_PROVIDER_TYPES["image"] == {"image"}
         assert MODE_PROVIDER_TYPES["k8s"] == {"kubernetes"}
-        assert MODE_PROVIDER_TYPES["fs"] == frozenset()
+        # CLI-imported scans become their provider's latest scan, so they must
+        # never attach to a cloud account (they would hide its real results).
+        assert MODE_PROVIDER_TYPES["fs"] == {"iac"}
+        assert MODE_PROVIDER_TYPES["repo"] == {"iac"}
+        assert MODE_PROVIDER_TYPES["sbom"] == {"iac"}
 
 
 class TestValidateTargetConfig:
@@ -75,10 +79,18 @@ class TestAssertProviderMatchesMode:
         with pytest.raises(TrivyHubError, match="requires provider type"):
             assert_provider_matches_mode(provider, "iac")
 
-    def test_allows_any_for_fs(self):
+    def test_rejects_cloud_accounts_for_cli_modes(self):
         provider = MagicMock()
         provider.provider = "aws"
-        assert_provider_matches_mode(provider, "fs")
+        for mode in ("fs", "repo", "sbom"):
+            with pytest.raises(TrivyHubError, match="requires provider type"):
+                assert_provider_matches_mode(provider, mode)
+
+    def test_allows_iac_for_cli_modes(self):
+        provider = MagicMock()
+        provider.provider = "iac"
+        for mode in ("fs", "repo", "sbom"):
+            assert_provider_matches_mode(provider, mode)
 
 
 class TestTrivyImportMapping:
@@ -194,7 +206,7 @@ class TestEnqueueTrivyRun:
         target.mode = "repo"
         target.config = {"repository_url": "https://github.com/acme/app"}
         target.provider = MagicMock()
-        target.provider.provider = "aws"
+        target.provider.provider = "iac"
 
         run = MagicMock()
         run.id = "run-1"

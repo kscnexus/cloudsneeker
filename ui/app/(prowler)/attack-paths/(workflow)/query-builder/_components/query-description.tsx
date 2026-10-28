@@ -1,5 +1,6 @@
 import { Info } from "lucide-react";
 
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { Alert, AlertDescription } from "@/components/shadcn";
 import { getAttackPathHubUrl } from "@/lib/external-urls";
 import {
@@ -21,7 +22,9 @@ const isSafeUrl = (url: string): boolean => {
 };
 
 export const QueryDescription = ({ query }: QueryDescriptionProps) => {
-  const documentationLink = query.attributes.documentation_link;
+  const documentationLink = showDocumentationLinks() // cloudsneeker-hook
+    ? query.attributes.documentation_link
+    : null;
   // Every built-in query has a Prowler Hub page keyed by its id. The synthetic
   // custom query has no catalog entry, so it gets no hub link.
   const hubUrl =

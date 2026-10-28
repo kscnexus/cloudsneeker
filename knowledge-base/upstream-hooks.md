@@ -102,6 +102,7 @@ Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_a
 | `components/integrations/saml/saml-config-form.tsx` | SP entity ID `value={BRAND.samlSpEntityId}` | — |
 | `components/findings/table/finding-triage-cells.tsx` | `CLOUD_ONLY_TOOLTIP_COPY = BRAND.unavailableFeatureCopy` | — |
 | `components/shadcn/badge/badge.tsx` | `variant === "cloud"` renders nothing unless `BRAND.showUpsell` | — |
+| `app/(prowler)/attack-paths/(workflow)/query-builder/_components/query-description.tsx` | `documentation_link` only when `showDocumentationLinks()` | Hides the per-query "View on ... documentation" link (docs links are off in the product). |
 | `lib/date-utils.ts` | `formatLocalTimeWithZone` zone from `localTimeZoneLabel(date)` (`ui/cloudsneeker/lib/time-zone.ts`) | Shows "IST" / "GMT+5:30" instead of the first three letters of the IANA city ("CAL"). |
 | `components/shadcn/breadcrumbs/breadcrumb-navigation.tsx` | `displayName = breadcrumbSegmentLabel(segment, displayName)` | UUID path segments read "Details" (`ui/cloudsneeker/breadcrumbs.ts`). |
 | `components/lighthouse-v1/managed-lighthouse-callout.tsx` | renders nothing unless `BRAND.showUpsell` | Hides the managed-AI upsell card on Seeker AI settings. |

@@ -44,9 +44,12 @@ MODE_PROVIDER_TYPES: dict[str, frozenset[str]] = {
     TrivyTarget.Mode.IAC: frozenset({Provider.ProviderChoices.IAC.value}),
     TrivyTarget.Mode.IMAGE: frozenset({Provider.ProviderChoices.IMAGE.value}),
     TrivyTarget.Mode.K8S: frozenset({Provider.ProviderChoices.KUBERNETES.value}),
-    TrivyTarget.Mode.FS: frozenset(),
-    TrivyTarget.Mode.REPO: frozenset(),
-    TrivyTarget.Mode.SBOM: frozenset(),
+    # CLI-imported scans become their provider's latest scan (Overview, Findings,
+    # Resources), so they attach to a repository (IaC) provider, never a cloud
+    # account whose real scan they would hide.
+    TrivyTarget.Mode.FS: frozenset({Provider.ProviderChoices.IAC.value}),
+    TrivyTarget.Mode.REPO: frozenset({Provider.ProviderChoices.IAC.value}),
+    TrivyTarget.Mode.SBOM: frozenset({Provider.ProviderChoices.IAC.value}),
 }
 
 DEFAULT_SCANNERS = ("vuln", "misconfig", "secret")

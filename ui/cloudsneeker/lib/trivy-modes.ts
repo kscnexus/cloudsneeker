@@ -17,19 +17,20 @@ export const TRIVY_MODE_OPTIONS = [
     value: TRIVY_MODE.FS,
     label: "Filesystem",
     description: "Scan an uploaded archive with trivy fs.",
-    providerTypes: [] as const,
+    providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.REPO,
     label: "Repository",
-    description: "Scan a remote git repository with trivy repo.",
-    providerTypes: [] as const,
+    description:
+      "Scan a remote git repository with trivy repo. Attach it to an Infrastructure as Code provider.",
+    providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.SBOM,
     label: "SBOM",
     description: "Scan an SBOM document with trivy sbom.",
-    providerTypes: [] as const,
+    providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.K8S,
