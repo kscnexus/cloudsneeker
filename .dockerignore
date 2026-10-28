@@ -10,3 +10,5 @@ build
 **/.env
 !**/.env.example
 !**/.env.template
+# cloudsneeker-hook: local Postgres runtime files, never part of an image
+_data
