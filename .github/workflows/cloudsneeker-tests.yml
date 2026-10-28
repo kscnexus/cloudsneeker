@@ -1,0 +1,261 @@
+name: 'Cloudsneeker: Tests'
+# Runs the unit suites for main in GitHub Actions. The upstream test
+# workflows only trigger on master and v5.*, and tests never run on the
+# development PC. Each job runs only when its component changed. A manual
+# run tests every component. No job uploads artifacts or coverage.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cloudsneeker-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  UV_VERSION: '0.11.14'
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sdk: ${{ github.event_name == 'workflow_dispatch' || steps.changed.outputs.sdk_any_changed == 'true' }}
+      api: ${{ github.event_name == 'workflow_dispatch' || steps.changed.outputs.api_any_changed == 'true' }}
+      ui: ${{ github.event_name == 'workflow_dispatch' || steps.changed.outputs.ui_any_changed == 'true' }}
+      mcp: ${{ github.event_name == 'workflow_dispatch' || steps.changed.outputs.mcp_any_changed == 'true' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # zizmor: ignore[artipacked]
+          persist-credentials: true # Required by tj-actions/changed-files to fetch the compared commits
+
+      - name: Check changed components
+        id: changed
+        if: github.event_name != 'workflow_dispatch'
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
+        with:
+          files_yaml: |
+            sdk:
+              - prowler/**
+              - cloudsneeker/**
+              - tests/**
+              - pyproject.toml
+              - uv.lock
+              - .github/workflows/cloudsneeker-tests.yml
+              - '!**/*.md'
+            api:
+              - api/**
+              - prowler/**
+              - cloudsneeker/**
+              - pyproject.toml
+              - .github/workflows/cloudsneeker-tests.yml
+              - '!api/docs/**'
+              - '!api/changelog.d/**'
+              - '!**/*.md'
+            ui:
+              - ui/**
+              - .github/workflows/cloudsneeker-tests.yml
+              - '!ui/changelog.d/**'
+              - '!**/*.md'
+            mcp:
+              - mcp_server/**
+              - .github/workflows/cloudsneeker-tests.yml
+              - '!mcp_server/changelog.d/**'
+              - '!mcp_server/Dockerfile'
+              - '!mcp_server/entrypoint.sh'
+              - '!**/*.md'
+
+  sdk:
+    name: SDK tests
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.12'
+          uv-version: ${{ env.UV_VERSION }}
+
+      # Cloudsneeker suites plus the SDK sides of the S3, Security Hub, Jira,
+      # and Slack integrations. The full upstream SDK suite takes hours.
+      - name: Run tests with pytest
+        run: >-
+          uv run pytest -n auto
+          tests/cloudsneeker
+          tests/providers/aws/lib/s3
+          tests/providers/aws/lib/security_hub
+          tests/lib/outputs/jira
+          tests/lib/outputs/slack
+
+  api:
+    name: API tests
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ./api
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_ADMIN_USER: prowler
+      POSTGRES_ADMIN_PASSWORD: S3cret
+      POSTGRES_USER: prowler_user
+      POSTGRES_PASSWORD: prowler
+      POSTGRES_DB: postgres-db
+      VALKEY_SCHEME: redis
+      VALKEY_USERNAME: ""
+      VALKEY_PASSWORD: ""
+      VALKEY_HOST: localhost
+      VALKEY_PORT: 6379
+      VALKEY_DB: 0
+
+    services:
+      postgres:
+        image: postgres:17@sha256:5c855ad7b85e68e48a62f34662853f38b57c1c1d80f3a927ab58034fd6d31c5e
+        env:
+          POSTGRES_USER: prowler_user
+          POSTGRES_PASSWORD: prowler
+          POSTGRES_DB: postgres-db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      valkey:
+        image: valkey/valkey:7-alpine3.19@sha256:4054fe7fc607b9326ac7c4691ed26e9670d2ff17a9fb28c2577adecf928acbcc
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.12'
+          uv-version: ${{ env.UV_VERSION }}
+          working-directory: ./api
+
+      # The API lock pulls the upstream SDK. The image swaps in this tree's
+      # SDK, which carries the `cloudsneeker` package (see
+      # cloudsneeker/deploy/docker/api.Dockerfile), so the tests do the same.
+      - name: Install this tree's SDK
+        run: uv pip install --no-deps --reinstall ..
+
+      - name: Run tests with pytest
+        env:
+          UV_NO_SYNC: '1'
+        run: uv run pytest src/backend
+
+  ui:
+    name: UI tests
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ./ui
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: 'ui/.nvmrc'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        with:
+          package_json_file: ui/package.json
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Setup pnpm cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-cloudsneeker-pnpm-${{ hashFiles('ui/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-cloudsneeker-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+
+      - name: Run unit tests
+        run: pnpm run test:unit
+
+  mcp:
+    name: MCP tests
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ./mcp_server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Python with uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: '3.13'
+          uv-version: ${{ env.UV_VERSION }}
+          working-directory: ./mcp_server
+
+      - name: Run tests with pytest
+        run: uv run pytest tests
