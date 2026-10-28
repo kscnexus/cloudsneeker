@@ -182,6 +182,24 @@ Resources:
                   - ecs:ListTaskDefinitions
                   - ecs:UpdateService
                 Resource: "*"
+              # Read-only lookups CloudFormation makes with this role to
+              # resolve !GetAtt values in platform.yaml during UpdateStack.
+              - Effect: Allow
+                Action:
+                  - rds:DescribeDBInstances
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticache:DescribeReplicationGroups
+                  - elasticfilesystem:DescribeFileSystems
+                  - servicediscovery:GetService
+                  - ec2:DescribeAddresses
+                  - lambda:GetFunction
+                  - events:DescribeRule
+                  - wafv2:GetWebACL
+                Resource: "*"
+              - Effect: Allow
+                Action: iam:GetRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cloudsneeker-*
 
 Outputs:
   Registry:
