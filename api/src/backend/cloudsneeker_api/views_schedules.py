@@ -5,6 +5,7 @@ inherited ``daily`` action keeps its upstream serializer and resource type.
 """
 
 from api.authentication import CombinedJWTOrAPIKeyAuthentication
+from api.filters import ProviderFilter
 from api.models import Provider
 from api.rbac.permissions import Permissions
 from api.v1.views import ScheduleViewSet as UpstreamScheduleViewSet
@@ -19,6 +20,7 @@ from cloudsneeker_api.services.scan_schedule import (
     remove_provider_scan_schedule,
     sync_provider_scan_schedule,
 )
+from django_filters import BooleanFilter
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
@@ -38,6 +40,19 @@ def _schedule_document(provider: Provider, attributes: dict) -> dict:
             }
         },
     }
+
+
+class ScheduleProviderFilter(ProviderFilter):
+    """Provider filters plus ``filter[configured]``, which ``list`` applies."""
+
+    configured = BooleanFilter(
+        method="filter_configured",
+        help_text="Return only providers with an enabled scan schedule.",
+    )
+
+    def filter_configured(self, queryset, name, value):
+        # Schedules live in django-celery-beat, not on Provider; list() filters.
+        return queryset
 
 
 def _provider_resource(provider: Provider) -> dict:
@@ -86,6 +101,7 @@ class ScheduleViewSet(UpstreamScheduleViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
     required_permissions = [Permissions.MANAGE_SCANS]
     lookup_field = "pk"
+    filterset_class = ScheduleProviderFilter
 
     def get_queryset(self):
         return self.get_provider_queryset()

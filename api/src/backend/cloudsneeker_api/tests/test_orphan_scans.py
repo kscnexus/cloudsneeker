@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from api.db_router import MainRouter
 from api.models import StateChoices
 from celery import states
 from cloudsneeker_api.services.orphan_scans import (
@@ -158,4 +159,4 @@ class TestFailOrphanedScansAllTenants:
         assert result == {"acquired": True, "failed_scans": ["s-1"]}
         assert mock_fail.call_count == 2
         # RLS hides tenants from the app role, so the sweep must use admin.
-        mock_using.assert_called_once_with("admin")
+        mock_using.assert_called_once_with(MainRouter.admin_db)

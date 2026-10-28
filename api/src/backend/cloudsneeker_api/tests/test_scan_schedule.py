@@ -10,6 +10,7 @@ from cloudsneeker_api.services.scan_schedule import (
     advance_past_now,
     next_run_after,
     periodic_task_name,
+    read_schedule_attributes,
     scheduled_scan_window,
     sync_provider_scan_schedule,
 )
@@ -166,6 +167,16 @@ class TestScheduleViewSetDocuments:
         assert body["data"][0]["type"] == "schedules"
         assert body["meta"]["pagination"]["page"] == 1
 
+    def test_list_accepts_the_configured_filter(
+        self, authenticated_client, aws_provider
+    ):
+        response = authenticated_client.get(
+            reverse("schedule-list"), {"filter[configured]": "true"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.json()["data"], list)
+
     def test_list_includes_providers_and_paginates(
         self, authenticated_client, aws_provider
     ):
@@ -266,6 +277,22 @@ class TestCrontabAwareScheduling:
         assert advance_past_now(_crontab_task(hour="9"), stale) == datetime(
             2026, 10, 29, 9, 0, tzinfo=UTC
         )
+
+    @freeze_time("2026-10-28 15:30:00", tz_offset=0)
+    def test_read_schedule_attributes_reports_the_next_run(self):
+        task = _crontab_task(hour="9")
+        task.last_run_at = None
+        with patch(
+            "cloudsneeker_api.services.scan_schedule.PeriodicTask.objects.filter"
+        ) as mock_filter:
+            mock_filter.return_value.first.return_value = task
+            provider = MagicMock()
+            provider.id = "11111111-1111-1111-1111-111111111111"
+            attrs = read_schedule_attributes(provider)
+
+        assert attrs["scan_frequency"] == "DAILY"
+        assert attrs["next_scan_at"] == "2026-10-29T09:00:00+00:00"
+        assert attrs["last_scan_at"] is None
 
     def test_unscheduled_task_is_rejected(self):
         task = MagicMock()

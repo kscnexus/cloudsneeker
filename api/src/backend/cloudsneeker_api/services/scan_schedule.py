@@ -312,6 +312,20 @@ def _disabled_attributes(scan_timezone: str) -> dict:
     }
 
 
+def _run_times(task: PeriodicTask) -> dict:
+    """``next_scan_at`` / ``last_scan_at`` for a provider's beat task."""
+    now = datetime.now(UTC)
+    if task.interval_id and task.start_time and task.start_time > now:
+        next_run = task.start_time
+    else:
+        anchor = task.last_run_at or now
+        next_run = advance_past_now(task, next_run_after(task, anchor))
+    return {
+        "next_scan_at": next_run.isoformat(),
+        "last_scan_at": task.last_run_at.isoformat() if task.last_run_at else None,
+    }
+
+
 def read_schedule_attributes(provider: Provider) -> dict:
     """Derive schedule attributes from the beat task, if any."""
     task = PeriodicTask.objects.filter(
@@ -319,6 +333,8 @@ def read_schedule_attributes(provider: Provider) -> dict:
     ).first()
     if not task:
         return _disabled_attributes("UTC")
+
+    run_times = _run_times(task)
 
     if task.interval_id:
         return {
@@ -329,8 +345,7 @@ def read_schedule_attributes(provider: Provider) -> dict:
             "scan_interval_hours": task.interval.every,
             "scan_day_of_week": None,
             "scan_day_of_month": None,
-            "next_scan_at": None,
-            "last_scan_at": None,
+            **run_times,
         }
 
     crontab = task.crontab
@@ -365,8 +380,7 @@ def read_schedule_attributes(provider: Provider) -> dict:
         "scan_interval_hours": None,
         "scan_day_of_week": dow,
         "scan_day_of_month": dom,
-        "next_scan_at": None,
-        "last_scan_at": None,
+        **run_times,
     }
 
 
