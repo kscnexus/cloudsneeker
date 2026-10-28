@@ -185,7 +185,7 @@ jobs:
           UV_NO_SYNC: '1'
         run: >-
           uv run pytest src/backend
-          --deselect "src/backend/api/tests/test_views.py::TestScheduleViewSet::test_schedule_invalid_method_list[get]"
+          --deselect "api/tests/test_views.py::TestScheduleViewSet::test_schedule_invalid_method_list[get]"
 
   ui:
     name: UI tests
