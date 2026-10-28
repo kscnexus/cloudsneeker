@@ -1,5 +1,7 @@
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 
+import { localTimeZoneLabel } from "@/cloudsneeker/lib/time-zone"; // cloudsneeker-hook
+
 /**
  * Formats an ISO string or Date into a `yyyy-MM-dd` string in the user's local
  * timezone. Mirrors the format used by `DateWithTime`, so UI chips/URLs built
@@ -44,13 +46,7 @@ export function formatLocalTimeWithZone(
   try {
     const date = parseISO(value);
     if (isNaN(date.getTime())) return undefined;
-    const zone =
-      Intl.DateTimeFormat()
-        .resolvedOptions()
-        .timeZone.split("/")
-        .pop()
-        ?.substring(0, 3)
-        .toUpperCase() || "";
+    const zone = localTimeZoneLabel(date); // cloudsneeker-hook: real short zone name, not "CAL"
     return `${format(date, "h:mma")} ${zone}`.trim();
   } catch {
     return undefined;

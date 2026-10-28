@@ -21,6 +21,13 @@ const sourcesSection = (): string =>
  * Rewrites the upstream Lighthouse system prompt so the agent presents
  * itself as the product and only cites product-owned sources.
  */
+/**
+ * Retries for Seeker AI model calls. LangChain's default (6, exponential
+ * backoff) kept a quota or auth error spinning for about two minutes before
+ * the chat showed it; one retry still covers a transient blip.
+ */
+export const SEEKER_AI_MAX_RETRIES = 1;
+
 export const brandSystemPrompt = (template: string): string => {
   const headingIndex = template.indexOf(SOURCES_HEADING);
   const body = headingIndex === -1 ? template : template.slice(0, headingIndex);

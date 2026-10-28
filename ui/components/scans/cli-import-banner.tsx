@@ -4,6 +4,7 @@ import { Upload } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { Alert, AlertTitle } from "@/components/shadcn";
 import { useMountEffect } from "@/hooks/use-mount-effect";
@@ -35,7 +36,7 @@ export const CliImportBanner = ({ className }: { className?: string }) => {
     >
       <Upload />
       <AlertTitle>
-        Import findings from Cloudsneeker CLI
+        Import findings from {BRAND.name} CLI
         {showDocumentationLinks() && (
           <>
             {" — "}

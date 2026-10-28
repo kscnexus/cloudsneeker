@@ -3,6 +3,8 @@ import { ChatBedrockConverse } from "@langchain/aws";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOpenAI } from "@langchain/openai";
 
+import { SEEKER_AI_MAX_RETRIES } from "@/cloudsneeker/lighthouse-prompt"; // cloudsneeker-hook
+
 const PROVIDER_TYPES = {
   OPENAI: "openai",
   BEDROCK: "bedrock",
@@ -73,6 +75,7 @@ function createBedrockLLM(config: LLMConfig): ChatBedrockConverse {
     tags: config.tags,
     maxTokens: config.modelParams?.maxTokens,
     temperature: config.modelParams?.temperature,
+    maxRetries: SEEKER_AI_MAX_RETRIES, // cloudsneeker-hook
   });
 }
 
@@ -86,6 +89,7 @@ export function createLLM(config: LLMConfig): BaseChatModel {
         tags: config.tags,
         maxTokens: config.modelParams?.maxTokens,
         temperature: config.modelParams?.temperature,
+        maxRetries: SEEKER_AI_MAX_RETRIES, // cloudsneeker-hook
       });
 
     case PROVIDER_TYPES.OPENAI_COMPATIBLE:
@@ -99,6 +103,7 @@ export function createLLM(config: LLMConfig): BaseChatModel {
         tags: config.tags,
         maxTokens: config.modelParams?.maxTokens,
         temperature: config.modelParams?.temperature,
+        maxRetries: SEEKER_AI_MAX_RETRIES, // cloudsneeker-hook
       });
 
     case PROVIDER_TYPES.BEDROCK:

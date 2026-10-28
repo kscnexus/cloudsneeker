@@ -44,7 +44,14 @@ export const SeekerIcon: React.FC<SeekerIconProps> = ({
           d="M3 16c3.4-6 8-9 13-9s9.6 3 13 9c-3.4 6-8 9-13 9s-9.6-3-13-9Z"
           fill={`url(#${gradientId("aura")})`}
           opacity="0.45"
-        />
+        >
+          <animate
+            attributeName="opacity"
+            values="0.15;0.6;0.15"
+            dur="2.4s"
+            repeatCount="indefinite"
+          />
+        </path>
       ) : null}
       <defs>
         <linearGradient

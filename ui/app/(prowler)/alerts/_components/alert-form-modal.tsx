@@ -15,6 +15,7 @@ import {
   type AlertRule,
   type AlertTriggerKind,
 } from "@/app/(prowler)/alerts/_types";
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import type { FilterChip } from "@/components/filters/filter-summary-strip";
 import { FilterSummaryStrip } from "@/components/filters/filter-summary-strip";
 import { FindingsFilterBatchControls } from "@/components/findings/findings-filters";
@@ -46,6 +47,7 @@ import {
   MultiSelectValue,
 } from "@/components/shadcn/select/multiselect";
 import { useMountEffect } from "@/hooks/use-mount-effect";
+import { ACTION_ERROR_STATUS } from "@/lib/action-errors"; // cloudsneeker-hook
 import type { ScanEntity } from "@/types";
 import type { ProviderProps } from "@/types/providers";
 
@@ -524,12 +526,14 @@ const AlertFormModalContent = ({
   };
 
   const handleSubmit = async () => {
-    // Edits keep the stored condition when the Findings filter bar has no
-    // alert-compatible filters (common for API-created or advanced rules).
     const seedResult = editingAlert
       ? await seedAlertRule(pendingFilters)
       : null;
-    if (seedResult?.error && !editingAlert) {
+    // cloudsneeker-hook: edits may keep the stored condition; 403 still blocks.
+    const keepStoredCondition =
+      isCloudsneekerFeatureEnabled("alertEditKeepsStoredCondition") &&
+      seedResult?.status !== ACTION_ERROR_STATUS.FORBIDDEN;
+    if (seedResult?.error && !keepStoredCondition) {
       setPreview(null);
       setErrors({
         root: getAlertMutationError(seedResult, ALERT_SEED_ERROR),

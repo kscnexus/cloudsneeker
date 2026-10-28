@@ -26,6 +26,12 @@ export const CLOUDSNEEKER_FEATURES = {
   jiraGroupedDispatch: true,
   /** Weekly / monthly / interval provider scan schedules via /schedules. */
   advancedScheduling: true,
+  /**
+   * Saving an edited alert keeps its stored condition when the Findings filter
+   * bar has no alert-compatible filters (API-created or advanced rules).
+   * Permission errors still block the save.
+   */
+  alertEditKeepsStoredCondition: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;
