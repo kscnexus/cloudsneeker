@@ -17,6 +17,20 @@ vi.mock("@/actions/integrations/slack", () => ({
   setSlackAuthorizedChannels: vi.fn(),
 }));
 
+// cloudsneeker-hook: the manager reads `manage_account` from the session to
+// gate Disconnect; `renderToString` has no SessionProvider.
+vi.mock("@/hooks/use-auth", () => ({
+  useAuth: () => ({ permissions: { manage_account: true } }),
+}));
+
+// cloudsneeker-hook: the in-app Slack app form imports these server actions,
+// which pull `@/auth.config` (next-auth) into a suite that never calls them.
+vi.mock("@/cloudsneeker/actions/slack-app", () => ({
+  getSlackAppConfig: vi.fn(),
+  saveSlackAppConfig: vi.fn(),
+  deleteSlackAppConfig: vi.fn(),
+}));
+
 vi.mock("@/lib/integrations/test-connection-helper", () => ({
   executeIntegrationConnectionTest: vi.fn(),
 }));

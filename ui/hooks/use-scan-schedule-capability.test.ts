@@ -5,6 +5,13 @@ import { SCAN_SCHEDULE_CAPABILITY } from "@/types/schedules";
 
 import { useScanScheduleCapability } from "./use-scan-schedule-capability";
 
+// cloudsneeker-hook: upstream asserts OSS scheduling; Cloudsneeker turns
+// `advancedScheduling` on for every deployment (see `lib/schedules.ts`).
+vi.mock("@/cloudsneeker/features", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/cloudsneeker/features")>()),
+  isCloudsneekerFeatureEnabled: () => false,
+}));
+
 describe("useScanScheduleCapability", () => {
   afterEach(() => {
     vi.unstubAllEnvs();

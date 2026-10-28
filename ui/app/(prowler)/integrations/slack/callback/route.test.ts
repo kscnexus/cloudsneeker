@@ -38,6 +38,13 @@ vi.hoisted(() => {
   process.env.UI_API_BASE_URL ??= "http://localhost/api/v1";
 });
 
+// cloudsneeker-hook: upstream asserts Slack is Cloud-only; Cloudsneeker turns
+// the `slack` feature on for every deployment.
+vi.mock("@/cloudsneeker/features", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/cloudsneeker/features")>()),
+  isCloudsneekerFeatureEnabled: () => false,
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),

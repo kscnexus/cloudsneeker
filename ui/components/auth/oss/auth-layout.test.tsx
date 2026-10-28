@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { BRAND } from "@/cloudsneeker/brand";
@@ -13,7 +13,11 @@ describe("AuthLayout", () => {
       </AuthLayout>,
     );
 
-    const brand = screen.getByRole("img", { name: BRAND.name });
+    // The brand renders twice: in the product story and, for small screens,
+    // above the form. Assert the one inside the story panel.
+    const story = screen.getByRole("region", { name: "Product overview" });
+    const brand = within(story).getByRole("img", { name: BRAND.name });
+    expect(screen.getAllByRole("img", { name: BRAND.name })).toHaveLength(2);
     const title = screen.getByText("Sign in");
 
     expect(brand).toBeVisible();

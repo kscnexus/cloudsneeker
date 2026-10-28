@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls"; // cloudsneeker-hook
 import type { OnboardingFlow } from "@/lib/onboarding";
 import { useScansStore } from "@/store";
@@ -48,6 +49,13 @@ Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
   writable: true,
 });
+
+// cloudsneeker-hook: upstream asserts that CLI import is Cloud-only;
+// Cloudsneeker turns `cliImport` on for every deployment.
+vi.mock("@/cloudsneeker/features", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/cloudsneeker/features")>()),
+  isCloudsneekerFeatureEnabled: () => false,
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/scans",
@@ -316,8 +324,9 @@ describe("ScansPageShell", () => {
       </ScansPageShell>,
     );
 
+    // cloudsneeker-hook: the banner names the product CLI.
     expect(screen.getByRole("alert")).toHaveTextContent(
-      /import findings from prowler cli/i,
+      new RegExp(`import findings from ${BRAND.name} cli`, "i"),
     );
     expect(screen.getByRole("link", { name: /learn more/i })).toHaveAttribute(
       "href",

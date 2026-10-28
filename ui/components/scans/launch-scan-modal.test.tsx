@@ -33,6 +33,13 @@ Object.defineProperty(globalThis, "ResizeObserver", {
   value: ResizeObserverMock,
 });
 
+// cloudsneeker-hook: upstream asserts OSS (daily-only) scheduling; Cloudsneeker
+// turns `advancedScheduling` on for every deployment (see `lib/schedules.ts`).
+vi.mock("@/cloudsneeker/features", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/cloudsneeker/features")>()),
+  isCloudsneekerFeatureEnabled: () => false,
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     refresh: refreshMock,

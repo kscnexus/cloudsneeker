@@ -7,7 +7,16 @@ import {
   filterNavigationByPermissions,
   getNavigationConfig,
 } from "./navigation-config";
-import { NAVIGATION_ITEM_KIND } from "./types";
+import { NAVIGATION_ITEM_KIND, type NavigationSection } from "./types";
+
+// cloudsneeker-hook: upstream asserts its own sidebar model. The Cloudsneeker
+// pass (cloud-upgrade rows -> product links, Trivy / Cloud Custodian / Profile
+// entries) is covered by `cloudsneeker/navigation.test.ts`; keep only its
+// HELP-section removal here so these suites see upstream children.
+vi.mock("@/cloudsneeker/navigation", () => ({
+  withCloudsneekerNavigation: (sections: NavigationSection[]) =>
+    sections.filter((section) => section.label !== "HELP"),
+}));
 
 const getItem = (label: string) =>
   getNavigationConfig({ pathname: "/alerts", apiDocsUrl: null })

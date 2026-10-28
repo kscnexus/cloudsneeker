@@ -48,6 +48,20 @@ vi.mock(
 
 vi.mock("@/app/(prowler)/alerts/_actions", () => alertsActionMocks);
 
+// cloudsneeker-hook: upstream save behaviour — a seed error always blocks edits.
+vi.mock("@/cloudsneeker/features", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/cloudsneeker/features")>();
+  return {
+    ...actual,
+    isCloudsneekerFeatureEnabled: (
+      feature: Parameters<typeof actual.isCloudsneekerFeatureEnabled>[0],
+    ) =>
+      feature === "alertEditKeepsStoredCondition"
+        ? false
+        : actual.isCloudsneekerFeatureEnabled(feature),
+  };
+});
+
 // The findings filters lazily load check options through this Server Action.
 vi.mock("@/actions/finding-groups", () => ({
   getFindingGroupCheckOptions: vi.fn().mockResolvedValue([]),
@@ -374,7 +388,8 @@ describe("AlertFormModal", () => {
 
     // When
     await user.type(screen.getByLabelText(/^name$/i), "Critical alerts");
-    await user.click(getVisibleFilterTrigger("Select emails"));
+    // cloudsneeker-hook: the empty recipients picker reads "Select or add emails".
+    await user.click(getVisibleFilterTrigger("Select or add emails"));
     expect((await screen.findAllByText("Confirmed")).at(-1)).toBeVisible();
     expect(screen.getAllByText("Pending").at(-1)).toBeVisible();
     const recipientOptions = await screen.findAllByText("pending@example.com");
@@ -416,7 +431,8 @@ describe("AlertFormModal", () => {
     expect(
       screen.getByRole("combobox", { name: /frequency/i }),
     ).toHaveTextContent("Daily digest");
-    await user.click(getVisibleFilterTrigger("Select emails"));
+    // cloudsneeker-hook: the empty recipients picker reads "Select or add emails".
+    await user.click(getVisibleFilterTrigger("Select or add emails"));
     const recipientOptions = await screen.findAllByText("security@example.com");
     const visibleRecipientOption = recipientOptions.at(-1);
     expect(visibleRecipientOption).toBeDefined();

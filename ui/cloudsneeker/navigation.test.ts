@@ -155,6 +155,12 @@ describe("withCloudsneekerNavigation", () => {
     expect(result[0]?.items[0]).toMatchObject({
       children: [
         {
+          label: "Trivy",
+          href: "/trivy",
+          kind: NAVIGATION_ITEM_KIND.LINK,
+          active: false,
+        },
+        {
           label: "Cloud Custodian",
           href: "/custodian",
           kind: NAVIGATION_ITEM_KIND.LINK,
@@ -211,6 +217,7 @@ describe("withCloudsneekerNavigation", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       children: [
+        { label: "Trivy", href: "/trivy", active: false },
         {
           label: "Cloud Custodian",
           href: "/custodian",
