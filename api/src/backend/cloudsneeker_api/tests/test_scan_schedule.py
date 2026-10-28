@@ -225,6 +225,15 @@ class TestCrontabAwareScheduling:
             2026, 11, 2, 9, 0, tzinfo=UTC
         )
 
+    @freeze_time("2026-10-28 15:30:00", tz_offset=0)
+    def test_next_run_after_reads_the_crontab_in_its_own_timezone(self):
+        # 21:00 Asia/Kolkata is 15:30 UTC; just after it, the next run is tomorrow.
+        after = datetime(2026, 10, 28, 16, 0, tzinfo=UTC)
+        task = _crontab_task(hour="21", tz="Asia/Kolkata")
+        assert next_run_after(task, after) == datetime(
+            2026, 10, 29, 15, 30, tzinfo=UTC
+        )
+
     def test_next_run_after_interval_adds_the_interval(self):
         after = datetime(2026, 10, 28, 15, 30, tzinfo=UTC)
         assert next_run_after(_interval_task(48), after) == after + timedelta(

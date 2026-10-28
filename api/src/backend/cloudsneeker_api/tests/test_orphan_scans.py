@@ -145,17 +145,17 @@ class TestFailOrphanedScansAllTenants:
     def test_sweeps_every_tenant(self):
         with (
             patch(f"{MODULE}.advisory_lock") as mock_lock,
-            patch(
-                "api.models.Tenant.objects.values_list",
-                return_value=["t-1", "t-2"],
-            ),
+            patch("api.models.Tenant.objects.using") as mock_using,
             patch(
                 f"{MODULE}.fail_orphaned_scans", side_effect=[["s-1"], []]
             ) as mock_fail,
         ):
             mock_lock.return_value.__enter__ = MagicMock(return_value=True)
             mock_lock.return_value.__exit__ = MagicMock(return_value=False)
+            mock_using.return_value.values_list.return_value = ["t-1", "t-2"]
             result = fail_orphaned_scans_all_tenants()
 
         assert result == {"acquired": True, "failed_scans": ["s-1"]}
         assert mock_fail.call_count == 2
+        # RLS hides tenants from the app role, so the sweep must use admin.
+        mock_using.assert_called_once_with("admin")

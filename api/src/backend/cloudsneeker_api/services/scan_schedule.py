@@ -52,7 +52,9 @@ def next_run_after(periodic_task: PeriodicTask, after: datetime) -> datetime:
         return after + timedelta(**{interval.period: interval.every})
     if periodic_task.crontab_id:
         schedule = periodic_task.crontab.schedule
-        remaining = schedule.remaining_estimate(after)
+        # remaining_estimate reads the crontab fields in the reference time's
+        # zone, so convert first (beat's is_due does the same).
+        remaining = schedule.remaining_estimate(after.astimezone(schedule.tz))
         return (schedule.now() + remaining).astimezone(UTC).replace(microsecond=0)
     raise ScanScheduleError("Scheduled scan task has no interval or crontab.")
 

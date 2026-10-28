@@ -168,13 +168,19 @@ def fail_orphaned_scans(
 
 def fail_orphaned_scans_all_tenants(grace_minutes: int = GRACE_MINUTES) -> dict:
     """Run :func:`fail_orphaned_scans` for every tenant under one advisory lock."""
+    from api.db_router import MainRouter
     from api.models import Tenant
 
     with advisory_lock(key=ORPHAN_SCAN_LOCK_KEY) as acquired:
         if not acquired:
             return {"acquired": False, "failed_scans": []}
         failed: list[str] = []
-        for tenant_id in Tenant.objects.values_list("id", flat=True):
+        # Tenants are RLS-filtered on the app role with no tenant set; list them
+        # through the admin connection like the other cross-tenant jobs.
+        tenant_ids = Tenant.objects.using(MainRouter.admin_db).values_list(
+            "id", flat=True
+        )
+        for tenant_id in tenant_ids:
             failed.extend(
                 fail_orphaned_scans(str(tenant_id), grace_minutes=grace_minutes)
             )
