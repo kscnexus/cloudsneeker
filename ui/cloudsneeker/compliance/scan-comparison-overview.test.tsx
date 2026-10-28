@@ -3,12 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ScanComparisonOverview } from "./scan-comparison-overview";
 
-const { getCompliancesOverviewMock } = vi.hoisted(() => ({
+const { getCompliancesOverviewMock, listTrivyRunsMock } = vi.hoisted(() => ({
   getCompliancesOverviewMock: vi.fn(),
+  listTrivyRunsMock: vi.fn(),
 }));
 
 vi.mock("@/actions/compliances", () => ({
   getCompliancesOverview: getCompliancesOverviewMock,
+}));
+
+vi.mock("@/cloudsneeker/actions/trivy", () => ({
+  listTrivyRuns: listTrivyRunsMock,
 }));
 
 vi.mock("@/components/compliance", () => ({
@@ -79,6 +84,7 @@ const scans = [
 describe("ScanComparisonOverview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listTrivyRunsMock.mockResolvedValue({ data: [] });
     getCompliancesOverviewMock.mockImplementation(({ scanId }: { scanId: string }) => {
       if (scanId === "scan-old") {
         return {
@@ -145,6 +151,41 @@ describe("ScanComparisonOverview", () => {
       await ScanComparisonOverview({
         searchParams: {},
         scans: [trivyScan, ...scans] as never,
+      }),
+    );
+
+    expect(screen.getByText("filters:scan-old->scan-new")).toBeInTheDocument();
+  });
+
+  it("leaves out scans listed in Trivy Hub run history", async () => {
+    listTrivyRunsMock.mockResolvedValue({
+      data: [
+        {
+          id: "run-1",
+          type: "cloudsneeker-trivy-runs",
+          attributes: { scan_id: "scan-repo" },
+        },
+      ],
+    });
+    const repoScan = { ...scans[0], id: "scan-repo" };
+
+    render(
+      await ScanComparisonOverview({
+        searchParams: {},
+        scans: [repoScan, ...scans] as never,
+      }),
+    );
+
+    expect(screen.getByText("filters:scan-old->scan-new")).toBeInTheDocument();
+  });
+
+  it("still compares scans when Trivy run history is unavailable", async () => {
+    listTrivyRunsMock.mockResolvedValue({ error: "forbidden" });
+
+    render(
+      await ScanComparisonOverview({
+        searchParams: {},
+        scans: scans as never,
       }),
     );
 

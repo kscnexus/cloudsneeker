@@ -1,6 +1,8 @@
 import { Info } from "lucide-react";
 
 import { getCompliancesOverview } from "@/actions/compliances";
+import { listTrivyRuns } from "@/cloudsneeker/actions/trivy";
+import type { TrivyRunResource } from "@/cloudsneeker/types/trivy";
 import { NoScansAvailable } from "@/components/compliance/no-scans-available";
 import { Alert, AlertDescription } from "@/components/shadcn/alert";
 import { Card, CardContent } from "@/components/shadcn/card/card";
@@ -32,6 +34,22 @@ interface ScanComparisonOverviewProps {
 const isOverviewArray = (
   data: unknown,
 ): data is ComplianceOverviewData[] => Array.isArray(data);
+
+const TRIVY_RUNS_PAGE_SIZE = "200";
+
+// The scans API omits scanner_args, so Trivy Hub's own run history is the
+// reliable list of imported scans. Fail open: without it, nothing is excluded.
+const loadTrivyHubScanIds = async (): Promise<Set<string>> => {
+  const response = await listTrivyRuns({ "page[size]": TRIVY_RUNS_PAGE_SIZE });
+  const data = response && "data" in response ? response.data : undefined;
+  if (!Array.isArray(data)) return new Set();
+
+  return new Set(
+    (data as TrivyRunResource[])
+      .map((run) => run.attributes.scan_id)
+      .filter((scanId): scanId is string => Boolean(scanId)),
+  );
+};
 
 const loadSnapshots = async (scanId: string) => {
   const response = await getCompliancesOverview({ scanId });
@@ -76,8 +94,11 @@ export const ScanComparisonOverview = async ({
   scans: allScans,
 }: ScanComparisonOverviewProps) => {
   // Trivy Hub imports carry no compliance frameworks, so they cannot be compared.
+  const trivyHubScanIds = await loadTrivyHubScanIds();
   const scans = allScans.filter(
-    (scan) => !isTrivyHubScan(scan.attributes.scanner_args),
+    (scan) =>
+      !trivyHubScanIds.has(scan.id) &&
+      !isTrivyHubScan(scan.attributes.scanner_args),
   );
   if (scans.length === 0) {
     return <NoScansAvailable />;
