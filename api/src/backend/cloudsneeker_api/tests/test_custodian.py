@@ -438,6 +438,7 @@ class TestCustodianRunSerializer:
         assert payload["summary"]["resource_count"] == 3
 
 
+@pytest.mark.django_db
 class TestCustodianDryRunEnqueue:
     def test_dry_run_creates_pending_run_and_enqueues(
         self, tenants_fixture, aws_provider

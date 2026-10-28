@@ -20,9 +20,15 @@ class ScheduleAttributesSerializer(serializers.Serializer):
         required=False, allow_null=True, min_value=1, max_value=28
     )
 
+    class JSONAPIMeta:
+        resource_name = "schedules"
+
 
 class ScheduleBulkSerializer(serializers.Serializer):
     schedule = ScheduleAttributesSerializer()
     provider_ids = serializers.ListField(
         child=serializers.UUIDField(), allow_empty=False
     )
+
+    class JSONAPIMeta:
+        resource_name = "schedules-bulk"

@@ -48,6 +48,7 @@ from api.models import (
 )
 from api.rls import Tenant
 from api.v1.serializers import TokenSerializer
+from cloudsneeker_api.testing import upstream_compat_brand  # noqa: F401  # cloudsneeker-hook
 from django.conf import settings
 from django.db import connection as django_connection
 from django.db import connections as django_connections

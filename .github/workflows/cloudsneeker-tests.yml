@@ -177,10 +177,15 @@ jobs:
       - name: Install this tree's SDK
         run: uv pip install --no-deps --reinstall ..
 
+      # Cloudsneeker serves `GET /schedules` for the UI's advanced
+      # scheduling (knowledge-base/upstream-hooks.md), so the upstream OSS
+      # case that expects 405 there is deselected, not edited.
       - name: Run tests with pytest
         env:
           UV_NO_SYNC: '1'
-        run: uv run pytest src/backend
+        run: >-
+          uv run pytest src/backend
+          --deselect "src/backend/api/tests/test_views.py::TestScheduleViewSet::test_schedule_invalid_method_list[get]"
 
   ui:
     name: UI tests

@@ -2,6 +2,9 @@ from enum import Enum
 
 from api.db_router import MainRouter
 from api.models import Integration, Provider, Role, Task, User
+from cloudsneeker_api.task_permissions import (  # cloudsneeker-hook
+    cloudsneeker_task_revoke_permissions,
+)
 from django.db.models import Q, QuerySet
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
@@ -39,6 +42,9 @@ TASK_REVOKE_PERMISSIONS: dict[str, list[Permissions] | None] = {
     "lighthouse-provider-connection-check": [],
     "lighthouse-provider-models-refresh": [],
 }
+TASK_REVOKE_PERMISSIONS.update(  # cloudsneeker-hook
+    cloudsneeker_task_revoke_permissions(Permissions)
+)
 
 
 def get_user_roles(user: User, tenant_id: str) -> list[Role]:

@@ -1,13 +1,14 @@
 """Full ``/schedules`` API matching the Cloudsneeker UI contract.
 
-Replaces the OSS stub that only exposed ``POST /schedules/daily``.
+Extends the OSS viewset, which only exposes ``POST /schedules/daily``. The
+inherited ``daily`` action keeps its upstream serializer and resource type.
 """
 
 from api.authentication import CombinedJWTOrAPIKeyAuthentication
-from api.base_views import BaseRLSViewSet
-from api.models import Provider, Task
-from api.rbac.permissions import Permissions, get_providers
-from api.v1.serializers import ScheduleDailyCreateSerializer, TaskSerializer
+from api.models import Provider
+from api.rbac.permissions import Permissions
+from api.v1.views import ScheduleViewSet as UpstreamScheduleViewSet
+from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.serializers_schedules import (
     ScheduleAttributesSerializer,
     ScheduleBulkSerializer,
@@ -18,15 +19,12 @@ from cloudsneeker_api.services.scan_schedule import (
     remove_provider_scan_schedule,
     sync_provider_scan_schedule,
 )
-from django.db import transaction
-from django.shortcuts import get_object_or_404
-from django.urls import reverse
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import MethodNotAllowed, ValidationError
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
-from tasks.beat import schedule_provider_scan
 
 
 def _schedule_document(provider: Provider, attributes: dict) -> dict:
@@ -60,7 +58,7 @@ def _schedule_document(provider: Provider, attributes: dict) -> dict:
         summary="Remove a provider scan schedule",
     ),
 )
-class ScheduleViewSet(BaseRLSViewSet):
+class ScheduleViewSet(UpstreamScheduleViewSet):
     """JSON:API schedules keyed by provider id."""
 
     queryset = Provider.objects.all()
@@ -70,9 +68,7 @@ class ScheduleViewSet(BaseRLSViewSet):
     lookup_field = "pk"
 
     def get_queryset(self):
-        if self.user_role.unlimited_visibility:
-            return Provider.objects.filter(tenant_id=self.request.tenant_id)
-        return get_providers(self.user_role)
+        return self.get_provider_queryset()
 
     def list(self, request, *args, **kwargs):
         providers = self.filter_queryset(self.get_queryset())
@@ -117,11 +113,13 @@ class ScheduleViewSet(BaseRLSViewSet):
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @extend_schema(exclude=True)
-    def create(self, request, *args, **kwargs):
-        raise MethodNotAllowed(method="POST")
-
-    @action(detail=False, methods=["post"], url_path="bulk")
+    # The UI posts ``schedules-bulk`` documents to the ``schedules`` collection.
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="bulk",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
     def bulk(self, request, *args, **kwargs):
         payload = request.data or {}
         attributes = payload.get("attributes") or payload
@@ -155,27 +153,6 @@ class ScheduleViewSet(BaseRLSViewSet):
                 failed.append({"id": str(provider_id), "error": str(exc)})
 
         return Response({"data": {"updated": updated, "failed": failed}})
-
-    @action(detail=False, methods=["post"], url_name="daily")
-    def daily(self, request):
-        """Legacy OSS daily schedule (24h interval)."""
-        serializer = ScheduleDailyCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        provider_id = serializer.validated_data["provider_id"]
-        provider_instance = get_object_or_404(self.get_queryset(), pk=provider_id)
-        with transaction.atomic():
-            task = schedule_provider_scan(provider_instance)
-        prowler_task = Task.objects.get(id=task.id)
-        output_serializer = TaskSerializer(prowler_task)
-        return Response(
-            data=output_serializer.data,
-            status=status.HTTP_202_ACCEPTED,
-            headers={
-                "Content-Location": reverse(
-                    "task-detail", kwargs={"pk": prowler_task.id}
-                )
-            },
-        )
 
 
 ScheduleViewSet.authentication_classes = [CombinedJWTOrAPIKeyAuthentication]

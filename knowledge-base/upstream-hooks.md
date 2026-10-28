@@ -56,10 +56,11 @@ Test-side hooks (SDK): `tests/conftest.py` applies `cloudsneeker.testing.UPSTREA
 | `tasks/jobs/reports/base.py` | `report_logo_path(...)`; PDF metadata `author=pdf_author()`, `creator=pdf_creator()`, `keywords=pdf_keywords(framework)`; footer `pdf_footer()` | Logo file is `tasks/assets/img/cloudsneeker_logo.png`. |
 | `tasks/jobs/reports/cis.py`, `ens.py`, `nis2.py` | `prowler_logo_path = report_logo_path(...)`; `ens.py` footer `pdf_footer()` | Keep upstream variable names. |
 | `tasks/jobs/reports/config.py` | `display_name=threatscore_display_name()` for the built-in risk framework | "Cloudsneeker ThreatScore". |
+| `api/rbac/permissions.py` | `TASK_REVOKE_PERMISSIONS.update(cloudsneeker_task_revoke_permissions(Permissions))` after the upstream map | Every Cloudsneeker `RLSTask` needs an entry (`cloudsneeker_api/task_permissions.py`); `test_every_rls_task_has_revoke_permissions` enforces it. |
 | `tasks/jobs/scan.py` | after a successful scan, enqueue `evaluate_alert_rules_task` | Alerts stay Cloudsneeker-only; failures are logged and ignored. |
 | `Dockerfile` | `RUN chmod +x ./docker-entrypoint.sh` after the entrypoint copy | The exported build tree does not keep the executable bit. | |
 
-Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations.py`, and `tasks/tests/test_reports_base.py` assert against `cloudsneeker_api.brand` values. `cloudsneeker_api/tests/` covers the brand helpers, the app registration, `/api/v1/cloudsneeker/brand`, and the OpenAPI entry.
+Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_api.testing.upstream_compat_brand`, which swaps `cloudsneeker_api.brand.brand` for `cloudsneeker.testing.UPSTREAM_COMPAT_ENV` values in every test outside `cloudsneeker_api/` (so `test_reports_ens.py` still finds "Prowler" in the PDF footer). `.github/workflows/cloudsneeker-tests.yml` deselects `TestScheduleViewSet::test_schedule_invalid_method_list[get]`: the Cloudsneeker `ScheduleViewSet` serves `GET /schedules` on purpose, so the upstream OSS 405 expectation cannot hold. `api/tests/test_views.py`, `tasks/tests/test_integrations.py`, and `tasks/tests/test_reports_base.py` assert against `cloudsneeker_api.brand` values. `cloudsneeker_api/tests/` covers the brand helpers, the app registration, `/api/v1/cloudsneeker/brand`, and the OpenAPI entry.
 
 ## UI (`ui/`)
 
@@ -105,7 +106,7 @@ Test-side hooks (API): `api/tests/test_views.py`, `tasks/tests/test_integrations
 | `lib/cloud-upgrade.ts` | `CLOUD_SIGN_UP_URL = BRAND.websiteUrl`; `PRICING_URL = BRAND.pricingUrl || BRAND.websiteUrl` | — |
 | `lib/deployment.ts` | `PROWLER_CLOUD_ONLY_TOOLTIP = BRAND.unavailableFeatureCopy`; `isGroupedJiraDispatchEnabled` also checks `jiraGroupedDispatch` | Keep the export names. |
 | `lib/schedules.ts` (`getScanScheduleCapability`) | ADVANCED when `advancedScheduling` is on | Weekly/monthly/interval schedules without cloud edition. |
-| `api/v1/urls.py` | `ScheduleViewSet` imported from `cloudsneeker_api.views_schedules` | Full `/schedules` API replaces the OSS daily-only stub. |
+| `api/v1/urls.py` | `ScheduleViewSet` imported from `cloudsneeker_api.views_schedules` | Full `/schedules` API extends the OSS daily-only viewset; `daily` stays the upstream action. |
 | `ui/lib/schedules.test.ts` | capability expectation uses ADVANCED under Cloudsneeker | Matches `advancedScheduling` default. |
 | `lib/vulnerability-references.ts` | `HUB` label `View in ${BRAND.name} documentation`; hostname match against the brand docs host | — |
 | `lib/lighthouse-v1/system-prompt.ts` | `brandSystemPrompt` from `ui/cloudsneeker/lighthouse-prompt.ts` replaces the product paragraph | The agent speaks as the product and cites product docs. |

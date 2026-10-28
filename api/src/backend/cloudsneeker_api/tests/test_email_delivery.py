@@ -109,6 +109,7 @@ class TestSlackHelpers:
     def test_unconfigured_without_credentials(self):
         assert slack_app_configured() is False
 
+    @pytest.mark.django_db
     @override_settings(
         SLACK_CLIENT_ID="client",
         SLACK_CLIENT_SECRET="secret",
