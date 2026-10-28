@@ -73,8 +73,12 @@ const resolveSelectedScanIds = (
 
 export const ScanComparisonOverview = async ({
   searchParams,
-  scans,
+  scans: allScans,
 }: ScanComparisonOverviewProps) => {
+  // Trivy Hub imports carry no compliance frameworks, so they cannot be compared.
+  const scans = allScans.filter(
+    (scan) => !isTrivyHubScan(scan.attributes.scanner_args),
+  );
   if (scans.length === 0) {
     return <NoScansAvailable />;
   }

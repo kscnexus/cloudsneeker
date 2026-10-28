@@ -99,6 +99,7 @@ Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_a
 | `components/integrations/saml/saml-config-form.tsx` | SP entity ID `value={BRAND.samlSpEntityId}` | — |
 | `components/findings/table/finding-triage-cells.tsx` | `CLOUD_ONLY_TOOLTIP_COPY = BRAND.unavailableFeatureCopy` | — |
 | `components/shadcn/badge/badge.tsx` | `variant === "cloud"` renders nothing unless `BRAND.showUpsell` | — |
+| `components/lighthouse-v1/managed-lighthouse-callout.tsx` | renders nothing unless `BRAND.showUpsell` | Hides the managed-AI upsell card on Seeker AI settings. |
 | `components/survey/runtime-feedback-survey.tsx` | `SURVEY_NAME = BRAND.surveyName` | — |
 | `app/(prowler)/compliance/_components/cross-provider-hub-link.tsx` | `href={docsUrl(`compliance/${id}`)}` | Resolves to the generated framework page in `cloudsneeker/docs`. |
 | `app/api/health/route.ts` | `serviceId: BRAND.serviceId` | `cloudsneeker-ui`. |

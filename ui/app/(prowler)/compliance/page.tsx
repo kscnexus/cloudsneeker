@@ -112,7 +112,7 @@ export default async function Compliance({
         },
         pageSize: 50,
         fields: {
-          scans: "name,completed_at,provider",
+          scans: "name,completed_at,provider,scanner_args",
         },
         include: "provider",
       });

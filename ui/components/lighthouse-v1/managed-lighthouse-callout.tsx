@@ -2,6 +2,7 @@
 
 import { Sparkles } from "lucide-react";
 
+import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
 import { Badge } from "@/components/shadcn/badge/badge";
 import { Button } from "@/components/shadcn/button/button";
 import {
@@ -17,6 +18,8 @@ export const ManagedLighthouseCallout = () => {
   const openCloudUpgrade = useCloudUpgradeStore(
     (state) => state.openCloudUpgrade,
   );
+
+  if (!BRAND.showUpsell) return null; // cloudsneeker-hook: single edition, no managed-AI upsell
 
   return (
     <Card variant="inner" padding="lg">

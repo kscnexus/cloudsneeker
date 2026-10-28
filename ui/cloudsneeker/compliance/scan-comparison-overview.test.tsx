@@ -130,6 +130,27 @@ describe("ScanComparisonOverview", () => {
     expect(screen.getByText("row:CIS|3.0:15")).toBeInTheDocument();
   });
 
+  it("leaves Trivy Hub scans out of the comparison", async () => {
+    const trivyScan = {
+      ...scans[0],
+      id: "scan-trivy",
+      attributes: {
+        ...scans[0].attributes,
+        name: "Trivy repo: demo",
+        scanner_args: { source: "trivy_hub", mode: "repo" },
+      },
+    };
+
+    render(
+      await ScanComparisonOverview({
+        searchParams: {},
+        scans: [trivyScan, ...scans] as never,
+      }),
+    );
+
+    expect(screen.getByText("filters:scan-old->scan-new")).toBeInTheDocument();
+  });
+
   it("asks for a second scan when fewer than two exist", async () => {
     render(
       await ScanComparisonOverview({
