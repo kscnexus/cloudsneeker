@@ -18,6 +18,12 @@ export const openFindingsHref = (
 };
 
 /** `data` of a list response, or an empty list for errors and blanks. */
+/** True when a server action returned a JSON:API list (not an error or nothing). */
+export const isListResponse = (response: unknown): boolean =>
+  !!response &&
+  typeof response === "object" &&
+  Array.isArray((response as { data?: unknown }).data);
+
 export const responseList = <T>(response: unknown): T[] => {
   if (!response || typeof response !== "object") return [];
   const data = (response as { data?: unknown }).data;

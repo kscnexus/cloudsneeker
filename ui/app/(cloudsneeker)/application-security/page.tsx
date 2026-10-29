@@ -25,6 +25,7 @@ import {
   getAppSecurityCategory,
 } from "@/cloudsneeker/lib/app-security-dashboard";
 import {
+  isListResponse,
   openFindingsHref,
   responseCount,
   responseList,
@@ -122,6 +123,22 @@ const SSRAppSecurityWorkspace = async ({
     listTrivyTargets({ "page[size]": "100", sort: "-inserted_at" }),
     listTrivyRuns({ "page[size]": DASHBOARD_RUN_PAGE_SIZE, sort: "-inserted_at" }),
   ]);
+  if (!isListResponse(targetsResponse)) {
+    // A failed request must not read as "no targets yet".
+    return (
+      <SectionCard title="Targets">
+        <EmptyState
+          title="Targets could not be loaded"
+          description="The service did not answer. Reload the page in a moment."
+          action={
+            <Button asChild size="sm" variant="outline">
+              <Link href={appSecurityHref()}>Reload</Link>
+            </Button>
+          }
+        />
+      </SectionCard>
+    );
+  }
   const targets = responseList<TrivyTargetResource>(targetsResponse);
   const runs = responseList<TrivyRunResource>(runsResponse);
   const dashboard = buildAppSecurityDashboard({

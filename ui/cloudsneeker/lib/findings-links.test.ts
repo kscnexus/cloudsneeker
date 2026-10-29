@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { openFindingsHref, responseCount, responseList } from "./findings-links";
+import {
+  isListResponse,
+  openFindingsHref,
+  responseCount,
+  responseList,
+} from "./findings-links";
 
 describe("openFindingsHref", () => {
   it("filters to failed, unmuted findings plus extra filters", () => {
@@ -25,6 +30,15 @@ describe("responseList", () => {
     expect(responseList({ data: { id: "x" } })).toEqual([]);
     expect(responseList({ error: "boom" })).toEqual([]);
     expect(responseList(undefined)).toEqual([]);
+  });
+});
+
+describe("isListResponse", () => {
+  it("tells a list apart from an error or a missing response", () => {
+    expect(isListResponse({ data: [] })).toBe(true);
+    expect(isListResponse({ error: "boom" })).toBe(false);
+    expect(isListResponse({ data: { id: "x" } })).toBe(false);
+    expect(isListResponse(undefined)).toBe(false);
   });
 });
 

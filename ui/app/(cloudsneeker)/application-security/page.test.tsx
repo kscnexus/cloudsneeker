@@ -21,6 +21,11 @@ describe("Application Security page workspace", () => {
     );
   });
 
+  it("shows a load error instead of an empty list when targets fail", () => {
+    expect(source).toContain("isListResponse(targetsResponse)");
+    expect(source).toContain("Targets could not be loaded");
+  });
+
   it("filters targets by the category in the query", () => {
     expect(source).toContain("getAppSecurityCategory");
     expect(source).toContain("filterTargetsByCategory");
