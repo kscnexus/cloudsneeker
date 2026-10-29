@@ -456,11 +456,33 @@ def severity_rank_expression() -> Case:
     )
 
 
-def _metadata_text(metadata: dict, *keys: str) -> str:
+def _metadata_value(metadata: Any, key: str) -> Any:
+    """Read ``key`` from check metadata, ignoring case.
+
+    Scan findings store check metadata with lower-case keys (``checktitle``,
+    ``remediation``); imported findings keep the SDK's ``CheckTitle`` style.
+    """
+    if not isinstance(metadata, dict):
+        return None
+    if key in metadata:
+        return metadata[key]
+    wanted = key.lower()
+    for name, value in metadata.items():
+        if isinstance(name, str) and name.lower() == wanted:
+            return value
+    return None
+
+
+def _plain(text: str) -> str:
+    """Drop Markdown emphasis markers so report text reads as prose."""
+    return text.replace("**", "").replace("__", "").strip()
+
+
+def metadata_text(metadata: dict, *keys: str) -> str:
     for key in keys:
-        value = metadata.get(key)
+        value = _metadata_value(metadata, key)
         if isinstance(value, str) and value.strip():
-            return value.strip()
+            return _plain(value)
     return ""
 
 
@@ -470,13 +492,12 @@ def remediation_text(metadata: dict, raw_result: dict | None = None) -> str:
     Reads the check's ``Remediation.Recommendation.Text`` and falls back to the
     Trivy fixed version or a generic sentence.
     """
-    remediation = metadata.get("Remediation") or {}
-    if isinstance(remediation, dict):
-        recommendation = remediation.get("Recommendation") or {}
-        if isinstance(recommendation, dict):
-            text = recommendation.get("Text")
-            if isinstance(text, str) and text.strip():
-                return text.strip()
+    recommendation = _metadata_value(
+        _metadata_value(metadata, "Remediation"), "Recommendation"
+    )
+    text = _metadata_value(recommendation, "Text")
+    if isinstance(text, str) and text.strip():
+        return _plain(text)
     raw = raw_result or {}
     fixed = raw.get("FixedVersion")
     package = raw.get("PkgName")
@@ -490,7 +511,7 @@ def remediation_text(metadata: dict, raw_result: dict | None = None) -> str:
 
 def business_impact(severity: str, metadata: dict) -> str:
     """Return a plain-language impact sentence for management readers."""
-    risk = _metadata_text(metadata, "Risk")
+    risk = metadata_text(metadata, "Risk")
     if risk:
         return risk[:400]
     return BUSINESS_IMPACT.get(severity, BUSINESS_IMPACT["medium"])
@@ -548,9 +569,9 @@ def top_risks(queryset: QuerySet, *, limit: int = 10) -> list[dict[str, Any]]:
         metadata = sample.get("check_metadata") or {}
         raw_result = sample.get("raw_result") or {}
         entry["title"] = (
-            _metadata_text(metadata, "CheckTitle", "Title") or entry["check_id"]
+            metadata_text(metadata, "CheckTitle", "Title") or entry["check_id"]
         )
-        entry["service"] = _metadata_text(metadata, "ServiceName", "servicename")
+        entry["service"] = metadata_text(metadata, "ServiceName", "servicename")
         entry["impact"] = business_impact(entry["severity"], metadata)
         entry["remediation"] = remediation_text(metadata, raw_result)
     return ranked
@@ -883,7 +904,7 @@ def default_finding_row(item: dict[str, Any], resource: dict[str, str]) -> dict[
     return {
         "severity": str(item["severity"]),
         "check_id": item["check_id"],
-        "title": _metadata_text(metadata, "CheckTitle", "Title") or item["check_id"],
+        "title": metadata_text(metadata, "CheckTitle", "Title") or item["check_id"],
         "provider": source_label(item),
         "resource": resource.get("name") or resource.get("uid") or "",
         "service": resource.get("service") or _first(item.get("resource_services")),

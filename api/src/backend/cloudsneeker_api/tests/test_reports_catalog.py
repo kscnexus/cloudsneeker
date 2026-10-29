@@ -21,6 +21,7 @@ from cloudsneeker_api.reports.data.common import (
     FindingStats,
     business_impact,
     grade_for,
+    metadata_text,
     remediation_text,
     requirement_status,
     security_score,
@@ -272,6 +273,16 @@ class TestScoring:
         assert business_impact("high", {"Risk": "Data exposure."}) == "Data exposure."
         assert "breach" in business_impact("critical", {})
         assert business_impact("unknown", {}).startswith("Weakens")
+
+    def test_scan_metadata_uses_lower_case_keys(self):
+        metadata = {
+            "checktitle": "Lambda variables hold no secrets",
+            "risk": "Secrets weaken **confidentiality**.",
+            "remediation": {"recommendation": {"text": "Move secrets to a vault."}},
+        }
+        assert metadata_text(metadata, "CheckTitle") == "Lambda variables hold no secrets"
+        assert business_impact("critical", metadata) == "Secrets weaken confidentiality."
+        assert remediation_text(metadata) == "Move secrets to a vault."
 
     def test_governance_score(self):
         assert governance_score(0, 0) is None

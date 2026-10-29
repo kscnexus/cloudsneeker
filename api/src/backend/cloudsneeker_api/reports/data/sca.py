@@ -8,6 +8,7 @@ from cloudsneeker_api.reports.catalog import SCA
 from cloudsneeker_api.reports.data.common import (
     VULNERABILITY_Q,
     ScanScope,
+    metadata_text,
     source_label,
 )
 from cloudsneeker_api.reports.data.findings_report import (
@@ -55,7 +56,9 @@ def sca_row(item: dict[str, Any], resource: dict[str, str]) -> dict[str, Any]:
         "installed_version": str(raw.get("InstalledVersion") or ""),
         "fixed_version": str(raw.get("FixedVersion") or ""),
         "title": str(
-            metadata.get("CheckTitle") or raw.get("Title") or item["check_id"]
+            metadata_text(metadata, "CheckTitle")
+            or raw.get("Title")
+            or item["check_id"]
         )[:256],
         "provider": source_label(item),
         "target": str(resource.get("uid") or ""),
