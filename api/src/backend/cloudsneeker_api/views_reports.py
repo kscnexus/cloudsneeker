@@ -54,8 +54,7 @@ from cloudsneeker_api.serializers_reports import (
 )
 from django.http import FileResponse
 from django_filters import rest_framework as filters
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -205,7 +204,9 @@ class ReportRunViewSet(_ReportVisibilityMixin, BaseRLSViewSet):
     @extend_schema(
         tags=["Reports"],
         summary="Download a report artifact",
-        responses={200: OpenApiTypes.BINARY},
+        responses={
+            200: OpenApiResponse(description="The report file (PDF, XLSX, CSV or JSON)")
+        },
     )
     @action(detail=True, methods=["get"], url_path="download")
     def download(self, request, pk=None):
@@ -235,7 +236,7 @@ class ReportRunViewSet(_ReportVisibilityMixin, BaseRLSViewSet):
     @extend_schema(
         tags=["Reports"],
         summary="Get the interactive report payload",
-        responses={200: OpenApiTypes.OBJECT},
+        responses={200: OpenApiResponse(description="Report payload")},
     )
     @action(detail=True, methods=["get"], url_path="data", url_name="data")
     def report_data(self, request, pk=None):
@@ -260,7 +261,10 @@ class ReportRunViewSet(_ReportVisibilityMixin, BaseRLSViewSet):
         tags=["Reports"],
         summary="Create or list share links",
         request=ReportShareLinkCreateSerializer,
-        responses={200: OpenApiTypes.OBJECT, 201: OpenApiTypes.OBJECT},
+        responses={
+            200: OpenApiResponse(description="Share links for the report run"),
+            201: OpenApiResponse(description="The new share link with its one-time token"),
+        },
     )
     @action(
         detail=True,
@@ -477,7 +481,7 @@ class SharedReportView(APIView):
         tags=["Reports"],
         summary="Read a shared report",
         auth=[],
-        responses={200: OpenApiTypes.OBJECT},
+        responses={200: OpenApiResponse(description="Shared report payload")},
     )
     def get(self, request, token: str, *args, **kwargs):
         try:

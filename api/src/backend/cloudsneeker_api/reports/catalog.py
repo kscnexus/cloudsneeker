@@ -244,12 +244,15 @@ def _parse_moment(value: Any, *, end_of_day: bool) -> datetime | None:
         moment = value
     else:
         text = str(value)
-        moment = parse_datetime(text)
-        if moment is None:
-            day = parse_date(text)
-            if day is None:
-                raise ReportParamsError(f"Invalid date: {value}")
+        # A bare date covers the whole day. Check it first: parse_datetime
+        # also accepts "YYYY-MM-DD" (as midnight) on Python 3.11+.
+        day = parse_date(text) if len(text) == 10 else None
+        if day is not None:
             moment = datetime.combine(day, time.max if end_of_day else time.min)
+        else:
+            moment = parse_datetime(text)
+            if moment is None:
+                raise ReportParamsError(f"Invalid date: {value}")
     if timezone.is_naive(moment):
         moment = timezone.make_aware(moment, UTC)
     return moment
