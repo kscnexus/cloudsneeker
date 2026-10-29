@@ -8,6 +8,12 @@ import {
   createReportSchedule,
   updateReportSchedule,
 } from "@/cloudsneeker/actions/reports";
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+} from "@/cloudsneeker/components/form-layout";
+import { SectionCard } from "@/cloudsneeker/components/section-card";
 import type { ReportCatalogEntry } from "@/cloudsneeker/lib/report-catalog";
 import {
   reportScheduleFormSchema,
@@ -20,13 +26,17 @@ import {
   REPORT_SCHEDULE_PRESET_OPTIONS,
   WEEKDAY_OPTIONS,
 } from "@/cloudsneeker/lib/report-schedule";
-import { Button, Input, Label, Textarea } from "@/components/shadcn";
+import {
+  FORM_CHECK_CLASS,
+  FORM_CHOICE_CLASS,
+  FORM_SELECT_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
+import { Button, Input, Textarea } from "@/components/shadcn";
 
 import {
   asReportParamsForm,
   ReportParamsFields,
   type ReportOption,
-  SELECT_CLASS,
 } from "./report-params-fields";
 
 interface ReportScheduleFormProps {
@@ -81,53 +91,55 @@ export const ReportScheduleForm = ({
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="report-schedule-name">Name</Label>
-        <Input
+    <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-5">
+      <SectionCard title="Report" description="What the scheduled run builds.">
+        <FormField
           id="report-schedule-name"
-          placeholder="Weekly executive summary"
-          {...form.register("name")}
-        />
-        {errors.name ? (
-          <p className="text-text-error-primary text-xs">
-            {errors.name.message}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="report-schedule-type">Report</Label>
-        <select
-          id="report-schedule-type"
-          className={SELECT_CLASS}
-          {...form.register("reportType")}
+          label="Name"
+          error={errors.name?.message}
         >
-          {catalog.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.title}
-            </option>
-          ))}
-        </select>
-      </div>
+          <Input
+            id="report-schedule-name"
+            placeholder="Weekly executive summary"
+            {...form.register("name")}
+          />
+        </FormField>
 
-      <ReportParamsFields
-        form={asReportParamsForm(form)}
-        idPrefix="report-schedule"
-        providers={providers}
-        frameworks={frameworks}
-      />
+        <FormField
+          id="report-schedule-type"
+          label="Report"
+          error={errors.reportType?.message}
+        >
+          <select
+            id="report-schedule-type"
+            className={FORM_SELECT_CLASS}
+            {...form.register("reportType")}
+          >
+            {catalog.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.title}
+              </option>
+            ))}
+          </select>
+        </FormField>
 
-      <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
-        <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
-          Delivery
-        </legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="report-schedule-preset">Cadence</Label>
+        <ReportParamsFields
+          form={asReportParamsForm(form)}
+          idPrefix="report-schedule"
+          providers={providers}
+          frameworks={frameworks}
+        />
+      </SectionCard>
+
+      <SectionCard
+        title="Delivery"
+        description="When the report runs and who receives it."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField id="report-schedule-preset" label="Cadence">
             <select
               id="report-schedule-preset"
-              className={SELECT_CLASS}
+              className={FORM_SELECT_CLASS}
               {...form.register("schedulePreset")}
             >
               {REPORT_SCHEDULE_PRESET_OPTIONS.map((option) => (
@@ -136,10 +148,13 @@ export const ReportScheduleForm = ({
                 </option>
               ))}
             </select>
-          </div>
+          </FormField>
           {preset !== REPORT_SCHEDULE_PRESET.CUSTOM ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="report-schedule-hour">Hour (0–23)</Label>
+            <FormField
+              id="report-schedule-hour"
+              label="Hour (0–23)"
+              error={errors.scheduleHour?.message}
+            >
               <Input
                 id="report-schedule-hour"
                 type="number"
@@ -147,14 +162,13 @@ export const ReportScheduleForm = ({
                 max={23}
                 {...form.register("scheduleHour")}
               />
-            </div>
+            </FormField>
           ) : null}
           {preset === REPORT_SCHEDULE_PRESET.WEEKLY ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="report-schedule-weekday">Day of week</Label>
+            <FormField id="report-schedule-weekday" label="Day of week">
               <select
                 id="report-schedule-weekday"
-                className={SELECT_CLASS}
+                className={FORM_SELECT_CLASS}
                 {...form.register("scheduleWeekday")}
               >
                 {WEEKDAY_OPTIONS.map((day) => (
@@ -163,11 +177,14 @@ export const ReportScheduleForm = ({
                   </option>
                 ))}
               </select>
-            </div>
+            </FormField>
           ) : null}
           {preset === REPORT_SCHEDULE_PRESET.MONTHLY ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="report-schedule-day">Day of month (1–28)</Label>
+            <FormField
+              id="report-schedule-day"
+              label="Day of month (1–28)"
+              error={errors.scheduleDayOfMonth?.message}
+            >
               <Input
                 id="report-schedule-day"
                 type="number"
@@ -175,79 +192,75 @@ export const ReportScheduleForm = ({
                 max={28}
                 {...form.register("scheduleDayOfMonth")}
               />
-            </div>
+            </FormField>
           ) : null}
           {preset === REPORT_SCHEDULE_PRESET.CUSTOM ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="report-schedule-cron">
-                Cron (minute hour day month weekday)
-              </Label>
+            <FormField
+              id="report-schedule-cron"
+              label="Cron"
+              help="Five fields: minute hour day month weekday."
+              error={errors.scheduleCron?.message}
+            >
               <Input
                 id="report-schedule-cron"
                 className="font-mono text-sm"
                 placeholder="0 8 * * 1-5"
                 {...form.register("scheduleCron")}
               />
-              {errors.scheduleCron ? (
-                <p className="text-text-error-primary text-xs">
-                  {errors.scheduleCron.message}
-                </p>
-              ) : null}
-            </div>
+            </FormField>
           ) : null}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="report-schedule-timezone">Timezone</Label>
+          <FormField
+            id="report-schedule-timezone"
+            label="Timezone"
+            error={errors.scheduleTimezone?.message}
+          >
             <Input
               id="report-schedule-timezone"
               placeholder="UTC"
               {...form.register("scheduleTimezone")}
             />
-          </div>
+          </FormField>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="report-schedule-recipients">Recipients</Label>
+        <FormField
+          id="report-schedule-recipients"
+          label="Recipients"
+          help="Separate addresses with commas or new lines. Large reports are sent as a secure link instead of an attachment."
+          error={errors.recipients?.message}
+        >
           <Textarea
             id="report-schedule-recipients"
             rows={3}
             placeholder="ciso@example.com, security@example.com"
             {...form.register("recipients")}
           />
-          <p className="text-text-neutral-secondary text-xs">
-            Separate addresses with commas or new lines. Large reports are sent
-            as a secure link instead of an attachment.
-          </p>
-          {errors.recipients ? (
-            <p className="text-text-error-primary text-xs">
-              {errors.recipients.message}
-            </p>
-          ) : null}
-        </div>
+        </FormField>
 
-        <label
-          htmlFor="report-schedule-enabled"
-          className="text-text-neutral-primary flex items-center gap-2 text-sm"
-        >
+        <label htmlFor="report-schedule-enabled" className={FORM_CHOICE_CLASS}>
           <input
             id="report-schedule-enabled"
             type="checkbox"
-            className="size-4"
+            className={FORM_CHECK_CLASS}
             {...form.register("enabled")}
           />
           Enabled
         </label>
-      </fieldset>
+      </SectionCard>
 
-      {error ? <p className="text-text-error-primary text-sm">{error}</p> : null}
+      <FormAlert message={error} />
 
-      <div className="flex justify-end gap-2">
+      <FormActions>
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : scheduleId ? "Save schedule" : "Create schedule"}
+          {saving
+            ? "Saving…"
+            : scheduleId
+              ? "Save schedule"
+              : "Create schedule"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 };

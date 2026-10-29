@@ -2,6 +2,7 @@ import { ShieldPlus } from "lucide-react";
 
 import { getProviders } from "@/actions/providers/providers";
 import { CustodianPolicyForm } from "@/cloudsneeker/components/custodian-policy-form";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { CUSTODIAN_PROVIDER_FILTER } from "@/cloudsneeker/lib/custodian-providers";
 import { CUSTODIAN_SCHEDULE_PRESET } from "@/cloudsneeker/lib/custodian-schedule";
 import { CUSTODIAN_TEMPLATES } from "@/cloudsneeker/lib/custodian-templates";
@@ -50,6 +51,7 @@ export default async function NewCustodianPolicyPage({
 
   return (
     <ContentLayout title="New governance policy" icon={<ShieldPlus />}>
+      <PageHeader description="Policies run dry-run only: they report matching resources and never change them." />
       <CustodianPolicyForm
         providers={preferredProviders}
         initialValues={

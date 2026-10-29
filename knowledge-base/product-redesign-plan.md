@@ -81,7 +81,25 @@ Status: UI done (pending deploy).
   and recent scans. Helpers in `ui/cloudsneeker/lib/app-security-dashboard.ts`.
 - Governance hub dashboard, policy detail, target and scan detail pages, and
   Reports pages use the shared components.
-- Not changed (upstream pages, only hooked): Alerts, Scan profiles, CLI Import.
+- Alerts and Scan profiles (upstream pages): one marked hook each renders KPI
+  tiles above the upstream list (`AlertsSummary`: rules, active, paused,
+  destinations; `ScanProfilesSummary`: profiles, providers with a profile,
+  providers on defaults, last edited). Counts in `ui/cloudsneeker/lib/ops-summary.ts`.
+  The upstream tables, modals and the alert rule form stay as they are.
+- CLI Import (`/scans?import=1`): one hook in the upstream Import findings
+  dialog renders `CliImportSteps` (CLI command, pick the `.ocsf.json`, start);
+  `theme.css` turns the dialog's status lines into callouts.
+- Create/edit forms (Application Security target, Governance policy, report
+  schedule) share `ui/cloudsneeker/components/form-layout.tsx` (`FormField`,
+  `FormChoiceGroup`, `FormAlert`, `FormActions`) and the form classes in
+  `ui-classes.ts`: one column, `SectionCard` per section, help text under the
+  control, field errors with `role="alert"`, save error above a submit row that
+  stacks full width on phones. New/edit pages get a `PageHeader` description.
+  Code archive inputs accept `.zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz` and
+  reject other files (7-Zip, RAR) before upload.
+- Phone navbar: `theme.css` keeps the header inside a 375px viewport (title
+  truncates; the duplicate Profile text link and the updates feed are hidden
+  below `sm`). Recorded under CSS-only overrides in `upstream-hooks.md`.
 
 ## Phase 3: SAST engine
 

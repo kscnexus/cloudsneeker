@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CliImportSteps } from "@/cloudsneeker/components/cli-import-steps"; // cloudsneeker-hook
 import { Button } from "@/components/shadcn/button/button";
 import { FileUploadDropzone } from "@/components/shadcn/file-upload/file-upload-dropzone";
 import { Modal } from "@/components/shadcn/modal/modal";
@@ -249,6 +250,8 @@ export function ImportFindingsModal({
             </p>
           ) : (
             <>
+              {/* cloudsneeker-hook: how-to above the upload area */}
+              <CliImportSteps />
               <div data-testid="import-findings-dropzone">
                 <FileUploadDropzone
                   file={file}

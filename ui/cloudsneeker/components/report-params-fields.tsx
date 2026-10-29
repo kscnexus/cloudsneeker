@@ -5,6 +5,7 @@
 import { type UseFormReturn, useWatch } from "react-hook-form";
 
 import { severityLabel } from "@/cloudsneeker/lib/report-view";
+import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
   REPORT_SEVERITY_ORDER,
   REPORT_TYPE_ID,
@@ -34,8 +35,8 @@ const FORMAT_LABEL: Record<SelectableReportFormat, string> = {
   csv: "CSV (detail rows)",
 };
 
-export const SELECT_CLASS =
-  "border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm";
+/** Kept for existing imports; the shared form select style. */
+export const SELECT_CLASS = FORM_SELECT_CLASS;
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-text-error-primary text-xs">{message}</p> : null;

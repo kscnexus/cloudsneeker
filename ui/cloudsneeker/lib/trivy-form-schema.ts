@@ -20,6 +20,27 @@ export const SAST_MAX_EXCLUDE_LENGTH = 200;
 
 const SAST_RULESET_VALUES = Object.values(SAST_RULESET);
 
+/** Code archive formats the scan worker can unpack. */
+export const CODE_ARCHIVE_EXTENSIONS = [
+  ".zip",
+  ".tar",
+  ".tar.gz",
+  ".tgz",
+  ".tar.bz2",
+  ".tar.xz",
+] as const;
+
+/** `accept` value for the code archive file inputs. */
+export const CODE_ARCHIVE_ACCEPT = CODE_ARCHIVE_EXTENSIONS.join(",");
+
+export const CODE_ARCHIVE_HELP =
+  "ZIP or TAR archive (7-Zip and RAR are not supported)";
+
+export const isSupportedCodeArchive = (fileName: string): boolean => {
+  const lower = fileName.trim().toLowerCase();
+  return CODE_ARCHIVE_EXTENSIONS.some((extension) => lower.endsWith(extension));
+};
+
 export const parseExcludePatterns = (value: string): string[] =>
   Array.from(
     new Set(
@@ -128,7 +149,9 @@ export const trivyTargetFormSchema = z
           message: `At most ${SAST_MAX_EXCLUDE_PATTERNS} exclude patterns are allowed.`,
         });
       }
-      if (patterns.some((pattern) => pattern.length > SAST_MAX_EXCLUDE_LENGTH)) {
+      if (
+        patterns.some((pattern) => pattern.length > SAST_MAX_EXCLUDE_LENGTH)
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["exclude"],

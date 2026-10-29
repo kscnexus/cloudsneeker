@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildTrivyConfig,
+  CODE_ARCHIVE_ACCEPT,
+  isSupportedCodeArchive,
   SAST_MAX_EXCLUDE_PATTERNS,
   SAST_SOURCE,
   toggleSastRuleset,
@@ -154,4 +156,28 @@ describe("static analysis (SAST) targets", () => {
       "scala",
     ]);
   });
+});
+
+describe("code archive formats", () => {
+  it("lists ZIP and TAR variants for the file input", () => {
+    expect(CODE_ARCHIVE_ACCEPT).toBe(".zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz");
+  });
+
+  it.each([
+    "app.zip",
+    "app.tar",
+    "App.TAR.GZ",
+    "app.tgz",
+    "a.tar.bz2",
+    "a.tar.xz",
+  ])("accepts %s", (name) => {
+    expect(isSupportedCodeArchive(name)).toBe(true);
+  });
+
+  it.each(["app.7z", "app.rar", "app.gz", "app.json", ""])(
+    "rejects %s",
+    (name) => {
+      expect(isSupportedCodeArchive(name)).toBe(false);
+    },
+  );
 });

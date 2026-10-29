@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getProviders } from "@/actions/providers/providers";
 import { getTrivyTarget } from "@/cloudsneeker/actions/trivy";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
 import {
   SAST_SOURCE,
@@ -86,7 +87,11 @@ export default async function EditTrivyTargetPage({
   };
 
   return (
-    <ContentLayout title={`Edit ${target.attributes.name}`} icon={<ScanSearch />}>
+    <ContentLayout
+      title={`Edit ${target.attributes.name}`}
+      icon={<ScanSearch />}
+    >
+      <PageHeader description="Changes apply from the next scan. Earlier scan results stay as they were." />
       <TrivyTargetForm
         providers={providers}
         initialValues={initialValues}

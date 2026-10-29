@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getProviders } from "@/actions/providers/providers";
 import { getCustodianPolicy } from "@/cloudsneeker/actions/custodian";
 import { CustodianPolicyForm } from "@/cloudsneeker/components/custodian-policy-form";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { CUSTODIAN_PROVIDER_FILTER } from "@/cloudsneeker/lib/custodian-providers";
 import { presetFromCron } from "@/cloudsneeker/lib/custodian-schedule";
 import type { CustodianPolicyResource } from "@/cloudsneeker/types/custodian";
@@ -52,6 +53,7 @@ export default async function EditCustodianPolicyPage({
 
   return (
     <ContentLayout title={`Edit ${policy.attributes.name}`} icon={<Shield />}>
+      <PageHeader description="Changes apply from the next run. Policies stay dry-run only." />
       <CustodianPolicyForm
         policyId={policyId}
         providers={providers}
@@ -65,7 +67,9 @@ export default async function EditCustodianPolicyPage({
           scheduleWeekday: schedule.weekday,
           scheduleTimezone: policy.attributes.schedule_timezone ?? "UTC",
           scheduleCron: policy.attributes.schedule_cron ?? "",
-          regionsOverride: (policy.attributes.regions_override ?? []).join(", "),
+          regionsOverride: (policy.attributes.regions_override ?? []).join(
+            ", ",
+          ),
         }}
       />
     </ContentLayout>

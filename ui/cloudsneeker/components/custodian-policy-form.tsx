@@ -11,6 +11,13 @@ import {
   updateCustodianPolicy,
 } from "@/cloudsneeker/actions/custodian";
 import {
+  FormActions,
+  FormAlert,
+  FormChoiceGroup,
+  FormField,
+} from "@/cloudsneeker/components/form-layout";
+import { SectionCard } from "@/cloudsneeker/components/section-card";
+import {
   CUSTODIAN_BUILDER_RESOURCE,
   CUSTODIAN_BUILDER_RESOURCES,
   buildCustodianPolicyYaml,
@@ -27,8 +34,15 @@ import {
   packsForProvider,
   templatesForProvider,
 } from "@/cloudsneeker/lib/custodian-templates";
+import {
+  CARD_LIST_CLASS,
+  FORM_CHECK_CLASS,
+  FORM_CHOICE_CLASS,
+  FORM_CLASS,
+  FORM_SELECT_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { governanceHref } from "@/cloudsneeker/routes";
-import { Button, Input, Label, Textarea } from "@/components/shadcn";
+import { Button, Input, Textarea } from "@/components/shadcn";
 
 interface ProviderOption {
   id: string;
@@ -62,7 +76,9 @@ export const CustodianPolicyForm = ({
   const [saving, setSaving] = useState(false);
   const [builderResource, setBuilderResource] =
     useState<CustodianBuilderResource>(CUSTODIAN_BUILDER_RESOURCE.AWS_EBS);
-  const [builderFilters, setBuilderFilters] = useState<string[]>(["unattached"]);
+  const [builderFilters, setBuilderFilters] = useState<string[]>([
+    "unattached",
+  ]);
   const [packMessage, setPackMessage] = useState<string | null>(null);
 
   const form = useForm<
@@ -184,62 +200,65 @@ export const CustodianPolicyForm = ({
     router.refresh();
   };
 
+  const errors = form.formState.errors;
+
   return (
-    <form className="flex max-w-3xl flex-col gap-4" onSubmit={onSubmit}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="custodian-name">Name</Label>
-        <Input id="custodian-name" {...form.register("name")} />
-        {form.formState.errors.name ? (
-          <p className="text-text-error text-sm">
-            {form.formState.errors.name.message}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="custodian-description">Description</Label>
-        <Input id="custodian-description" {...form.register("description")} />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="custodian-provider">Cloud provider</Label>
-        <select
-          id="custodian-provider"
-          className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
-          {...form.register("providerId")}
+    <form className={FORM_CLASS} onSubmit={onSubmit}>
+      <SectionCard
+        title="Policy"
+        description="Name the policy and pick the cloud account it checks."
+      >
+        <FormField
+          id="custodian-name"
+          label="Name"
+          error={errors.name?.message}
         >
-          {providers.length === 0 ? (
-            <option value="">No supported providers connected</option>
-          ) : (
-            providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.label}
-              </option>
-            ))
-          )}
-        </select>
-        {form.formState.errors.providerId ? (
-          <p className="text-text-error text-sm">
-            {form.formState.errors.providerId.message}
-          </p>
-        ) : null}
-      </div>
+          <Input id="custodian-name" {...form.register("name")} />
+        </FormField>
+
+        <FormField
+          id="custodian-description"
+          label="Description"
+          optional
+          error={errors.description?.message}
+        >
+          <Input id="custodian-description" {...form.register("description")} />
+        </FormField>
+
+        <FormField
+          id="custodian-provider"
+          label="Cloud provider"
+          error={errors.providerId?.message}
+        >
+          <select
+            id="custodian-provider"
+            className={FORM_SELECT_CLASS}
+            {...form.register("providerId")}
+          >
+            {providers.length === 0 ? (
+              <option value="">No supported providers connected</option>
+            ) : (
+              providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.label}
+                </option>
+              ))
+            )}
+          </select>
+        </FormField>
+      </SectionCard>
 
       {!policyId && templates.length > 0 ? (
-        <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
-          <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
-            Starter templates
-          </legend>
-          <p className="text-text-neutral-secondary text-xs">
-            Load a validated dry-run starter. Actions / remediate are never
-            included.
-          </p>
+        <SectionCard
+          title="Starter templates"
+          description="Load a validated dry-run starter. Actions / remediate are never included."
+        >
           <div className="flex flex-wrap gap-2">
             {templates.map((template) => (
               <Button
                 key={template.id}
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => applyTemplate(template.id)}
               >
@@ -247,41 +266,46 @@ export const CustodianPolicyForm = ({
               </Button>
             ))}
           </div>
-          {packs.map((pack) => (
-            <div key={pack.id} className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={saving || !providerId}
-                onClick={() => installPack(pack.id)}
-              >
-                Install {pack.name}
-              </Button>
-              <span className="text-text-neutral-secondary text-xs">
-                {pack.description}
-              </span>
-            </div>
-          ))}
-          {packMessage ? (
-            <p className="text-text-neutral-secondary text-sm">{packMessage}</p>
+          {packs.length > 0 ? (
+            <ul className={CARD_LIST_CLASS}>
+              {packs.map((pack) => (
+                <li
+                  key={pack.id}
+                  className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="text-text-neutral-secondary min-w-0 text-sm">
+                    {pack.description}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto sm:shrink-0"
+                    disabled={saving || !providerId}
+                    onClick={() => installPack(pack.id)}
+                  >
+                    Install {pack.name}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           ) : null}
-        </fieldset>
+          {packMessage ? (
+            <p role="status" className="text-text-neutral-secondary text-sm">
+              {packMessage}
+            </p>
+          ) : null}
+        </SectionCard>
       ) : null}
 
-      <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
-        <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
-          Visual builder
-        </legend>
-        <p className="text-text-neutral-secondary text-xs">
-          Pick a resource and filters, then write YAML into the editor. Dry-run
-          only — actions stay hidden.
-        </p>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="custodian-builder-resource">Resource</Label>
+      <SectionCard
+        title="Visual builder"
+        description="Pick a resource and filters, then write YAML into the editor. Dry-run only — actions stay hidden."
+      >
+        <FormField id="custodian-builder-resource" label="Resource">
           <select
             id="custodian-builder-resource"
-            className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
+            className={FORM_SELECT_CLASS}
             value={builderResource}
             onChange={(event) => {
               const next = event.target.value as CustodianBuilderResource;
@@ -296,19 +320,15 @@ export const CustodianPolicyForm = ({
               </option>
             ))}
           </select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Filters</span>
+        </FormField>
+        <FormChoiceGroup legend="Filters">
           {builderFilterOptions.map((option) => {
             const checked = builderFilters.includes(option.id);
             return (
-              <label
-                key={option.id}
-                className="text-text-neutral-primary flex items-start gap-2 text-sm"
-              >
+              <label key={option.id} className={FORM_CHOICE_CLASS}>
                 <input
                   type="checkbox"
-                  className="mt-1"
+                  className={FORM_CHECK_CLASS}
                   checked={checked}
                   onChange={(event) => {
                     if (event.target.checked) {
@@ -320,138 +340,146 @@ export const CustodianPolicyForm = ({
                     }
                   }}
                 />
-                <span>{option.label}</span>
+                <span className="min-w-0">{option.label}</span>
               </label>
             );
           })}
-        </div>
-        <Button type="button" variant="ghost" size="sm" onClick={applyBuilder}>
-          Write YAML from builder
-        </Button>
-      </fieldset>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="custodian-yaml">Policy YAML</Label>
-        <Textarea
-          id="custodian-yaml"
-          className="min-h-64 font-mono text-sm"
-          {...form.register("policyYaml")}
-        />
-        {form.formState.errors.policyYaml ? (
-          <p className="text-text-error text-sm">
-            {form.formState.errors.policyYaml.message}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="custodian-regions">
-          Region override (optional, comma-separated)
-        </Label>
-        <Input
-          id="custodian-regions"
-          placeholder="us-east-1, eu-west-1"
-          className="font-mono text-sm"
-          {...form.register("regionsOverride")}
-        />
-        <p className="text-text-neutral-secondary text-xs">
-          Leave blank to use the provider scanner regions.
-        </p>
-      </div>
-
-      <fieldset className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-4">
-        <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
-          Dry-run schedule
-        </legend>
-        <p className="text-text-neutral-secondary text-xs">
-          Scheduled runs stay dry-run only. Apply / remediate is never enabled.
-        </p>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="custodian-schedule-preset">Cadence</Label>
-          <select
-            id="custodian-schedule-preset"
-            className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
-            {...form.register("schedulePreset")}
+        </FormChoiceGroup>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={applyBuilder}
           >
-            <option value={CUSTODIAN_SCHEDULE_PRESET.DISABLED}>Off</option>
-            <option value={CUSTODIAN_SCHEDULE_PRESET.HOURLY}>Hourly</option>
-            <option value={CUSTODIAN_SCHEDULE_PRESET.DAILY}>Daily</option>
-            <option value={CUSTODIAN_SCHEDULE_PRESET.WEEKLY}>Weekly</option>
-            <option value={CUSTODIAN_SCHEDULE_PRESET.CUSTOM}>
-              Custom cron
-            </option>
-          </select>
+            Write YAML from builder
+          </Button>
         </div>
+      </SectionCard>
 
-        {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.DAILY ||
-        schedulePreset === CUSTODIAN_SCHEDULE_PRESET.WEEKLY ? (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="custodian-schedule-hour">Hour (0–23)</Label>
-            <Input
-              id="custodian-schedule-hour"
-              type="number"
-              min={0}
-              max={23}
-              {...form.register("scheduleHour")}
-            />
-          </div>
-        ) : null}
+      <SectionCard
+        title="Policy definition"
+        description="The YAML that runs. Regions default to the provider's scan regions."
+      >
+        <FormField
+          id="custodian-yaml"
+          label="Policy YAML"
+          error={errors.policyYaml?.message}
+        >
+          <Textarea
+            id="custodian-yaml"
+            className="min-h-64 font-mono text-sm"
+            spellCheck={false}
+            {...form.register("policyYaml")}
+          />
+        </FormField>
 
-        {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.WEEKLY ? (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="custodian-schedule-weekday">Day of week</Label>
+        <FormField
+          id="custodian-regions"
+          label="Region override"
+          optional
+          help="Comma-separated. Leave blank to use the provider scanner regions."
+          error={errors.regionsOverride?.message}
+        >
+          <Input
+            id="custodian-regions"
+            placeholder="us-east-1, eu-west-1"
+            className="font-mono text-sm"
+            {...form.register("regionsOverride")}
+          />
+        </FormField>
+      </SectionCard>
+
+      <SectionCard
+        title="Dry-run schedule"
+        description="Scheduled runs stay dry-run only. Apply / remediate is never enabled."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField id="custodian-schedule-preset" label="Cadence">
             <select
-              id="custodian-schedule-weekday"
-              className="border-border-neutral-secondary bg-bg-neutral-primary text-text-neutral-primary rounded-md border px-3 py-2 text-sm"
-              {...form.register("scheduleWeekday")}
+              id="custodian-schedule-preset"
+              className={FORM_SELECT_CLASS}
+              {...form.register("schedulePreset")}
             >
-              {WEEKDAYS.map((day) => (
-                <option key={day.value} value={day.value}>
-                  {day.label}
-                </option>
-              ))}
+              <option value={CUSTODIAN_SCHEDULE_PRESET.DISABLED}>Off</option>
+              <option value={CUSTODIAN_SCHEDULE_PRESET.HOURLY}>Hourly</option>
+              <option value={CUSTODIAN_SCHEDULE_PRESET.DAILY}>Daily</option>
+              <option value={CUSTODIAN_SCHEDULE_PRESET.WEEKLY}>Weekly</option>
+              <option value={CUSTODIAN_SCHEDULE_PRESET.CUSTOM}>
+                Custom cron
+              </option>
             </select>
-          </div>
-        ) : null}
+          </FormField>
 
-        {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.CUSTOM ? (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="custodian-schedule-cron">
-              Cron (minute hour day month weekday)
-            </Label>
-            <Input
+          {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.DAILY ||
+          schedulePreset === CUSTODIAN_SCHEDULE_PRESET.WEEKLY ? (
+            <FormField
+              id="custodian-schedule-hour"
+              label="Hour (0–23)"
+              error={errors.scheduleHour?.message}
+            >
+              <Input
+                id="custodian-schedule-hour"
+                type="number"
+                min={0}
+                max={23}
+                {...form.register("scheduleHour")}
+              />
+            </FormField>
+          ) : null}
+
+          {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.WEEKLY ? (
+            <FormField id="custodian-schedule-weekday" label="Day of week">
+              <select
+                id="custodian-schedule-weekday"
+                className={FORM_SELECT_CLASS}
+                {...form.register("scheduleWeekday")}
+              >
+                {WEEKDAYS.map((day) => (
+                  <option key={day.value} value={day.value}>
+                    {day.label}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          ) : null}
+
+          {schedulePreset === CUSTODIAN_SCHEDULE_PRESET.CUSTOM ? (
+            <FormField
               id="custodian-schedule-cron"
-              className="font-mono text-sm"
-              placeholder="0 9 * * 1-5"
-              {...form.register("scheduleCron")}
-            />
-            {form.formState.errors.scheduleCron ? (
-              <p className="text-text-error text-sm">
-                {form.formState.errors.scheduleCron.message}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+              label="Cron"
+              help="Five fields: minute hour day month weekday."
+              error={errors.scheduleCron?.message}
+            >
+              <Input
+                id="custodian-schedule-cron"
+                className="font-mono text-sm"
+                placeholder="0 9 * * 1-5"
+                {...form.register("scheduleCron")}
+              />
+            </FormField>
+          ) : null}
 
-        {schedulePreset !== CUSTODIAN_SCHEDULE_PRESET.DISABLED ? (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="custodian-schedule-timezone">Timezone</Label>
-            <Input
+          {schedulePreset !== CUSTODIAN_SCHEDULE_PRESET.DISABLED ? (
+            <FormField
               id="custodian-schedule-timezone"
-              placeholder="UTC"
-              {...form.register("scheduleTimezone")}
-            />
-          </div>
-        ) : null}
-      </fieldset>
+              label="Timezone"
+              error={errors.scheduleTimezone?.message}
+            >
+              <Input
+                id="custodian-schedule-timezone"
+                placeholder="UTC"
+                {...form.register("scheduleTimezone")}
+              />
+            </FormField>
+          ) : null}
+        </div>
+      </SectionCard>
 
-      {error ? <p className="text-text-error text-sm">{error}</p> : null}
+      <FormAlert message={error} />
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={saving || providers.length === 0}>
-          {saving ? "Saving…" : policyId ? "Save changes" : "Create policy"}
-        </Button>
+      <FormActions>
         <Button
           type="button"
           variant="ghost"
@@ -459,7 +487,10 @@ export const CustodianPolicyForm = ({
         >
           Cancel
         </Button>
-      </div>
+        <Button type="submit" disabled={saving || providers.length === 0}>
+          {saving ? "Saving…" : policyId ? "Save changes" : "Create policy"}
+        </Button>
+      </FormActions>
     </form>
   );
 };

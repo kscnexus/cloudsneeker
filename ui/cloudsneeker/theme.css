@@ -64,7 +64,11 @@
     rgba(37, 131, 255, 0.12),
     rgba(13, 148, 136, 0.1)
   );
-  --gradient-feature-cloud: linear-gradient(112deg, #2583ff 3.5%, #0d9488 98.8%);
+  --gradient-feature-cloud: linear-gradient(
+    112deg,
+    #2583ff 3.5%,
+    #0d9488 98.8%
+  );
   --bg-feature-new: #2583ff;
   --gradient-sidebar-halo: radial-gradient(
     circle,
@@ -130,7 +134,9 @@
 }
 
 html {
-  font-feature-settings: "ss01" on, "cv11" on;
+  font-feature-settings:
+    "ss01" on,
+    "cv11" on;
   text-rendering: optimizeLegibility;
 }
 
@@ -210,8 +216,16 @@ header.sticky.top-0 {
   overflow: hidden;
   color: #eaf2ff;
   background:
-    radial-gradient(circle at 22% 18%, rgba(37, 131, 255, 0.32), transparent 28%),
-    radial-gradient(circle at 82% 76%, rgba(13, 148, 136, 0.24), transparent 32%),
+    radial-gradient(
+      circle at 22% 18%,
+      rgba(37, 131, 255, 0.32),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 82% 76%,
+      rgba(13, 148, 136, 0.24),
+      transparent 32%
+    ),
     linear-gradient(145deg, #07111f 0%, #0b1a36 54%, #0f2438 100%);
 }
 
@@ -342,7 +356,11 @@ header.sticky.top-0 {
   justify-content: center;
   padding: clamp(1.5rem, 5vw, 5rem);
   background:
-    radial-gradient(circle at 90% 8%, rgba(37, 131, 255, 0.12), transparent 24%),
+    radial-gradient(
+      circle at 90% 8%,
+      rgba(37, 131, 255, 0.12),
+      transparent 24%
+    ),
     var(--bg-neutral-primary);
 }
 
@@ -479,4 +497,63 @@ header.sticky.top-0 {
   [data-report-view] {
     color: #0c1b24;
   }
+}
+
+/* Phone navbar (below the 40rem `sm` breakpoint): the page title truncates
+   and the action group keeps only theme, avatar (links to Profile) and sign
+   out, so nothing runs past a 375px viewport. Hidden here: the "Profile" text
+   link, which repeats the avatar link, and the product-updates feed. */
+@media (max-width: 39.99rem) {
+  header.sticky.top-0 > div {
+    gap: 0.5rem;
+    min-width: 0;
+    padding-right: 1rem;
+  }
+
+  header.sticky.top-0 > div > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  header.sticky.top-0 > div > div:first-child :is(div, nav, ol, li, a, h1) {
+    min-width: 0;
+  }
+
+  header.sticky.top-0 nav[aria-label="Breadcrumb"] ol {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  header.sticky.top-0 > div > div:last-child {
+    flex: 0 0 auto;
+    gap: 0.25rem;
+  }
+
+  header.sticky.top-0 > div > div:last-child > div {
+    gap: 0.25rem;
+  }
+
+  header.sticky.top-0 a[aria-label="Open profile"],
+  header.sticky.top-0 button[aria-label="Check for updates"],
+  header.sticky.top-0 button[aria-label^="New updates available"] {
+    display: none;
+  }
+}
+
+/* Import findings dialog: status lines after the how-to steps read as
+   callouts instead of bare paragraphs. */
+[data-slot="cli-import-steps"] ~ p {
+  color: var(--text-neutral-secondary);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+[data-slot="cli-import-steps"] ~ p[role="alert"] {
+  border: 1px solid var(--border-error-primary);
+  border-radius: 0.5rem;
+  background: var(--bg-fail-secondary);
+  color: var(--text-error-primary);
+  padding: 0.75rem 1rem;
+  overflow-wrap: anywhere;
 }
