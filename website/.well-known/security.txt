@@ -1,0 +1,6 @@
+# TODO: replace the contact, domain and expiry date before publishing.
+Contact: mailto:security@example.com
+Expires: 2027-10-30T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://cloudsneeker.example/.well-known/security.txt
+Policy: https://cloudsneeker.example/security.html#disclosure

@@ -1,0 +1,5 @@
+# TODO: replace the domain below with the production domain.
+User-agent: *
+Allow: /
+
+Sitemap: https://cloudsneeker.example/sitemap.xml
