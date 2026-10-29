@@ -157,6 +157,15 @@ replacement = "{inventory_file_prefix}-"
 include = "text_targets"
 optional = true
 
+# The scan profile editor tells users the YAML follows the SDK's repository
+# path; show only the file name.
+[[rule]]
+id = "scan-config-path-copy"
+pattern = '\bprowler/config/config\.yaml\b'
+replacement = "config.yaml"
+include = ["ui/app/**/*.tsx", "ui/components/**/*.tsx"]
+optional = true
+
 # The IAM role clients create for AWS scans. The CloudFormation template under
 # permissions/ is published on the docs site, so it is transformed too.
 [[rule]]
