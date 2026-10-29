@@ -345,6 +345,7 @@ export const authConfig = {
 
       // Allow access to sign-up, sign-in, and invitation pages
       if (isSignUpPage || isSignInPage || isInvitationPage) return true;
+      if (nextUrl.pathname.startsWith("/shared-reports/")) return true; // cloudsneeker-hook: public shared report page
 
       // For all other routes, require authentication
       // Return NextResponse.redirect to preserve callbackUrl for post-login redirect
