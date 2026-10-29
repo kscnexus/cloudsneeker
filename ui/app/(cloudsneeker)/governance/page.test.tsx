@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-describe("Custodian page workspace", () => {
+describe("Cloud Governance page workspace", () => {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const source = readFileSync(path.join(currentDir, "page.tsx"), "utf8");
 
@@ -16,5 +16,13 @@ describe("Custodian page workspace", () => {
     expect(source).toContain("getCustodianTab");
     expect(source).toContain("buildCustodianDashboard");
     expect(source).toContain("buildCustodianReportRows");
+  });
+
+  it("uses the product name and product routes", () => {
+    expect(source).toContain("title={BRAND.governanceName}");
+    expect(source).toContain('governanceHref("new")');
+    expect(source).not.toMatch(/"\/custodian|`\/custodian/);
+    // Engine names only appear inside identifiers, never as words.
+    expect(source).not.toMatch(/(Trivy|Custodian)/);
   });
 });

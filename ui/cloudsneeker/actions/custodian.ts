@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { handleApiError, handleApiResponse } from "@/lib/server-actions-helper";
 
 const POLICIES_PATH = "/custodian-policies";
 const RUNS_PATH = "/custodian-runs";
-const REVALIDATE_PATH = "/custodian";
+const REVALIDATE_PATH = PRODUCT_ROUTE.GOVERNANCE;
 
 const POLICY_TYPE = "cloudsneeker-custodian-policies";
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
+import { appSecurityHref } from "@/cloudsneeker/routes";
 import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
 
 interface TrivyTargetListProps {
@@ -12,14 +13,15 @@ export const TrivyTargetList = ({ targets }: TrivyTargetListProps) => {
     return (
       <div className="border-border-neutral-secondary rounded-xl border px-4 py-8 text-center">
         <p className="text-text-neutral-primary mb-1 font-medium">
-          No Trivy targets yet
+          No targets yet
         </p>
         <p className="text-text-neutral-secondary mb-4 text-sm">
-          Add an IaC, image, filesystem, repository, SBOM, or Kubernetes target.
-          Results land in Findings next to your other cloud scans.
+          Add an Infrastructure as Code, container image, code archive,
+          dependency, SBOM, or Kubernetes target. Results land in Findings next
+          to your cloud security results.
         </p>
         <Link
-          href="/trivy/new"
+          href={appSecurityHref("new")}
           className="text-text-neutral-primary text-sm underline"
         >
           Create a target
@@ -33,7 +35,7 @@ export const TrivyTargetList = ({ targets }: TrivyTargetListProps) => {
       {targets.map((target) => (
         <li key={target.id}>
           <Link
-            href={`/trivy/${target.id}`}
+            href={appSecurityHref(target.id)}
             className="hover:bg-bg-neutral-secondary flex flex-col gap-1 px-4 py-3"
           >
             <span className="text-text-neutral-primary font-medium">

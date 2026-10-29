@@ -225,9 +225,9 @@ describe("getCustodianTab", () => {
 
 describe("buildCustodianTabHref", () => {
   it("keeps dashboard on the bare route", () => {
-    expect(buildCustodianTabHref(CUSTODIAN_TAB.DASHBOARD)).toBe("/custodian");
+    expect(buildCustodianTabHref(CUSTODIAN_TAB.DASHBOARD)).toBe("/governance");
     expect(buildCustodianTabHref(CUSTODIAN_TAB.REPORTS)).toBe(
-      "/custodian?tab=reports",
+      "/governance?tab=reports",
     );
   });
 });

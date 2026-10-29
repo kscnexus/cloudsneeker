@@ -6,11 +6,13 @@ import {
   listTrivyRuns,
   listTrivyTargets,
 } from "@/cloudsneeker/actions/trivy";
+import { BRAND } from "@/cloudsneeker/brand";
 import { TrivyTargetList } from "@/cloudsneeker/components/trivy-target-list";
 import {
   findingsHrefForScan,
   labelForTrivyMode,
 } from "@/cloudsneeker/lib/trivy-modes";
+import { appSecurityHref } from "@/cloudsneeker/routes";
 import type {
   TrivyRunResource,
   TrivyTargetResource,
@@ -20,16 +22,15 @@ import { ContentLayout } from "@/components/shadcn/content-layout";
 
 export default async function TrivyPage() {
   return (
-    <ContentLayout title="Trivy" icon={<ScanSearch />}>
+    <ContentLayout title={BRAND.appSecurityName} icon={<ScanSearch />}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <p className="text-text-neutral-secondary max-w-2xl text-sm">
-          Run Trivy across IaC, container images, filesystems, repositories,
-          SBOMs, and Kubernetes. Results write into the same Findings database
-          as your cloud scans. Cloud Custodian stays available under
-          Configuration.
+          Scan Infrastructure as Code, container images, code archives,
+          repository dependencies, SBOMs, and Kubernetes clusters. Results land
+          in Findings next to your cloud security results.
         </p>
         <Button asChild size="sm">
-          <Link href="/trivy/new">New target</Link>
+          <Link href={appSecurityHref("new")}>New target</Link>
         </Button>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
@@ -62,7 +63,7 @@ const SSRTrivyWorkspace = async () => {
         </h2>
         {runs.length === 0 ? (
           <p className="text-text-neutral-secondary text-sm">
-            No Trivy runs yet.
+            No scans yet.
           </p>
         ) : (
           <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
@@ -73,7 +74,11 @@ const SSRTrivyWorkspace = async () => {
                 <li key={run.id} className="flex flex-col gap-1 px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Link
-                      href={`/trivy/${run.attributes.target_id}/runs/${run.id}`}
+                      href={appSecurityHref(
+                        run.attributes.target_id,
+                        "runs",
+                        run.id,
+                      )}
                       className="text-text-neutral-primary font-medium underline-offset-2 hover:underline"
                     >
                       {run.attributes.target_name || run.attributes.target_id}

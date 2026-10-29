@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-describe("Trivy page workspace", () => {
+describe("Application Security page workspace", () => {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const source = readFileSync(path.join(currentDir, "page.tsx"), "utf8");
 
@@ -14,5 +14,13 @@ describe("Trivy page workspace", () => {
     expect(source).toContain("TrivyTargetList");
     expect(source).toContain("findingsHrefForScan");
     expect(source).toContain("New target");
+  });
+
+  it("uses the product name and product routes", () => {
+    expect(source).toContain("title={BRAND.appSecurityName}");
+    expect(source).toContain("appSecurityHref(");
+    expect(source).not.toMatch(/"\/trivy|`\/trivy/);
+    // Engine names only appear inside identifiers, never as words.
+    expect(source).not.toMatch(/(Trivy|Custodian)/);
   });
 });

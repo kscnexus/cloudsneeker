@@ -3,39 +3,42 @@ import { TRIVY_MODE, type TrivyMode } from "@/cloudsneeker/types/trivy";
 export const TRIVY_MODE_OPTIONS = [
   {
     value: TRIVY_MODE.IAC,
-    label: "IaC",
-    description: "Scan Terraform / Kubernetes manifests via the IaC provider.",
+    label: "Infrastructure as Code",
+    description:
+      "Scan Terraform, CloudFormation and Kubernetes manifests from an Infrastructure as Code source.",
     providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.IMAGE,
     label: "Container image",
-    description: "Scan container images via the Image provider.",
+    description: "Scan container images from a container registry source.",
     providerTypes: ["image"] as const,
   },
   {
     value: TRIVY_MODE.FS,
-    label: "Filesystem",
-    description: "Scan an uploaded archive with trivy fs.",
+    label: "Code archive",
+    description:
+      "Scan an uploaded zip or tar archive for vulnerable dependencies, misconfigurations and secrets.",
     providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.REPO,
-    label: "Repository",
+    label: "Dependencies (repository)",
     description:
-      "Scan a remote git repository with trivy repo. Attach it to an Infrastructure as Code provider.",
+      "Scan a remote Git repository for vulnerable dependencies and secrets. Attach it to an Infrastructure as Code source.",
     providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.SBOM,
     label: "SBOM",
-    description: "Scan an SBOM document with trivy sbom.",
+    description:
+      "Check the components listed in an SBOM document for known vulnerabilities.",
     providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.K8S,
     label: "Kubernetes",
-    description: "Scan a cluster with trivy k8s using a Kubernetes provider.",
+    description: "Scan a Kubernetes cluster from a connected Kubernetes source.",
     providerTypes: ["kubernetes"] as const,
   },
 ] as const;

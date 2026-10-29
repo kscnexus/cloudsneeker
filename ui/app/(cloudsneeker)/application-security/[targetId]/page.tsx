@@ -11,6 +11,7 @@ import {
   findingsHrefForScan,
   labelForTrivyMode,
 } from "@/cloudsneeker/lib/trivy-modes";
+import { appSecurityHref } from "@/cloudsneeker/routes";
 import type {
   TrivyRunResource,
   TrivyTargetResource,
@@ -72,7 +73,7 @@ export default async function TrivyTargetDetailPage({
         </div>
         <div className="flex gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href={`/trivy/${targetId}/edit`}>Edit</Link>
+            <Link href={appSecurityHref(targetId, "edit")}>Edit</Link>
           </Button>
           <TrivyScanButton targetId={targetId} />
         </div>
@@ -104,7 +105,7 @@ export default async function TrivyTargetDetailPage({
                 <li key={run.id} className="flex flex-col gap-1 px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Link
-                      href={`/trivy/${targetId}/runs/${run.id}`}
+                      href={appSecurityHref(targetId, "runs", run.id)}
                       className="text-text-neutral-primary font-medium underline-offset-2 hover:underline"
                     >
                       {run.attributes.status}

@@ -1,6 +1,7 @@
 import { ScanSearch } from "lucide-react";
 
 import { getProviders } from "@/actions/providers/providers";
+import { BRAND } from "@/cloudsneeker/brand";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 
@@ -18,7 +19,10 @@ export default async function NewTrivyTargetPage() {
   }));
 
   return (
-    <ContentLayout title="New Trivy target" icon={<ScanSearch />}>
+    <ContentLayout
+      title={`New ${BRAND.appSecurityName} target`}
+      icon={<ScanSearch />}
+    >
       <TrivyTargetForm providers={providers} />
     </ContentLayout>
   );

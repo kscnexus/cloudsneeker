@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BRAND } from "./brand";
 import { breadcrumbSegmentLabel, ID_SEGMENT_LABEL } from "./breadcrumbs";
 
 describe("breadcrumbSegmentLabel", () => {
@@ -16,6 +17,15 @@ describe("breadcrumbSegmentLabel", () => {
     expect(breadcrumbSegmentLabel("runs", "Runs")).toBe("Runs");
     expect(breadcrumbSegmentLabel("attack-paths", "Attack Paths")).toBe(
       "Attack Paths",
+    );
+  });
+
+  it("uses product names for product areas", () => {
+    expect(
+      breadcrumbSegmentLabel("application-security", "Application Security"),
+    ).toBe(BRAND.appSecurityName);
+    expect(breadcrumbSegmentLabel("governance", "Governance")).toBe(
+      BRAND.governanceName,
     );
   });
 });

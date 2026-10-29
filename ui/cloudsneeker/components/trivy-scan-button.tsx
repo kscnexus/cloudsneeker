@@ -24,7 +24,7 @@ export const TrivyScanButton = ({ targetId }: TrivyScanButtonProps) => {
       setError(
         typeof result.error === "string"
           ? result.error
-          : "Failed to enqueue Trivy scan.",
+          : "Failed to start the scan.",
       );
       return;
     }

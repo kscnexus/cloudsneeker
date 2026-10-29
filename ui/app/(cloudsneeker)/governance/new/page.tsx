@@ -49,7 +49,7 @@ export default async function NewCustodianPolicyPage({
     : providers;
 
   return (
-    <ContentLayout title="New Custodian policy" icon={<ShieldPlus />}>
+    <ContentLayout title="New governance policy" icon={<ShieldPlus />}>
       <CustodianPolicyForm
         providers={preferredProviders}
         initialValues={

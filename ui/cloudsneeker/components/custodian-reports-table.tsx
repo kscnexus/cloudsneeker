@@ -4,6 +4,7 @@ import {
   formatDuration,
   type CustodianReportRow,
 } from "@/cloudsneeker/lib/custodian-dashboard";
+import { governanceHref } from "@/cloudsneeker/routes";
 import { Badge } from "@/components/shadcn/badge/badge";
 import {
   Table,
@@ -22,7 +23,8 @@ export const CustodianReportsTable = ({ rows }: CustodianReportsTableProps) => {
   if (rows.length === 0) {
     return (
       <p className="text-text-neutral-secondary text-sm">
-        No Custodian dry-run reports yet. Completed and failed runs appear here.
+        No governance dry-run reports yet. Completed and failed runs appear
+        here.
       </p>
     );
   }
@@ -45,7 +47,7 @@ export const CustodianReportsTable = ({ rows }: CustodianReportsTableProps) => {
           <TableRow key={row.runId}>
             <TableCell className="font-medium">
               <Link
-                href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                href={governanceHref(row.policyId, "runs", row.runId)}
                 className="hover:underline"
               >
                 {row.policyName}
@@ -68,7 +70,7 @@ export const CustodianReportsTable = ({ rows }: CustodianReportsTableProps) => {
                 "—"
               ) : (
                 <Link
-                  href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                  href={governanceHref(row.policyId, "runs", row.runId)}
                   className="hover:underline"
                 >
                   {row.resourcesMatched}

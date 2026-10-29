@@ -47,9 +47,9 @@ describe("CustodianPageTabs", () => {
     );
 
     await user.click(screen.getByRole("tab", { name: /reports/i }));
-    expect(pushMock).toHaveBeenCalledWith("/custodian?tab=reports");
+    expect(pushMock).toHaveBeenCalledWith("/governance?tab=reports");
 
     await user.click(screen.getByRole("tab", { name: /policies/i }));
-    expect(pushMock).toHaveBeenCalledWith("/custodian?tab=policies");
+    expect(pushMock).toHaveBeenCalledWith("/governance?tab=policies");
   });
 });

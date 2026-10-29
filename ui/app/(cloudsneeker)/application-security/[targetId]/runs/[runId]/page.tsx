@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getTrivyRun } from "@/cloudsneeker/actions/trivy";
+import { BRAND } from "@/cloudsneeker/brand";
 import {
   findingsHrefForScan,
   labelForTrivyMode,
 } from "@/cloudsneeker/lib/trivy-modes";
+import { appSecurityHref } from "@/cloudsneeker/routes";
 import type { TrivyRunResource } from "@/cloudsneeker/types/trivy";
 import { Button } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
@@ -35,7 +37,7 @@ export default async function TrivyRunDetailPage({
 
   return (
     <ContentLayout
-      title={run.attributes.target_name || "Trivy run"}
+      title={run.attributes.target_name || `${BRAND.appSecurityName} scan`}
       icon={<ScanSearch />}
     >
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -62,7 +64,7 @@ export default async function TrivyRunDetailPage({
         </div>
         <div className="flex gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href={`/trivy/${targetId}`}>Back to target</Link>
+            <Link href={appSecurityHref(targetId)}>Back to target</Link>
           </Button>
           {scanId ? (
             <Button asChild size="sm">

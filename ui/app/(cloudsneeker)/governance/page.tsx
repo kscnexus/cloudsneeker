@@ -7,6 +7,7 @@ import {
   listCustodianPolicies,
   listCustodianRuns,
 } from "@/cloudsneeker/actions/custodian";
+import { BRAND } from "@/cloudsneeker/brand";
 import { CustodianDashboardPanel } from "@/cloudsneeker/components/custodian-dashboard-panel";
 import { CustodianPageTabs } from "@/cloudsneeker/components/custodian-page-tabs";
 import { CustodianPolicyList } from "@/cloudsneeker/components/custodian-policy-list";
@@ -22,6 +23,7 @@ import {
   findingsHrefForChecks,
   templatesForProwlerChecks,
 } from "@/cloudsneeker/lib/custodian-templates";
+import { governanceHref } from "@/cloudsneeker/routes";
 import type {
   CustodianPolicyResource,
   CustodianRunResource,
@@ -42,11 +44,11 @@ export default async function CustodianPage({
   const activeTab = getCustodianTab(resolvedSearchParams.tab);
 
   return (
-    <ContentLayout title="Cloud Custodian" icon={<Shield />}>
+    <ContentLayout title={BRAND.governanceName} icon={<Shield />}>
       <div className="mb-4">
         <p className="text-text-neutral-secondary text-sm">
-          Manage Cloud Custodian policies, review dry-run reports, and track
-          matched resources. Apply mode is disabled.
+          Manage governance policies, review dry-run reports, and track matched
+          resources. Apply mode is disabled.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
@@ -97,7 +99,7 @@ const SSRCustodianWorkspace = async ({
           ? policyError
           : typeof runError === "string"
             ? runError
-            : "Unable to load Custodian workspace."}
+            : `Unable to load ${BRAND.governanceName}.`}
       </p>
     );
   }
@@ -125,7 +127,7 @@ const SSRCustodianWorkspace = async ({
         templateName: template.name,
         providerType: template.providerTypes[0] ?? "aws",
         findingsHref: findingsHrefForChecks([checkId]) ?? "/findings",
-        newPolicyHref: `/custodian/new?template=${template.id}`,
+        newPolicyHref: `${governanceHref("new")}?template=${template.id}`,
       })),
   );
 
@@ -141,7 +143,7 @@ const SSRCustodianWorkspace = async ({
       activeTab={activeTab}
       actions={
         <Button asChild size="sm">
-          <Link href="/custodian/new">Create policy</Link>
+          <Link href={governanceHref("new")}>Create policy</Link>
         </Button>
       }
       dashboardContent={<CustodianDashboardPanel metrics={metrics} />}

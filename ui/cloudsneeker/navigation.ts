@@ -1,17 +1,67 @@
-// Sidebar entries for Cloudsneeker-only pages under `app/(cloudsneeker)/`.
-// Upstream `navigation-config.ts` calls `withCloudsneekerNavigation` through
-// one `cloudsneeker-hook` line; add new pages here, not there.
+// Product sidebar. Upstream `navigation-config.ts` builds its own sections and
+// passes them here through one `cloudsneeker-hook` line; this pass regroups
+// them into the product areas (Cloud Security, Application Security, Cloud
+// Governance, Operations, Settings). Upstream item objects are reused by href
+// so permissions, active state and highlight keep working. Add new pages here,
+// not in the upstream file.
+
+import {
+  Bell,
+  Boxes,
+  type LucideIcon,
+  Scale,
+  SlidersHorizontal,
+  Upload,
+} from "lucide-react";
 
 import {
   NAVIGATION_ITEM_KIND,
   type NavigationChild,
+  type NavigationChildLink,
+  type NavigationCollapsible,
+  type NavigationItem,
+  type NavigationLink,
   type NavigationSection,
 } from "@/components/layout/app-sidebar/types";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
+import { BRAND } from "./brand";
 import { isCloudsneekerFeatureEnabled } from "./features";
+import { PRODUCT_ROUTE } from "./routes";
 
-const HELP_SECTION_LABEL = "HELP";
+export const NAVIGATION_SECTION_LABEL = {
+  CLOUD_SECURITY: BRAND.cloudSecurityName.toUpperCase(),
+  APPLICATION_SECURITY: BRAND.appSecurityName.toUpperCase(),
+  GOVERNANCE: "GOVERNANCE",
+  OPERATIONS: "OPERATIONS",
+  SETTINGS: "SETTINGS",
+} as const;
+
+const UPSTREAM_SECTION_LABEL = {
+  SECURITY: "SECURITY",
+  SETTINGS: "SETTINGS",
+  HELP: "HELP",
+} as const;
+
+const UPSTREAM_COLLAPSIBLE_LABEL = {
+  CONFIGURATION: "Configuration",
+  ORGANIZATION: "Organization",
+} as const;
+
+const SETTINGS_CHILD_LABEL = {
+  SOURCES: "Sources & Providers",
+  ASSISTANT_SETTINGS: `${BRAND.assistantName} settings`,
+} as const;
+
+const OPERATIONS_LINKS = [
+  { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/scans/config", label: "Scan profiles", icon: SlidersHorizontal },
+  { href: "/scans?import=1", label: "CLI Import", icon: Upload },
+] as const satisfies readonly {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}[];
 
 const FEATURE_LINKS: Partial<
   Record<
@@ -32,6 +82,16 @@ const FEATURE_LINKS: Partial<
     : null,
 };
 
+const hrefPath = (href: string): string => href.split("?")[0] ?? href;
+
+const isRouteActive = (pathname: string, href: string): boolean => {
+  // Links that only differ by query (CLI Import) never steal the active state
+  // from the page they open on.
+  if (href.includes("?")) return false;
+  const path = hrefPath(href);
+  return pathname === path || pathname.startsWith(`${path}/`);
+};
+
 const toCloudsneekerChild = (
   child: NavigationChild,
   pathname: string,
@@ -45,124 +105,247 @@ const toCloudsneekerChild = (
     kind: NAVIGATION_ITEM_KIND.LINK,
     href: link.href,
     label: link.label,
-    active:
-      pathname === link.href.split("?")[0] ||
-      pathname.startsWith(`${link.href.split("?")[0]}/`),
+    active: isRouteActive(pathname, link.href),
     highlight: true,
   };
 };
 
-const PROFILE_CHILD: NavigationChild = {
+const PROFILE_CHILD: NavigationChildLink = {
   kind: NAVIGATION_ITEM_KIND.LINK,
   href: "/profile",
   label: "Profile",
 };
 
-const CUSTODIAN_CHILD: NavigationChild = {
+interface UpstreamIndex {
+  /** Top-level items with the label of the section they came from. */
+  items: { item: NavigationItem; sectionLabel?: string }[];
+  configuration?: NavigationCollapsible;
+  organization?: NavigationCollapsible;
+  /** Configuration children after cloud-feature conversion. */
+  configurationChildren: NavigationChild[];
+}
+
+const indexUpstream = (
+  sections: NavigationSection[],
+  pathname: string,
+): UpstreamIndex => {
+  const index: UpstreamIndex = { items: [], configurationChildren: [] };
+
+  for (const section of sections) {
+    if (section.label === UPSTREAM_SECTION_LABEL.HELP) continue;
+    for (const item of section.items) {
+      if (item.kind === NAVIGATION_ITEM_KIND.COLLAPSIBLE) {
+        if (item.label === UPSTREAM_COLLAPSIBLE_LABEL.CONFIGURATION) {
+          index.configuration = item;
+          index.configurationChildren = item.children
+            .map((child) => toCloudsneekerChild(child, pathname))
+            .filter((child): child is NavigationChild => child !== null);
+          continue;
+        }
+        if (item.label === UPSTREAM_COLLAPSIBLE_LABEL.ORGANIZATION) {
+          index.organization = item;
+          continue;
+        }
+      }
+      index.items.push({ item, sectionLabel: section.label });
+    }
+  }
+
+  return index;
+};
+
+const productLink = (
+  href: string,
+  label: string,
+  icon: LucideIcon,
+  pathname: string,
+): NavigationLink => ({
   kind: NAVIGATION_ITEM_KIND.LINK,
-  href: "/custodian",
-  label: "Cloud Custodian",
-};
+  href,
+  label,
+  icon,
+  active: isRouteActive(pathname, href),
+});
 
-const TRIVY_CHILD: NavigationChild = {
-  kind: NAVIGATION_ITEM_KIND.LINK,
-  href: "/trivy",
-  label: "Trivy",
-};
-
-const withInjectedChild = (
-  children: NavigationChild[],
-  child: NavigationChild,
-  pathname: string,
-): NavigationChild[] => {
-  if (child.kind !== NAVIGATION_ITEM_KIND.LINK) {
-    return children;
-  }
-
-  const active =
-    pathname === child.href || pathname.startsWith(`${child.href}/`);
-
-  if (children.some((existing) => existing.label === child.label)) {
-    return children.map((existing) =>
-      existing.label === child.label &&
-      existing.kind === NAVIGATION_ITEM_KIND.LINK
-        ? { ...existing, active }
-        : existing,
-    );
-  }
-
-  return [{ ...child, active }, ...children];
-};
-
-const withProfileChild = (
-  children: NavigationChild[],
-  pathname: string,
-): NavigationChild[] => withInjectedChild(children, PROFILE_CHILD, pathname);
-
-const withCustodianChild = (
-  children: NavigationChild[],
-  pathname: string,
-): NavigationChild[] => {
-  if (!isCloudsneekerFeatureEnabled("custodian")) {
-    return children;
-  }
-  return withInjectedChild(children, CUSTODIAN_CHILD, pathname);
-};
-
-const withTrivyChild = (
-  children: NavigationChild[],
-  pathname: string,
-): NavigationChild[] => {
-  if (!isCloudsneekerFeatureEnabled("trivy")) {
-    return children;
-  }
-  return withInjectedChild(children, TRIVY_CHILD, pathname);
+const sectionOrNull = (
+  label: string | undefined,
+  items: (NavigationItem | undefined)[],
+): NavigationSection | null => {
+  const present = items.filter(
+    (item): item is NavigationItem => item !== undefined,
+  );
+  if (present.length === 0) return null;
+  return label === undefined ? { items: present } : { label, items: present };
 };
 
 export const withCloudsneekerNavigation = (
   sections: NavigationSection[],
   pathname: string,
-): NavigationSection[] =>
-  sections
-    .filter((section) => section.label !== HELP_SECTION_LABEL)
-    .map((section) => {
-      let changed = false;
-      const items = section.items.map((item) => {
-        if (item.kind !== NAVIGATION_ITEM_KIND.COLLAPSIBLE) return item;
+): NavigationSection[] => {
+  const upstream = indexUpstream(sections, pathname);
+  const placed = new Set<NavigationItem>();
 
-        let children = item.children
-          .map((child) => toCloudsneekerChild(child, pathname))
-          .filter((child): child is NavigationChild => child !== null);
+  const takeLink = (path: string): NavigationLink | undefined => {
+    const match = upstream.items.find(
+      ({ item }) =>
+        item.kind === NAVIGATION_ITEM_KIND.LINK &&
+        !placed.has(item) &&
+        hrefPath(item.href) === path,
+    )?.item;
+    if (!match || match.kind !== NAVIGATION_ITEM_KIND.LINK) return undefined;
+    placed.add(match);
+    return match;
+  };
 
-        // Profile lives under Organization so the page is reachable from the sidebar.
-        if (item.label === "Organization") {
-          const nextChildren = withProfileChild(children, pathname);
-          if (nextChildren !== children) {
-            children = nextChildren;
-            changed = true;
-          }
-        }
+  const placedChildren = new Set<NavigationChild>();
+  const takeChild = (href: string): NavigationChildLink | undefined => {
+    const match = upstream.configurationChildren.find(
+      (child) =>
+        child.kind === NAVIGATION_ITEM_KIND.LINK &&
+        !placedChildren.has(child) &&
+        child.href === href,
+    );
+    if (!match || match.kind !== NAVIGATION_ITEM_KIND.LINK) return undefined;
+    placedChildren.add(match);
+    return match;
+  };
 
-        // Cloud Custodian and Trivy are Cloudsneeker-only Configuration tools.
-        if (item.label === "Configuration") {
-          let nextChildren = withCustodianChild(children, pathname);
-          nextChildren = withTrivyChild(nextChildren, pathname);
-          if (nextChildren !== children) {
-            children = nextChildren;
-            changed = true;
-          }
-        }
+  const leftovers = (sectionLabel: string | undefined): NavigationItem[] =>
+    upstream.items
+      .filter(
+        ({ item, sectionLabel: from }) =>
+          !placed.has(item) && from === sectionLabel,
+      )
+      .map(({ item }) => item);
 
-        if (
-          children.length === item.children.length &&
-          children.every((child, index) => child === item.children[index])
-        ) {
-          return item;
-        }
+  // Overview and the assistant.
+  const assistant = takeLink("/lighthouse");
+  const overviewItems = [
+    takeLink("/"),
+    assistant ? { ...assistant, label: BRAND.assistantName } : undefined,
+  ];
 
-        changed = true;
-        return { ...item, children };
-      });
+  const cloudSecurityItems = [
+    takeLink("/findings"),
+    takeLink("/resources"),
+    takeLink("/attack-paths"),
+    takeLink("/compliance"),
+  ];
 
-      return changed ? { ...section, items } : section;
+  const applicationSecurity = isCloudsneekerFeatureEnabled("trivy")
+    ? sectionOrNull(NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY, [
+        productLink(
+          PRODUCT_ROUTE.APPLICATION_SECURITY,
+          BRAND.appSecurityName,
+          Boxes,
+          pathname,
+        ),
+      ])
+    : null;
+
+  const governance = isCloudsneekerFeatureEnabled("custodian")
+    ? sectionOrNull(NAVIGATION_SECTION_LABEL.GOVERNANCE, [
+        productLink(
+          PRODUCT_ROUTE.GOVERNANCE,
+          BRAND.governanceName,
+          Scale,
+          pathname,
+        ),
+      ])
+    : null;
+
+  const operationsItems: (NavigationItem | undefined)[] = [takeLink("/scans")];
+  for (const link of OPERATIONS_LINKS) {
+    const child = takeChild(link.href);
+    if (!child) continue;
+    operationsItems.push({
+      kind: NAVIGATION_ITEM_KIND.LINK,
+      href: child.href,
+      label: link.label,
+      icon: link.icon,
+      active: isRouteActive(pathname, child.href),
+      highlight: child.highlight,
+      requiredPermission: child.requiredPermission,
     });
+  }
+
+  // Settings: sources, policies applied to scans, connected apps, assistant.
+  const relabel = (
+    child: NavigationChildLink | undefined,
+    label: string,
+  ): NavigationChildLink | undefined =>
+    child ? { ...child, label } : undefined;
+
+  const configurationChildren: NavigationChild[] = [
+    relabel(takeChild("/providers"), SETTINGS_CHILD_LABEL.SOURCES),
+    takeChild("/mutelist"),
+    takeChild("/integrations"),
+    relabel(
+      takeChild("/lighthouse/settings"),
+      SETTINGS_CHILD_LABEL.ASSISTANT_SETTINGS,
+    ),
+  ].filter((child): child is NavigationChildLink => child !== undefined);
+  // Upstream additions to Configuration stay reachable there.
+  configurationChildren.push(
+    ...upstream.configurationChildren.filter(
+      (child) => !placedChildren.has(child),
+    ),
+  );
+
+  const configuration: NavigationCollapsible | undefined =
+    upstream.configuration && configurationChildren.length > 0
+      ? { ...upstream.configuration, children: configurationChildren }
+      : undefined;
+
+  const organization: NavigationCollapsible | undefined =
+    upstream.organization
+      ? {
+          ...upstream.organization,
+          children: upstream.organization.children.some(
+            (child) => child.label === PROFILE_CHILD.label,
+          )
+            ? upstream.organization.children
+            : [
+                {
+                  ...PROFILE_CHILD,
+                  active: isRouteActive(pathname, PROFILE_CHILD.href),
+                },
+                ...upstream.organization.children,
+              ],
+        }
+      : undefined;
+
+  // Items upstream adds later stay in the matching product section.
+  const result: (NavigationSection | null)[] = [
+    sectionOrNull(undefined, [...overviewItems, ...leftovers(undefined)]),
+    sectionOrNull(NAVIGATION_SECTION_LABEL.CLOUD_SECURITY, [
+      ...cloudSecurityItems,
+      ...leftovers(UPSTREAM_SECTION_LABEL.SECURITY),
+    ]),
+    applicationSecurity,
+    governance,
+    sectionOrNull(NAVIGATION_SECTION_LABEL.OPERATIONS, operationsItems),
+    sectionOrNull(NAVIGATION_SECTION_LABEL.SETTINGS, [
+      configuration,
+      organization,
+      ...leftovers(UPSTREAM_SECTION_LABEL.SETTINGS),
+    ]),
+  ];
+
+  // Sections Cloudsneeker does not regroup keep their items at the end.
+  const known = new Set<string | undefined>([
+    undefined,
+    UPSTREAM_SECTION_LABEL.SECURITY,
+    UPSTREAM_SECTION_LABEL.SETTINGS,
+    UPSTREAM_SECTION_LABEL.HELP,
+  ]);
+  for (const section of sections) {
+    if (known.has(section.label)) continue;
+    const items = leftovers(section.label);
+    if (items.length > 0) result.push({ ...section, items });
+  }
+
+  return result.filter(
+    (section): section is NavigationSection => section !== null,
+  );
+};

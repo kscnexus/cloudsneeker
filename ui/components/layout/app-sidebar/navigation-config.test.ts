@@ -10,8 +10,8 @@ import {
 import { NAVIGATION_ITEM_KIND, type NavigationSection } from "./types";
 
 // cloudsneeker-hook: upstream asserts its own sidebar model. The Cloudsneeker
-// pass (cloud-upgrade rows -> product links, Trivy / Cloud Custodian / Profile
-// entries) is covered by `cloudsneeker/navigation.test.ts`; keep only its
+// pass (product sections, cloud-upgrade rows -> product links, Profile entry)
+// is covered by `cloudsneeker/navigation.test.ts`; keep only its
 // HELP-section removal here so these suites see upstream children.
 vi.mock("@/cloudsneeker/navigation", () => ({
   withCloudsneekerNavigation: (sections: NavigationSection[]) =>

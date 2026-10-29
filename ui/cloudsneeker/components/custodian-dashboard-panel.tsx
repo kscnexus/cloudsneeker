@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { CustodianDashboardMetrics } from "@/cloudsneeker/lib/custodian-dashboard";
+import { governanceHref } from "@/cloudsneeker/routes";
 import { Badge } from "@/components/shadcn/badge/badge";
 import { Card, CardContent } from "@/components/shadcn/card/card";
 import {
@@ -72,7 +73,7 @@ export const CustodianDashboardPanel = ({
           <SectionHeader>
             <SectionTitle>Suggested from Findings</SectionTitle>
             <SectionDescription>
-              Failed Findings checks that map to Custodian dry-run starters.
+              Failed Findings checks that map to governance dry-run starters.
             </SectionDescription>
           </SectionHeader>
           <SectionContent>
@@ -101,7 +102,7 @@ export const CustodianDashboardPanel = ({
                       href={item.newPolicyHref}
                       className="text-text-neutral-primary text-xs font-medium hover:underline"
                     >
-                      Create Custodian dry-run
+                      Create governance dry-run
                     </Link>
                   </div>
                 </li>
@@ -116,7 +117,7 @@ export const CustodianDashboardPanel = ({
           <SectionHeader>
             <SectionTitle>Recent dry-runs</SectionTitle>
             <SectionDescription>
-              Latest Custodian dry-run activity across all policies.
+              Latest governance dry-run activity across all policies.
             </SectionDescription>
           </SectionHeader>
           <SectionContent>
@@ -131,7 +132,7 @@ export const CustodianDashboardPanel = ({
                   <li key={row.runId} className="flex flex-col gap-1 px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                        href={governanceHref(row.policyId, "runs", row.runId)}
                         className="text-text-neutral-primary text-sm font-medium hover:underline"
                       >
                         {row.policyName}
@@ -145,7 +146,7 @@ export const CustodianDashboardPanel = ({
                     </div>
                     <div className="text-text-neutral-secondary flex flex-wrap gap-3 text-xs">
                       <Link
-                        href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                        href={governanceHref(row.policyId, "runs", row.runId)}
                         className="hover:underline"
                       >
                         Resources:{" "}
@@ -195,7 +196,7 @@ export const CustodianDashboardPanel = ({
                   >
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <Link
-                        href={`/custodian/${row.policyId}`}
+                        href={governanceHref(row.policyId)}
                         className="text-text-neutral-primary truncate text-sm font-medium hover:underline"
                       >
                         {row.policyName}
@@ -236,7 +237,7 @@ export const CustodianDashboardPanel = ({
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <Link
-                      href={`/custodian/${row.policyId}/runs/${row.runId}`}
+                      href={governanceHref(row.policyId, "runs", row.runId)}
                       className="text-text-neutral-primary truncate text-sm font-medium hover:underline"
                     >
                       {row.policyName}

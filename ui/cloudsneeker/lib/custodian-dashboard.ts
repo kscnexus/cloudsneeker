@@ -1,3 +1,4 @@
+import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import {
   CUSTODIAN_RUN_STATUS,
   type CustodianPolicyResource,
@@ -307,8 +308,8 @@ export function getCustodianTab(
 }
 
 export function buildCustodianTabHref(tab: CustodianTab): string {
-  if (tab === CUSTODIAN_TAB.DASHBOARD) return "/custodian";
-  return `/custodian?tab=${tab}`;
+  if (tab === CUSTODIAN_TAB.DASHBOARD) return PRODUCT_ROUTE.GOVERNANCE;
+  return `${PRODUCT_ROUTE.GOVERNANCE}?tab=${tab}`;
 }
 
 export function formatDuration(durationMs: number | null): string {

@@ -30,11 +30,11 @@ describe("CustodianReportsTable", () => {
 
     expect(screen.getByRole("link", { name: "unused-ebs" })).toHaveAttribute(
       "href",
-      "/custodian/policy-1/runs/run-1",
+      "/governance/policy-1/runs/run-1",
     );
     expect(screen.getByRole("link", { name: "4" })).toHaveAttribute(
       "href",
-      "/custodian/policy-1/runs/run-1",
+      "/governance/policy-1/runs/run-1",
     );
     expect(screen.getByText("Prod")).toBeInTheDocument();
     expect(screen.getByText("completed")).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("CustodianReportsTable", () => {
   it("shows an empty message when there are no rows", () => {
     render(<CustodianReportsTable rows={[]} />);
     expect(
-      screen.getByText(/No Custodian dry-run reports yet/i),
+      screen.getByText(/No governance dry-run reports yet/i),
     ).toBeInTheDocument();
   });
 });

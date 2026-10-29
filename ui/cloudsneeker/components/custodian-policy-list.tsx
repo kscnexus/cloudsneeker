@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CustodianEmptyState } from "@/cloudsneeker/components/custodian-empty-state";
+import { governanceHref } from "@/cloudsneeker/routes";
 import type { CustodianPolicyResource } from "@/cloudsneeker/types/custodian";
 
 interface CustodianPolicyListProps {
@@ -17,7 +18,7 @@ export const CustodianPolicyList = ({ policies }: CustodianPolicyListProps) => {
       {policies.map((policy) => (
         <li key={policy.id}>
           <Link
-            href={`/custodian/${policy.id}`}
+            href={governanceHref(policy.id)}
             className="hover:bg-bg-neutral-secondary flex flex-col gap-1 px-4 py-3"
           >
             <span className="text-text-neutral-primary font-medium">

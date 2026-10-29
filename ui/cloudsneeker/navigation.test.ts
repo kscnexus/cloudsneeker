@@ -3,21 +3,105 @@ import { describe, expect, it } from "vitest";
 
 import {
   NAVIGATION_ITEM_KIND,
+  NAVIGATION_PERMISSION,
+  type NavigationChild,
+  type NavigationItem,
   type NavigationSection,
 } from "@/components/layout/app-sidebar/types";
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
-import { withCloudsneekerNavigation } from "./navigation";
+import { BRAND } from "./brand";
+import {
+  NAVIGATION_SECTION_LABEL,
+  withCloudsneekerNavigation,
+} from "./navigation";
 
-const upstreamSections = (): NavigationSection[] => [
+const link = (
+  href: string,
+  label: string,
+  active = false,
+): NavigationItem => ({
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href,
+  label,
+  icon: Info,
+  active,
+});
+
+const child = (href: string, label: string): NavigationChild => ({
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href,
+  label,
+});
+
+// Mirrors the Local Server sections built by upstream `navigation-config.ts`.
+const upstreamSections = (
+  extras: { security?: NavigationItem[]; settings?: NavigationItem[] } = {},
+): NavigationSection[] => [
   {
+    items: [link("/", "Overview"), link("/lighthouse", "Lighthouse AI")],
+  },
+  {
+    label: "SECURITY",
+    items: [
+      link("/compliance", "Compliance"),
+      link(
+        "/findings?filter[muted]=false&filter[status__in]=FAIL",
+        "Findings",
+      ),
+      link("/attack-paths", "Attack Paths"),
+      link("/scans", "Scans"),
+      link("/resources", "Resources"),
+      ...(extras.security ?? []),
+    ],
+  },
+  {
+    label: "SETTINGS",
     items: [
       {
-        kind: NAVIGATION_ITEM_KIND.LINK,
-        href: "/",
-        label: "Overview",
+        kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+        label: "Configuration",
         icon: Info,
+        defaultOpen: true,
+        children: [
+          child("/providers", "Providers"),
+          {
+            kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
+            label: "Alerts",
+            cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.ALERTS,
+          },
+          child("/mutelist", "Mutelist"),
+          {
+            kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
+            label: "Scans",
+            cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.SCAN_CONFIGURATION,
+          },
+          {
+            kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
+            label: "CLI Import",
+            cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.CLI_IMPORT,
+          },
+          {
+            kind: NAVIGATION_ITEM_KIND.LINK,
+            href: "/integrations",
+            label: "Integrations",
+            requiredPermission: NAVIGATION_PERMISSION.MANAGE_INTEGRATIONS,
+          },
+          child("/lighthouse/settings", "Lighthouse AI"),
+        ],
       },
+      {
+        kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+        label: "Organization",
+        icon: Info,
+        defaultOpen: false,
+        children: [
+          child("/users", "Users"),
+          child("/invitations", "Invitations"),
+          child("/roles", "Roles"),
+        ],
+      },
+      ...(extras.settings ?? []),
     ],
   },
   {
@@ -34,197 +118,246 @@ const upstreamSections = (): NavigationSection[] => [
   },
 ];
 
+const labelsOf = (sections: NavigationSection[]) =>
+  sections.map((section) => ({
+    label: section.label ?? null,
+    items: section.items.map((item) => item.label),
+  }));
+
+const findItem = (sections: NavigationSection[], label: string) =>
+  sections
+    .flatMap((section) => section.items)
+    .find((item) => item.label === label);
+
+const childrenOf = (sections: NavigationSection[], label: string) => {
+  const item = findItem(sections, label);
+  if (item?.kind !== NAVIGATION_ITEM_KIND.COLLAPSIBLE) {
+    throw new Error(`${label} must be a collapsible navigation item`);
+  }
+  return item.children;
+};
+
+const allLabels = (sections: NavigationSection[]): string[] =>
+  sections.flatMap((section) => [
+    section.label ?? "",
+    ...section.items.flatMap((item) =>
+      item.kind === NAVIGATION_ITEM_KIND.COLLAPSIBLE
+        ? [item.label, ...item.children.map((entry) => entry.label)]
+        : [item.label],
+    ),
+  ]);
+
 describe("withCloudsneekerNavigation", () => {
-  it("removes the HELP section and keeps the other sections", () => {
-    const sections = upstreamSections();
+  it("groups the sidebar into one product structure", () => {
+    const result = withCloudsneekerNavigation(upstreamSections(), "/");
 
-    const result = withCloudsneekerNavigation(sections, "/");
-
-    expect(result.map((section) => section.label ?? null)).toEqual([null]);
-    expect(result[0]).toBe(sections[0]);
+    expect(labelsOf(result)).toEqual([
+      { label: null, items: ["Overview", BRAND.assistantName] },
+      {
+        label: NAVIGATION_SECTION_LABEL.CLOUD_SECURITY,
+        items: ["Findings", "Resources", "Attack Paths", "Compliance"],
+      },
+      {
+        label: NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
+        items: [BRAND.appSecurityName],
+      },
+      {
+        label: NAVIGATION_SECTION_LABEL.GOVERNANCE,
+        items: [BRAND.governanceName],
+      },
+      {
+        label: NAVIGATION_SECTION_LABEL.OPERATIONS,
+        items: ["Scans", "Alerts", "Scan profiles", "CLI Import"],
+      },
+      {
+        label: NAVIGATION_SECTION_LABEL.SETTINGS,
+        items: ["Configuration", "Organization"],
+      },
+    ]);
   });
 
-  it("leaves navigation unchanged when there is no HELP section", () => {
-    const [overview] = upstreamSections();
+  it("never shows engine names and keeps product areas top-level", () => {
+    const result = withCloudsneekerNavigation(upstreamSections(), "/");
 
-    const result = withCloudsneekerNavigation(
-      [overview as NavigationSection],
-      "/",
+    for (const label of allLabels(result)) {
+      expect(label).not.toMatch(/trivy|custodian|c7n|prowler|lighthouse/i);
+    }
+
+    expect(findItem(result, BRAND.appSecurityName)).toMatchObject({
+      kind: NAVIGATION_ITEM_KIND.LINK,
+      href: "/application-security",
+    });
+    expect(findItem(result, BRAND.governanceName)).toMatchObject({
+      kind: NAVIGATION_ITEM_KIND.LINK,
+      href: "/governance",
+    });
+
+    const configurationHrefs = childrenOf(result, "Configuration").map(
+      (entry) => (entry.kind === NAVIGATION_ITEM_KIND.LINK ? entry.href : ""),
+    );
+    expect(configurationHrefs).not.toContain("/application-security");
+    expect(configurationHrefs).not.toContain("/governance");
+    expect(
+      configurationHrefs.some((href) => /trivy|custodian/.test(href)),
+    ).toBe(false);
+  });
+
+  it("keeps Configuration to settings-only children", () => {
+    const sections = upstreamSections();
+    const result = withCloudsneekerNavigation(sections, "/providers");
+    const children = childrenOf(result, "Configuration");
+
+    expect(children).toEqual([
+      expect.objectContaining({
+        label: "Sources & Providers",
+        href: "/providers",
+      }),
+      expect.objectContaining({ label: "Mutelist", href: "/mutelist" }),
+      expect.objectContaining({
+        label: "Integrations",
+        href: "/integrations",
+        requiredPermission: NAVIGATION_PERMISSION.MANAGE_INTEGRATIONS,
+      }),
+      expect.objectContaining({
+        label: `${BRAND.assistantName} settings`,
+        href: "/lighthouse/settings",
+      }),
+    ]);
+
+    // Unchanged upstream children are reused, not copied.
+    const upstreamConfiguration = sections[2]?.items[0];
+    if (upstreamConfiguration?.kind !== NAVIGATION_ITEM_KIND.COLLAPSIBLE) {
+      throw new Error("fixture Configuration missing");
+    }
+    expect(children[1]).toBe(upstreamConfiguration.children[2]);
+  });
+
+  it("turns cloud-only controls into Operations links", () => {
+    const result = withCloudsneekerNavigation(upstreamSections(), "/alerts");
+    const operations = result.find(
+      (section) => section.label === NAVIGATION_SECTION_LABEL.OPERATIONS,
     );
 
-    expect(result).toEqual([overview]);
+    expect(operations?.items).toEqual([
+      expect.objectContaining({ label: "Scans", href: "/scans" }),
+      expect.objectContaining({
+        kind: NAVIGATION_ITEM_KIND.LINK,
+        label: "Alerts",
+        href: "/alerts",
+        active: true,
+        highlight: true,
+      }),
+      expect.objectContaining({
+        label: "Scan profiles",
+        href: "/scans/config",
+        active: false,
+      }),
+      expect.objectContaining({
+        label: "CLI Import",
+        href: "/scans?import=1",
+        active: false,
+      }),
+    ]);
+    for (const item of operations?.items ?? []) {
+      expect(item.icon).toBeDefined();
+    }
   });
 
-  it("does not mutate the upstream sections", () => {
-    const sections = upstreamSections();
-    const helpItemCount = sections[1]?.items.length;
+  it("marks the product areas active on their routes", () => {
+    const appSecurity = withCloudsneekerNavigation(
+      upstreamSections(),
+      "/application-security/abc/runs/def",
+    );
+    expect(findItem(appSecurity, BRAND.appSecurityName)).toMatchObject({
+      active: true,
+    });
+    expect(findItem(appSecurity, BRAND.governanceName)).toMatchObject({
+      active: false,
+    });
 
-    withCloudsneekerNavigation(sections, "/");
-
-    expect(sections).toHaveLength(2);
-    expect(sections[1]?.items).toHaveLength(helpItemCount ?? -1);
+    const governance = withCloudsneekerNavigation(
+      upstreamSections(),
+      "/governance",
+    );
+    expect(findItem(governance, BRAND.governanceName)).toMatchObject({
+      active: true,
+    });
   });
 
   it("adds Profile under Organization", () => {
-    const sections: NavigationSection[] = [
-      {
-        label: "SETTINGS",
-        items: [
-          {
-            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
-            label: "Organization",
-            icon: Info,
-            defaultOpen: false,
-            children: [
-              {
-                kind: NAVIGATION_ITEM_KIND.LINK,
-                href: "/users",
-                label: "Users",
-              },
-              {
-                kind: NAVIGATION_ITEM_KIND.LINK,
-                href: "/roles",
-                label: "Roles",
-              },
-            ],
-          },
-        ],
-      },
-    ];
+    const result = withCloudsneekerNavigation(upstreamSections(), "/profile");
 
-    const result = withCloudsneekerNavigation(sections, "/profile");
+    expect(childrenOf(result, "Organization")).toEqual([
+      expect.objectContaining({
+        label: "Profile",
+        href: "/profile",
+        kind: NAVIGATION_ITEM_KIND.LINK,
+        active: true,
+      }),
+      expect.objectContaining({ label: "Users", href: "/users" }),
+      expect.objectContaining({ label: "Invitations", href: "/invitations" }),
+      expect.objectContaining({ label: "Roles", href: "/roles" }),
+    ]);
+  });
 
-    expect(result[0]?.items[0]).toMatchObject({
-      children: [
-        {
-          label: "Profile",
-          href: "/profile",
-          kind: NAVIGATION_ITEM_KIND.LINK,
-          active: true,
-        },
-        { label: "Users", href: "/users" },
-        { label: "Roles", href: "/roles" },
-      ],
+  it("removes HELP and does not mutate the upstream sections", () => {
+    const sections = upstreamSections();
+    const before = structuredClone(
+      sections.map((section) => ({
+        label: section.label,
+        items: section.items.map((item) => item.label),
+      })),
+    );
+
+    const result = withCloudsneekerNavigation(sections, "/");
+
+    expect(result.some((section) => section.label === "HELP")).toBe(false);
+    expect(findItem(result, "Documentation")).toBeUndefined();
+    expect(
+      sections.map((section) => ({
+        label: section.label,
+        items: section.items.map((item) => item.label),
+      })),
+    ).toEqual(before);
+    expect(childrenOf(sections, "Configuration")[0]).toMatchObject({
+      label: "Providers",
     });
   });
 
-  it("turns cloud-only configuration controls into working product links", () => {
-    const sections: NavigationSection[] = [
-      {
-        label: "CONFIGURATION",
-        items: [
-          {
-            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
-            label: "Configuration",
-            icon: Info,
-            defaultOpen: true,
-            children: [
-              {
-                kind: NAVIGATION_ITEM_KIND.LINK,
-                href: "/providers",
-                label: "Providers",
-              },
-              {
-                kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
-                label: "Alerts",
-                cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.ALERTS,
-              },
-              {
-                kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
-                label: "Scans",
-                cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.SCAN_CONFIGURATION,
-              },
-              {
-                kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE,
-                label: "CLI Import",
-                cloudUpgradeFeature: CLOUD_UPGRADE_FEATURE.CLI_IMPORT,
-              },
-              {
-                kind: NAVIGATION_ITEM_KIND.LINK,
-                href: "/integrations",
-                label: "Integrations",
-              },
-            ],
-          },
-        ],
-      },
-    ];
+  it("keeps items upstream adds in the matching product section", () => {
+    const result = withCloudsneekerNavigation(
+      upstreamSections({
+        security: [link("/registry", "Registry")],
+        settings: [link("/billing", "Billing")],
+      }),
+      "/",
+    );
 
-    const result = withCloudsneekerNavigation(sections, "/alerts");
+    const itemLabels = (label: string) =>
+      result
+        .find((section) => section.label === label)
+        ?.items.map((item) => item.label);
 
-    expect(result[0]?.items[0]).toMatchObject({
-      children: [
-        {
-          label: "Trivy",
-          href: "/trivy",
-          kind: NAVIGATION_ITEM_KIND.LINK,
-          active: false,
-        },
-        {
-          label: "Cloud Custodian",
-          href: "/custodian",
-          kind: NAVIGATION_ITEM_KIND.LINK,
-        },
-        { label: "Providers", href: "/providers" },
-        { label: "Alerts", href: "/alerts", kind: NAVIGATION_ITEM_KIND.LINK },
-        {
-          label: "Scan profiles",
-          href: "/scans/config",
-          kind: NAVIGATION_ITEM_KIND.LINK,
-        },
-        {
-          label: "CLI Import",
-          href: "/scans?import=1",
-          kind: NAVIGATION_ITEM_KIND.LINK,
-        },
-        { label: "Integrations", href: "/integrations" },
-      ],
-    });
-    expect(sections[0]?.items[0]).toMatchObject({
-      children: [
-        { label: "Providers" },
-        { label: "Alerts", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
-        { label: "Scans", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
-        { label: "CLI Import", kind: NAVIGATION_ITEM_KIND.CLOUD_UPGRADE },
-        { label: "Integrations" },
-      ],
-    });
+    expect(itemLabels(NAVIGATION_SECTION_LABEL.CLOUD_SECURITY)).toEqual([
+      "Findings",
+      "Resources",
+      "Attack Paths",
+      "Compliance",
+      "Registry",
+    ]);
+    expect(itemLabels(NAVIGATION_SECTION_LABEL.SETTINGS)).toEqual([
+      "Configuration",
+      "Organization",
+      "Billing",
+    ]);
   });
 
-  it("marks Cloud Custodian active on custodian routes", () => {
-    const sections: NavigationSection[] = [
-      {
-        label: "SETTINGS",
-        items: [
-          {
-            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
-            label: "Configuration",
-            icon: Info,
-            defaultOpen: true,
-            children: [
-              {
-                kind: NAVIGATION_ITEM_KIND.LINK,
-                href: "/providers",
-                label: "Providers",
-              },
-            ],
-          },
-        ],
-      },
-    ];
+  it("omits the assistant when upstream does not offer it", () => {
+    const sections = upstreamSections();
+    sections[0] = { items: [link("/", "Overview", true)] };
 
-    const result = withCloudsneekerNavigation(sections, "/custodian/abc");
+    const result = withCloudsneekerNavigation(sections, "/");
 
-    expect(result[0]?.items[0]).toMatchObject({
-      children: [
-        { label: "Trivy", href: "/trivy", active: false },
-        {
-          label: "Cloud Custodian",
-          href: "/custodian",
-          active: true,
-        },
-        { label: "Providers", href: "/providers" },
-      ],
-    });
+    expect(result[0]?.items.map((item) => item.label)).toEqual(["Overview"]);
   });
 });

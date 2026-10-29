@@ -6,6 +6,10 @@ export const BRAND = {
   name: "Cloudsneeker",
   // In-app assistant. Chat routes and component names stay unchanged.
   assistantName: "Seeker AI",
+  // Product areas. Engine names behind them never reach the UI.
+  cloudSecurityName: "Cloud Security",
+  appSecurityName: "Application Security",
+  governanceName: "Cloud Governance",
   shortName: "Cloudsneeker",
   vendor: "Cloudsneeker",
   tagline: "Cloud security posture, continuously.",

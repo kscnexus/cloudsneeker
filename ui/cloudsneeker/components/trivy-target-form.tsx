@@ -19,6 +19,7 @@ import {
   TRIVY_MODE_OPTIONS,
   providerTypesForMode,
 } from "@/cloudsneeker/lib/trivy-modes";
+import { appSecurityHref } from "@/cloudsneeker/routes";
 import { TRIVY_MODE, type TrivyMode } from "@/cloudsneeker/types/trivy";
 import { Button, Input, Label, Textarea } from "@/components/shadcn";
 
@@ -100,12 +101,12 @@ export const TrivyTargetForm = ({
       setError(
         typeof result.error === "string"
           ? result.error
-          : "Failed to save Trivy target.",
+          : "Failed to save target.",
       );
       return;
     }
     const id = targetId || result?.data?.id;
-    router.push(id ? `/trivy/${id}` : "/trivy");
+    router.push(id ? appSecurityHref(id) : appSecurityHref());
     router.refresh();
   });
 
@@ -270,7 +271,11 @@ export const TrivyTargetForm = ({
         <Button
           type="button"
           variant="ghost"
-          onClick={() => router.push(targetId ? `/trivy/${targetId}` : "/trivy")}
+          onClick={() =>
+            router.push(
+              targetId ? appSecurityHref(targetId) : appSecurityHref(),
+            )
+          }
         >
           Cancel
         </Button>

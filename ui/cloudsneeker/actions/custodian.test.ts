@@ -80,7 +80,7 @@ describe("dryRunCustodianPolicy", () => {
       expect.stringContaining("/custodian-policies/policy-1/dry-run"),
       expect.objectContaining({ method: "POST" }),
     );
-    expect(revalidatePathMock).toHaveBeenCalledWith("/custodian/policy-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/governance/policy-1");
     expect(result).toMatchObject({
       data: { id: "run-1" },
     });
@@ -133,6 +133,6 @@ describe("bulkScheduleCustodianPolicies", () => {
       schedule_cron: "0 9 * * *",
       provider_id: "provider-1",
     });
-    expect(revalidatePathMock).toHaveBeenCalledWith("/custodian");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/governance");
   });
 });

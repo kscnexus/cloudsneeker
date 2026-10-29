@@ -87,7 +87,7 @@ export const CustodianRunResourcesTable = ({
           size="sm"
           onClick={() =>
             downloadTextFile(
-              `custodian-${runId}.csv`,
+              `governance-${runId}.csv`,
               resourcesToCsv(resources),
               "text/csv",
             )
@@ -101,7 +101,7 @@ export const CustodianRunResourcesTable = ({
           size="sm"
           onClick={() =>
             downloadTextFile(
-              `custodian-${runId}.json`,
+              `governance-${runId}.json`,
               resourcesToJson(resources),
               "application/json",
             )
@@ -194,7 +194,7 @@ export const CustodianRunResourcesTable = ({
               <SheetHeader>
                 <SheetTitle>{selected.name}</SheetTitle>
                 <SheetDescription>
-                  Matched Custodian resource details (dry-run only).
+                  Matched governance resource details (dry-run only).
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-4">

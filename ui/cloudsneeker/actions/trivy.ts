@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { handleApiError, handleApiResponse } from "@/lib/server-actions-helper";
 
 const TARGETS_PATH = "/trivy-targets";
 const RUNS_PATH = "/trivy-runs";
-const REVALIDATE_PATH = "/trivy";
+const REVALIDATE_PATH = PRODUCT_ROUTE.APPLICATION_SECURITY;
 
 const TARGET_TYPE = "cloudsneeker-trivy-targets";
 

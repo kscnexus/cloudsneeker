@@ -13,6 +13,18 @@ describe("BRAND", () => {
     }
   });
 
+  it("names product areas without engine names", () => {
+    expect(BRAND.appSecurityName).toBe("Application Security");
+    expect(BRAND.governanceName).toBe("Cloud Governance");
+    for (const value of [
+      BRAND.cloudSecurityName,
+      BRAND.appSecurityName,
+      BRAND.governanceName,
+    ]) {
+      expect(value).not.toMatch(/trivy|custodian|c7n|prowler/i);
+    }
+  });
+
   it("hides hosted-tier upsell in the shipped config", async () => {
     // vitest.setup.ts enables upsell for upstream suites; read the real module.
     const actual = await vi.importActual<BrandModule>("./brand");

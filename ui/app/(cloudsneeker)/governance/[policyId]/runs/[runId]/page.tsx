@@ -14,6 +14,7 @@ import {
 } from "@/cloudsneeker/lib/custodian-dashboard";
 import { normalizeCustodianResources } from "@/cloudsneeker/lib/custodian-resources";
 import { findingsHrefForChecks } from "@/cloudsneeker/lib/custodian-templates";
+import { governanceHref } from "@/cloudsneeker/routes";
 import {
   CUSTODIAN_RUN_STATUS,
   type CustodianPolicyResource,
@@ -136,7 +137,7 @@ export default async function CustodianRunDetailPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CustodianDownloadYamlButton
-            filename={`custodian-policy-${policyId}.yml`}
+            filename={`governance-policy-${policyId}.yml`}
             yaml={policy.attributes.policy_yaml}
           />
           {findingsHref ? (
@@ -146,7 +147,7 @@ export default async function CustodianRunDetailPage({
           ) : null}
           {isPending ? <CustodianCancelRunButton runId={runId} /> : null}
           <Button asChild variant="ghost" size="sm">
-            <Link href={`/custodian/${policyId}`}>Back to policy</Link>
+            <Link href={governanceHref(policyId)}>Back to policy</Link>
           </Button>
         </div>
       </div>

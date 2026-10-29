@@ -27,6 +27,7 @@ import {
   packsForProvider,
   templatesForProvider,
 } from "@/cloudsneeker/lib/custodian-templates";
+import { governanceHref } from "@/cloudsneeker/routes";
 import { Button, Input, Label, Textarea } from "@/components/shadcn";
 
 interface ProviderOption {
@@ -125,7 +126,7 @@ export const CustodianPolicyForm = ({
       setError(
         typeof result.error === "string"
           ? result.error
-          : "Failed to save Custodian policy.",
+          : "Failed to save governance policy.",
       );
       return;
     }
@@ -136,7 +137,7 @@ export const CustodianPolicyForm = ({
         ? (result.data as { id?: string }).id
         : undefined);
 
-    router.push(savedId ? `/custodian/${savedId}` : "/custodian");
+    router.push(savedId ? governanceHref(savedId) : governanceHref());
     router.refresh();
   });
 
@@ -179,7 +180,7 @@ export const CustodianPolicyForm = ({
       );
       return;
     }
-    setPackMessage("Pack installed. Policies appear on the Custodian list.");
+    setPackMessage("Pack installed. Policies appear on the policy list.");
     router.refresh();
   };
 
@@ -319,17 +320,7 @@ export const CustodianPolicyForm = ({
                     }
                   }}
                 />
-                <span>
-                  {option.label}{" "}
-                  <a
-                    href={option.docsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-text-neutral-secondary underline"
-                  >
-                    docs
-                  </a>
-                </span>
+                <span>{option.label}</span>
               </label>
             );
           })}
@@ -464,7 +455,7 @@ export const CustodianPolicyForm = ({
         <Button
           type="button"
           variant="ghost"
-          onClick={() => router.push("/custodian")}
+          onClick={() => router.push(governanceHref())}
         >
           Cancel
         </Button>

@@ -7,6 +7,7 @@ import {
   listCustodianRuns,
 } from "@/cloudsneeker/actions/custodian";
 import { CustodianDryRunButton } from "@/cloudsneeker/components/custodian-dry-run-button";
+import { governanceHref } from "@/cloudsneeker/routes";
 import type {
   CustodianPolicyResource,
   CustodianRunResource,
@@ -73,7 +74,7 @@ export default async function CustodianPolicyDetailPage({
         </div>
         <div className="flex gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href={`/custodian/${policyId}/edit`}>Edit</Link>
+            <Link href={governanceHref(policyId, "edit")}>Edit</Link>
           </Button>
           <CustodianDryRunButton policyId={policyId} />
         </div>
@@ -102,7 +103,7 @@ export default async function CustodianPolicyDetailPage({
               <li key={run.id} className="flex flex-col gap-1 px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <Link
-                    href={`/custodian/${policyId}/runs/${run.id}`}
+                    href={governanceHref(policyId, "runs", run.id)}
                     className="text-text-neutral-primary font-medium capitalize hover:underline"
                   >
                     {run.attributes.status}
@@ -114,7 +115,7 @@ export default async function CustodianPolicyDetailPage({
                     trigger: {run.attributes.trigger ?? "manual"}
                   </span>
                   <Link
-                    href={`/custodian/${policyId}/runs/${run.id}`}
+                    href={governanceHref(policyId, "runs", run.id)}
                     className="text-text-neutral-secondary hover:underline"
                   >
                     resources:{" "}

@@ -38,7 +38,7 @@ describe("CustodianRunResourcesTable", () => {
 
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(
-      screen.getByText(/Matched Custodian resource details/i),
+      screen.getByText(/Matched governance resource details/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/"VolumeId": "vol-1"/)).toBeInTheDocument();
   });
