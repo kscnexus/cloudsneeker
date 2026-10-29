@@ -10,6 +10,7 @@ same way.
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import os
 import shutil
@@ -278,6 +279,7 @@ def validate_target_config(mode: str, config: dict[str, Any] | None) -> dict[str
         # Rough decoded size check without full decode for huge strings.
         if len(archive) > MAX_ARCHIVE_BYTES * 2:
             raise TrivyHubError("Filesystem archive exceeds the size limit.")
+        assert_supported_archive(archive)
 
     if mode == TrivyTarget.Mode.SBOM:
         sbom = cfg.get("sbom")
@@ -325,6 +327,45 @@ def _severity_args(config: dict[str, Any]) -> list[str]:
     return ["--severity", value]
 
 
+ARCHIVE_FORMAT_HELP = (
+    "Upload a ZIP or TAR archive (.zip, .tar, .tar.gz, .tgz, .tar.bz2, .tar.xz)."
+)
+
+
+def _archive_head(archive_b64: str, size: int = 512) -> bytes:
+    """Decode only the first ``size`` bytes of a base64 archive."""
+    chunk = "".join(archive_b64[: (size // 3 + 1) * 4].split())
+    chunk = chunk[: len(chunk) - len(chunk) % 4]
+    try:
+        return base64.b64decode(chunk, validate=False)[:size]
+    except (binascii.Error, ValueError):
+        return b""
+
+
+def assert_supported_archive(archive_b64: str) -> None:
+    """Reject archives the scanners cannot unpack before the target is saved.
+
+    Raises:
+        TrivyHubError: When the upload is not a ZIP, TAR or compressed TAR.
+    """
+    head = _archive_head(archive_b64)
+    if head.startswith(b"7z\xbc\xaf\x27\x1c"):
+        raise TrivyHubError(f"7-Zip archives are not supported. {ARCHIVE_FORMAT_HELP}")
+    if head.startswith(b"Rar!"):
+        raise TrivyHubError(f"RAR archives are not supported. {ARCHIVE_FORMAT_HELP}")
+    supported = (
+        head.startswith((b"PK\x03\x04", b"PK\x05\x06"))  # zip
+        or head.startswith(b"\x1f\x8b")  # gzip (.tar.gz)
+        or head.startswith(b"BZh")  # bzip2 (.tar.bz2)
+        or head.startswith(b"\xfd7zXZ\x00")  # xz (.tar.xz)
+        or head[257:262] == b"ustar"  # tar
+    )
+    if not supported:
+        raise TrivyHubError(
+            f"The file is not a ZIP or TAR archive. {ARCHIVE_FORMAT_HELP}"
+        )
+
+
 def _extract_archive(archive_b64: str, dest: Path) -> Path:
     raw = base64.b64decode(archive_b64, validate=False)
     if len(raw) > MAX_ARCHIVE_BYTES:
@@ -342,7 +383,7 @@ def _extract_archive(archive_b64: str, dest: Path) -> Path:
                 tf.extractall(extract_dir)
         except tarfile.TarError as exc:
             raise TrivyHubError(
-                "Filesystem archive must be a zip or tar archive."
+                f"The file is not a ZIP or TAR archive. {ARCHIVE_FORMAT_HELP}"
             ) from exc
     return extract_dir
 

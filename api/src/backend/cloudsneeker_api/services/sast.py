@@ -36,6 +36,7 @@ from cloudsneeker_api.services.trivy import (
     _extract_archive,
     _has_embedded_credentials,
     _repo_credentials,
+    assert_supported_archive,
     scrub_secrets,
 )
 
@@ -129,6 +130,7 @@ def validate_sast_config(cfg: dict[str, Any]) -> dict[str, Any]:
     else:
         if len(archive) > MAX_ARCHIVE_BYTES * 2:
             raise TrivyHubError("Code archive exceeds the size limit.")
+        assert_supported_archive(archive)
         cfg["archive_b64"] = archive
         cfg.pop("repository_url", None)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from unittest.mock import MagicMock, patch
@@ -14,6 +15,7 @@ from cloudsneeker_api.services.trivy import (
     TRIVY_MODES,
     TrivyHubError,
     assert_provider_matches_mode,
+    assert_supported_archive,
     build_trivy_command,
     effective_run_status,
     enqueue_trivy_run,
@@ -82,6 +84,34 @@ class TestValidateTargetConfig:
         cfg = validate_target_config("fs", {"archive_b64": "UEsDBA==", "path": ""})
         assert cfg["archive_b64"] == "UEsDBA=="
         assert "path" not in cfg
+
+    @pytest.mark.parametrize(
+        "head",
+        [
+            b"PK\x03\x04rest",
+            b"\x1f\x8b\x08\x00",
+            b"BZh91AY",
+            b"\xfd7zXZ\x00\x00",
+            b"\x00" * 257 + b"ustar\x0000",
+        ],
+    )
+    def test_supported_archive_formats_pass(self, head):
+        assert_supported_archive(base64.b64encode(head).decode())
+
+    @pytest.mark.parametrize(
+        "head, message",
+        [
+            (b"7z\xbc\xaf\x27\x1c\x00\x04", "7-Zip archives are not supported"),
+            (b"Rar!\x1a\x07\x00", "RAR archives are not supported"),
+            (b"just some text", "not a ZIP or TAR archive"),
+        ],
+    )
+    def test_unsupported_archives_are_rejected_on_save(self, head, message):
+        archive = base64.b64encode(head).decode()
+        with pytest.raises(TrivyHubError, match=message):
+            validate_target_config("fs", {"archive_b64": archive})
+        with pytest.raises(TrivyHubError, match=message):
+            validate_target_config("sast", {"archive_b64": archive})
 
     @pytest.mark.parametrize(
         "url",
