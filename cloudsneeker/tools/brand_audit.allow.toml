@@ -6,6 +6,7 @@
 [paths]
 allow = [
   "NOTICE",
+  "THIRD_PARTY_NOTICES.md",
   "LICENSE",
   "README.md",
   "CONTRIBUTING.md",

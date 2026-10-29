@@ -10,5 +10,22 @@ endorsed by, or sponsored by Prowler Cloud or the Prowler authors.
 The Apache License does not grant any right to use the Prowler name,
 logo, or other trademarks.
 
-If you distribute Cloudsneeker, keep this NOTICE, the LICENSE file, and
-the original copyright notices with the distribution.
+If you distribute Cloudsneeker, keep this NOTICE, the LICENSE file, the
+THIRD_PARTY_NOTICES.md file, and the original copyright notices with the
+distribution.
+
+Bundled third-party components
+------------------------------
+
+The service images include these separately licensed programs. They run as
+unmodified, separate programs; Cloudsneeker invokes them as command-line
+tools or network services. Full details, versions and source locations are
+in THIRD_PARTY_NOTICES.md.
+
+- Trivy (Aqua Security) - Apache License 2.0
+- Cloud Custodian (c7n, c7n-azure, c7n-gcp, c7n-kube) - Apache License 2.0
+- OpenGrep - GNU Lesser General Public License v2.1
+- GitLab sast-rules (selected language folders) - MIT License
+- Cartography - Apache License 2.0
+- DozerDB / Neo4j Community Edition (graph database service image) -
+  GNU General Public License v3
