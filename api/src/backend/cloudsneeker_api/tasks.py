@@ -171,3 +171,21 @@ def trivy_scheduled_scan_task(tenant_id: str, target_id: str):
         "run_id": str(run.id),
         "target_id": str(target_id),
     }
+
+
+@shared_task(base=RLSTask, name="cloudsneeker-generate-report", queue="scans")
+@set_tenant(keep_tenant=True)
+def generate_report_task(tenant_id: str, run_id: str):
+    """Assemble and render a pending report run."""
+    from cloudsneeker_api.reports.runs import process_report_run
+
+    return process_report_run(tenant_id=tenant_id, run_id=run_id)
+
+
+@shared_task(base=RLSTask, name="cloudsneeker-scheduled-report", queue="scans")
+@set_tenant(keep_tenant=True)
+def scheduled_report_task(tenant_id: str, schedule_id: str):
+    """Celery Beat entrypoint: generate a scheduled report and email it."""
+    from cloudsneeker_api.reports.schedule import run_scheduled_report
+
+    return run_scheduled_report(tenant_id=tenant_id, schedule_id=schedule_id)

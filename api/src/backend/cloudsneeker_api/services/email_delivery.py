@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from smtplib import SMTP, SMTP_SSL, SMTPException
 from typing import Iterable
@@ -30,8 +32,20 @@ def send_with_tenant_smtp(
     message: str,
     recipient_list: Iterable[str],
     config: EmailDeliveryConfig | None = None,
+    attachments: Iterable[tuple[str, bytes, str]] | None = None,
 ) -> int:
     """Send mail using the tenant SMTP settings.
+
+    Args:
+        tenant_id: Tenant UUID string.
+        subject: Message subject.
+        message: Plain-text body.
+        recipient_list: Destination addresses; blanks are skipped.
+        config: SMTP config to use instead of the tenant's stored one.
+        attachments: Optional ``(filename, content, mime_type)`` files.
+
+    Returns:
+        Number of recipients the server accepted.
 
     Raises:
         ValueError: When SMTP is not configured for the tenant.
@@ -45,7 +59,17 @@ def send_with_tenant_smtp(
     if smtp_config is None:
         raise ValueError("Email delivery is not configured for this tenant.")
 
-    mime = MIMEText(message, "plain", "utf-8")
+    files = list(attachments or [])
+    if files:
+        mime = MIMEMultipart()
+        mime.attach(MIMEText(message, "plain", "utf-8"))
+        for filename, content, mime_type in files:
+            subtype = mime_type.split("/", 1)[1] if "/" in mime_type else "octet-stream"
+            part = MIMEApplication(content, _subtype=subtype)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            mime.attach(part)
+    else:
+        mime = MIMEText(message, "plain", "utf-8")
     mime["Subject"] = subject
     mime["From"] = smtp_config.from_email
     mime["To"] = ", ".join(recipients)

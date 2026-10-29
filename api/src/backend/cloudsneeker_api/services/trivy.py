@@ -2,7 +2,9 @@
 
 IaC and Image modes enqueue the existing ``scan-perform`` path.
 Filesystem, repository, SBOM, and Kubernetes modes shell out to the Trivy
-CLI and import JSON into shared Scan / Finding rows.
+CLI and import JSON into shared Scan / Finding rows. Static analysis (SAST)
+mode runs OpenGrep (:mod:`cloudsneeker_api.services.sast`) and imports the
+same way.
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ TRIVY_MODES = frozenset(
         TrivyTarget.Mode.REPO,
         TrivyTarget.Mode.SBOM,
         TrivyTarget.Mode.K8S,
+        TrivyTarget.Mode.SAST,
     }
 )
 
@@ -57,7 +60,11 @@ MODE_PROVIDER_TYPES: dict[str, frozenset[str]] = {
     TrivyTarget.Mode.FS: frozenset({Provider.ProviderChoices.IAC.value}),
     TrivyTarget.Mode.REPO: frozenset({Provider.ProviderChoices.IAC.value}),
     TrivyTarget.Mode.SBOM: frozenset({Provider.ProviderChoices.IAC.value}),
+    TrivyTarget.Mode.SAST: frozenset({Provider.ProviderChoices.IAC.value}),
 }
+
+# Modes whose ``repository_url`` must be the linked provider's repository.
+REPOSITORY_URL_MODES = frozenset({TrivyTarget.Mode.REPO, TrivyTarget.Mode.SAST})
 
 DEFAULT_SCANNERS = ("vuln", "misconfig", "secret")
 TRIVY_TIMEOUT_SECONDS = int(os.environ.get("TRIVY_HUB_TIMEOUT_SECONDS", "900"))
@@ -181,9 +188,9 @@ def assert_provider_matches_mode(
     Args:
         provider: Linked provider.
         mode: Trivy Hub mode.
-        config: Validated target config. In repo mode its ``repository_url``
-            must be the provider's repository, so a target cannot send the
-            provider's token to another URL.
+        config: Validated target config. In repo and sast modes its
+            ``repository_url`` must be the provider's repository, so a target
+            cannot send the provider's token to another URL.
 
     Raises:
         TrivyHubError: When the provider type or repository does not match.
@@ -196,7 +203,7 @@ def assert_provider_matches_mode(
             f"Mode '{mode}' requires provider type "
             f"{', '.join(sorted(allowed))}; got '{provider.provider}'."
         )
-    if mode == TrivyTarget.Mode.REPO and config and config.get("repository_url"):
+    if mode in REPOSITORY_URL_MODES and config and config.get("repository_url"):
         target_url = normalize_repository_url(config["repository_url"])
         if target_url != normalize_repository_url(provider.uid or ""):
             raise TrivyHubError(
@@ -282,6 +289,11 @@ def validate_target_config(mode: str, config: dict[str, Any] | None) -> dict[str
     if mode == TrivyTarget.Mode.K8S:
         # Cluster identity comes from the linked kubernetes provider.
         pass
+
+    if mode == TrivyTarget.Mode.SAST:
+        from cloudsneeker_api.services.sast import validate_sast_config
+
+        cfg = validate_sast_config(cfg)
 
     return cfg
 
@@ -720,19 +732,30 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                     "scan_id": str(scan.id),
                 }
 
-            report = run_trivy_cli(mode=mode, config=config, provider=provider)
             from cloudsneeker_api.services.trivy_import import (
-                trivy_results_to_finding_rows,
+                compact_report_output,
+                report_to_finding_rows,
             )
 
-            finding_rows = trivy_results_to_finding_rows(report, mode=mode)
+            if mode == TrivyTarget.Mode.SAST:
+                from cloudsneeker_api.services.sast import run_opengrep_scan
+
+                report = run_opengrep_scan(config=config, provider=provider)
+            else:
+                report = run_trivy_cli(mode=mode, config=config, provider=provider)
+            finding_rows = report_to_finding_rows(report, mode=mode)
             scan = import_trivy_report(
                 tenant_id=tenant_id,
                 provider=provider,
                 report=report,
                 mode=mode,
-                scan_name=f"Trivy {mode}: {target.name}",
+                scan_name=(
+                    f"SAST: {target.name}"
+                    if mode == TrivyTarget.Mode.SAST
+                    else f"Trivy {mode}: {target.name}"
+                ),
                 started_at=run.started_at,
+                rows=finding_rows,
             )
             run.scan_id = scan.id
             run.status = TrivyRun.Status.COMPLETED
@@ -743,14 +766,8 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                 "scan_id": str(scan.id),
                 "finding_count": len(finding_rows),
             }
-            # Keep only compact metadata in output (not full Trivy JSON).
-            run.output = {
-                "result_targets": [
-                    str(item.get("Target") or "")
-                    for item in (report.get("Results") or [])
-                    if isinstance(item, dict)
-                ][:50],
-            }
+            # Keep only compact metadata in output (not the full report).
+            run.output = compact_report_output(report, mode=mode)
             run.save(
                 update_fields=[
                     "scan_id",

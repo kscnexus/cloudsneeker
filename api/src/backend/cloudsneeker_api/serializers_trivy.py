@@ -106,7 +106,7 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
     def validate_mode(self, value):
         if not is_valid_trivy_mode(value):
             raise ValidationError(
-                "mode must be one of: iac, image, fs, repo, sbom, k8s."
+                "mode must be one of: iac, image, fs, repo, sbom, k8s, sast."
             )
         return value
 

@@ -1,0 +1,163 @@
+# Product Redesign and Reporting Plan
+
+Started 2026-10-29. Goal: Cloudsneeker reads as one security platform (cloud
+security, application security, governance, compliance, reporting), not
+Prowler plus bolted-on tools. Functionality stays; this work is product
+structure, UI/UX, a SAST engine, and reporting.
+
+Decisions (user, 2026-10-29): start now on `main`, deploy in phases; add a SAST
+engine; ship every report format (branded PDF, scheduled email, Excel/CSV,
+in-app shareable report); refine the current neon brand (no new look).
+
+## Phase 1: One product structure
+
+Sidebar sections and product names. Engine names (Trivy, Cloud Custodian,
+Prowler) never appear in the UI.
+
+| Section | Items | Backed by |
+| --- | --- | --- |
+| Overview | Security posture dashboard | upstream overview |
+| Cloud Security | Findings, Resources, Attack Paths, Scans | upstream |
+| Application Security | Overview, Dependencies (SCA), Code (SAST), Containers, Infrastructure as Code, Secrets | Trivy Hub targets by mode; SAST engine (Phase 3) |
+| Cloud Governance | Policies, Dry-run reports | Custodian |
+| Compliance | Frameworks, Multiple Scans | upstream + scan comparison |
+| Reports | Report catalog (Phase 4) | new |
+| Seeker AI | Chat | upstream lighthouse |
+| Settings | Sources (providers), Integrations, Alerts, Mutelist, Scan profiles, Organization | upstream |
+
+Existing routes (`/trivy`, `/custodian`) keep working; new product routes
+(`/application-security`, `/governance`) are added as the primary entries.
+
+Shipped (UI, pending deploy):
+
+- Sidebar (`ui/cloudsneeker/navigation.ts`): Overview and Seeker AI; CLOUD
+  SECURITY (Findings, Resources, Attack Paths, Compliance); APPLICATION
+  SECURITY; GOVERNANCE; OPERATIONS (Scans, Alerts, Scan profiles, CLI Import);
+  SETTINGS (Configuration: Sources & Providers, Mutelist, Integrations, Seeker
+  AI settings; Organization: Profile, Users, Invitations, Roles).
+- Routes (`ui/cloudsneeker/routes.ts`): `/application-security`, `/new`,
+  `/<targetId>`, `/<targetId>/edit`, `/<targetId>/runs/<runId>`;
+  `/governance`, `/new`, `/<policyId>`, `/<policyId>/edit`,
+  `/<policyId>/runs/<runId>`. `/trivy/*` and `/custodian/*` answer with a
+  permanent redirect to the same sub-path and query.
+- Product names come from `BRAND.appSecurityName` / `BRAND.governanceName`;
+  page copy, mode labels, empty states, errors and export file names no longer
+  name an engine. API endpoints (`/api/v1/trivy-*`, `/api/v1/custodian-*`) and
+  internal identifiers are unchanged.
+- Not yet: the Application Security sub-pages by mode (Dependencies, Code,
+  Containers, IaC, Secrets), Reports, and API-side copy (error messages,
+  template text) that the API returns verbatim.
+
+## Phase 2: UX refresh (neon brand, refined)
+
+- Overview: one risk view across cloud, application and compliance (score, top
+  risks, trend, coverage of sources).
+- Consistent page header, empty states, cards, tables and spacing on every
+  Cloudsneeker page; Application Security and Governance hubs get dashboards.
+
+## Phase 3: SAST engine
+
+- Engine: **OpenGrep** v1.30.2 (LGPL-2.1 fork of Semgrep OSS), the
+  self-contained release binary at `/opt/opengrep/opengrep` in the API/worker
+  image (`cloudsneeker/deploy/docker/api.Dockerfile`, sha256-pinned).
+  `OPENGREP_BIN` / `OPENGREP_RULES_DIR` point at it.
+- Rules: **GitLab sast-rules** `v2.10.1`, vendored at build time into
+  `/opt/opengrep/rules`, keeping only the top-level language folders `csharp`,
+  `go`, `java`, `javascript` (also TypeScript), `python`, `scala`. Those rules
+  are MIT (c) GitLab, plus Apache-2.0 gosec ports in `go/`. Dropped from that
+  repository: `rules/lgpl-cc` (Commons Clause), `rules/lgpl`, `rules/gitlab`
+  (GitLab EE license), `c/` (GPL-2.0 flawfinder ports).
+- Never ship: Semgrep registry rules (`p/...`, `semgrep/semgrep-rules`), whose
+  Semgrep Rules License forbids use in a competing hosted product; and
+  `opengrep/opengrep-rules`, which is LGPL-2.1 **plus the Commons Clause** (no
+  selling a product or hosting service whose value derives from the rules).
+  Adding a rule pack needs a license check of every file first.
+- Mode `sast` ("Static analysis (SAST)") on Application Security targets,
+  migration `cloudsneeker_api/0010_trivytarget_sast_mode`. Linked provider must
+  be an IaC (repository) provider. Config: `repository_url` (must equal the
+  provider's repository, as in repo mode) or `archive_b64` (code archive);
+  `rulesets` (`auto` default = detect languages, `all`, or names from
+  `SAST_RULESETS`); `exclude` globs (max 50).
+- Run: dulwich shallow clone with the provider token
+  (`cloudsneeker.git_auth.authenticated_clone_url`), `.git` removed, then
+  `opengrep scan --json --disable-version-check --config=<pack>... --exclude=...
+  --timeout=<OPENGREP_RULE_TIMEOUT_SECONDS> .` in the checkout. Clone and scan
+  share the `TRIVY_HUB_TIMEOUT_SECONDS` budget. Tokens are redacted from errors
+  and the report. OpenGrep has no `--metrics` flag; it only reports metrics
+  when the Semgrep registry is used, which never happens here.
+- Import: `trivy_import.opengrep_results_to_finding_rows` into the shared
+  Scan / Finding rows (`scanner_args {"source": "trivy_hub", "mode": "sast"}`).
+  Severity: `metadata.security-severity` when present, else ERROR -> high,
+  WARNING -> medium, INFO -> low; high with impact and confidence HIGH ->
+  critical. Resource = source file; finding UID = rule + file + line range,
+  bounded to 300 characters with a digest suffix. CWE / OWASP go to
+  `Categories`, `fix` to the remediation.
+- Code: `cloudsneeker_api/services/sast.py`, tests in
+  `cloudsneeker_api/tests/test_sast.py`. No upstream hooks.
+
+## Phase 4: Reporting
+
+- Catalog: Executive summary (management), Cloud posture, Compliance (per
+  framework), Software composition (SCA), Static application security (SAST),
+  Container images, Infrastructure as Code, Secrets, Cloud governance.
+- One data-assembly service per report in `cloudsneeker_api`, rendered to:
+  branded PDF (extend `tasks/jobs/reports` style), Excel/CSV, an in-app
+  report page with an expiring share link, and scheduled email (existing
+  per-tenant SMTP, Celery Beat).
+
+Backend (done, `api/src/backend/cloudsneeker_api/reports/`):
+
+- `catalog.py`: the nine report types, parameter validation (`provider_ids`,
+  `date_from`, `date_to`, `severity_floor`, `trend_points`; compliance adds
+  `compliance_id` and an optional `scan_id`), formats, and the
+  `cloudsneeker-<type>-<date>.<ext>` file name.
+- `data/`: one assembler per type returning `ReportData` (`schema.py`):
+  score and grade, KPIs, severity / status totals, trend, top risks with
+  business impact and fix, per-source breakdown, compliance posture,
+  remediation priorities, bounded detail tables (`REPORT_MAX_DETAIL_ROWS`,
+  default 5000). Cloud data is the latest Prowler scan per cloud provider;
+  application security data is the latest scan per provider and Trivy Hub
+  mode (`scanner_args.source == "trivy_hub"`); governance is the latest
+  Custodian dry-run per policy. SAST reads mode `sast` and shows an empty
+  state until that mode has scans.
+- `render/`: branded PDF (cover, contents, summary, charts, risks, sources,
+  compliance, actions, detail tables, methodology appendix) built on the
+  `tasks/jobs/reports` styles, XLSX (summary + detail sheets, frozen header,
+  autofilter), CSV (main detail table), JSON (in-app payload).
+- Runs write artifacts under
+  `$DJANGO_TMP_OUTPUT_DIRECTORY/cloudsneeker-reports/<tenant>/<run>/` (the
+  EFS volume shared by API and workers). Celery: `cloudsneeker-generate-report`
+  and the beat task `cloudsneeker-scheduled-report`, which generates inline
+  and emails the PDF through the tenant SMTP config (attachment up to
+  `REPORT_EMAIL_MAX_ATTACHMENT_MB`, default 10; larger reports send a 7-day
+  share link).
+- Tables (migration `0011_reports`): `cloudsneeker_report_runs`,
+  `cloudsneeker_report_schedules`, `cloudsneeker_report_share_links` (only
+  the SHA-256 of the token is stored).
+
+Endpoints (all under `/api/v1/`):
+
+| Method and path | Purpose | Permission |
+| --- | --- | --- |
+| `GET report-types`, `GET report-types/{id}` | Catalog | Signed in |
+| `POST report-runs` | Enqueue a report (`report_type`, `params`, `formats`) | Signed in; providers pinned to the role's visibility |
+| `GET report-runs`, `GET report-runs/{id}`, `DELETE report-runs/{id}` | History | Limited roles see their own runs and runs over visible providers |
+| `GET report-runs/{id}/download?format=pdf\|xlsx\|csv\|json` | Artifact download | Same as above |
+| `GET report-runs/{id}/data` | JSON payload for the in-app report page | Same as above |
+| `GET, POST report-runs/{id}/share-links` | List / create a share link (raw token returned once) | Create needs `manage_scans` |
+| `GET report-share-links`, `POST report-share-links/{id}/revoke` | Manage share links | `manage_scans` |
+| `GET, POST, PATCH, DELETE report-schedules` | Scheduled email reports (cron + timezone, recipients) | `manage_scans` |
+| `GET shared-reports/{token}` | Public report JSON; expiry and revocation enforced, per-IP throttle `REPORT_SHARE_THROTTLE` (default 60/min) | None |
+
+Pending: report catalog / builder / viewer pages and the public
+`/shared-reports/<token>` page in the UI (email links already point there),
+then deploy and verify on ECS.
+
+## Status
+
+| Phase | State |
+| --- | --- |
+| 1 | Done (pending deploy) |
+| 2 | Not started |
+| 3 | Backend done (pending UI + deploy) |
+| 4 | Backend done (pending UI + deploy) |

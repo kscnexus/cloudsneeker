@@ -10,6 +10,13 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 """
 
 from cloudsneeker_api.views import BrandView
+from cloudsneeker_api.views_reports import (
+    ReportRunViewSet,
+    ReportScheduleViewSet,
+    ReportShareLinkViewSet,
+    ReportTypeViewSet,
+    SharedReportView,
+)
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_slack_app import SlackAppConfigViewSet
 from cloudsneeker_api.views_features import (
@@ -53,6 +60,14 @@ router.register(
 router.register(r"custodian-runs", CustodianRunViewSet, basename="custodian-runs")
 router.register(r"trivy-targets", TrivyTargetViewSet, basename="trivy-targets")
 router.register(r"trivy-runs", TrivyRunViewSet, basename="trivy-runs")
+router.register(r"report-types", ReportTypeViewSet, basename="report-types")
+router.register(r"report-runs", ReportRunViewSet, basename="report-runs")
+router.register(
+    r"report-schedules", ReportScheduleViewSet, basename="report-schedules"
+)
+router.register(
+    r"report-share-links", ReportShareLinkViewSet, basename="report-share-links"
+)
 
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),
@@ -85,6 +100,11 @@ urlpatterns = [
         "integrations/<uuid:integration_id>/slack/channels",
         SlackChannelsView.as_view(),
         name="slack-channels",
+    ),
+    path(
+        "shared-reports/<str:token>",
+        SharedReportView.as_view(),
+        name="shared-report",
     ),
     path("", include(router.urls)),
 ]

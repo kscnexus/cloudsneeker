@@ -486,6 +486,7 @@ class TrivyTarget(CloudsneekerRLSModel):
         REPO = "repo", "Repository"
         SBOM = "sbom", "SBOM"
         K8S = "k8s", "Kubernetes"
+        SAST = "sast", "Static analysis (SAST)"
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
@@ -588,3 +589,169 @@ class TrivyRun(CloudsneekerRLSModel):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
+
+
+class ReportSchedule(CloudsneekerRLSModel):
+    """Recurring report emailed to recipients on a cron schedule."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    name = models.CharField(max_length=100, validators=[MinLengthValidator(3)])
+    report_type = models.CharField(max_length=32)
+    params = models.JSONField(default=dict, blank=True)
+    formats = models.JSONField(default=list, blank=True)
+    schedule_cron = models.CharField(max_length=64)
+    schedule_timezone = models.CharField(max_length=64, default="UTC")
+    recipients = models.JSONField(default=list, blank=True)
+    enabled = models.BooleanField(default=True)
+    scheduler_task = models.ForeignKey(
+        "django_celery_beat.PeriodicTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_report_schedules",
+    )
+    next_run_at = models.DateTimeField(null=True, blank=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_run = models.ForeignKey(
+        "cloudsneeker_api.ReportRun",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_report_schedules",
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}report_schedules"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id", "name"),
+                name="unique_cs_report_schedule_name_per_tenant",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}report-schedules"
+
+
+class ReportRun(CloudsneekerRLSModel):
+    """One generated report and its artifacts on the shared output volume."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    class Trigger(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        SCHEDULED = "scheduled", "Scheduled"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    report_type = models.CharField(max_length=32)
+    params = models.JSONField(default=dict, blank=True)
+    formats = models.JSONField(default=list, blank=True)
+    status = models.CharField(
+        max_length=32, choices=Status.choices, default=Status.PENDING
+    )
+    trigger = models.CharField(
+        max_length=32, choices=Trigger.choices, default=Trigger.MANUAL
+    )
+    error = models.TextField(blank=True, default="")
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    # Format -> path relative to the report root; format -> size in bytes.
+    artifacts = models.JSONField(default=dict, blank=True)
+    artifact_sizes = models.JSONField(default=dict, blank=True)
+    size_bytes = models.BigIntegerField(default=0)
+    summary = models.JSONField(default=dict, blank=True)
+    schedule = models.ForeignKey(
+        ReportSchedule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="runs",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_report_runs",
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}report_runs"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "-inserted_at"],
+                name="cs_report_run_tenant_ins_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}report-runs"
+
+
+class ReportShareLink(CloudsneekerRLSModel):
+    """Expiring public link to one report run's JSON payload.
+
+    Only the SHA-256 of the random token is stored; the raw token is returned
+    once at creation.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    report_run = models.ForeignKey(
+        ReportRun,
+        on_delete=models.CASCADE,
+        related_name="share_links",
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_accessed_at = models.DateTimeField(null=True, blank=True)
+    access_count = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_report_share_links",
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}report_share_links"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}report-share-links"
