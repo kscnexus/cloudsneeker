@@ -7,6 +7,10 @@ import {
   listCustodianRuns,
 } from "@/cloudsneeker/actions/custodian";
 import { CustodianDryRunButton } from "@/cloudsneeker/components/custodian-dry-run-button";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { RunStatusBadge } from "@/cloudsneeker/components/run-status-badge";
+import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { CARD_LIST_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import { governanceHref } from "@/cloudsneeker/routes";
 import type {
   CustodianPolicyResource,
@@ -44,99 +48,101 @@ export default async function CustodianPolicyDetailPage({
 
   return (
     <ContentLayout title={policy.attributes.name} icon={<Shield />}>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex max-w-2xl flex-col gap-1">
-          <p className="text-text-neutral-secondary text-sm">
-            {policy.attributes.description || "No description"}
-          </p>
-          <p className="text-text-neutral-secondary text-sm">
-            Provider:{" "}
-            {policy.attributes.provider_alias ||
+      <PageHeader
+        description={policy.attributes.description || "No description"}
+        meta={[
+          {
+            label: "Provider",
+            value:
+              policy.attributes.provider_alias ||
               policy.attributes.provider_uid ||
-              policy.attributes.provider_id}
-          </p>
-          <p className="text-text-neutral-secondary text-xs">
-            Dry-run only — apply / remediate is not available.
-          </p>
-          {policy.attributes.schedule_enabled ? (
+              policy.attributes.provider_id,
+          },
+          {
+            label: "Schedule",
+            value: policy.attributes.schedule_enabled
+              ? `${policy.attributes.schedule_cron} (${policy.attributes.schedule_timezone || "UTC"})${
+                  policy.attributes.next_run_at
+                    ? ` · next ${new Date(policy.attributes.next_run_at).toLocaleString()}`
+                    : ""
+                }`
+              : "Off",
+          },
+          { label: "Mode", value: "Dry-run only" },
+        ]}
+        actions={
+          <>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={governanceHref(policyId, "edit")}>Edit</Link>
+            </Button>
+            <CustodianDryRunButton policyId={policyId} />
+          </>
+        }
+      >
+        <p className="text-text-neutral-tertiary text-xs">
+          Dry-run only — apply / remediate is not available.
+        </p>
+      </PageHeader>
+
+      <div className="flex flex-col gap-6">
+        <SectionCard
+          title="Dry-run history"
+          description="Newest first. Open a dry-run to see the resources it matched."
+        >
+          {runs.length === 0 ? (
             <p className="text-text-neutral-secondary text-sm">
-              Schedule: {policy.attributes.schedule_cron} (
-              {policy.attributes.schedule_timezone || "UTC"})
-              {policy.attributes.next_run_at
-                ? ` · next ${new Date(policy.attributes.next_run_at).toLocaleString()}`
-                : ""}
+              No dry-runs yet. Start one to see matching resources.
             </p>
           ) : (
-            <p className="text-text-neutral-secondary text-sm">
-              Schedule: off
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href={governanceHref(policyId, "edit")}>Edit</Link>
-          </Button>
-          <CustodianDryRunButton policyId={policyId} />
-        </div>
-      </div>
-
-      <section className="mb-8 flex flex-col gap-2">
-        <h2 className="text-text-neutral-primary text-base font-semibold">
-          Policy YAML
-        </h2>
-        <pre className="border-border-neutral-secondary bg-bg-neutral-secondary overflow-x-auto rounded-xl border p-4 text-sm">
-          {policy.attributes.policy_yaml}
-        </pre>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-text-neutral-primary text-base font-semibold">
-          Dry-run history
-        </h2>
-        {runs.length === 0 ? (
-          <p className="text-text-neutral-secondary text-sm">
-            No dry-runs yet. Start one to see matching resources.
-          </p>
-        ) : (
-          <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
-            {runs.map((run) => (
-              <li key={run.id} className="flex flex-col gap-1 px-4 py-3">
-                <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <Link
-                    href={governanceHref(policyId, "runs", run.id)}
-                    className="text-text-neutral-primary font-medium capitalize hover:underline"
-                  >
-                    {run.attributes.status}
-                  </Link>
-                  <span className="text-text-neutral-secondary">
-                    mode: {run.attributes.mode}
-                  </span>
-                  <span className="text-text-neutral-secondary capitalize">
-                    trigger: {run.attributes.trigger ?? "manual"}
-                  </span>
-                  <Link
-                    href={governanceHref(policyId, "runs", run.id)}
-                    className="text-text-neutral-secondary hover:underline"
-                  >
-                    resources:{" "}
-                    {run.attributes.summary?.resource_count ?? "—"}
-                  </Link>
-                  {run.attributes.summary?.regions?.length ? (
-                    <span className="text-text-neutral-secondary">
-                      regions: {run.attributes.summary.regions.join(", ")}
+            <ul className={CARD_LIST_CLASS}>
+              {runs.map((run) => (
+                <li key={run.id} className="flex flex-col gap-1.5 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Link
+                      href={governanceHref(policyId, "runs", run.id)}
+                      className="text-text-neutral-primary rounded-sm text-sm font-medium underline-offset-2 hover:underline"
+                    >
+                      {run.attributes.inserted_at
+                        ? new Date(run.attributes.inserted_at).toLocaleString()
+                        : "Dry-run"}
+                    </Link>
+                    <RunStatusBadge status={run.attributes.status} />
+                  </div>
+                  <div className="text-text-neutral-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                    <span>mode: {run.attributes.mode}</span>
+                    <span className="capitalize">
+                      trigger: {run.attributes.trigger ?? "manual"}
                     </span>
+                    <Link
+                      href={governanceHref(policyId, "runs", run.id)}
+                      className="rounded-sm underline-offset-2 hover:underline"
+                    >
+                      resources:{" "}
+                      {run.attributes.summary?.resource_count ?? "—"}
+                    </Link>
+                    {run.attributes.summary?.regions?.length ? (
+                      <span>
+                        regions: {run.attributes.summary.regions.join(", ")}
+                      </span>
+                    ) : null}
+                  </div>
+                  {run.attributes.error ? (
+                    <p className="text-text-error-primary text-xs break-all">
+                      {run.attributes.error}
+                    </p>
                   ) : null}
-                </div>
-                {run.attributes.error ? (
-                  <p className="text-text-error text-sm">
-                    {run.attributes.error}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Policy YAML">
+          <pre className="bg-bg-neutral-tertiary overflow-x-auto rounded-lg p-4 text-sm">
+            {policy.attributes.policy_yaml}
+          </pre>
+        </SectionCard>
+      </div>
     </ContentLayout>
   );
 }

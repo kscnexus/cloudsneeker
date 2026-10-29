@@ -55,6 +55,34 @@ Shipped (UI, pending deploy):
 - Consistent page header, empty states, cards, tables and spacing on every
   Cloudsneeker page; Application Security and Governance hubs get dashboards.
 
+Status: UI done (pending deploy).
+
+- Shared components (`ui/cloudsneeker/components/`): `PageHeader`
+  (description, record facts, actions), `StatTile` (KPI tile, optional link,
+  tone accent, selected state), `SectionCard` (labelled region with title,
+  description, actions), `EmptyState`, `SeverityBreakdown` (proportion bar +
+  per-severity drill-down), `RunStatusBadge`. Focus ring and list classes in
+  `ui/cloudsneeker/lib/ui-classes.ts`. Colors come from the existing theme
+  tokens only, so light and dark themes both apply.
+- Overview: `RiskOverview` (one hook in the upstream Overview page, recorded
+  in `upstream-hooks.md`) reads the newest completed executive report run
+  (`listReportRuns` + `getReportRunData`): score ring and grade, open issues,
+  severity totals linked to Findings, one tile per area (Cloud posture,
+  Application Security, Compliance, Cloud Governance) linked to its hub, top
+  risks linked to their failed findings, and an open-issues trend. Without a
+  report it shows an empty state with "Build risk view" (starts an executive
+  report run); while a newer run is generating it says so. Helpers in
+  `ui/cloudsneeker/lib/risk-overview.ts`.
+- Application Security hub: KPI tiles (targets, scans, open findings, last
+  scan), open findings by severity across each target's latest completed scan
+  (`/findings` counts filtered by `scan__in`), coverage by area cards
+  (Dependencies, Code (SAST), Containers, Infrastructure as Code, Secrets,
+  SBOM, Kubernetes) that filter the target list via `?category=`, then targets
+  and recent scans. Helpers in `ui/cloudsneeker/lib/app-security-dashboard.ts`.
+- Governance hub dashboard, policy detail, target and scan detail pages, and
+  Reports pages use the shared components.
+- Not changed (upstream pages, only hooked): Alerts, Scan profiles, CLI Import.
+
 ## Phase 3: SAST engine
 
 - Engine: **OpenGrep** v1.30.2 (LGPL-2.1 fork of Semgrep OSS), the

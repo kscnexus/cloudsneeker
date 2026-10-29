@@ -73,6 +73,7 @@ Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_a
 | File | Hook | Re-apply by |
 | --- | --- | --- |
 | `config/site.ts` | `siteConfig.name` and `description` read `BRAND` | Comment line marks the file; no literal name. |
+| `app/(prowler)/page.tsx` | `import { RiskOverview } from "@/cloudsneeker/components/risk-overview"; // cloudsneeker-hook` and `{/* cloudsneeker-hook: one risk view across every product area */}` + `<RiskOverview />` after `<OverviewProviderContext />` | Overview risk view (score, severity totals, areas, top risks, trend) from the latest completed executive report run (`ui/cloudsneeker/components/risk-overview.tsx`). Re-add the import and the two JSX lines; no `data-tour-id` on this page. |
 | `proxy.ts` | `"/shared-reports/"` in `publicRoutes` | Opens the public shared report page (`ui/app/(cloudsneeker-public)/shared-reports/[token]`) without a session. Keep the upstream list and re-add the one entry. |
 | `auth.config.ts` | `authorized` returns `true` for paths starting with `/shared-reports/` | NextAuth runs `authorized` before `proxy.ts`, so without it signed-out visitors are sent to sign-in. Re-add the one line after the sign-in / sign-up / invitation check. |
 | `components/icons/prowler/ProwlerIcons.tsx` | `ProwlerExtended`/`ProwlerShort` render the artwork from `ui/cloudsneeker/brand-logo.tsx` | Keep the component names; they are imported across the app. |

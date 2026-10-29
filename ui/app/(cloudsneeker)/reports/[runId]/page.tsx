@@ -7,6 +7,7 @@ import {
   getReportRun,
   getReportRunData,
 } from "@/cloudsneeker/actions/reports";
+import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { ReportDownloadLinks } from "@/cloudsneeker/components/report-download-links";
 import { ReportPrintButton } from "@/cloudsneeker/components/report-print-button";
 import { ReportShareDialog } from "@/cloudsneeker/components/report-share-dialog";
@@ -45,21 +46,20 @@ export default async function ReportRunPage({ params }: ReportRunPageProps) {
     return (
       <ContentLayout title={name} icon={<FileBarChart />}>
         <AutoRefresh hasExecutingScan={active} />
-        <div className="border-border-neutral-secondary flex flex-col gap-3 rounded-xl border p-6">
-          <p className="text-text-neutral-primary font-medium">
-            {reportStatusLabel(attributes.status)}
-          </p>
-          <p className="text-text-neutral-secondary text-sm">
-            {active
+        <EmptyState
+          icon={<FileBarChart />}
+          title={reportStatusLabel(attributes.status)}
+          description={
+            active
               ? "This report is being prepared. The page refreshes when it is ready."
-              : attributes.error || "This report could not be generated."}
-          </p>
-          <div>
+              : attributes.error || "This report could not be generated."
+          }
+          action={
             <Button asChild variant="outline" size="sm">
               <Link href={reportsHref()}>Back to reports</Link>
             </Button>
-          </div>
-        </div>
+          }
+        />
       </ContentLayout>
     );
   }

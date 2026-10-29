@@ -1,4 +1,4 @@
-import { Shield } from "lucide-react";
+import { Plus, Shield } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -12,6 +12,9 @@ import { CustodianDashboardPanel } from "@/cloudsneeker/components/custodian-das
 import { CustodianPageTabs } from "@/cloudsneeker/components/custodian-page-tabs";
 import { CustodianPolicyList } from "@/cloudsneeker/components/custodian-policy-list";
 import { CustodianReportsTable } from "@/cloudsneeker/components/custodian-reports-table";
+import { EmptyState } from "@/cloudsneeker/components/empty-state";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
   buildCustodianDashboard,
   buildCustodianReportRows,
@@ -29,7 +32,6 @@ import type {
   CustodianRunResource,
 } from "@/cloudsneeker/types/custodian";
 import { Button, Skeleton } from "@/components/shadcn";
-import { Card, CardContent } from "@/components/shadcn/card/card";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import type { SearchParamsProps } from "@/types";
 
@@ -45,12 +47,7 @@ export default async function CustodianPage({
 
   return (
     <ContentLayout title={BRAND.governanceName} icon={<Shield />}>
-      <div className="mb-4">
-        <p className="text-text-neutral-secondary text-sm">
-          Manage governance policies, review dry-run reports, and track matched
-          resources. Apply mode is disabled.
-        </p>
-      </div>
+      <PageHeader description="Manage governance policies, review dry-run reports, and track matched resources. Apply mode is disabled." />
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
         <SSRCustodianWorkspace activeTab={activeTab} />
       </Suspense>
@@ -94,13 +91,17 @@ const SSRCustodianWorkspace = async ({
 
   if (policyError || runError) {
     return (
-      <p className="text-text-error text-sm">
-        {typeof policyError === "string"
-          ? policyError
-          : typeof runError === "string"
-            ? runError
-            : `Unable to load ${BRAND.governanceName}.`}
-      </p>
+      <EmptyState
+        icon={<Shield />}
+        title={`Unable to load ${BRAND.governanceName}`}
+        description={
+          typeof policyError === "string"
+            ? policyError
+            : typeof runError === "string"
+              ? runError
+              : "Try again in a moment."
+        }
+      />
     );
   }
 
@@ -143,17 +144,21 @@ const SSRCustodianWorkspace = async ({
       activeTab={activeTab}
       actions={
         <Button asChild size="sm">
-          <Link href={governanceHref("new")}>Create policy</Link>
+          <Link href={governanceHref("new")}>
+            <Plus aria-hidden="true" />
+            Create policy
+          </Link>
         </Button>
       }
       dashboardContent={<CustodianDashboardPanel metrics={metrics} />}
       policiesContent={<CustodianPolicyList policies={policies} />}
       reportsContent={
-        <Card variant="base" padding="none" className="w-full shadow-sm">
-          <CardContent className="p-4">
-            <CustodianReportsTable rows={reportRows} />
-          </CardContent>
-        </Card>
+        <SectionCard
+          title="Dry-run reports"
+          description="Every dry-run with its policy, provider, duration and matched resources."
+        >
+          <CustodianReportsTable rows={reportRows} />
+        </SectionCard>
       }
     />
   );

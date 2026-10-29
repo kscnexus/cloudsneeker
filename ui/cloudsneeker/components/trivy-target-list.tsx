@@ -1,8 +1,14 @@
+import { ScanSearch } from "lucide-react";
 import Link from "next/link";
 
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
+import { CARD_LIST_CLASS, FOCUS_RING_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
+import { Badge, Button } from "@/components/shadcn";
+import { cn } from "@/lib/utils";
+
+import { EmptyState } from "./empty-state";
 
 interface TrivyTargetListProps {
   targets: TrivyTargetResource[];
@@ -11,38 +17,39 @@ interface TrivyTargetListProps {
 export const TrivyTargetList = ({ targets }: TrivyTargetListProps) => {
   if (targets.length === 0) {
     return (
-      <div className="border-border-neutral-secondary rounded-xl border px-4 py-8 text-center">
-        <p className="text-text-neutral-primary mb-1 font-medium">
-          No targets yet
-        </p>
-        <p className="text-text-neutral-secondary mb-4 text-sm">
-          Add an Infrastructure as Code, container image, code archive,
-          dependency, SBOM, or Kubernetes target. Results land in Findings next
-          to your cloud security results.
-        </p>
-        <Link
-          href={appSecurityHref("new")}
-          className="text-text-neutral-primary text-sm underline"
-        >
-          Create a target
-        </Link>
-      </div>
+      <EmptyState
+        icon={<ScanSearch />}
+        title="No targets yet"
+        description="Add an Infrastructure as Code, container image, code archive, dependency, source code, SBOM, or Kubernetes target. Results land in Findings next to your cloud security results."
+        action={
+          <Button asChild size="sm">
+            <Link href={appSecurityHref("new")}>Create a target</Link>
+          </Button>
+        }
+      />
     );
   }
 
   return (
-    <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
+    <ul className={CARD_LIST_CLASS}>
       {targets.map((target) => (
         <li key={target.id}>
           <Link
             href={appSecurityHref(target.id)}
-            className="hover:bg-bg-neutral-secondary flex flex-col gap-1 px-4 py-3"
+            className={cn(
+              "hover:bg-bg-neutral-tertiary flex flex-col gap-1 px-4 py-3 transition-colors",
+              FOCUS_RING_CLASS,
+            )}
           >
-            <span className="text-text-neutral-primary font-medium">
-              {target.attributes.name}
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="text-text-neutral-primary font-medium break-words">
+                {target.attributes.name}
+              </span>
+              <Badge variant="tag">
+                {labelForTrivyMode(target.attributes.mode)}
+              </Badge>
             </span>
-            <span className="text-text-neutral-secondary text-sm">
-              {labelForTrivyMode(target.attributes.mode)} ·{" "}
+            <span className="text-text-neutral-secondary text-sm break-words">
               {target.attributes.provider_alias ||
                 target.attributes.provider_uid ||
                 target.attributes.provider_id}
@@ -50,16 +57,11 @@ export const TrivyTargetList = ({ targets }: TrivyTargetListProps) => {
                 ? ` — ${target.attributes.description}`
                 : ""}
             </span>
-            {target.attributes.schedule_enabled ? (
-              <span className="text-text-neutral-secondary text-xs">
-                Schedule: {target.attributes.schedule_cron} (
-                {target.attributes.schedule_timezone || "UTC"})
-              </span>
-            ) : (
-              <span className="text-text-neutral-secondary text-xs">
-                Schedule: off
-              </span>
-            )}
+            <span className="text-text-neutral-tertiary text-xs">
+              {target.attributes.schedule_enabled
+                ? `Schedule: ${target.attributes.schedule_cron} (${target.attributes.schedule_timezone || "UTC"})`
+                : "Schedule: off"}
+            </span>
           </Link>
         </li>
       ))}

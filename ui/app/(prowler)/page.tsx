@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { getAllProviderGroups } from "@/actions/manage-groups/manage-groups";
 import { getAllProviders } from "@/actions/providers";
 import { getLighthouseV2Configurations } from "@/app/(prowler)/lighthouse/_actions";
+import { RiskOverview } from "@/cloudsneeker/components/risk-overview"; // cloudsneeker-hook
 import { ProviderAccountSelectors } from "@/components/filters/provider-account-selectors";
 import { ProviderGroupSelector } from "@/components/filters/provider-group-selector";
 import {
@@ -67,6 +68,8 @@ export default async function Home({
         providers={providersData?.data ?? []}
         groups={providerGroupsData?.data ?? []}
       />
+      {/* cloudsneeker-hook: one risk view across every product area */}
+      <RiskOverview />
       {/* Agents banner shows everywhere; Lighthouse is Cloud-only, so on a
           local server the agents banner is the only child and fills the row. */}
       <div className="mb-6 flex flex-col gap-6 lg:flex-row">

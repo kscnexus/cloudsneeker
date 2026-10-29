@@ -11,11 +11,13 @@ import {
   listReportShareLinks,
   listReportTypes,
 } from "@/cloudsneeker/actions/reports";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { ReportCatalogGrid } from "@/cloudsneeker/components/report-catalog-grid";
 import { ReportPageTabs } from "@/cloudsneeker/components/report-page-tabs";
 import { ReportRunsTable } from "@/cloudsneeker/components/report-runs-table";
 import { ReportSchedulesPanel } from "@/cloudsneeker/components/report-schedules-panel";
 import { ReportShareLinksTable } from "@/cloudsneeker/components/report-share-links-table";
+import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
   buildReportCatalog,
   reportTitle,
@@ -49,13 +51,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   return (
     <ContentLayout title="Reports" icon={<FileBarChart />}>
-      <div className="mb-4">
-        <p className="text-text-neutral-secondary max-w-3xl text-sm">
-          Turn cloud, application, compliance, and governance results into
-          reports for leadership, auditors, and engineering teams. Download
-          them, share a secure link, or email them on a schedule.
-        </p>
-      </div>
+      <PageHeader description="Turn cloud, application, compliance, and governance results into reports for leadership, auditors, and engineering teams. Download them, share a secure link, or email them on a schedule." />
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
         <SSRReportsWorkspace activeTab={activeTab} />
       </Suspense>
@@ -135,23 +131,23 @@ const SSRReportsWorkspace = async ({
     <ReportPageTabs
       activeTab={activeTab}
       reportsContent={
-        <div className="flex flex-col gap-8">
-          <section className="flex flex-col gap-3">
-            <h2 className="text-text-neutral-primary text-base font-semibold">
-              Report catalog
-            </h2>
+        <div className="flex flex-col gap-6">
+          <SectionCard
+            title="Report catalog"
+            description="Pick a report, set its scope, and generate it."
+          >
             <ReportCatalogGrid
               catalog={catalog}
               providers={providers}
               frameworks={frameworks}
             />
-          </section>
-          <section className="flex flex-col gap-3">
-            <h2 className="text-text-neutral-primary text-base font-semibold">
-              Recent reports
-            </h2>
+          </SectionCard>
+          <SectionCard
+            title="Recent reports"
+            description="Open, download, or share a generated report."
+          >
             <ReportRunsTable runs={runs} canShare={canManage} />
-          </section>
+          </SectionCard>
         </div>
       }
       schedulesContent={

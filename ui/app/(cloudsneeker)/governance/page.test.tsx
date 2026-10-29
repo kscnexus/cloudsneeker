@@ -18,11 +18,17 @@ describe("Cloud Governance page workspace", () => {
     expect(source).toContain("buildCustodianReportRows");
   });
 
+  it("uses the shared page components", () => {
+    expect(source).toContain("<PageHeader");
+    expect(source).toContain("<SectionCard");
+    expect(source).toContain("<EmptyState");
+  });
+
   it("uses the product name and product routes", () => {
     expect(source).toContain("title={BRAND.governanceName}");
     expect(source).toContain('governanceHref("new")');
     expect(source).not.toMatch(/"\/custodian|`\/custodian/);
     // Engine names only appear inside identifiers, never as words.
-    expect(source).not.toMatch(/(Trivy|Custodian)/);
+    expect(source).not.toMatch(/\b(Trivy|Custodian|Prowler)\b/);
   });
 });

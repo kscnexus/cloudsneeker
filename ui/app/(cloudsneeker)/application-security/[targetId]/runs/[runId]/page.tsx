@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 
 import { getTrivyRun } from "@/cloudsneeker/actions/trivy";
 import { BRAND } from "@/cloudsneeker/brand";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { RunStatusBadge } from "@/cloudsneeker/components/run-status-badge";
+import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
   findingsHrefForScan,
   labelForTrivyMode,
@@ -40,48 +43,53 @@ export default async function TrivyRunDetailPage({
       title={run.attributes.target_name || `${BRAND.appSecurityName} scan`}
       icon={<ScanSearch />}
     >
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-text-neutral-secondary text-sm">
-            Status: {run.attributes.status} · Trigger: {run.attributes.trigger}
-          </p>
-          <p className="text-text-neutral-secondary text-sm">
-            Mode:{" "}
-            {labelForTrivyMode(
+      <PageHeader
+        meta={[
+          {
+            label: "Status",
+            value: <RunStatusBadge status={run.attributes.status} />,
+          },
+          { label: "Trigger", value: run.attributes.trigger },
+          {
+            label: "Mode",
+            value: labelForTrivyMode(
               run.attributes.target_mode || run.attributes.summary?.mode || "",
-            )}
-          </p>
-          {typeof run.attributes.summary?.finding_count === "number" ? (
-            <p className="text-text-neutral-secondary text-sm">
-              Findings imported: {run.attributes.summary.finding_count}
-            </p>
-          ) : null}
-          {run.attributes.error ? (
-            <p className="text-text-error-primary text-sm">
-              {run.attributes.error}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href={appSecurityHref(targetId)}>Back to target</Link>
-          </Button>
-          {scanId ? (
-            <Button asChild size="sm">
-              <Link href={findingsHrefForScan(scanId)}>Open findings</Link>
+            ),
+          },
+          ...(typeof run.attributes.summary?.finding_count === "number"
+            ? [
+                {
+                  label: "Findings imported",
+                  value: run.attributes.summary.finding_count,
+                },
+              ]
+            : []),
+        ]}
+        actions={
+          <>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={appSecurityHref(targetId)}>Back to target</Link>
             </Button>
-          ) : null}
-        </div>
-      </div>
+            {scanId ? (
+              <Button asChild size="sm">
+                <Link href={findingsHrefForScan(scanId)}>Open findings</Link>
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        {run.attributes.error ? (
+          <p className="text-text-error-primary text-sm">
+            {run.attributes.error}
+          </p>
+        ) : null}
+      </PageHeader>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-text-neutral-primary text-base font-semibold">
-          Summary
-        </h2>
-        <pre className="border-border-neutral-secondary bg-bg-neutral-secondary overflow-x-auto rounded-xl border p-4 text-sm">
+      <SectionCard title="Summary">
+        <pre className="bg-bg-neutral-tertiary overflow-x-auto rounded-lg p-4 text-sm">
           {JSON.stringify(run.attributes.summary ?? {}, null, 2)}
         </pre>
-      </section>
+      </SectionCard>
     </ContentLayout>
   );
 }
