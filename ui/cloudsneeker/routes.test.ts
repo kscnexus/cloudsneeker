@@ -5,6 +5,9 @@ import {
   governanceHref,
   legacyRedirectHref,
   PRODUCT_ROUTE,
+  reportDownloadHref,
+  reportsHref,
+  sharedReportHref,
 } from "./routes";
 
 describe("product routes", () => {
@@ -25,6 +28,15 @@ describe("product routes", () => {
   it("builds Cloud Governance paths", () => {
     expect(governanceHref()).toBe("/governance");
     expect(governanceHref("p-1", "edit")).toBe("/governance/p-1/edit");
+  });
+
+  it("builds Reports paths", () => {
+    expect(reportsHref()).toBe("/reports");
+    expect(reportsHref("run-1")).toBe("/reports/run-1");
+    expect(sharedReportHref("tok_en-1")).toBe("/shared-reports/tok_en-1");
+    expect(reportDownloadHref("run-1", "pdf")).toBe(
+      "/api/cloudsneeker/reports/run-1/download?format=pdf",
+    );
   });
 
   it("encodes path segments", () => {

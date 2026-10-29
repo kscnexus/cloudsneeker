@@ -23,6 +23,7 @@ const publicRoutes = [
   "/sign-in",
   "/sign-up",
   "/invitation/accept",
+  "/shared-reports/", // cloudsneeker-hook: public shared report page
   // In Cloud uncomment the following lines:
   // "/reset-password",
   // "/email-verification",

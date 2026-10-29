@@ -1,13 +1,14 @@
 // Product sidebar. Upstream `navigation-config.ts` builds its own sections and
 // passes them here through one `cloudsneeker-hook` line; this pass regroups
 // them into the product areas (Cloud Security, Application Security, Cloud
-// Governance, Operations, Settings). Upstream item objects are reused by href
+// Governance, Reports, Operations, Settings). Upstream item objects are reused by href
 // so permissions, active state and highlight keep working. Add new pages here,
 // not in the upstream file.
 
 import {
   Bell,
   Boxes,
+  FileBarChart,
   type LucideIcon,
   Scale,
   SlidersHorizontal,
@@ -33,6 +34,7 @@ export const NAVIGATION_SECTION_LABEL = {
   CLOUD_SECURITY: BRAND.cloudSecurityName.toUpperCase(),
   APPLICATION_SECURITY: BRAND.appSecurityName.toUpperCase(),
   GOVERNANCE: "GOVERNANCE",
+  REPORTS: "REPORTS",
   OPERATIONS: "OPERATIONS",
   SETTINGS: "SETTINGS",
 } as const;
@@ -254,6 +256,12 @@ export const withCloudsneekerNavigation = (
       ])
     : null;
 
+  const reports = isCloudsneekerFeatureEnabled("reports")
+    ? sectionOrNull(NAVIGATION_SECTION_LABEL.REPORTS, [
+        productLink(PRODUCT_ROUTE.REPORTS, "Reports", FileBarChart, pathname),
+      ])
+    : null;
+
   const operationsItems: (NavigationItem | undefined)[] = [takeLink("/scans")];
   for (const link of OPERATIONS_LINKS) {
     const child = takeChild(link.href);
@@ -324,6 +332,7 @@ export const withCloudsneekerNavigation = (
     ]),
     applicationSecurity,
     governance,
+    reports,
     sectionOrNull(NAVIGATION_SECTION_LABEL.OPERATIONS, operationsItems),
     sectionOrNull(NAVIGATION_SECTION_LABEL.SETTINGS, [
       configuration,

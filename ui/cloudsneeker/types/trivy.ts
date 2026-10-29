@@ -5,7 +5,22 @@ export const TRIVY_MODE = {
   REPO: "repo",
   SBOM: "sbom",
   K8S: "k8s",
+  SAST: "sast",
 } as const;
+
+/** Rule packs accepted by `validate_sast_config` (`services/sast.py`). */
+export const SAST_RULESET = {
+  AUTO: "auto",
+  ALL: "all",
+  CSHARP: "csharp",
+  GO: "go",
+  JAVA: "java",
+  JAVASCRIPT: "javascript",
+  PYTHON: "python",
+  SCALA: "scala",
+} as const;
+
+export type SastRuleset = (typeof SAST_RULESET)[keyof typeof SAST_RULESET];
 
 export type TrivyMode = (typeof TRIVY_MODE)[keyof typeof TRIVY_MODE];
 
@@ -39,6 +54,8 @@ export interface TrivyTargetConfig {
   sbom?: string;
   namespace?: string;
   context?: string;
+  rulesets?: string[];
+  exclude?: string[];
 }
 
 export interface TrivyTargetAttributes {

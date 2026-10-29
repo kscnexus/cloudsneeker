@@ -94,6 +94,15 @@ Shipped (UI, pending deploy):
   `Categories`, `fix` to the remediation.
 - Code: `cloudsneeker_api/services/sast.py`, tests in
   `cloudsneeker_api/tests/test_sast.py`. No upstream hooks.
+- UI (done, pending deploy): mode "Static analysis (SAST)" in
+  `ui/cloudsneeker/lib/trivy-modes.ts`. The target form
+  (`components/trivy-target-form.tsx`, schema `lib/trivy-form-schema.ts`)
+  asks for a Git repository URL or a code archive upload, rule packs (`auto`
+  by default, `all`, or languages; `auto` and `all` stand alone) and exclude
+  globs (one per line, at most 50, 200 characters each). It sends
+  `config.repository_url` or `config.archive_b64`, `config.rulesets` and
+  `config.exclude`, and no `scanners`. Editing an archive target needs the
+  archive uploaded again because the API never returns it.
 
 ## Phase 4: Reporting
 
@@ -149,9 +158,44 @@ Endpoints (all under `/api/v1/`):
 | `GET, POST, PATCH, DELETE report-schedules` | Scheduled email reports (cron + timezone, recipients) | `manage_scans` |
 | `GET shared-reports/{token}` | Public report JSON; expiry and revocation enforced, per-IP throttle `REPORT_SHARE_THROTTLE` (default 60/min) | None |
 
-Pending: report catalog / builder / viewer pages and the public
-`/shared-reports/<token>` page in the UI (email links already point there),
-then deploy and verify on ECS.
+UI (done, pending deploy):
+
+- Sidebar section REPORTS -> Reports (`/reports`), between Governance and
+  Operations (`ui/cloudsneeker/navigation.ts`, feature flag `reports`).
+- `/reports` (`ui/app/(cloudsneeker)/reports/page.tsx`), tabs Reports |
+  Schedules | Share links (`?tab=schedules`, `?tab=share-links`):
+  - Catalog cards with product copy (`ui/cloudsneeker/lib/report-catalog.ts`).
+    Generate opens a dialog with sources, date range, minimum severity,
+    framework (compliance report; ids come from the compliance overviews of
+    the latest completed scan per provider, up to five) and formats (PDF,
+    Excel, CSV; JSON is always produced for the in-app page).
+  - Recent reports: status badge, refresh every 5 s while a run is queued or
+    generating (`components/scans/auto-refresh`), one download button per
+    file, View, Share (expiry 24 h, 3 d, 7 d or 30 d; the URL is shown once
+    with a copy button), delete.
+  - Schedules: list, create, edit, delete, enable toggle. Cadence presets
+    daily, weekly, monthly or custom cron, timezone, recipients, formats
+    (`ui/cloudsneeker/lib/report-schedule.ts`).
+  - Share links: state, expiry, views, revoke.
+- `/reports/<runId>`: in-app report (`ui/cloudsneeker/components/report-view.tsx`)
+  with grade ring, KPI tiles, severity bars, trend line, top risks with
+  business impact and fix, per-source breakdown, compliance posture bars,
+  next actions, and detail tables paged at 25 rows. Print styles and a Print
+  button.
+- Downloads use `GET /api/cloudsneeker/reports/<runId>/download?format=`
+  (`ui/app/api/cloudsneeker/reports/[runId]/download/route.ts`). It forwards
+  the session token and streams the API file with its content type and
+  branded file name.
+- Public `/shared-reports/<token>` (`ui/app/(cloudsneeker-public)/`; the root
+  document is re-exported from the `(auth)` layout, no sidebar). It reads
+  `shared-reports/<token>` on the server without session headers and renders
+  the same report view under the brand header, read only and `noindex`.
+  Expired, revoked, unknown and unavailable tokens each get their own state.
+  `proxy.ts` lists the path as public (hook).
+- Share and schedule controls show only with `manage_scans`; the API enforces
+  the same rule.
+
+Pending: deploy and verify on ECS.
 
 ## Status
 
@@ -159,5 +203,5 @@ then deploy and verify on ECS.
 | --- | --- |
 | 1 | Done (pending deploy) |
 | 2 | Not started |
-| 3 | Backend done (pending UI + deploy) |
-| 4 | Backend done (pending UI + deploy) |
+| 3 | Backend done; UI done (pending deploy) |
+| 4 | Backend done; UI done (pending deploy) |

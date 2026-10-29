@@ -166,6 +166,10 @@ describe("withCloudsneekerNavigation", () => {
         items: [BRAND.governanceName],
       },
       {
+        label: NAVIGATION_SECTION_LABEL.REPORTS,
+        items: ["Reports"],
+      },
+      {
         label: NAVIGATION_SECTION_LABEL.OPERATIONS,
         items: ["Scans", "Alerts", "Scan profiles", "CLI Import"],
       },
@@ -282,6 +286,24 @@ describe("withCloudsneekerNavigation", () => {
     expect(findItem(governance, BRAND.governanceName)).toMatchObject({
       active: true,
     });
+  });
+
+  it("links Reports between Governance and Operations", () => {
+    const result = withCloudsneekerNavigation(upstreamSections(), "/reports/run-1");
+    const labels = result.map((section) => section.label);
+
+    expect(labels.indexOf(NAVIGATION_SECTION_LABEL.REPORTS)).toBe(
+      labels.indexOf(NAVIGATION_SECTION_LABEL.GOVERNANCE) + 1,
+    );
+    expect(labels.indexOf(NAVIGATION_SECTION_LABEL.OPERATIONS)).toBe(
+      labels.indexOf(NAVIGATION_SECTION_LABEL.REPORTS) + 1,
+    );
+    expect(findItem(result, "Reports")).toMatchObject({
+      kind: NAVIGATION_ITEM_KIND.LINK,
+      href: "/reports",
+      active: true,
+    });
+    expect(findItem(result, "Reports")?.icon).toBeDefined();
   });
 
   it("adds Profile under Organization", () => {

@@ -11,17 +11,33 @@ import {
 } from "@/cloudsneeker/actions/trivy";
 import {
   buildTrivyConfig,
+  SAST_SOURCE,
+  toggleSastRuleset,
   trivyTargetFormSchema,
   type TrivyTargetFormInput,
   type TrivyTargetFormValues,
 } from "@/cloudsneeker/lib/trivy-form-schema";
 import {
+  SAST_RULESET_OPTIONS,
   TRIVY_MODE_OPTIONS,
   providerTypesForMode,
 } from "@/cloudsneeker/lib/trivy-modes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
-import { TRIVY_MODE, type TrivyMode } from "@/cloudsneeker/types/trivy";
+import {
+  SAST_RULESET,
+  type SastRuleset,
+  TRIVY_MODE,
+  type TrivyMode,
+} from "@/cloudsneeker/types/trivy";
 import { Button, Input, Label, Textarea } from "@/components/shadcn";
+
+const SAST_SOURCE_OPTIONS = [
+  { value: SAST_SOURCE.REPOSITORY, label: "Git repository" },
+  { value: SAST_SOURCE.ARCHIVE, label: "Upload code archive" },
+] as const;
+
+const FieldError = ({ message }: { message?: string }) =>
+  message ? <p className="text-text-error-primary text-xs">{message}</p> : null;
 
 interface ProviderOption {
   id: string;
@@ -61,6 +77,9 @@ export const TrivyTargetForm = ({
       archiveB64: "",
       sbom: "",
       namespace: "",
+      sastSource: SAST_SOURCE.REPOSITORY,
+      rulesets: [SAST_RULESET.AUTO],
+      exclude: "",
       scheduleEnabled: false,
       scheduleCron: "",
       scheduleTimezone: "UTC",
@@ -72,6 +91,14 @@ export const TrivyTargetForm = ({
     control: form.control,
     name: "scheduleEnabled",
   });
+  const sastSource = useWatch({ control: form.control, name: "sastSource" });
+  const rulesets: SastRuleset[] =
+    useWatch({ control: form.control, name: "rulesets" }) ?? [];
+  const toggleRuleset = (value: SastRuleset) =>
+    form.setValue("rulesets", toggleSastRuleset(rulesets, value), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   const requiredTypes = providerTypesForMode(mode);
   const filteredProviders =
     requiredTypes.length === 0
@@ -186,10 +213,115 @@ export const TrivyTargetForm = ({
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="trivy-scanners">Scanners (comma-separated)</Label>
-        <Input id="trivy-scanners" {...form.register("scanners")} />
-      </div>
+      {mode !== TRIVY_MODE.SAST ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="trivy-scanners">Scanners (comma-separated)</Label>
+          <Input id="trivy-scanners" {...form.register("scanners")} />
+        </div>
+      ) : null}
+
+      {mode === TRIVY_MODE.SAST ? (
+        <fieldset className="border-border-neutral-secondary flex flex-col gap-4 rounded-xl border p-4">
+          <legend className="text-text-neutral-primary px-1 text-sm font-semibold">
+            Source code
+          </legend>
+          <div className="flex flex-wrap gap-4">
+            {SAST_SOURCE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                htmlFor={`trivy-sast-source-${option.value}`}
+                className="text-text-neutral-primary flex items-center gap-2 text-sm"
+              >
+                <input
+                  id={`trivy-sast-source-${option.value}`}
+                  type="radio"
+                  value={option.value}
+                  className="size-4"
+                  {...form.register("sastSource")}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+
+          {sastSource === SAST_SOURCE.ARCHIVE ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="trivy-sast-archive">Code archive (zip or tar)</Label>
+              <Input
+                id="trivy-sast-archive"
+                type="file"
+                accept=".zip,.tar,.tar.gz,.tgz"
+                onChange={onArchiveSelected}
+              />
+              {targetId ? (
+                <p className="text-text-neutral-secondary text-xs">
+                  Upload the archive again to replace the stored code.
+                </p>
+              ) : null}
+              <FieldError message={form.formState.errors.archiveB64?.message} />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="trivy-sast-repo">Repository URL</Label>
+              <Input
+                id="trivy-sast-repo"
+                placeholder="https://github.com/acme/app"
+                {...form.register("repositoryUrl")}
+              />
+              <p className="text-text-neutral-secondary text-xs">
+                Use the repository saved on the selected source. Access tokens
+                stay on the source, never in the URL.
+              </p>
+              <FieldError
+                message={form.formState.errors.repositoryUrl?.message}
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-text-neutral-primary text-sm font-medium">
+              Rule packs
+            </span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {SAST_RULESET_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  htmlFor={`trivy-sast-ruleset-${option.value}`}
+                  className="text-text-neutral-primary flex items-start gap-2 text-sm"
+                >
+                  <input
+                    id={`trivy-sast-ruleset-${option.value}`}
+                    type="checkbox"
+                    className="mt-0.5 size-4"
+                    checked={rulesets.includes(option.value)}
+                    onChange={() => toggleRuleset(option.value)}
+                  />
+                  <span className="flex flex-col">
+                    {option.label}
+                    {option.description ? (
+                      <span className="text-text-neutral-secondary text-xs">
+                        {option.description}
+                      </span>
+                    ) : null}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <FieldError message={form.formState.errors.rulesets?.message} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="trivy-sast-exclude">Exclude paths (one glob per line)</Label>
+            <Textarea
+              id="trivy-sast-exclude"
+              rows={3}
+              placeholder={"tests/**\n**/*.min.js"}
+              {...form.register("exclude")}
+            />
+            <FieldError message={form.formState.errors.exclude?.message} />
+          </div>
+        </fieldset>
+      ) : null}
 
       {mode === TRIVY_MODE.IMAGE ? (
         <div className="flex flex-col gap-1.5">

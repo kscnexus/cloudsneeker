@@ -73,6 +73,7 @@ Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_a
 | File | Hook | Re-apply by |
 | --- | --- | --- |
 | `config/site.ts` | `siteConfig.name` and `description` read `BRAND` | Comment line marks the file; no literal name. |
+| `proxy.ts` | `"/shared-reports/"` in `publicRoutes` | Opens the public shared report page (`ui/app/(cloudsneeker-public)/shared-reports/[token]`) without a session. Keep the upstream list and re-add the one entry. |
 | `components/icons/prowler/ProwlerIcons.tsx` | `ProwlerExtended`/`ProwlerShort` render the artwork from `ui/cloudsneeker/brand-logo.tsx` | Keep the component names; they are imported across the app. |
 | `components/icons/Icons.tsx` | `LighthouseIcon` re-exports `SeekerIcon` from `ui/cloudsneeker/seeker-icon.tsx` | The assistant mark is a lens, not the inherited glyph. |
 | `components/auth/oss/auth-layout.tsx` | re-exports the responsive split-screen experience from `ui/cloudsneeker/auth-layout.tsx` | Form children and submission behavior remain inherited. |
@@ -133,6 +134,8 @@ Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_a
 | `components/providers/workflow/forms/via-credentials/image-credentials-form.tsx` | renders `<ImageRegistryExtraFields control={control} />` after the registry token field | "Amazon ECR (IAM)" section (role ARN, external ID) and the insecure-registry checkbox with warning (`ui/cloudsneeker/components/image-registry-extra-fields.tsx`). |
 
 Test-side hooks (UI): `vitest.setup.ts` mocks `@/cloudsneeker/brand` with `showUpsell: true` so upstream upsell suites run unchanged; about twenty `*.test.ts(x)` files read `BRAND` instead of a literal (`navigation-config.test.ts` expects the HELP section to be absent). Two browser suites, `providers-page.integration.test.tsx` and `slack-page.integration.test.tsx`, compare documentation links against `DOCS_URLS` instead of upstream slugs. Upstream suites that assert Cloud-only scheduling, CLI import, or Slack (`use-scan-schedule-capability`, `launch-scan-modal`, `launch-step`, `data-table-row-actions` (providers), `scan-jobs-row-actions`, `scans-page-shell`, `slack/callback/route`) mock `@/cloudsneeker/features` so `isCloudsneekerFeatureEnabled` returns false; `navigation-config.test.ts` mocks `withCloudsneekerNavigation` down to its HELP removal; `slack-integration-manager.test.tsx` mocks `@/cloudsneeker/actions/slack-app` and `@/hooks/use-auth`. Run `rg -n "cloudsneeker-hook" ui --glob "*.test.*"` for the list.
+
+New UI files that sit outside `ui/cloudsneeker/` and `ui/app/(cloudsneeker)/` without editing an upstream file: `ui/app/(cloudsneeker-public)/` (public pages; its `layout.tsx` re-exports the `(auth)` root layout) and `ui/app/api/cloudsneeker/` (route handlers such as the report download proxy).
 
 In-app documentation paths (`user-guide/providers/aws`, `user-guide/tutorials/app-slack-integration`, ...) are kept as upstream wrote them; `cloudsneeker/docs/docs.json` `redirects` map every one of them to a product page. `tests/cloudsneeker/docs_links_test.py` fails when the UI links to a path the site does not serve.
 

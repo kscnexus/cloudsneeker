@@ -1,4 +1,8 @@
-import { TRIVY_MODE, type TrivyMode } from "@/cloudsneeker/types/trivy";
+import {
+  SAST_RULESET,
+  TRIVY_MODE,
+  type TrivyMode,
+} from "@/cloudsneeker/types/trivy";
 
 export const TRIVY_MODE_OPTIONS = [
   {
@@ -41,6 +45,36 @@ export const TRIVY_MODE_OPTIONS = [
     description: "Scan a Kubernetes cluster from a connected Kubernetes source.",
     providerTypes: ["kubernetes"] as const,
   },
+  {
+    value: TRIVY_MODE.SAST,
+    label: "Static analysis (SAST)",
+    description:
+      "Analyze source code for security bugs such as injection, XSS and insecure crypto",
+    providerTypes: ["iac"] as const,
+  },
+] as const;
+
+export const SAST_RULESET_OPTIONS = [
+  {
+    value: SAST_RULESET.AUTO,
+    label: "Detect languages",
+    description: "Pick rules for the languages found in the code.",
+  },
+  {
+    value: SAST_RULESET.ALL,
+    label: "All languages",
+    description: "Run every supported rule pack.",
+  },
+  { value: SAST_RULESET.CSHARP, label: "C#", description: "" },
+  { value: SAST_RULESET.GO, label: "Go", description: "" },
+  { value: SAST_RULESET.JAVA, label: "Java", description: "" },
+  {
+    value: SAST_RULESET.JAVASCRIPT,
+    label: "JavaScript / TypeScript",
+    description: "",
+  },
+  { value: SAST_RULESET.PYTHON, label: "Python", description: "" },
+  { value: SAST_RULESET.SCALA, label: "Scala", description: "" },
 ] as const;
 
 export const labelForTrivyMode = (mode: string): string =>

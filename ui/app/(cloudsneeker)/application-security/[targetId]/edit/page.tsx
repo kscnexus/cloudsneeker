@@ -4,9 +4,22 @@ import { notFound } from "next/navigation";
 import { getProviders } from "@/actions/providers/providers";
 import { getTrivyTarget } from "@/cloudsneeker/actions/trivy";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
-import type { TrivyTargetFormInput } from "@/cloudsneeker/lib/trivy-form-schema";
-import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
+import {
+  SAST_SOURCE,
+  type TrivyTargetFormInput,
+} from "@/cloudsneeker/lib/trivy-form-schema";
+import {
+  SAST_RULESET,
+  type SastRuleset,
+  TRIVY_MODE,
+  type TrivyTargetResource,
+} from "@/cloudsneeker/types/trivy";
 import { ContentLayout } from "@/components/shadcn/content-layout";
+
+const SAST_RULESET_VALUES: readonly string[] = Object.values(SAST_RULESET);
+
+const isSastRuleset = (value: string): value is SastRuleset =>
+  SAST_RULESET_VALUES.includes(value);
 
 interface EditTrivyTargetPageProps {
   params: Promise<{ targetId: string }>;
@@ -55,6 +68,18 @@ export default async function EditTrivyTargetPage({
     archiveB64: "",
     sbom: typeof config.sbom === "string" ? config.sbom : "",
     namespace: typeof config.namespace === "string" ? config.namespace : "",
+    // The API never returns uploaded archives; a repository URL means the
+    // target reads from Git, otherwise it was created from an archive.
+    sastSource:
+      typeof config.repository_url === "string" && config.repository_url
+        ? SAST_SOURCE.REPOSITORY
+        : target.attributes.mode === TRIVY_MODE.SAST
+          ? SAST_SOURCE.ARCHIVE
+          : SAST_SOURCE.REPOSITORY,
+    rulesets: Array.isArray(config.rulesets)
+      ? config.rulesets.filter(isSastRuleset)
+      : [SAST_RULESET.AUTO],
+    exclude: Array.isArray(config.exclude) ? config.exclude.join("\n") : "",
     scheduleEnabled: Boolean(target.attributes.schedule_enabled),
     scheduleCron: target.attributes.schedule_cron ?? "",
     scheduleTimezone: target.attributes.schedule_timezone ?? "UTC",

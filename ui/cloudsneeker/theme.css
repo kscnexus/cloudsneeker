@@ -462,3 +462,21 @@ header.sticky.top-0 {
     transition: none;
   }
 }
+
+/* Printed reports (in-app /reports/<runId> and public share pages): drop the
+   application sidebar and let the report flow across pages. */
+@media print {
+  body:has([data-report-view]) aside {
+    display: none !important;
+  }
+
+  body:has([data-report-view]) .no-scrollbar {
+    height: auto !important;
+    margin-left: 0 !important;
+    overflow: visible !important;
+  }
+
+  [data-report-view] {
+    color: #0c1b24;
+  }
+}

@@ -26,8 +26,9 @@ export default async function TrivyPage() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <p className="text-text-neutral-secondary max-w-2xl text-sm">
           Scan Infrastructure as Code, container images, code archives,
-          repository dependencies, SBOMs, and Kubernetes clusters. Results land
-          in Findings next to your cloud security results.
+          repository dependencies, source code (static analysis), SBOMs, and
+          Kubernetes clusters. Results land in Findings next to your cloud
+          security results.
         </p>
         <Button asChild size="sm">
           <Link href={appSecurityHref("new")}>New target</Link>

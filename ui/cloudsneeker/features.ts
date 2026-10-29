@@ -20,6 +20,8 @@ export const CLOUDSNEEKER_FEATURES = {
   custodian: true,
   /** Trivy Hub: IaC/image/fs/repo/SBOM/k8s scans into shared Findings. */
   trivy: true,
+  /** Report catalog, scheduled reports, and expiring share links (/reports). */
+  reports: true,
   /** Multiple Scans tab: side-by-side compliance comparison between two scans. */
   scanComparison: true,
   /** Send multiple findings or a finding group to Jira in one dispatch. */

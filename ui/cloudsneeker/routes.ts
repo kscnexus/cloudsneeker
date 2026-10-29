@@ -5,6 +5,9 @@
 export const PRODUCT_ROUTE = {
   APPLICATION_SECURITY: "/application-security",
   GOVERNANCE: "/governance",
+  REPORTS: "/reports",
+  /** Public, unauthenticated report page opened from a share link. */
+  SHARED_REPORTS: "/shared-reports",
 } as const;
 
 export type ProductRoute = (typeof PRODUCT_ROUTE)[keyof typeof PRODUCT_ROUTE];
@@ -31,6 +34,18 @@ export const appSecurityHref = (...segments: string[]): string =>
 
 export const governanceHref = (...segments: string[]): string =>
   joinRoute(PRODUCT_ROUTE.GOVERNANCE, segments);
+
+export const reportsHref = (...segments: string[]): string =>
+  joinRoute(PRODUCT_ROUTE.REPORTS, segments);
+
+export const sharedReportHref = (token: string): string =>
+  joinRoute(PRODUCT_ROUTE.SHARED_REPORTS, [token]);
+
+/** Same-origin download proxy (`app/api/cloudsneeker/reports/...`). */
+export const REPORT_DOWNLOAD_API_BASE = "/api/cloudsneeker/reports";
+
+export const reportDownloadHref = (runId: string, format: string): string =>
+  `${REPORT_DOWNLOAD_API_BASE}/${encodeURIComponent(runId)}/download?format=${encodeURIComponent(format)}`;
 
 type SearchParamValue = string | string[] | undefined;
 

@@ -27,4 +27,9 @@ describe("CLOUDSNEEKER_FEATURES", () => {
     expect(CLOUDSNEEKER_FEATURES.advancedScheduling).toBe(true);
     expect(isCloudsneekerFeatureEnabled("advancedScheduling")).toBe(true);
   });
+
+  it("enables the reporting area", () => {
+    expect(CLOUDSNEEKER_FEATURES.reports).toBe(true);
+    expect(isCloudsneekerFeatureEnabled("reports")).toBe(true);
+  });
 });
