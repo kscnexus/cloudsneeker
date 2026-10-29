@@ -280,3 +280,6 @@ class ReportShareLinkCreateSerializer(serializers.Serializer):
     expires_in_hours = serializers.IntegerField(
         required=False, min_value=1, max_value=MAX_TTL_HOURS
     )
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}report-share-links"
