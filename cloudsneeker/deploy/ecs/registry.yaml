@@ -183,18 +183,32 @@ Resources:
                   - ecs:UpdateService
                 Resource: "*"
               # Read-only lookups CloudFormation makes with this role to
-              # resolve !GetAtt values in platform.yaml during UpdateStack.
+              # resolve !GetAtt values in platform.yaml during UpdateStack. The
+              # resource handlers call several describe/list APIs per resource
+              # (a single missing one surfaces as "Attribute ... does not exist"),
+              # so grant the read families rather than individual calls.
               - Effect: Allow
                 Action:
-                  - rds:DescribeDBInstances
-                  - elasticloadbalancing:DescribeLoadBalancers
-                  - elasticache:DescribeReplicationGroups
-                  - elasticfilesystem:DescribeFileSystems
-                  - servicediscovery:GetService
-                  - ec2:DescribeAddresses
-                  - lambda:GetFunction
-                  - events:DescribeRule
-                  - wafv2:GetWebACL
+                  - rds:Describe*
+                  - rds:ListTagsForResource
+                  - elasticloadbalancing:Describe*
+                  - elasticache:Describe*
+                  - elasticache:ListTagsForResource
+                  - elasticfilesystem:Describe*
+                  - servicediscovery:Get*
+                  - servicediscovery:List*
+                  - ec2:Describe*
+                  - lambda:GetFunction*
+                  - lambda:ListTags
+                  - events:Describe*
+                  - events:ListTagsForResource
+                  - wafv2:Get*
+                  - wafv2:List*
+                  - logs:Describe*
+                  - logs:ListTagsForResource
+                  - logs:ListTagsLogGroup
+                  - s3:GetBucket*
+                  - application-autoscaling:Describe*
                 Resource: "*"
               - Effect: Allow
                 Action: iam:GetRole
