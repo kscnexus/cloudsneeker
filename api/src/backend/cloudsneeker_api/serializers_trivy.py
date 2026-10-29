@@ -3,6 +3,7 @@
 from api.models import Provider
 from api.v1.serializers import BaseWriteSerializer, RLSSerializer
 from cloudsneeker_api.models import JSON_API_TYPE_PREFIX, TrivyRun, TrivyTarget
+from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
     validate_timezone,
@@ -100,7 +101,7 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
-            raise ValidationError("A Trivy target with this name already exists.")
+            raise ValidationError("A target with this name already exists.")
         return value
 
     def validate_mode(self, value):
@@ -135,7 +136,7 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
             try:
                 attrs["config"] = validate_target_config(mode, config)
             except TrivyHubError as exc:
-                raise ValidationError({"config": str(exc)}) from exc
+                raise ValidationError({"config": scrub_engine_text(str(exc))}) from exc
 
         provider_id = attrs.get("provider_id")
         provider = None
@@ -150,7 +151,9 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
             try:
                 assert_provider_matches_mode(provider, mode, attrs.get("config"))
             except TrivyHubError as exc:
-                raise ValidationError({"provider_id": str(exc)}) from exc
+                raise ValidationError(
+                    {"provider_id": scrub_engine_text(str(exc))}
+                ) from exc
 
         if self.instance is None:
             if not attrs.get("name"):
@@ -245,6 +248,11 @@ class TrivyRunSerializer(RLSSerializer):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["error"] = scrub_engine_text(data.get("error"))
+        return data
 
     def get_status(self, obj: TrivyRun) -> str:
         return effective_run_status(

@@ -10,6 +10,7 @@ from cloudsneeker_api.serializers_trivy import (
     TrivyTargetSerializer,
     TrivyTargetWriteSerializer,
 )
+from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.trivy import TrivyHubError, enqueue_trivy_run
 from cloudsneeker_api.services.trivy_schedule import delete_target_schedule
 from django.db.models import OuterRef, Subquery
@@ -125,7 +126,14 @@ class TrivyTargetViewSet(BaseRLSViewSet):
             )
         except TrivyHubError as exc:
             return Response(
-                {"errors": [{"detail": str(exc), "code": "invalid_trivy_target"}]},
+                {
+                    "errors": [
+                        {
+                            "detail": scrub_engine_text(str(exc)),
+                            "code": "invalid_trivy_target",
+                        }
+                    ]
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         run = TrivyRun.objects.select_related("target", "provider").get(pk=run.pk)

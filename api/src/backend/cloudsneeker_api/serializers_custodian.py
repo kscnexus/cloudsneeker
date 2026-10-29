@@ -3,6 +3,7 @@
 from api.models import Provider
 from api.v1.serializers import BaseWriteSerializer, RLSSerializer
 from cloudsneeker_api.models import CustodianPolicy, CustodianRun, JSON_API_TYPE_PREFIX
+from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.custodian import (
     CustodianDryRunError,
     assert_policy_matches_provider,
@@ -109,7 +110,7 @@ class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
             raise ValidationError("Unknown provider ID for this tenant.")
         if not is_custodian_supported_provider(provider.provider):
             raise ValidationError(
-                "Cloud Custodian supports AWS, Azure, GCP, and Kubernetes providers only."
+                "Cloud Governance supports AWS, Azure, GCP, and Kubernetes providers only."
             )
         return value
 
@@ -145,7 +146,9 @@ class CustodianPolicyWriteSerializer(RLSSerializer, BaseWriteSerializer):
                 assert_policy_matches_provider(policy_yaml, provider_type)
                 validate_custodian_policy_schema(policy_yaml)
             except CustodianDryRunError as exc:
-                raise ValidationError({"policy_yaml": str(exc)}) from exc
+                raise ValidationError(
+                    {"policy_yaml": scrub_engine_text(str(exc))}
+                ) from exc
 
         regions_override = attrs.get("regions_override")
         if regions_override is not None:
@@ -265,6 +268,11 @@ class CustodianRunSerializer(RLSSerializer):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}custodian-runs"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["error"] = scrub_engine_text(data.get("error"))
+        return data
 
 
 class CustodianInstallPackSerializer(serializers.Serializer):

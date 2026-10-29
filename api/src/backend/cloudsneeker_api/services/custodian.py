@@ -23,6 +23,7 @@ from api.db_utils import rls_transaction
 from api.models import Provider
 from api.utils import initialize_prowler_provider
 from cloudsneeker_api.models import CustodianPolicy, CustodianRun
+from cloudsneeker_api.services.brand_text import scrub_engine_text
 from django.db import transaction
 from django.utils import timezone
 
@@ -683,7 +684,7 @@ def process_custodian_dry_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
             )
         return {"status": CustodianRun.Status.COMPLETED, "run_id": str(run_id)}
     except Exception as exc:  # noqa: BLE001
-        message = str(exc)[:4000]
+        message = scrub_engine_text(str(exc))[:4000]
         with rls_transaction(tenant_id):
             run = CustodianRun.objects.get(tenant_id=tenant_id, id=run_id)
             run.status = CustodianRun.Status.FAILED

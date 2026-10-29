@@ -34,6 +34,7 @@ from cloudsneeker_api.serializers_scan_config import (
     ScanConfigurationWriteSerializer,
 )
 from cloudsneeker_api.services.alert_conditions import preview_condition
+from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.custodian import (
     CustodianDryRunError,
     cancel_custodian_dry_run,
@@ -216,7 +217,7 @@ class CustodianPolicyViewSet(BaseRLSViewSet):
             )
         except CustodianDryRunError as exc:
             return Response(
-                {"errors": [{"detail": str(exc), "code": "invalid_policy"}]},
+                {"errors": [{"detail": scrub_engine_text(str(exc)), "code": "invalid_policy"}]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         run = CustodianRun.objects.select_related("policy", "provider").get(pk=run.pk)
@@ -412,7 +413,7 @@ class CustodianRunViewSet(BaseRLSViewSet):
             )
         except CustodianDryRunError as exc:
             return Response(
-                {"errors": [{"detail": str(exc)}]},
+                {"errors": [{"detail": scrub_engine_text(str(exc))}]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         run = CustodianRun.objects.select_related("policy", "provider").get(pk=run.pk)

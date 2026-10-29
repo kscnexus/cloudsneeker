@@ -33,6 +33,7 @@ from cloudsneeker.git_auth import (
     strip_userinfo,
 )
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
+from cloudsneeker_api.services.brand_text import scrub_engine_text
 from django.db import transaction
 from django.utils import timezone
 
@@ -786,7 +787,7 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
         except Exception as exc:  # noqa: BLE001
             run.status = TrivyRun.Status.FAILED
             run.finished_at = timezone.now()
-            run.error = str(exc)[:4000]
+            run.error = scrub_engine_text(str(exc))[:4000]
             run.error_class = (
                 "trivy_hub" if isinstance(exc, TrivyHubError) else "internal"
             )
