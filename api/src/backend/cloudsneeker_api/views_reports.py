@@ -97,7 +97,11 @@ class ReportTypeViewSet(BaseRLSViewSet):
             "attributes": REPORT_TYPES[report_type_id].to_dict(),
         }
 
-    @extend_schema(tags=["Reports"], summary="List report types")
+    @extend_schema(
+        tags=["Reports"],
+        summary="List report types",
+        responses={200: OpenApiResponse(description="The report catalog")},
+    )
     def list(self, request, *args, **kwargs):
         return Response({"data": [self._document(key) for key in REPORT_TYPES]})
 
