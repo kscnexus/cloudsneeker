@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, PowerIcon, TrashIcon } from "lucide-react";
 
 import type { AlertRule } from "@/app/(prowler)/alerts/_types";
+import { AlertStatusBadge } from "@/cloudsneeker/components/alert-status-badge"; // cloudsneeker-hook
 import {
   ActionDropdown,
   ActionDropdownDangerZone,
@@ -142,8 +143,10 @@ const getAlertsTableColumns = ({
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" param="enabled" />
     ),
-    cell: ({ row }) =>
-      row.original.attributes.enabled ? "Enabled" : "Disabled",
+    cell: ({ row }) => (
+      // cloudsneeker-hook: status pill instead of plain text
+      <AlertStatusBadge enabled={row.original.attributes.enabled} />
+    ),
   },
   {
     id: "trigger",

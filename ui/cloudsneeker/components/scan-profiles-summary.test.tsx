@@ -38,6 +38,14 @@ describe("ScanProfilesSummary", () => {
       within(tile("Last edited")).getByText("Oct 20, 2026"),
     ).toBeInTheDocument();
   });
+
+  it("marks the page as the scan profiles surface for the scoped styles", () => {
+    render(<ScanProfilesSummary profiles={[]} providerIds={[]} />);
+
+    expect(
+      screen.getByRole("list", { name: "Scan profile figures" }),
+    ).toHaveAttribute("data-cloudsneeker-surface", "scan-profiles");
+  });
 });
 
 describe("formatProfileDate", () => {

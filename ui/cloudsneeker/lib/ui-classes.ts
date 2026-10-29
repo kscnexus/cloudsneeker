@@ -22,3 +22,17 @@ export const FORM_CHOICE_CLASS =
 
 /** Outer layout of a create/edit form: one column, sections stacked. */
 export const FORM_CLASS = "flex w-full max-w-3xl min-w-0 flex-col gap-6";
+
+/**
+ * Marks an upstream page whose tables and dialogs take the Cloudsneeker look
+ * from `ui/cloudsneeker/styles/ops-surfaces.css`. The attribute sits on the
+ * Cloudsneeker summary rendered first on the page, so the upstream markup is
+ * not edited.
+ */
+export const CLOUDSNEEKER_SURFACE = {
+  ALERTS: "alerts",
+  SCAN_PROFILES: "scan-profiles",
+} as const;
+
+export type CloudsneekerSurface =
+  (typeof CLOUDSNEEKER_SURFACE)[keyof typeof CLOUDSNEEKER_SURFACE];

@@ -9,6 +9,7 @@ import {
   type ScanProfileSummaryInput,
   summarizeScanProfiles,
 } from "@/cloudsneeker/lib/ops-summary";
+import { CLOUDSNEEKER_SURFACE } from "@/cloudsneeker/lib/ui-classes";
 
 import { STAT_TILE_TONE, StatTile } from "./stat-tile";
 
@@ -40,6 +41,7 @@ export const ScanProfilesSummary = ({
     <ul
       aria-label="Scan profile figures"
       data-slot="scan-profiles-summary"
+      data-cloudsneeker-surface={CLOUDSNEEKER_SURFACE.SCAN_PROFILES}
       className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
     >
       <li className="min-w-0">

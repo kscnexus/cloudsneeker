@@ -4,6 +4,7 @@ import {
   type AlertRuleSummaryInput,
   summarizeAlerts,
 } from "@/cloudsneeker/lib/ops-summary";
+import { CLOUDSNEEKER_SURFACE } from "@/cloudsneeker/lib/ui-classes";
 
 import { STAT_TILE_TONE, StatTile } from "./stat-tile";
 
@@ -21,7 +22,13 @@ export const AlertsSummary = ({
   totalCount,
   unavailable = false,
 }: AlertsSummaryProps) => {
-  if (unavailable) return null;
+  // The list failed to load and the page shows its own error. The marker
+  // still lets the table and dialogs below take the product styling.
+  if (unavailable) {
+    return (
+      <span hidden data-cloudsneeker-surface={CLOUDSNEEKER_SURFACE.ALERTS} />
+    );
+  }
 
   const summary = summarizeAlerts(alerts, totalCount);
   const pageHint =
@@ -31,6 +38,7 @@ export const AlertsSummary = ({
     <ul
       aria-label="Alert figures"
       data-slot="alerts-summary"
+      data-cloudsneeker-surface={CLOUDSNEEKER_SURFACE.ALERTS}
       className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
     >
       <li className="min-w-0">

@@ -85,7 +85,22 @@ Status: UI done (pending deploy).
   tiles above the upstream list (`AlertsSummary`: rules, active, paused,
   destinations; `ScanProfilesSummary`: profiles, providers with a profile,
   providers on defaults, last edited). Counts in `ui/cloudsneeker/lib/ops-summary.ts`.
-  The upstream tables, modals and the alert rule form stay as they are.
+  The summaries also carry `data-cloudsneeker-surface` (`alerts` /
+  `scan-profiles`; on a failed Alerts load only a hidden marker renders).
+- Alerts and Scan profiles tables, empty states and dialogs: restyled to the
+  hub look by scoped CSS in `ui/cloudsneeker/styles/ops-surfaces.css`
+  (imported at the top of `theme.css`). Tables: bordered square rows, tinted
+  header, row dividers, signal-blue hover edge, bordered row-action trigger,
+  pagination with a divider and wrapping on phones, visible focus outline on
+  every control; the table scrolls inside its own container at 375px. Empty
+  states ("No alerts yet", "No Scan Configuration is attached...") read as the
+  dashed `EmptyState` panel. Dialogs (alert create/edit/delete, scan profile
+  create/edit/delete, the provider attach picker inside the editor): product
+  radius, border, accent top edge, header divider, tinted overlay, field
+  labels, an inset Filters section on alert edit, and wrapping button rows on
+  phones. Alert status uses `AlertStatusBadge` (one hook in the upstream
+  alerts table; same Enabled / Disabled labels). No behaviour, label, field
+  or test id changes; `alertEditKeepsStoredCondition` hook is untouched.
 - CLI Import (`/scans?import=1`): one hook in the upstream Import findings
   dialog renders `CliImportSteps` (CLI command, pick the `.ocsf.json`, start);
   `theme.css` turns the dialog's status lines into callouts.

@@ -46,8 +46,23 @@ describe("AlertsSummary", () => {
     expect(screen.getAllByText("Rules on this page")).toHaveLength(3);
   });
 
-  it("renders nothing when the list failed to load", () => {
+  it("marks the page as the alerts surface for the scoped styles", () => {
+    render(<AlertsSummary alerts={[]} totalCount={0} />);
+
+    expect(screen.getByRole("list", { name: "Alert figures" })).toHaveAttribute(
+      "data-cloudsneeker-surface",
+      "alerts",
+    );
+  });
+
+  it("renders only a hidden surface marker when the list failed to load", () => {
     const { container } = render(<AlertsSummary alerts={[]} unavailable />);
-    expect(container).toBeEmptyDOMElement();
+
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    const marker = container.querySelector(
+      '[data-cloudsneeker-surface="alerts"]',
+    );
+    expect(marker).toHaveAttribute("hidden");
+    expect(marker).toBeEmptyDOMElement();
   });
 });

@@ -1,0 +1,436 @@
+/* Alerts (/alerts) and Scan profiles (/scans/config): upstream tables,
+   empty states and dialogs restyled to match the Cloudsneeker hub pages
+   (/application-security, /governance, /reports). CSS only: no upstream
+   markup changes.
+
+   Scope
+   - Page: the Cloudsneeker summary rendered first on each page carries
+     `data-cloudsneeker-surface` (alerts-summary.tsx, scan-profiles-summary.tsx).
+     Tables and empty states are later siblings of that marker, or inside one.
+   - Dialogs render in a portal, so they are scoped by the page marker
+     (`body:has(...)`) or by the stable field ids of the two forms:
+     `#alert-name` (alert rule form, also opened from Findings) and
+     `#scan-configuration-name` (scan profile editor).
+
+   Colors come from theme tokens only, so light and dark both apply.
+   Re-check these selectors after an upstream merge; theme.test.ts asserts
+   they exist. */
+
+/* Table container -------------------------------------------------------- */
+
+:is(
+  [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+  [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+) {
+  min-width: 0;
+  max-width: 100%;
+  gap: 0.875rem;
+  border-color: var(--border-neutral-secondary);
+  border-radius: 0.75rem;
+  background: var(--bg-neutral-secondary);
+  box-shadow:
+    0 1px 2px rgba(12, 27, 36, 0.04),
+    0 14px 38px rgba(12, 27, 36, 0.05);
+}
+
+.dark
+  :is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  ) {
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.2),
+    0 18px 48px rgba(0, 0, 0, 0.18);
+}
+
+/* The upstream wrapper around <table> scrolls on its own; give it the
+   bordered, square-row look of the product tables. */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  > div:has(> table) {
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: 0.625rem;
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  table {
+  border-spacing: 0;
+}
+
+/* Header row */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  thead
+  th {
+  height: 2.5rem;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  border-color: var(--border-neutral-secondary);
+  background: var(--bg-neutral-tertiary);
+  backdrop-filter: none;
+  color: var(--text-neutral-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Body rows: square, divided, with a signal-blue edge on hover. */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  td {
+  border-radius: 0;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  td::after {
+  display: none;
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  tr:not(:last-child)
+  > td {
+  border-bottom: 1px solid var(--border-neutral-secondary);
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  tr:hover
+  > td:first-child {
+  box-shadow: inset 2px 0 0 var(--sidebar-active-bar);
+}
+
+/* "No results." row */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  td[colspan] {
+  color: var(--text-neutral-tertiary);
+  font-size: 0.875rem;
+}
+
+/* Row actions: the menu trigger reads as a bordered icon button. */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  button[aria-haspopup="menu"] {
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: 0.5rem;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  tbody
+  button[aria-haspopup="menu"]:is(:hover, [data-state="open"]) {
+  border-color: var(--border-sidebar-active);
+  background: var(--bg-sidebar-active);
+}
+
+/* Keyboard focus on every control inside the table: name buttons, row
+   menus, sort headers, pagination. */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  :is(a, button, [role="combobox"]):focus-visible {
+  outline: 2px solid var(--bg-button-tertiary);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* Pagination area */
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  > div:has([aria-label="Go to first page"]) {
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-neutral-secondary);
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  :is(a, button)[aria-label^="Go to "] {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: 0.5rem;
+}
+
+:is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  )
+  :is(a, button)[aria-label^="Go to "]
+  svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Empty states: dashed panel with a tinted icon, like the hub pages.
+   Alerts: "No alerts yet" card (direct child of the manager).
+   Scan profiles: "No Scan Configuration is attached..." card. */
+:is(
+  [data-cloudsneeker-surface="alerts"] ~ * > [data-slot="card"],
+  [data-cloudsneeker-surface="scan-profiles"] ~ [data-slot="card"]
+) {
+  border: 1px dashed var(--border-neutral-tertiary);
+  border-radius: 0.75rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* theme.css adds a card shadow (also under .dark); these come first in the
+   cascade, so the dark rule needs its own selector. */
+.dark
+  :is(
+    [data-cloudsneeker-surface="alerts"] ~ * > [data-slot="card"],
+    [data-cloudsneeker-surface="scan-profiles"] ~ [data-slot="card"]
+  ) {
+  box-shadow: none;
+}
+
+[data-cloudsneeker-surface="alerts"]
+  ~ *
+  > [data-slot="card"]
+  > [data-slot="card-content"]
+  > div:first-child {
+  width: 2.75rem;
+  height: 2.75rem;
+  background: var(--bg-neutral-tertiary);
+}
+
+[data-cloudsneeker-surface="alerts"]
+  ~ *
+  > [data-slot="card"]
+  > [data-slot="card-content"]
+  > div:first-child
+  svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--bg-button-tertiary);
+}
+
+[data-cloudsneeker-surface="alerts"] ~ * > [data-slot="card"] h3 {
+  font-size: 1rem;
+}
+
+/* Dialogs ---------------------------------------------------------------- */
+
+:is(
+  body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+  [data-slot="dialog-content"]:has(#alert-name),
+  [data-slot="dialog-content"]:has(#scan-configuration-name)
+) {
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: 1.25rem;
+  background: var(--bg-neutral-secondary);
+  box-shadow:
+    inset 0 3px 0 0 var(--sidebar-active-bar),
+    0 1px 2px rgba(12, 27, 36, 0.06),
+    0 28px 80px rgba(12, 27, 36, 0.18);
+}
+
+.dark
+  :is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  ) {
+  box-shadow:
+    inset 0 3px 0 0 var(--sidebar-active-bar),
+    0 1px 1px rgba(0, 0, 0, 0.3),
+    0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+:is(
+  body:has([data-cloudsneeker-surface]) [data-slot="dialog-overlay"],
+  [data-slot="dialog-overlay"]:has(
+    + [data-slot="dialog-content"] :is(#alert-name, #scan-configuration-name)
+  )
+) {
+  background: rgba(7, 16, 24, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+:is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  [data-slot="dialog-header"] {
+  gap: 0.375rem;
+  padding-right: 2rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--border-neutral-secondary);
+}
+
+:is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  [data-slot="dialog-title"] {
+  color: var(--text-neutral-primary);
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+:is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  [data-slot="dialog-description"] {
+  color: var(--text-neutral-secondary);
+}
+
+:is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  [data-slot="dialog-close"] {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+}
+
+:is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  [data-slot="dialog-close"]:hover {
+  background: var(--bg-neutral-tertiary);
+}
+
+:is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  :is(a, button, [role="combobox"], [data-slot="dialog-close"]):focus-visible {
+  outline: 2px solid var(--bg-button-tertiary);
+  outline-offset: 2px;
+}
+
+/* Form fields (alert rule form, scan profile editor). */
+:is(
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  )
+  [data-slot="field-label"] {
+  color: var(--text-neutral-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Alert edit: the Filters card reads as an inset section. */
+[data-slot="dialog-content"]:has(#alert-name)
+  [data-slot="card"]:has(> [data-slot="card-content"] > h3) {
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: 0.875rem;
+  background: var(--bg-neutral-tertiary);
+}
+
+[data-slot="dialog-content"]:has(#alert-name)
+  [data-slot="card"]
+  > [data-slot="card-content"]
+  > h3 {
+  color: var(--text-lighthouse);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Scan profile editor: the config path chip. */
+[data-slot="dialog-content"]:has(#scan-configuration-name) code {
+  border: 1px solid var(--border-neutral-secondary);
+}
+
+/* Phone: dialogs fit 375px and button rows wrap instead of overflowing. */
+@media (max-width: 39.99rem) {
+  :is(
+    [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+    [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+  ) {
+    padding: 0.75rem;
+  }
+
+  :is(
+    body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+    [data-slot="dialog-content"]:has(#alert-name),
+    [data-slot="dialog-content"]:has(#scan-configuration-name)
+  ) {
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  :is(
+      body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"],
+      [data-slot="dialog-content"]:has(#alert-name),
+      [data-slot="dialog-content"]:has(#scan-configuration-name)
+    )
+    div:has(> [data-slot="button"]) {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+      [data-cloudsneeker-surface] ~ [data-table-scroll-container],
+      [data-cloudsneeker-surface] ~ * [data-table-scroll-container]
+    )
+    tbody
+    button[aria-haspopup="menu"] {
+    transition: none;
+  }
+}

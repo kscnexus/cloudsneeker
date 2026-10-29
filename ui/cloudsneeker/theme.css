@@ -1,3 +1,7 @@
+/* Scoped restyle of the upstream Alerts and Scan profiles tables and
+   dialogs. @import must stay above every rule in this file. */
+@import "./styles/ops-surfaces.css";
+
 /* Cloudsneeker presentation layer.
    Loaded after the upstream theme. Severity, pass, and fail colors stay so
    findings keep their meaning. Surfaces, type, chrome, and accents change.
