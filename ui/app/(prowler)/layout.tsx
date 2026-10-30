@@ -23,6 +23,7 @@ import { GlobalSidePanel } from "@/components/side-panel";
 import { FeedbackSurvey } from "@/components/survey/feedback-survey";
 import { fontMono, fontSans } from "@/config/fonts";
 import { BRAND } from "@/cloudsneeker/brand";
+import { CloudsneekerPlanStatus } from "@/cloudsneeker/components/plan-status"; // cloudsneeker-hook
 import { siteConfig } from "@/config/site";
 import { REGISTRY_ACCESS } from "@/lib/registry/access";
 import { evaluateRegistryAccess } from "@/lib/registry/access.server";
@@ -131,6 +132,10 @@ export default async function RootLayout({
               <OnboardingSequenceBanner hasCompletedScan={hasCompletedScan} />
             </>
           )}
+          {/* cloudsneeker-hook: plan features for the sidebar, subscription banner */}
+          <Suspense fallback={null}>
+            <CloudsneekerPlanStatus />
+          </Suspense>
           <MainLayout>{children}</MainLayout>
           {cloudEnabled && <FeedbackSurvey />}
           {/* Always mounted: it hosts the detail (finding/resource) views in

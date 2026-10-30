@@ -25,7 +25,109 @@ It is still isolated from customer use:
 | Accountability | Every operator action writes an `OperatorAuditEvent` (actor, tenant affected, action, before/after field names). Customers can be shown operator access to their tenant in their own audit log. |
 | Least privilege | `support` can view and impersonate read-only; `billing` manages plans and subscriptions; only `owner` can suspend or delete a tenant. |
 
-## Phase 1: Customers, plans, licences, usage (building now)
+## Phase 1: Customers, plans, licences, usage
+
+Status: built (pending deploy). Code: `api/src/backend/cloudsneeker_api/`
+(`models.py` operator section, `services/plan_catalog.py`,
+`services/entitlements.py`, `subscriptions.py` middleware,
+`views_operator.py`, `management/commands/cloudsneeker_operator.py`,
+migration `0014_operator_console.py`, task `cloudsneeker-operator-daily`),
+`ui/app/(operator)/operator/*`, and `ui/cloudsneeker/` (`actions/operator.ts`,
+`actions/entitlements.ts`, `lib/entitlements.ts`, `lib/operator.ts`,
+`lib/plan-store.ts`, operator and plan components). Upstream hooks are listed
+in [Upstream Hooks](upstream-hooks.md).
+
+### Bootstrap the first operator
+
+There are no default operator accounts. The user must already exist (sign up
+or accept an invitation first), then an owner is granted from the API
+container:
+
+```bash
+python manage.py cloudsneeker_operator grant you@company.com --role owner
+python manage.py cloudsneeker_operator list
+python manage.py cloudsneeker_operator revoke someone@company.com
+```
+
+On ECS, run it as a one-off task of the API task definition (same cluster,
+subnets and security group as the API service; the API image's working
+directory is the Django project):
+
+```powershell
+aws ecs run-task --profile kscnexus --region us-east-1 `
+  --cluster <cluster> --task-definition <api-task-definition> `
+  --launch-type FARGATE `
+  --network-configuration "awsvpcConfiguration={subnets=[<private-subnet>],securityGroups=[<api-sg>],assignPublicIp=DISABLED}" `
+  --overrides '{"containerOverrides":[{"name":"<api-container>","command":["python","manage.py","cloudsneeker_operator","grant","you@company.com","--role","owner"]}]}'
+```
+
+Check the task's CloudWatch log for "is an operator with role owner", then
+sign in again: the sidebar shows **Operator console** under Organization and
+`/operator` opens. Every grant and revoke is in the operator audit log with
+the actor `cli`.
+
+### What was built
+
+* Tables (not row-level security protected, read through the admin
+  connection): `cloudsneeker_platform_operators`, `cloudsneeker_plans`,
+  `cloudsneeker_subscriptions`, `cloudsneeker_subscription_events`,
+  `cloudsneeker_usage_snapshots`, `cloudsneeker_operator_audit_events`. The
+  tenant database user only has SELECT and DELETE on the tables that point at
+  a tenant or user, so deleting either still cascades.
+* The migration seeds the plans below and gives every existing tenant an
+  active `legacy` subscription. A tenant created later gets a subscription on
+  first use, on `CLOUDSNEEKER_DEFAULT_PLAN` (default `legacy`, so nothing
+  changes until the owner picks another default).
+* `GET /api/v1/entitlements`: plan, status, effective status, read-only flag,
+  features, limits, usage, over-limit keys, dates. Cached 60 seconds per
+  tenant; operator changes invalidate the cache of the API process that made
+  them (other processes catch up within the cache time).
+* Enforcement (`SubscriptionEnforcementMiddleware`, before the view, headers
+  only, fails open): `subscription_inactive` for writes while `suspended`,
+  `expired` (including an end date that passed before the daily task ran) or
+  `cancelled` (sign-in, token refresh and switch, `/entitlements`, the
+  user's own `PATCH /users/<id>`, invitation accept and the operator API stay
+  open); `feature_not_in_plan` for paths of a missing feature (attack paths,
+  compliance overviews, application security, governance, reports, report
+  schedules, assistant, finding triage, audit log, integrations, SAML, API
+  keys, and any API-key request without `api_access`); `plan_limit_reached`
+  on create of providers, invitations (members plus pending invitations count
+  against users), application security targets and report schedules. All are
+  JSON:API 403 errors with `meta`.
+* Operator API (`CLOUDSNEEKER_OPERATOR_ENABLED=false` turns it off; non
+  operators and API keys get 404): `operator/me`, `operator/tenants` (filters
+  search, status, plan, expiring_within_days, over_limit; `meta.summary`),
+  `operator/tenants/{id}`, `operator/tenants/{id}/usage-snapshots`,
+  `operator/subscriptions/{tenant_id}` (GET, PATCH), `operator/plans` and
+  `operator/plans/{code}` (CRUD; legacy, the default plan and plans in use
+  cannot be deleted), `operator/operators` (owner), `operator/audit-events`.
+  Roles: every role reads; `owner` and `billing` change subscriptions and
+  plans; only `owner` sets `suspended` or `cancelled` and lists operators.
+  A subscription change writes a `SubscriptionEvent`, an `OperatorAuditEvent`
+  (field names only) and `operator.subscription_update` in the customer's own
+  audit log. Operator requests are not written to the operator's own tenant
+  audit log.
+* Daily task `cloudsneeker-operator-daily` (Celery beat, registered by the
+  migration): expires subscriptions whose `ends_at` (or trial end) passed and
+  writes one `UsageSnapshot` per tenant and day.
+* UI: `/operator` overview, `/operator/customers` (filters in the URL),
+  `/operator/customers/[tenantId]` (subscription editor with feature toggles
+  and limit overrides, usage bars, daily usage, members, recent scans,
+  history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
+  features outside the plan, a banner for read-only subscriptions and plans
+  ending within 7 days, and a plan card on the profile page.
+
+Known gaps: assistant requests are not counted yet (reported as not
+tracked); scans per month and assistant requests are shown but not enforced;
+SAST is a feature key but application security targets are gated as a whole;
+the entitlement cache is per process (no shared cache is configured); no
+MFA or IP allow-list on the operator routes yet (WAF rule and EB-008 below);
+scheduled jobs (scan, report and application security schedules run by
+Celery beat) are not paused for read-only tenants, only API writes are
+refused; operators are granted only from the command line (no console page
+to grant roles).
+
+### Design
 
 Data (Cloudsneeker app, non-RLS operator tables plus a per-tenant snapshot):
 

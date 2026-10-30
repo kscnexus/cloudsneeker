@@ -42,6 +42,8 @@ Sign-in is handled by URL name:
 
 A successful tenant deletion is not recorded (the tenant and its log are being removed).
 
+Operator console requests (`/api/v1/operator/*`) are skipped: they go to the cross-tenant `OperatorAuditEvent` table instead. A subscription change made by an operator is also written to the affected customer's log as `operator.subscription_update` (field names only, `metadata.operator: true`). Requests refused by the plan enforcement middleware (`subscription_inactive`, `feature_not_in_plan`, `plan_limit_reached`) never reach a view and are not recorded. See [Operator Console](operator-console.md).
+
 ## What a row holds
 
 `actor_id` (plain UUID, no foreign key, so events outlive the user) and an `actor_email` snapshot; `action`; `target_type`, `target_id` (URL `pk` or the created object's id) and `target_label` (name, alias, email, uid… from the response); `outcome` (`success` below HTTP 400, otherwise `failure`, so permission denials are kept); `status_code`; `ip_address` (first valid `X-Forwarded-For` entry, else `REMOTE_ADDR`); `user_agent` (truncated to 512); `request_id` (the `Transaction-ID` from `django_guid`); `method`; `path`; `metadata`.

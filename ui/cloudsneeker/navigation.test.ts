@@ -12,15 +12,13 @@ import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import { BRAND } from "./brand";
 import {
+  filterNavigationByPlan,
   NAVIGATION_SECTION_LABEL,
   withCloudsneekerNavigation,
+  withCloudsneekerPlan,
 } from "./navigation";
 
-const link = (
-  href: string,
-  label: string,
-  active = false,
-): NavigationItem => ({
+const link = (href: string, label: string, active = false): NavigationItem => ({
   kind: NAVIGATION_ITEM_KIND.LINK,
   href,
   label,
@@ -45,10 +43,7 @@ const upstreamSections = (
     label: "SECURITY",
     items: [
       link("/compliance", "Compliance"),
-      link(
-        "/findings?filter[muted]=false&filter[status__in]=FAIL",
-        "Findings",
-      ),
+      link("/findings?filter[muted]=false&filter[status__in]=FAIL", "Findings"),
       link("/attack-paths", "Attack Paths"),
       link("/scans", "Scans"),
       link("/resources", "Resources"),
@@ -295,7 +290,10 @@ describe("withCloudsneekerNavigation", () => {
   });
 
   it("links Reports between Governance and Operations", () => {
-    const result = withCloudsneekerNavigation(upstreamSections(), "/reports/run-1");
+    const result = withCloudsneekerNavigation(
+      upstreamSections(),
+      "/reports/run-1",
+    );
     const labels = result.map((section) => section.label);
 
     expect(labels.indexOf(NAVIGATION_SECTION_LABEL.REPORTS)).toBe(
@@ -350,9 +348,9 @@ describe("withCloudsneekerNavigation", () => {
       children.filter((entry) => entry.label === "Audit log"),
     ).toHaveLength(1);
     expect(
-      result.find(
-        (section) => section.label === NAVIGATION_SECTION_LABEL.SETTINGS,
-      )?.items.map((item) => item.label),
+      result
+        .find((section) => section.label === NAVIGATION_SECTION_LABEL.SETTINGS)
+        ?.items.map((item) => item.label),
     ).toEqual(["Configuration", "Organization"]);
   });
 
@@ -450,3 +448,98 @@ describe("withCloudsneekerNavigation finding triage", () => {
   });
 });
 // --- End finding triage (EB-010) ---
+
+// --- Operator console (Phase 1): plan features and operator link ---
+describe("withCloudsneekerNavigation plan filtering", () => {
+  const starter = ["cloud_posture", "compliance", "reports", "finding_triage"];
+
+  it("shows everything while the plan is unknown", () => {
+    const unknown = withCloudsneekerNavigation(upstreamSections(), "/", {
+      features: null,
+      isOperator: false,
+    });
+    expect(allLabels(unknown)).toEqual(
+      allLabels(withCloudsneekerNavigation(upstreamSections(), "/")),
+    );
+  });
+
+  it("hides links for features outside the plan", () => {
+    const labels = allLabels(
+      withCloudsneekerNavigation(upstreamSections(), "/", {
+        features: starter,
+        isOperator: false,
+      }),
+    );
+    expect(labels).toContain("Compliance");
+    expect(labels).toContain("Reports");
+    expect(labels).toContain("Triage");
+    expect(labels).not.toContain("Attack Paths");
+    expect(labels).not.toContain(BRAND.appSecurityName);
+    expect(labels).not.toContain(BRAND.governanceName);
+    expect(labels).not.toContain(BRAND.assistantName);
+    expect(labels).not.toContain("Integrations");
+    expect(labels).not.toContain("Audit log");
+    // Core pages never depend on the plan.
+    expect(labels).toContain("Findings");
+    expect(labels).toContain("Scans");
+  });
+
+  it("drops a section or collapsible left empty", () => {
+    const sections: NavigationSection[] = [
+      { label: "ONLY", items: [link("/attack-paths", "Attack Paths")] },
+      {
+        label: "MORE",
+        items: [
+          {
+            kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+            label: "Group",
+            icon: Info,
+            defaultOpen: false,
+            children: [child("/integrations", "Integrations")],
+          },
+        ],
+      },
+    ];
+    expect(
+      filterNavigationByPlan(sections, { features: [], isOperator: false }),
+    ).toEqual([]);
+  });
+
+  it("adds the operator console for operators only", () => {
+    const operator = withCloudsneekerNavigation(upstreamSections(), "/", {
+      features: null,
+      isOperator: true,
+    });
+    expect(childrenOf(operator, "Organization")).toContainEqual(
+      expect.objectContaining({ label: "Operator console", href: "/operator" }),
+    );
+    const customer = withCloudsneekerNavigation(upstreamSections(), "/", {
+      features: null,
+      isOperator: false,
+    });
+    expect(allLabels(customer)).not.toContain("Operator console");
+  });
+
+  it("applies the plan to an already built sidebar", () => {
+    const built = withCloudsneekerNavigation(upstreamSections(), "/");
+    const labels = allLabels(
+      withCloudsneekerPlan(built, {
+        features: ["cloud_posture"],
+        isOperator: true,
+      }),
+    );
+    expect(labels).not.toContain("Compliance");
+    expect(labels).toContain("Operator console");
+    // Applying twice adds the link once.
+    const twice = withCloudsneekerPlan(
+      withCloudsneekerPlan(built, { features: null, isOperator: true }),
+      { features: null, isOperator: true },
+    );
+    expect(
+      childrenOf(twice, "Organization").filter(
+        (entry) => entry.label === "Operator console",
+      ),
+    ).toHaveLength(1);
+  });
+});
+// --- End operator console ---

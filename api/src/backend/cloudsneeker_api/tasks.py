@@ -208,3 +208,24 @@ def purge_audit_events_task(older_than_days: int | None = None):
     days = older_than_days or retention_days()
     tenant_ids = Tenant.objects.using(MainRouter.admin_db).values_list("id", flat=True)
     return {"deleted": purge_all_tenants(tenant_ids, days), "retention_days": days}
+
+
+# --- Operator console (Phase 1) -----------------------------------------------
+
+
+@shared_task(name="cloudsneeker-operator-daily", queue="celery")
+def operator_daily_task():
+    """Celery Beat entrypoint: expire ended subscriptions, then snapshot usage.
+
+    Cross-tenant: the operator tables are not row-level security protected
+    and the usage counts are read through the admin connection, so no tenant
+    is set.
+    """
+    from cloudsneeker_api.services.entitlements import (
+        expire_subscriptions,
+        snapshot_usage,
+    )
+
+    expired = expire_subscriptions()
+    snapshots = snapshot_usage()
+    return {"expired": expired, "snapshots": snapshots}

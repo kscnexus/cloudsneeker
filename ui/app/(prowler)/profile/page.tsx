@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { getSamlConfig } from "@/actions/integrations/saml";
 import { getUserInfo } from "@/actions/users/users";
 import { auth } from "@/auth.config";
+import { PlanSummaryCard } from "@/cloudsneeker/components/plan-summary-card"; // cloudsneeker-hook
 import { SamlIntegrationCard } from "@/components/integrations/saml/saml-integration-card";
 import { Card } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
@@ -106,6 +107,8 @@ const SSRDataUser = async ({
       className="w-full gap-4 p-4 md:p-5"
     >
       <UserBasicInfoCard user={userData} tenantId={userTenantId || ""} />
+      {/* cloudsneeker-hook: plan name and end date */}
+      <PlanSummaryCard />
       <RolesCard roles={roleDetails} roleDetails={roleDetailsMap} />
       {hasManageAccount && (
         <div id="api-keys" className="scroll-mt-6">

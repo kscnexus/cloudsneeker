@@ -25,6 +25,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 API_PREFIX = "/api/v1/"
+OPERATOR_PREFIX = "/api/v1/operator/"
 MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 USER_AGENT_MAX = 512
 LABEL_MAX = 255
@@ -582,6 +583,10 @@ class AuditLogMiddleware:
     def _applies(request) -> bool:
         path = request.path or ""
         if not path.startswith(API_PREFIX):
+            return False
+        if path.startswith(OPERATOR_PREFIX):
+            # Operator actions go to ``OperatorAuditEvent`` (and the affected
+            # tenant's log), not to the operator's own tenant.
             return False
         if request.method in MUTATING_METHODS:
             return True

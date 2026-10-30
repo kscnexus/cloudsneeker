@@ -29,6 +29,7 @@ import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import { BRAND } from "./brand";
 import { isCloudsneekerFeatureEnabled } from "./features";
+import { isHrefInPlan } from "./lib/entitlements";
 import { PRODUCT_ROUTE } from "./routes";
 
 export const NAVIGATION_SECTION_LABEL = {
@@ -126,6 +127,25 @@ const AUDIT_LOG_CHILD: NavigationChildLink = {
   label: "Audit log",
 };
 
+/** Operator console; only shown to platform operators (`/operator/me`). */
+const OPERATOR_CONSOLE_CHILD: NavigationChildLink = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: PRODUCT_ROUTE.OPERATOR_CONSOLE,
+  label: "Operator console",
+};
+
+/** Plan features (`null` = unknown, show all) and operator access. */
+export interface NavigationPlanState {
+  features: readonly string[] | null;
+  isOperator: boolean;
+}
+
+/** Before the plan loads: nothing hidden, no operator link. */
+export const UNKNOWN_PLAN: NavigationPlanState = {
+  features: null,
+  isOperator: false,
+};
+
 interface UpstreamIndex {
   /** Top-level items with the label of the section they came from. */
   items: { item: NavigationItem; sectionLabel?: string }[];
@@ -189,6 +209,74 @@ const sectionOrNull = (
 };
 
 export const withCloudsneekerNavigation = (
+  sections: NavigationSection[],
+  pathname: string,
+  plan: NavigationPlanState = UNKNOWN_PLAN,
+): NavigationSection[] =>
+  withCloudsneekerPlan(regroupNavigation(sections, pathname), plan);
+
+/**
+ * Applies the organization plan to the finished sidebar: the operator
+ * console link for platform operators, then hides features outside the plan.
+ * The sidebar calls it with the plan store value (one `cloudsneeker-hook`)
+ * so a plan change is an input of the render, not hidden module state.
+ */
+export const withCloudsneekerPlan = (
+  sections: NavigationSection[],
+  plan: NavigationPlanState,
+): NavigationSection[] =>
+  filterNavigationByPlan(withOperatorConsoleLink(sections, plan), plan);
+
+const withOperatorConsoleLink = (
+  sections: NavigationSection[],
+  plan: NavigationPlanState,
+): NavigationSection[] => {
+  if (!plan.isOperator) return sections;
+  return sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) =>
+      item.kind === NAVIGATION_ITEM_KIND.COLLAPSIBLE &&
+      item.label === UPSTREAM_COLLAPSIBLE_LABEL.ORGANIZATION &&
+      !item.children.some(
+        (entry) => entry.label === OPERATOR_CONSOLE_CHILD.label,
+      )
+        ? { ...item, children: [...item.children, OPERATOR_CONSOLE_CHILD] }
+        : item,
+    ),
+  }));
+};
+
+/**
+ * Hides links (and emptied collapsibles and sections) whose feature is not
+ * in the plan. Nothing is hidden while the plan is unknown.
+ */
+export const filterNavigationByPlan = (
+  sections: NavigationSection[],
+  plan: NavigationPlanState,
+): NavigationSection[] => {
+  const { features } = plan;
+  if (features === null) return sections;
+  const result: NavigationSection[] = [];
+  for (const section of sections) {
+    const items: NavigationItem[] = [];
+    for (const item of section.items) {
+      if (item.kind === NAVIGATION_ITEM_KIND.LINK) {
+        if (isHrefInPlan(item.href, features)) items.push(item);
+        continue;
+      }
+      const children = item.children.filter(
+        (child) =>
+          child.kind !== NAVIGATION_ITEM_KIND.LINK ||
+          isHrefInPlan(child.href, features),
+      );
+      if (children.length > 0) items.push({ ...item, children });
+    }
+    if (items.length > 0) result.push({ ...section, items });
+  }
+  return result;
+};
+
+const regroupNavigation = (
   sections: NavigationSection[],
   pathname: string,
 ): NavigationSection[] => {
@@ -338,21 +426,20 @@ export const withCloudsneekerNavigation = (
     return position === "start" ? [entry, ...children] : [...children, entry];
   };
 
-  const organization: NavigationCollapsible | undefined =
-    upstream.organization
-      ? {
-          ...upstream.organization,
-          children: withProductChild(
-            withProductChild(
-              upstream.organization.children,
-              PROFILE_CHILD,
-              "start",
-            ),
-            AUDIT_LOG_CHILD,
-            "end",
+  const organization: NavigationCollapsible | undefined = upstream.organization
+    ? {
+        ...upstream.organization,
+        children: withProductChild(
+          withProductChild(
+            upstream.organization.children,
+            PROFILE_CHILD,
+            "start",
           ),
-        }
-      : undefined;
+          AUDIT_LOG_CHILD,
+          "end",
+        ),
+      }
+    : undefined;
 
   // Items upstream adds later stay in the matching product section.
   const result: (NavigationSection | null)[] = [

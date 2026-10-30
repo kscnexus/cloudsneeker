@@ -12,6 +12,14 @@ from uuid import uuid4
 
 from api.models import Provider, User, fernet
 from api.rls import RowLevelSecurityConstraint, RowLevelSecurityProtectedModel
+from cloudsneeker_api.services.plan_catalog import (
+    BILLING_MANUAL,
+    BILLING_SOURCE_CHOICES,
+    OPERATOR_ROLE_CHOICES,
+    OPERATOR_ROLE_READ_ONLY,
+    STATUS_ACTIVE,
+    STATUS_CHOICES,
+)
 from django.conf import settings
 from django.core.validators import MinLengthValidator
 from django.db import models
@@ -956,3 +964,200 @@ class FindingTriageNote(CloudsneekerRLSModel):
 
 
 # --- End finding triage (EB-010) ----------------------------------------------
+
+
+# --- Operator console (Phase 1: customers, plans, licences, usage) ------------
+# Cross-tenant tables for running the platform. They are NOT row-level
+# security protected: only the operator API, the entitlement service and the
+# daily usage task read them, always through ``MainRouter.admin_db``. A tenant
+# role never grants access; ``PlatformOperator`` does.
+
+
+class PlatformOperator(models.Model):
+    """A user allowed into the operator console, with one operator role."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_platform_operator",
+    )
+    role = models.CharField(
+        max_length=16,
+        choices=OPERATOR_ROLE_CHOICES,
+        default=OPERATOR_ROLE_READ_ONLY,
+    )
+    active = models.BooleanField(default=True)
+    granted_by = models.CharField(max_length=254, blank=True, default="")
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}platform_operators"
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}platform-operators"
+
+
+class Plan(models.Model):
+    """A sellable bundle of feature keys and limits."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    code = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    # Feature keys from ``services.plan_catalog.FEATURE_KEYS``.
+    features = models.JSONField(default=list, blank=True)
+    # Limit key -> non-negative integer, or ``null`` for unlimited.
+    limits = models.JSONField(default=dict, blank=True)
+    is_public = models.BooleanField(default=True)
+    sort_order = models.IntegerField(default=100)
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}plans"
+        ordering = ["sort_order", "code"]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}plans"
+
+
+class Subscription(models.Model):
+    """The plan, status and dates of one tenant (one row per tenant)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    tenant = models.OneToOneField(
+        "api.Tenant",
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_subscription",
+    )
+    plan = models.ForeignKey(
+        Plan, on_delete=models.PROTECT, related_name="subscriptions"
+    )
+    status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE
+    )
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    trial_ends_at = models.DateTimeField(null=True, blank=True)
+    seats = models.PositiveIntegerField(null=True, blank=True)
+    # Feature key -> bool; ``true`` adds a feature, ``false`` removes it.
+    feature_overrides = models.JSONField(default=dict, blank=True)
+    # Limit key -> integer or ``null`` (unlimited); replaces the plan value.
+    limit_overrides = models.JSONField(default=dict, blank=True)
+    billing_source = models.CharField(
+        max_length=32, choices=BILLING_SOURCE_CHOICES, default=BILLING_MANUAL
+    )
+    external_customer_id = models.CharField(max_length=255, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}subscriptions"
+        indexes = [
+            models.Index(fields=["status"], name="cs_subscription_status_idx"),
+            models.Index(fields=["ends_at"], name="cs_subscription_ends_idx"),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}subscriptions"
+
+
+class SubscriptionEvent(models.Model):
+    """History of plan, status and date changes of a tenant's subscription."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    tenant = models.ForeignKey(
+        "api.Tenant",
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_subscription_events",
+    )
+    # created, updated, expired
+    action = models.CharField(max_length=32)
+    # operator, system, migration
+    source = models.CharField(max_length=32, default="operator")
+    # Field name -> {"from": old, "to": new}. Notes are recorded by name only.
+    changes = models.JSONField(default=dict, blank=True)
+    actor_id = models.UUIDField(null=True, blank=True)
+    actor_email = models.CharField(max_length=254, blank=True, default="")
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}subscription_events"
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "-inserted_at"],
+                name="cs_sub_event_tenant_ins_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}subscription-events"
+
+
+class UsageSnapshot(models.Model):
+    """Daily per-tenant usage counts computed from existing tables."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    tenant = models.ForeignKey(
+        "api.Tenant",
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_usage_snapshots",
+    )
+    date = models.DateField()
+    counts = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}usage_snapshots"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("tenant", "date"), name="unique_cs_usage_snapshot_day"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["date"], name="cs_usage_snapshot_date_idx"),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}usage-snapshots"
+
+
+class OperatorAuditEvent(models.Model):
+    """One operator action. Append-only; outlives the tenant it names."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    actor_id = models.UUIDField(null=True, blank=True)
+    actor_email = models.CharField(max_length=254, blank=True, default="")
+    actor_role = models.CharField(max_length=16, blank=True, default="")
+    action = models.CharField(max_length=100)
+    # Plain UUID (no foreign key) so the trail survives tenant deletion.
+    tenant_id = models.UUIDField(null=True, blank=True)
+    target_type = models.CharField(max_length=64, blank=True, default="")
+    target_id = models.CharField(max_length=255, blank=True, default="")
+    # Names of the fields changed; values are never stored here.
+    changed_fields = models.JSONField(default=list, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True, default="")
+    request_id = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}operator_audit_events"
+        indexes = [
+            models.Index(fields=["-inserted_at"], name="cs_op_audit_ins_idx"),
+            models.Index(
+                fields=["tenant_id", "-inserted_at"],
+                name="cs_op_audit_tenant_ins_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}operator-audit-events"
+
+
+# --- End operator console -----------------------------------------------------

@@ -12,7 +12,22 @@ export const PRODUCT_ROUTE = {
   FINDING_TRIAGE: "/triage",
   /** Tenant audit log (Settings, admins only). */
   AUDIT_LOG: "/settings/audit-log",
+  /** Operator console (platform operators only, own route group). */
+  OPERATOR_CONSOLE: "/operator",
 } as const;
+
+export const OPERATOR_ROUTE = {
+  OVERVIEW: "/operator",
+  CUSTOMERS: "/operator/customers",
+  PLANS: "/operator/plans",
+  AUDIT: "/operator/audit",
+} as const;
+
+export type OperatorRoute =
+  (typeof OPERATOR_ROUTE)[keyof typeof OPERATOR_ROUTE];
+
+export const operatorCustomerHref = (tenantId: string): string =>
+  `${OPERATOR_ROUTE.CUSTOMERS}/${encodeURIComponent(tenantId)}`;
 
 export type ProductRoute = (typeof PRODUCT_ROUTE)[keyof typeof PRODUCT_ROUTE];
 

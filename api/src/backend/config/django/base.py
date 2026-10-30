@@ -65,6 +65,7 @@ MIDDLEWARE = [
     "api.middleware.APILoggingMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "cloudsneeker_api.audit.AuditLogMiddleware",  # cloudsneeker-hook
+    "cloudsneeker_api.subscriptions.SubscriptionEnforcementMiddleware",  # cloudsneeker-hook
 ]
 
 SITE_ID = 1

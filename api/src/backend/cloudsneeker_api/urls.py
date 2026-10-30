@@ -11,15 +11,7 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 
 from cloudsneeker_api.views import BrandView
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
-from cloudsneeker_api.views_reports import (
-    ReportRunViewSet,
-    ReportScheduleViewSet,
-    ReportShareLinkViewSet,
-    ReportTypeViewSet,
-    SharedReportView,
-)
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
-from cloudsneeker_api.views_slack_app import SlackAppConfigViewSet
 from cloudsneeker_api.views_features import (
     AlertRecipientConfirmView,
     AlertRecipientUnsubscribeView,
@@ -31,13 +23,35 @@ from cloudsneeker_api.views_features import (
     IngestionViewSet,
     ScanConfigurationViewSet,
 )
+from cloudsneeker_api.views_operator import (  # Operator console (Phase 1)
+    EntitlementsView,
+    OperatorAuditListView,
+    OperatorListView,
+    OperatorMeView,
+    OperatorPlanDetailView,
+    OperatorPlanListView,
+    OperatorSubscriptionView,
+    OperatorTenantDetailView,
+    OperatorTenantListView,
+    OperatorTenantUsageView,
+)
+from cloudsneeker_api.views_reports import (
+    ReportRunViewSet,
+    ReportScheduleViewSet,
+    ReportShareLinkViewSet,
+    ReportTypeViewSet,
+    SharedReportView,
+)
 from cloudsneeker_api.views_slack import (
     SlackChannelsView,
     SlackOAuthAuthorizeUrlView,
     SlackOAuthExchangeView,
 )
+from cloudsneeker_api.views_slack_app import SlackAppConfigViewSet
+from cloudsneeker_api.views_triage import (
+    FindingTriageViewSet,  # Finding triage (EB-010)
+)
 from cloudsneeker_api.views_trivy import TrivyRunViewSet, TrivyTargetViewSet
-from cloudsneeker_api.views_triage import FindingTriageViewSet  # Finding triage (EB-010)
 from django.urls import include, path
 from rest_framework_nested import routers
 
@@ -102,6 +116,47 @@ finding_triage_urlpatterns = [
 ]
 # --- End finding triage (EB-010) ---
 
+# --- Operator console (Phase 1) ---
+# Cross-tenant routes for platform operators only (``PlatformOperator``);
+# everyone else gets 404. ``entitlements`` is the tenant's own plan.
+operator_urlpatterns = [
+    path("entitlements", EntitlementsView.as_view(), name="entitlements"),
+    path("operator/me", OperatorMeView.as_view(), name="operator-me"),
+    path(
+        "operator/tenants",
+        OperatorTenantListView.as_view(),
+        name="operator-tenant-list",
+    ),
+    path(
+        "operator/tenants/<uuid:tenant_id>",
+        OperatorTenantDetailView.as_view(),
+        name="operator-tenant-detail",
+    ),
+    path(
+        "operator/tenants/<uuid:tenant_id>/usage-snapshots",
+        OperatorTenantUsageView.as_view(),
+        name="operator-tenant-usage",
+    ),
+    path(
+        "operator/subscriptions/<uuid:tenant_id>",
+        OperatorSubscriptionView.as_view(),
+        name="operator-subscription-detail",
+    ),
+    path("operator/plans", OperatorPlanListView.as_view(), name="operator-plan-list"),
+    path(
+        "operator/plans/<slug:code>",
+        OperatorPlanDetailView.as_view(),
+        name="operator-plan-detail",
+    ),
+    path("operator/operators", OperatorListView.as_view(), name="operator-operator-list"),
+    path(
+        "operator/audit-events",
+        OperatorAuditListView.as_view(),
+        name="operator-audit-list",
+    ),
+]
+# --- End operator console ---
+
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),
     path(
@@ -140,5 +195,6 @@ urlpatterns = [
         name="shared-report",
     ),
     *finding_triage_urlpatterns,  # Finding triage (EB-010)
+    *operator_urlpatterns,  # Operator console (Phase 1)
     path("", include(router.urls)),
 ]

@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 
 import { LighthouseV2SidebarChat } from "@/app/(prowler)/lighthouse/_components/navigation";
 import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
+import { useCloudsneekerPlan } from "@/cloudsneeker/lib/plan-store"; // cloudsneeker-hook
+import { withCloudsneekerPlan } from "@/cloudsneeker/navigation"; // cloudsneeker-hook
 import { ProwlerBrand } from "@/components/icons";
 import { useAuth } from "@/hooks";
 import { useRuntimeConfig } from "@/hooks/use-runtime-config";
@@ -31,13 +33,18 @@ export function AppSidebarContent({ onSelect }: AppSidebarContentProps) {
   const { apiDocsUrl, cloudBillingEnabled } = useRuntimeConfig();
   const mode = useHydratedAppSidebarMode();
   const isCloudEnvironment = isCloud();
-  const sections = getNavigationConfig({
-    pathname,
-    apiDocsUrl,
-    cloudBillingEnabled,
-    registryEligible,
-    permissions,
-  });
+  const cloudsneekerPlan = useCloudsneekerPlan(); // cloudsneeker-hook
+  // cloudsneeker-hook: plan features and the operator link wrap the upstream sections
+  const sections = withCloudsneekerPlan(
+    getNavigationConfig({
+      pathname,
+      apiDocsUrl,
+      cloudBillingEnabled,
+      registryEligible,
+      permissions,
+    }),
+    cloudsneekerPlan,
+  );
   const showChat = isCloudEnvironment && mode === APP_SIDEBAR_MODE.CHAT;
 
   return (

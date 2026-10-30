@@ -47,6 +47,7 @@ SOURCE_DIRS = (
     "api/src/backend/cloudsneeker_api",
     "ui/cloudsneeker",
     "ui/app/(cloudsneeker)",
+    "ui/app/(operator)",
 )
 
 SKIP_DIRS = {".git", "node_modules", ".venv", ".next", "__pycache__", "_data"}
