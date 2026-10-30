@@ -11,6 +11,7 @@ data stores and, when -ImageTag is set, rolls the services onto that tag.
 pwsh cloudsneeker/deploy/ecs/deploy.ps1
 pwsh cloudsneeker/deploy/ecs/deploy.ps1 -GitHubRepository owner/cloudsneeker
 pwsh cloudsneeker/deploy/ecs/deploy.ps1 -DomainName app.example.com -CertificateArn arn:aws:acm:...
+pwsh cloudsneeker/deploy/ecs/deploy.ps1 -AlertEmail ops@example.com
 #>
 [CmdletBinding()]
 param(
@@ -19,7 +20,8 @@ param(
     [string]$DomainName = "",
     [string]$CertificateArn = "",
     [string]$ImageTag = "",
-    [string]$GitHubRepository = ""
+    [string]$GitHubRepository = "",
+    [string]$AlertEmail = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -224,7 +226,7 @@ if (-not $ImageTag) {
 # Keep the stack's HTTPS hostname and certificate unless new ones are passed.
 # Dropping them would move the app back to plain HTTP and break sign-in,
 # because the UI and API URLs are derived from DomainName.
-foreach ($name in @("DomainName", "CertificateArn")) {
+foreach ($name in @("DomainName", "CertificateArn", "AlertEmail")) {
     if (Get-Variable -Name $name -ValueOnly) { continue }
     $current = ""
     try {
@@ -247,7 +249,7 @@ Invoke-Aws @(
     "--s3-prefix", "ecs",
     "--capabilities", "CAPABILITY_NAMED_IAM",
     "--no-fail-on-empty-changeset",
-    "--parameter-overrides", "PlatformMode=running", "ImageTag=$ImageTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn"
+    "--parameter-overrides", "PlatformMode=running", "ImageTag=$ImageTag", "AppSecretArn=$secretArn", "DomainName=$DomainName", "CertificateArn=$CertificateArn", "AlertEmail=$AlertEmail"
 ) | Out-Host
 Write-Host "GitHub Actions publishes images when main is pushed. Pass -ImageTag to roll the services onto a tag that is already in the registry."
 

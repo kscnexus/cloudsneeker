@@ -27,6 +27,12 @@ Parameters:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: >
+      Address that receives platform alarms by email. AWS sends a
+      confirmation message first. Leave empty to keep alarms in CloudWatch only.
   PlatformMode:
     Type: String
     Default: "running"
@@ -53,6 +59,7 @@ Conditions:
     - !Condition UseHttpRules
     - !Condition RunCompute
   MultiAzDatabase: !Equals [!Ref DatabaseMultiAz, "true"]
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, ""]]
 
 Resources:
   Vpc:
@@ -1867,7 +1874,195 @@ Resources:
         ScaleInCooldown: 120
         ScaleOutCooldown: 60
 
+  # Platform alarms (EB-005). Every alarm notifies AlertTopic; subscribe an
+  # address with the AlertEmail parameter or add Slack through AWS Chatbot.
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: cloudsneeker-alerts
+      KmsMasterKeyId: alias/aws/sns
+
+  AlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  ApiServerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: RunCompute
+    Properties:
+      AlarmName: cloudsneeker-api-5xx
+      AlarmDescription: The API returned more than 20 server errors in 5 minutes.
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt ApiTargetGroup.TargetGroupFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 20
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  ApiUnhealthyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: RunCompute
+    Properties:
+      AlarmName: cloudsneeker-api-unhealthy
+      AlarmDescription: No healthy API targets behind the load balancer for 3 minutes.
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt ApiTargetGroup.TargetGroupFullName
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  UiUnhealthyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: RunCompute
+    Properties:
+      AlarmName: cloudsneeker-ui-unhealthy
+      AlarmDescription: No healthy web targets behind the load balancer for 3 minutes.
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt UiTargetGroup.TargetGroupFullName
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: RunCompute
+    Properties:
+      AlarmName: cloudsneeker-api-latency
+      AlarmDescription: API p95 response time above 3 seconds for 10 minutes.
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt ApiTargetGroup.TargetGroupFullName
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  DatabaseCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: cloudsneeker-db-cpu
+      AlarmDescription: Database CPU above 80 percent for 15 minutes.
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  DatabaseStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: cloudsneeker-db-storage
+      AlarmDescription: Database free storage below 5 GB.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5368709120
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  WorkerCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: RunTasks
+    Properties:
+      AlarmName: cloudsneeker-worker-cpu
+      AlarmDescription: Scan worker CPU above 90 percent for 30 minutes.
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref Cluster
+        - Name: ServiceName
+          Value: !GetAtt WorkerService.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 6
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  SignInRateLimitAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: RunCompute
+    Properties:
+      AlarmName: cloudsneeker-sign-in-blocks
+      AlarmDescription: The WAF blocked more than 100 sign-in requests in 5 minutes (possible password attack).
+      Namespace: AWS/WAFV2
+      MetricName: BlockedRequests
+      Dimensions:
+        - Name: WebACL
+          Value: cloudsneeker
+        - Name: Region
+          Value: !Ref AWS::Region
+        - Name: Rule
+          Value: SignInRateLimit
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 100
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
 Outputs:
+  AlertTopicArn:
+    Description: SNS topic that receives platform alarms.
+    Value: !Ref AlertTopic
   ServiceUrl:
     Condition: RunCompute
     Description: Public address of the web application.
