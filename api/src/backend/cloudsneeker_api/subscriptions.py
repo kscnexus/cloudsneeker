@@ -36,7 +36,9 @@ CODE_FEATURE_NOT_IN_PLAN = "feature_not_in_plan"
 CODE_PLAN_LIMIT_REACHED = "plan_limit_reached"
 
 # Paths (after ``/api/v1/``) never refused by this middleware.
-EXEMPT_PREFIXES = ("operator/", "operator", "schema", "docs")
+# Each prefix matches the path itself or anything below it, never a longer
+# sibling name ("operator" is exempt, "operators-x" is not).
+EXEMPT_PREFIXES = ("operator/", "schema/", "docs/")
 # Writes still allowed while the subscription is inactive.
 READ_ONLY_ALLOWED_PATHS = frozenset(
     {
@@ -295,6 +297,14 @@ class SubscriptionEnforcementMiddleware:
             return None
         identity = request_identity(request)
         if identity is None:
+            return None
+        # Plain reads of ungated endpoints (Findings, Overview, ...) need no
+        # plan lookup, so they cost no extra queries.
+        if (
+            request.method not in MUTATING_METHODS
+            and not identity.api_key
+            and feature_for_path(path) is None
+        ):
             return None
 
         from api.db_router import MainRouter
