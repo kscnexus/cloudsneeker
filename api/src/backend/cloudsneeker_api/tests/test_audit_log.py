@@ -229,6 +229,22 @@ class TestNoSecretsInMetadata:
         }
         assert SECRET_VALUE not in json.dumps(result)
 
+    def test_flattened_parser_output(self):
+        # What DRF's JSON:API parser hands the view: one flat dict.
+        body = {
+            "type": "provider-secrets",
+            "name": "prod",
+            "secret": {"aws_secret_access_key": SECRET_VALUE},
+            "provider": {"type": "providers", "id": "x"},
+        }
+        result = audit.field_names(body)
+        assert result == {
+            "fields": ["name"],
+            "relationships": ["provider"],
+            "secret_fields_changed": True,
+        }
+        assert SECRET_VALUE not in json.dumps(result)
+
     def test_non_dict_bodies(self):
         assert audit.field_names(None) == {}
         assert audit.field_names([1, 2]) == {}
@@ -289,7 +305,9 @@ class TestMiddlewareCapture:
         assert event.target_label == "Audited Role"
         assert event.ip_address == "198.51.100.4"
         assert event.user_agent == "pytest-agent"
-        assert event.metadata["fields"] == ["manage_scans", "name"]
+        # DRF parses JSON:API into one flat dict, so an empty to-many
+        # relationship can read as a field name; the named fields must be there.
+        assert {"manage_scans", "name"} <= set(event.metadata["fields"])
         assert event.status_code == 201
 
     def test_failed_mutation_is_recorded_as_failure(

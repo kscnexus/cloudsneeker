@@ -292,6 +292,14 @@ def _is_sensitive_name(name: str) -> bool:
     return any(hint in lowered for hint in SENSITIVE_FIELD_HINTS)
 
 
+def _is_resource_identifier(value: Any) -> bool:
+    if isinstance(value, list):
+        return bool(value) and all(_is_resource_identifier(item) for item in value)
+    return isinstance(value, dict) and set(value) <= {"type", "id", "meta"} and (
+        "type" in value and "id" in value
+    )
+
+
 def field_names(body: Any) -> dict:
     """Names of the attributes and relationships a JSON body sets.
 
@@ -305,8 +313,19 @@ def field_names(body: Any) -> dict:
         data = data[0] if data and isinstance(data[0], dict) else {}
     if not isinstance(data, dict):
         return {}
-    attributes = data.get("attributes", data if "type" not in data else {})
-    relationships = data.get("relationships", {})
+    if "attributes" in data or "relationships" in data:
+        attributes = data.get("attributes", {})
+        relationships = data.get("relationships", {})
+    else:
+        # DRF's JSON:API parser flattens attributes and relationships into
+        # one dict (plus ``id`` and ``type``). A relationship value is a
+        # resource identifier, or a list of them.
+        attributes, relationships = {}, {}
+        for key, value in data.items():
+            if _is_resource_identifier(value):
+                relationships[key] = value
+            else:
+                attributes[key] = value
     result: dict = {}
     names: list[str] = []
     secret_changed = False
