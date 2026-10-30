@@ -221,6 +221,23 @@ if (-not $ImageTag) {
     throw "ImageTag is required. Pass -ImageTag <sha> or let GitHub Actions publish images first."
 }
 
+# Keep the stack's HTTPS hostname and certificate unless new ones are passed.
+# Dropping them would move the app back to plain HTTP and break sign-in,
+# because the UI and API URLs are derived from DomainName.
+foreach ($name in @("DomainName", "CertificateArn")) {
+    if (Get-Variable -Name $name -ValueOnly) { continue }
+    $current = ""
+    try {
+        $current = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker", "--query", "Stacks[0].Parameters[?ParameterKey=='$name'].ParameterValue | [0]")
+    } catch {
+        $current = ""
+    }
+    if ($current -and $current -ne "None") {
+        Set-Variable -Name $name -Value $current
+        Write-Host "Keeping $name from the stack: $current"
+    }
+}
+
 Write-Host "==> Platform (data stores and network)"
 Invoke-Aws @(
     "cloudformation", "deploy",
