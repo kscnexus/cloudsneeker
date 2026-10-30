@@ -912,6 +912,44 @@ Resources:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
             MetricName: cloudsneeker-bad-inputs
+        # Brute-force guard on the public sign-in paths, counted per client
+        # IP at the edge. The API's own token-obtain throttle stays unset:
+        # the UI server signs users in over the internal service address, so
+        # Django sees one shared IP for every user.
+        - Name: SignInRateLimit
+          Priority: 3
+          Action:
+            Block:
+              CustomResponse:
+                ResponseCode: 429
+          Statement:
+            RateBasedStatement:
+              Limit: 50
+              EvaluationWindowSec: 300
+              AggregateKeyType: IP
+              ScopeDownStatement:
+                OrStatement:
+                  Statements:
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/auth/callback/
+                        TextTransformations:
+                          - Priority: 0
+                            Type: LOWERCASE
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/v1/tokens
+                        TextTransformations:
+                          - Priority: 0
+                            Type: LOWERCASE
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: cloudsneeker-sign-in-rate
 
   WebAclAssociation:
     Type: AWS::WAFv2::WebACLAssociation
