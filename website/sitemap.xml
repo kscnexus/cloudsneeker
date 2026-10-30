@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- TODO: replace https://cloudsneeker.example with the production domain. -->
+<!-- TODO: replace https://kscnexus.com with the production domain. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://cloudsneeker.example/</loc></url>
-  <url><loc>https://cloudsneeker.example/platform.html</loc></url>
-  <url><loc>https://cloudsneeker.example/services.html</loc></url>
-  <url><loc>https://cloudsneeker.example/pricing.html</loc></url>
-  <url><loc>https://cloudsneeker.example/security.html</loc></url>
-  <url><loc>https://cloudsneeker.example/about.html</loc></url>
-  <url><loc>https://cloudsneeker.example/contact.html</loc></url>
-  <url><loc>https://cloudsneeker.example/privacy.html</loc></url>
-  <url><loc>https://cloudsneeker.example/terms.html</loc></url>
+  <url><loc>https://kscnexus.com/</loc></url>
+  <url><loc>https://kscnexus.com/platform.html</loc></url>
+  <url><loc>https://kscnexus.com/services.html</loc></url>
+  <url><loc>https://kscnexus.com/pricing.html</loc></url>
+  <url><loc>https://kscnexus.com/security.html</loc></url>
+  <url><loc>https://kscnexus.com/about.html</loc></url>
+  <url><loc>https://kscnexus.com/contact.html</loc></url>
+  <url><loc>https://kscnexus.com/privacy.html</loc></url>
+  <url><loc>https://kscnexus.com/terms.html</loc></url>
 </urlset>

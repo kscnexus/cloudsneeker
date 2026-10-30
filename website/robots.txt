@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cloudsneeker.example/sitemap.xml
+Sitemap: https://kscnexus.com/sitemap.xml
