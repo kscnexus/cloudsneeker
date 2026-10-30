@@ -513,23 +513,23 @@ class TestAuditEventsApi:
             str(first.id),
         ]
 
-    def test_requires_manage_account(
-        self,
-        authenticated_client_no_permissions_rbac,
-        authenticated_client_rbac_manage_account,
+    # The two RBAC client fixtures share Django's ``client``, so each test
+    # requests only one of them.
+    def test_denied_without_manage_account(
+        self, authenticated_client_no_permissions_rbac
     ):
-        assert (
-            authenticated_client_no_permissions_rbac.get(
-                reverse("audit-events-list")
-            ).status_code
-            == 403
+        response = authenticated_client_no_permissions_rbac.get(
+            reverse("audit-events-list")
         )
-        assert (
-            authenticated_client_rbac_manage_account.get(
-                reverse("audit-events-list")
-            ).status_code
-            == 200
+        assert response.status_code == 403
+
+    def test_allowed_with_manage_account(
+        self, authenticated_client_rbac_manage_account
+    ):
+        response = authenticated_client_rbac_manage_account.get(
+            reverse("audit-events-list")
         )
+        assert response.status_code == 200
 
     def test_requires_authentication(self, client):
         assert client.get(reverse("audit-events-list")).status_code == 401

@@ -69,7 +69,7 @@ export const findingIdsNeedingTriage = (response: unknown): string[] => {
     if (id) ids.add(id);
     if (ids.size >= TRIAGE_LOOKUP_MAX_FINDINGS) break;
   }
-  return [...ids];
+  return Array.from(ids);
 };
 
 const lookupEntries = (

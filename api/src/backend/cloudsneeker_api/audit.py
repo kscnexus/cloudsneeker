@@ -17,7 +17,6 @@ Rules:
 from __future__ import annotations
 
 import ipaddress
-import json
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -330,12 +329,15 @@ def field_names(body: Any) -> dict:
     return result
 
 
-def read_json_body(request) -> Any:
-    """Parse a small JSON request body before the view consumes the stream.
+def read_json_body(request, response=None) -> Any:
+    """Return the JSON body the view parsed, read after the view ran.
 
-    Reading ``request.body`` caches it, so DRF parses the same bytes after.
-    Uploads and large bodies are left alone.
+    The body is never read before the view: upstream views inspect
+    ``request.stream`` and expect it unread. DRF keeps the parsed data on its
+    own request, which the response's renderer context carries. Uploads and
+    large bodies are left alone.
     """
+    drf_request = (getattr(response, "renderer_context", None) or {}).get("request")
     content_type = (request.META.get("CONTENT_TYPE") or "").lower()
     if "json" not in content_type:
         return None
@@ -345,8 +347,10 @@ def read_json_body(request) -> Any:
         return None
     if length <= 0 or length > MAX_AUDITED_BODY_BYTES:
         return None
+    if drf_request is None:
+        return None
     try:
-        return json.loads(request.body or b"null")
+        return drf_request.data
     except Exception:
         return None
 
@@ -543,14 +547,12 @@ class AuditLogMiddleware:
         if not self._applies(request):
             return self.get_response(request)
 
-        body = None
-        try:
-            body = read_json_body(request)
-        except Exception:
-            body = None
-
         response = self.get_response(request)
 
+        try:
+            body = read_json_body(request, response)
+        except Exception:
+            body = None
         try:
             self._record(request, response, body)
         except Exception:
