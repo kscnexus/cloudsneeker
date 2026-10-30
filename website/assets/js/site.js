@@ -1,5 +1,7 @@
-/* Cloudsneeker marketing site: theme toggle, mobile menu, reveal on scroll,
-   and the contact form (mailto only, no network requests, no tracking). */
+/* Cloudsneeker marketing site: theme toggle, header state, mobile menu,
+   reveal on scroll, product tour tabs, and the contact form (mailto only,
+   no network requests, no tracking). Every feature is an enhancement: the
+   pages are complete and readable without this file. */
 (function () {
   "use strict";
 
@@ -31,11 +33,10 @@
     var isLight = currentTheme() === "light";
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute("aria-pressed", isLight ? "true" : "false");
-      buttons[i].setAttribute(
-        "aria-label",
-        isLight ? "Switch to dark theme" : "Switch to light theme"
-      );
+      buttons[i].setAttribute("aria-label", isLight ? "Switch to dark theme" : "Switch to light theme");
     }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", isLight ? "#f6f8fc" : "#050912");
   }
 
   // Theme toggle
@@ -62,6 +63,27 @@
 
   syncToggle();
 
+  // Header: compact with a border once the page scrolls.
+  var header = document.querySelector(".site-header");
+  if (header) {
+    var ticking = false;
+    var updateHeader = function () {
+      header.classList.toggle("is-scrolled", window.scrollY > 8);
+      ticking = false;
+    };
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (!ticking) {
+          ticking = true;
+          window.requestAnimationFrame(updateHeader);
+        }
+      },
+      { passive: true }
+    );
+    updateHeader();
+  }
+
   // Mobile menu
   var menuButton = document.querySelector("[data-menu-toggle]");
   var nav = document.getElementById("primary-nav");
@@ -74,6 +96,9 @@
     menuButton.addEventListener("click", function () {
       setOpen(menuButton.getAttribute("aria-expanded") !== "true");
     });
+    nav.addEventListener("click", function (event) {
+      if (event.target.closest("a")) setOpen(false);
+    });
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && nav.classList.contains("is-open")) {
         setOpen(false);
@@ -81,34 +106,88 @@
       }
     });
     window.addEventListener("resize", function () {
-      if (window.innerWidth > 880) setOpen(false);
+      if (window.innerWidth > 980) setOpen(false);
     });
   }
 
-  // Reveal on scroll
-  var reduceMotion =
-    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var revealItems = document.querySelectorAll(".reveal");
-  if (!reduceMotion && "IntersectionObserver" in window) {
+  // Reveal on scroll. Content is visible by default; only items that start
+  // below the fold are hidden, and only while the observer is working.
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var revealItems = Array.prototype.slice.call(document.querySelectorAll(".reveal"));
+  if (!reduceMotion && "IntersectionObserver" in window && revealItems.length) {
+    var showAll = function () {
+      revealItems.forEach(function (el) {
+        el.classList.remove("is-pending");
+      });
+    };
+    var fired = false;
     var observer = new IntersectionObserver(
       function (entries) {
+        fired = true;
         entries.forEach(function (entry) {
           if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
+            entry.target.classList.remove("is-pending");
             observer.unobserve(entry.target);
           }
         });
       },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
+      { rootMargin: "0px 0px 20% 0px", threshold: 0 }
     );
-    revealItems.forEach(function (el) {
-      observer.observe(el);
+    var fold = window.innerHeight || document.documentElement.clientHeight;
+    revealItems.forEach(function (el, i) {
+      if (el.getBoundingClientRect().top > fold * 0.92) {
+        el.classList.add("is-pending");
+        // Small stagger for siblings in the same row.
+        el.style.transitionDelay = (i % 3) * 70 + "ms";
+        observer.observe(el);
+      }
     });
-  } else {
-    revealItems.forEach(function (el) {
-      el.classList.add("is-visible");
-    });
+    // Safety nets: if the observer never reports, or the page is printed,
+    // show everything.
+    window.setTimeout(function () {
+      if (!fired) showAll();
+    }, 1200);
+    window.setTimeout(showAll, 6000);
+    window.addEventListener("beforeprint", showAll);
   }
+
+  // Product tour tabs (WAI-ARIA tabs pattern, automatic activation).
+  var tablists = document.querySelectorAll("[data-tabs]");
+  Array.prototype.forEach.call(tablists, function (wrap) {
+    var tabs = Array.prototype.slice.call(wrap.querySelectorAll('[role="tab"]'));
+    if (!tabs.length) return;
+    var select = function (tab, focus) {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute("aria-selected", on ? "true" : "false");
+        t.tabIndex = on ? 0 : -1;
+        var panel = document.getElementById(t.getAttribute("aria-controls"));
+        if (panel) panel.hidden = !on;
+      });
+      if (focus) tab.focus();
+    };
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () {
+        select(tab, false);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var next = null;
+        if (event.key === "ArrowDown" || event.key === "ArrowRight") next = tabs[(index + 1) % tabs.length];
+        else if (event.key === "ArrowUp" || event.key === "ArrowLeft") next = tabs[(index - 1 + tabs.length) % tabs.length];
+        else if (event.key === "Home") next = tabs[0];
+        else if (event.key === "End") next = tabs[tabs.length - 1];
+        if (next) {
+          event.preventDefault();
+          select(next, true);
+        }
+      });
+    });
+    var initial = tabs.filter(function (t) {
+      return t.getAttribute("aria-selected") === "true";
+    })[0] || tabs[0];
+    select(initial, false);
+    wrap.classList.add("tabs-ready");
+  });
 
   // Footer year
   var yearEls = document.querySelectorAll("[data-year]");
@@ -141,18 +220,11 @@
         String(data.get("message") || ""),
       ];
       var href =
-        "mailto:" +
-        to +
-        "?subject=" +
-        encodeURIComponent(subject) +
-        "&body=" +
-        encodeURIComponent(lines.join("\r\n"));
+        "mailto:" + to + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(lines.join("\r\n"));
       window.location.href = href;
       if (status) {
         status.textContent =
-          "Your email app should open with the message ready to send. If nothing happens, write to " +
-          to +
-          ".";
+          "Your email app should open with the message ready to send. If nothing happens, write to " + to + ".";
       }
     });
   }

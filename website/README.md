@@ -64,3 +64,5 @@ Search the folder for `TODO`, `example.com`, `cloudsneeker.example` and `[` to f
 - Only claim features the product has today. Items not yet in place are listed as roadmap on `security.html`; update that page as they ship.
 - Dashboard, Attack Paths, Seeker AI, report and governance visuals are CSS and SVG mockups with illustrative sample data, not real customer data.
 - Do not name the scanning engines behind the product anywhere on the site.
+- Home page numbers were checked against the repository on 2026-10-30: 1,616 check metadata files (shown as 1,500+), about 40 distinct compliance framework families in the SDK compliance catalog (shown as 35+), 9 report types in the reports catalog, and 6 named platforms. Re-check before raising them.
+- Scroll-reveal is an enhancement only: content is visible without JavaScript, and `site.js` hides only below-the-fold items while its observer runs, with a safety timeout.

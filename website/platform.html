@@ -6,7 +6,7 @@
 <title>Platform | Cloudsneeker</title>
 <meta name="description" content="Cloud security posture management, Attack Paths, Seeker AI, application security, policy-as-code governance and reporting in one platform.">
 <link rel="canonical" href="https://kscnexus.com/platform.html">
-<meta name="theme-color" content="#070d18">
+<meta name="theme-color" content="#050912">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cloudsneeker">
 <meta property="og:title" content="Platform | Cloudsneeker">
@@ -18,7 +18,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
 <link rel="stylesheet" href="assets/css/site.css">
 <script>(function(){var d=document.documentElement,t=null;try{t=localStorage.getItem('cloudsneeker-theme')}catch(e){}if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}d.setAttribute('data-theme',t);d.className=d.className.replace('no-js','js')})();</script>
 </head>
@@ -56,13 +56,14 @@
 </div>
 </header>
 <main id="main" tabindex="-1">
-<section class="page-hero grid-bg" aria-labelledby="page-title">
+<section class="page-hero center grid-bg" aria-labelledby="page-title">
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="container">
 <span class="eyebrow">Platform</span>
 <h1 id="page-title">Everything you need to <span class="grad-text">see and reduce</span> cloud risk.</h1>
 <p class="lead">Cloud Security, Application Security, Cloud Governance and Reports work from the same findings, so every team sees one version of the truth.</p>
-<div class="btn-row" style="margin-top:24px"><a class="btn btn-primary" href="contact.html">Book a walkthrough <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-ghost" href="pricing.html">Compare plans</a></div>
-<nav aria-label="On this page" style="margin-top:28px"><ul class="chips"><li><a href="#cloud-security">Cloud Security</a></li><li><a href="#seeker-ai">Seeker AI</a></li><li><a href="#application-security">Application Security</a></li><li><a href="#governance">Cloud Governance</a></li><li><a href="#reports">Reports</a></li><li><a href="#operations">Alerts &amp; integrations</a></li><li><a href="#deployment">Deployment</a></li></ul></nav>
+<div class="btn-row"><a class="btn btn-primary" href="contact.html">Book a walkthrough <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-ghost" href="pricing.html">Compare plans</a></div>
+<nav aria-label="On this page"><ul class="chips"><li><a href="#cloud-security">Cloud Security</a></li><li><a href="#attack-paths">Attack Paths</a></li><li><a href="#seeker-ai">Seeker AI</a></li><li><a href="#application-security">Application Security</a></li><li><a href="#governance">Cloud Governance</a></li><li><a href="#reports">Reports</a></li><li><a href="#operations">Alerts &amp; integrations</a></li><li><a href="#deployment">Deployment</a></li></ul></nav>
 </div>
 </section>
 
@@ -75,42 +76,29 @@
 <p class="lead">More than 1,500 security checks look for misconfigurations in identity, networking, storage, logging, encryption and more.</p>
 <ul class="check-list"><li>AWS, Microsoft Azure, Google Cloud, Kubernetes, Microsoft 365, GitHub and more, in one view</li><li>Findings with severity, affected resource, risk explanation and remediation guidance</li><li>Compliance views mapped to CIS, NIST, ISO 27001, PCI DSS, HIPAA, SOC 2, GDPR and others</li><li>Resource inventory and history across scans</li><li>Scheduled and on-demand scans with scan profiles</li></ul>
 </div>
-<div class="reveal"><figure class="mock" aria-label="Illustration of the Cloudsneeker security overview dashboard with sample data">
-<div class="mock-bar"><i></i><i></i><i></i><span class="mock-title">Security overview</span></div>
-<div class="mock-body">
-<div class="mock-kpis">
-<div class="kpi crit"><b>7</b><span>Critical</span></div>
-<div class="kpi high"><b>23</b><span>High</span></div>
-<div class="kpi med"><b>64</b><span>Medium</span></div>
-<div class="kpi low"><b>118</b><span>Low</span></div>
+<div class="reveal"><figure class="ui" style="margin:0" aria-label="Illustration of the Cloudsneeker security overview with sample data">
+<div class="ui-bar"><i></i><i></i><i></i><span class="ui-title">cloudsneeker / overview</span></div>
+<div class="ui-body" style="display:grid;gap:12px">
+<div class="kpis">
+<div class="kpi crit"><span>Critical</span><b>7</b></div>
+<div class="kpi high"><span>High</span><b>23</b></div>
+<div class="kpi med"><span>Medium</span><b>64</b></div>
+<div class="kpi low"><span>Low</span><b>118</b></div>
 </div>
-<div class="mock-row">
-<div class="panel">
-<h4>Posture score</h4>
-<svg class="gauge" viewBox="0 0 120 70" aria-hidden="true"><path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="#1a2c45" stroke-width="10" stroke-linecap="round"/><path d="M10 62a50 50 0 0 1 86-34" fill="none" stroke="url(#gg)" stroke-width="10" stroke-linecap="round"/><defs><linearGradient id="gg" x1="0" x2="1"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs><text x="60" y="58" text-anchor="middle" fill="#e7f2f4" font-size="22" font-weight="700" font-family="Space Grotesk, Inter, sans-serif">76</text></svg>
+<div class="dash-row">
+<div class="panel"><h4>Posture score</h4><svg class="ring" viewBox="0 0 120 120" aria-hidden="true" style="margin:0 auto"><defs><linearGradient id="ringp" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><circle cx="60" cy="60" r="48" fill="none" stroke="rgba(148,178,255,.12)" stroke-width="11"/><circle cx="60" cy="60" r="48" fill="none" stroke="url(#ringp)" stroke-width="11" stroke-linecap="round" stroke-dasharray="229 302" transform="rotate(-90 60 60)"/><text x="60" y="68" text-anchor="middle" font-family="Space Grotesk, Inter, sans-serif" font-size="30" font-weight="700" fill="#e6edfb">76</text></svg></div>
+<div class="panel"><h4>Compliance</h4><ul class="bars"><li>CIS<span class="track"><span class="fill good" style="width:82%"></span></span><b>82%</b></li><li>ISO 27001<span class="track"><span class="fill" style="width:68%"></span></span><b>68%</b></li><li>PCI DSS<span class="track"><span class="fill warn" style="width:57%"></span></span><b>57%</b></li><li>NIST CSF<span class="track"><span class="fill" style="width:73%"></span></span><b>73%</b></li></ul></div>
 </div>
-<div class="panel">
-<h4>Compliance</h4>
-<ul class="bars">
-<li>CIS<span class="track"><span class="fill" style="width:82%"></span></span></li>
-<li>ISO 27001<span class="track"><span class="fill" style="width:68%"></span></span></li>
-<li>PCI DSS<span class="track"><span class="fill" style="width:57%"></span></span></li>
-<li>NIST CSF<span class="track"><span class="fill" style="width:73%"></span></span></li>
-</ul>
+<div class="panel"><ul class="findings">
+<li><span class="what"><span class="prov">AWS</span>Public storage bucket</span><span class="res">example-bucket</span><span class="sev c">Critical</span></li>
+<li><span class="what"><span class="prov">AZ</span>Admin role without MFA</span><span class="res">example-role</span><span class="sev h">High</span></li>
+<li><span class="what"><span class="prov">GC</span>Unencrypted database</span><span class="res">example-db</span><span class="sev m">Medium</span></li>
+</ul></div>
 </div>
-</div>
-<table class="mock-table">
-<thead><tr><th scope="col">Finding</th><th scope="col">Resource</th><th scope="col">Severity</th></tr></thead>
-<tbody>
-<tr><td>Public storage bucket</td><td>example-bucket</td><td><span class="sev c">Critical</span></td></tr>
-<tr><td>Admin role without MFA</td><td>example-role</td><td><span class="sev h">High</span></td></tr>
-<tr><td>Unencrypted database</td><td>example-db</td><td><span class="sev m">Medium</span></td></tr>
-</tbody>
-</table>
-</div>
-<figcaption class="mock-note">Illustrative sample data</figcaption>
+<figcaption class="ui-note">Illustrative sample data</figcaption>
 </figure></div>
 </div>
+
 <div class="split reverse" id="attack-paths">
 <div>
 <span class="eyebrow">Attack Paths</span>
@@ -118,38 +106,39 @@
 <p>Attack Paths builds a graph of your resources, identities and permissions. It shows how internet exposure, overly broad roles and sensitive data connect, so you can fix the link that breaks the most paths.</p>
 <ul class="check-list"><li>Visual graph of exposure, identity and data relationships</li><li>Highlights privilege-escalation and lateral-movement routes</li><li>Jump from any node to its findings</li></ul>
 </div>
-<div class="reveal"><figure class="mock graph" aria-label="Illustration of an attack path graph from the internet to a sensitive data store">
-<div class="mock-bar"><i></i><i></i><i></i><span class="mock-title">Attack Paths</span></div>
-<div class="mock-body">
+<div class="reveal"><figure class="ui" style="margin:0" aria-label="Illustration of an attack path graph from the internet to a sensitive data store">
+<div class="ui-bar"><i></i><i></i><i></i><span class="ui-title">attack-paths / internet-to-data</span></div>
+<div class="ui-body">
 <svg viewBox="0 0 420 240" role="img" aria-label="Internet reaches a public load balancer, then a compute instance, whose role can read a sensitive data bucket">
-<defs><linearGradient id="ap" x1="0" x2="1"><stop stop-color="#f87171"/><stop offset="1" stop-color="#fb923c"/></linearGradient></defs>
+<defs><linearGradient id="ap" x1="0" x2="1"><stop stop-color="#f43f5e"/><stop offset="1" stop-color="#fb923c"/></linearGradient></defs>
 <g fill="none" stroke-width="2">
 <path class="dash-flow" d="M62 120 C110 120 110 60 150 60" stroke="url(#ap)"/>
 <path class="dash-flow" d="M190 60 C230 60 230 120 260 120" stroke="url(#ap)"/>
 <path class="dash-flow" d="M300 120 C330 120 330 180 360 180" stroke="url(#ap)"/>
-<path d="M190 60 C230 60 230 20 260 30" stroke="#2a4160"/>
-<path d="M62 120 C110 120 110 190 150 190" stroke="#2a4160"/>
-<path d="M190 190 C230 190 240 130 260 124" stroke="#2a4160"/>
+<path d="M190 60 C230 60 230 20 260 30" stroke="#2a3a5c"/>
+<path d="M62 120 C110 120 110 190 150 190" stroke="#2a3a5c"/>
+<path d="M190 190 C230 190 240 130 260 124" stroke="#2a3a5c"/>
 </g>
-<g font-family="Inter, sans-serif" font-size="10" fill="#c5d8de" text-anchor="middle">
-<circle cx="42" cy="120" r="20" fill="#2b1420" stroke="#f87171" stroke-width="2"/><text x="42" y="156">Internet</text>
-<circle class="pulse" cx="42" cy="120" r="27" fill="none" stroke="#f87171" stroke-opacity=".5"/>
-<rect x="150" y="42" width="40" height="36" rx="9" fill="#12223a" stroke="#7eb8ff" stroke-width="2"/><text x="170" y="96">Load balancer</text>
-<rect x="150" y="172" width="40" height="36" rx="9" fill="#12223a" stroke="#2a4160" stroke-width="2"/><text x="170" y="226">Function</text>
-<rect x="260" y="102" width="40" height="36" rx="9" fill="#12223a" stroke="#7eb8ff" stroke-width="2"/><text x="280" y="156">Instance + role</text>
-<rect x="260" y="14" width="40" height="32" rx="9" fill="#12223a" stroke="#2a4160" stroke-width="2"/><text x="280" y="62" fill="#6f8aa3">Logs</text>
-<circle cx="380" cy="180" r="20" fill="#2b2010" stroke="#fbbf24" stroke-width="2"/><text x="380" y="216">Sensitive data</text>
+<g font-family="Inter, sans-serif" font-size="10" fill="#b9c6de" text-anchor="middle">
+<circle cx="42" cy="120" r="20" fill="#2b1420" stroke="#f43f5e" stroke-width="2"/><text x="42" y="156">Internet</text>
+<circle class="pulse" cx="42" cy="120" r="24" fill="none" stroke="#f43f5e"/>
+<rect x="150" y="42" width="40" height="36" rx="9" fill="#12223a" stroke="#7ab4ff" stroke-width="2"/><text x="170" y="96">Load balancer</text>
+<rect x="150" y="172" width="40" height="36" rx="9" fill="#12223a" stroke="#2a3a5c" stroke-width="2"/><text x="170" y="226">Function</text>
+<rect x="260" y="102" width="40" height="36" rx="9" fill="#12223a" stroke="#7ab4ff" stroke-width="2"/><text x="280" y="156">Instance + role</text>
+<rect x="260" y="14" width="40" height="32" rx="9" fill="#12223a" stroke="#2a3a5c" stroke-width="2"/><text x="280" y="62" fill="#6f7f9f">Logs</text>
+<circle cx="380" cy="180" r="20" fill="#2b2010" stroke="#f59e0b" stroke-width="2"/><text x="380" y="216">Sensitive data</text>
 </g>
 </svg>
 </div>
-<figcaption class="mock-note">Illustrative example</figcaption>
+<figcaption class="ui-note">Illustrative example</figcaption>
 </figure></div>
 </div>
-<div class="card reveal" style="margin-top:56px">
-<h3>Compliance frameworks</h3>
-<p>Each finding is mapped to the controls it affects, so you can track readiness per framework and export evidence. Available frameworks depend on the provider.</p>
-<ul class="chips"><li>CIS Benchmarks</li><li>NIST 800-53</li><li>NIST CSF</li><li>ISO 27001</li><li>PCI DSS</li><li>HIPAA</li><li>SOC 2 mapping</li><li>GDPR</li><li>NIS2</li><li>MITRE ATT&amp;CK</li><li>FedRAMP</li><li>AWS Foundational Security Best Practices</li><li>And more</li></ul>
-<p class="muted" style="margin-top:14px;font-size:.9rem">Framework mapping helps you prepare for an audit. It does not replace an audit or certify your organisation.</p>
+
+<div class="card reveal" style="margin-top:clamp(48px,6vw,80px)">
+<div class="svc-head"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8 7.5 9.5 4.4-1.5 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg></span><h3>Compliance frameworks</h3></div>
+<p>Each finding is mapped to the controls it affects, so you can track readiness per framework and export evidence. More than 35 frameworks are available; which ones apply depends on the provider.</p>
+<ul class="chips"><li>CIS Benchmarks</li><li>NIST 800-53</li><li>NIST CSF</li><li>ISO 27001</li><li>PCI DSS</li><li>HIPAA</li><li>SOC 2 mapping</li><li>GDPR</li><li>NIS2</li><li>DORA</li><li>MITRE ATT&amp;CK</li><li>FedRAMP</li><li>AWS Foundational Security Best Practices</li><li>And more</li></ul>
+<p class="muted small" style="margin-top:14px">Framework mapping helps you prepare for an audit. It does not replace an audit or certify your organisation.</p>
 </div>
 </div>
 </section>
@@ -163,16 +152,16 @@
 <p class="lead">Ask Seeker AI questions about your own findings and get answers grounded in your scan results.</p>
 <ul class="check-list"><li>&ldquo;What are our riskiest internet-facing resources?&rdquo;</li><li>&ldquo;Which CIS controls are we failing in production?&rdquo;</li><li>&ldquo;Explain this finding and how to fix it.&rdquo;</li><li>Drafts remediation steps for engineers to review before they act</li></ul>
 </div>
-<div class="reveal"><figure class="mock" aria-label="Illustration of a conversation with the Seeker AI assistant">
-<div class="mock-bar"><i></i><i></i><i></i><span class="mock-title">Seeker AI</span></div>
-<div class="mock-body chat">
-<p class="bubble user">Which critical findings should we fix first in production?</p>
-<div class="bubble ai"><span class="who">Seeker AI</span>Three findings stand out because they combine internet exposure with access to data:
-<ol><li>A storage bucket that allows public reads</li><li>A security group open to the internet on SSH</li><li>A role with full admin rights and no MFA</li></ol></div>
-<p class="bubble user">Draft remediation steps for the first one.</p>
-<div class="chat-input">Ask about your posture&hellip;<i></i></div>
+<div class="reveal"><figure class="ui" style="margin:0" aria-label="Illustration of a conversation with the Seeker AI assistant">
+<div class="ui-bar"><i></i><i></i><i></i><span class="ui-title">seeker-ai / chat</span></div>
+<div class="ui-body" style="padding-bottom:34px">
+<div class="ai-msg me">Which critical findings should we fix first in production?</div>
+<div class="ai-msg"><span class="ai-who"><i></i>Seeker AI</span>Three findings stand out because they combine internet exposure with access to data:
+<ol style="margin:6px 0 0;padding-left:18px"><li>A storage bucket that allows public reads</li><li>A security group open to the internet on SSH</li><li>A role with full admin rights and no MFA</li></ol></div>
+<div class="ai-msg me">Draft remediation steps for the first one.</div>
+<div class="ai-msg"><span class="ai-who"><i></i>Seeker AI</span>Drafting<span class="typing"><i></i><i></i><i></i></span></div>
 </div>
-<figcaption class="mock-note">Illustrative example</figcaption>
+<figcaption class="ui-note">Illustrative example</figcaption>
 </figure></div>
 </div>
 </div>
@@ -186,32 +175,29 @@
 <h2 id="as-title">Find issues before they ship.</h2>
 <p class="lead">Scan what you build and what you deploy, and see the results next to your cloud findings.</p>
 </div>
-<div class="reveal"><figure class="mock" aria-label="Illustration of application security results grouped by scan type">
-<div class="mock-bar"><i></i><i></i><i></i><span class="mock-title">Application Security</span></div>
-<div class="mock-body">
-<table class="mock-table" style="margin-top:0">
-<thead><tr><th scope="col">Scan</th><th scope="col">Target</th><th scope="col">Top issue</th></tr></thead>
-<tbody>
-<tr><td>Dependencies</td><td>example-api</td><td><span class="sev c">Critical</span></td></tr>
-<tr><td>Static code</td><td>example-web</td><td><span class="sev h">High</span></td></tr>
-<tr><td>Container image</td><td>example-image</td><td><span class="sev h">High</span></td></tr>
-<tr><td>Infrastructure as Code</td><td>example-infra</td><td><span class="sev m">Medium</span></td></tr>
-<tr><td>Secrets</td><td>example-repo</td><td><span class="sev c">Critical</span></td></tr>
-</tbody>
-</table>
-<div class="formats"><span>SBOM export</span><span>Kubernetes</span></div>
+<div class="reveal"><figure class="ui" style="margin:0" aria-label="Illustration of application security results grouped by scan type">
+<div class="ui-bar"><i></i><i></i><i></i><span class="ui-title">application-security / results</span></div>
+<div class="ui-body" style="padding-bottom:34px">
+<ul class="findings">
+<li><span class="what"><span class="prov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></span>Dependencies</span><span class="res">example-api</span><span class="sev c">Critical</span></li>
+<li><span class="what"><span class="prov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></svg></span>Static code</span><span class="res">example-web</span><span class="sev h">High</span></li>
+<li><span class="what"><span class="prov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg></span>Container image</span><span class="res">example-image</span><span class="sev h">High</span></li>
+<li><span class="what"><span class="prov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 4c-2 0-3 1-3 3v2.5c0 1.2-.8 2-2 2.5 1.2.5 2 1.3 2 2.5V17c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2.5c0 1.2.8 2 2 2.5-1.2.5-2 1.3-2 2.5V17c0 2-1 3-3 3"/></svg></span>Infrastructure as Code</span><span class="res">example-infra</span><span class="sev m">Medium</span></li>
+<li><span class="what"><span class="prov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3M14 9l2 2"/></svg></span>Secrets</span><span class="res">example-repo</span><span class="sev c">Critical</span></li>
+</ul>
+<div class="formats" style="margin-top:12px"><span>SBOM export</span><span>Kubernetes</span></div>
 </div>
-<figcaption class="mock-note">Illustrative sample data</figcaption>
+<figcaption class="ui-note">Illustrative sample data</figcaption>
 </figure></div>
 </div>
-<div class="cards" style="margin-top:48px">
-<article class="card reveal"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></span><h3>Open-source dependencies</h3><p>Software composition analysis flags known vulnerabilities in the packages your applications depend on.</p></article>
-<article class="card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></svg></span><h3>Static code analysis</h3><p>Finds insecure patterns in source code, such as injection risks and unsafe functions.</p></article>
-<article class="card reveal"><span class="icon-tile tile-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg></span><h3>Container images</h3><p>Checks images for vulnerable operating-system packages and libraries.</p></article>
-<article class="card reveal"><span class="icon-tile tile-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01M8 16.5h.01"/></svg></span><h3>Infrastructure as Code</h3><p>Catches misconfigurations in templates before they reach your cloud.</p></article>
-<article class="card reveal"><span class="icon-tile tile-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3M14 9l2 2"/></svg></span><h3>Secrets</h3><p>Detects credentials and tokens committed to code or baked into images.</p></article>
-<article class="card reveal"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg></span><h3>SBOM</h3><p>Produce a software bill of materials so you know exactly what you ship.</p></article>
-<article class="card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3.5v6M12 14.5v6M3.5 12h6M14.5 12h6M6 6l4.2 4.2M13.8 13.8 18 18M18 6l-4.2 4.2M10.2 13.8 6 18"/></svg></span><h3>Kubernetes</h3><p>Reviews cluster configuration and workloads for risky settings.</p></article>
+<div class="cards" style="margin-top:clamp(40px,5vw,64px)">
+<article class="card glow-card reveal"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></span><h3>Open-source dependencies</h3><p>Software composition analysis flags known vulnerabilities in the packages your applications depend on.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></svg></span><h3>Static code analysis</h3><p>Finds insecure patterns in source code, such as injection risks and unsafe functions.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg></span><h3>Container images</h3><p>Checks images for vulnerable operating-system packages and libraries.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 4c-2 0-3 1-3 3v2.5c0 1.2-.8 2-2 2.5 1.2.5 2 1.3 2 2.5V17c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2.5c0 1.2.8 2 2 2.5-1.2.5-2 1.3-2 2.5V17c0 2-1 3-3 3"/></svg></span><h3>Infrastructure as Code</h3><p>Catches misconfigurations in templates before they reach your cloud.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3M14 9l2 2"/></svg></span><h3>Secrets</h3><p>Detects credentials and tokens committed to code or baked into images.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg></span><h3>SBOM</h3><p>Produce a software bill of materials so you know exactly what you ship.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4l8-4.6Z"/><circle cx="12" cy="12" r="3"/><path d="M12 5.5V9M12 15v3.5M6.4 8.8l3 1.7M14.6 13.5l3 1.7M17.6 8.8l-3 1.7M9.4 13.5l-3 1.7"/></svg></span><h3>Kubernetes</h3><p>Reviews cluster configuration and workloads for risky settings.</p></article>
 </div>
 </div>
 </section>
@@ -225,18 +211,16 @@
 <p class="lead">Express your rules as code and run them as dry runs. You see every resource a policy matches and what it would do, before anything is touched.</p>
 <ul class="check-list"><li>Dry runs report matches and intended actions without changing resources</li><li>Run policies on a schedule and track results over time</li><li>Include governance results in reports for owners and leadership</li></ul>
 </div>
-<div class="reveal"><figure class="mock" aria-label="Illustration of a governance policy dry run listing resources that would change">
-<div class="mock-bar"><i></i><i></i><i></i><span class="mock-title">Governance &middot; Dry run</span></div>
-<div class="mock-body">
-<pre class="diff"><span class="dim"># policy: stop-unencrypted-volumes (dry run)</span>
+<div class="reveal"><figure class="ui" style="margin:0" aria-label="Illustration of a governance policy dry run listing resources that would change">
+<div class="ui-bar"><i></i><i></i><i></i><span class="ui-title">governance / dry run</span></div>
+<div class="ui-body" style="padding-bottom:34px"><div class="mini" style="border-radius:12px"><pre class="code"><span class="dim"># policy: stop-unencrypted-volumes (dry run)</span>
 <span class="dim"># nothing below has been changed</span>
 <span class="del">- example-volume-01   encrypted: false</span>
 <span class="del">- example-volume-02   encrypted: false</span>
 <span class="add">+ would tag           owner-review: required</span>
 <span class="add">+ would notify        #cloud-security</span>
-<span class="dim">2 resources matched &middot; 0 modified</span></pre>
-</div>
-<figcaption class="mock-note">Illustrative example</figcaption>
+<span class="dim">2 resources matched &middot; 0 modified</span></pre></div></div>
+<figcaption class="ui-note">Illustrative example</figcaption>
 </figure></div>
 </div>
 </div>
@@ -248,20 +232,18 @@
 <div>
 <span class="eyebrow">Reports</span>
 <h2 id="rep-title">The right report for every reader.</h2>
-<p class="lead">Turn findings into reports for leadership, auditors and engineers.</p>
+<p class="lead">Turn findings into reports for leadership, auditors and engineers. Nine report types are available.</p>
 <ul class="check-list"><li>Executive summary, cloud posture and compliance reports</li><li>Dependency, static code, container, IaC, secrets and governance reports</li><li>Branded PDF, Excel and CSV output</li><li>Scheduled delivery by email</li><li>Secure share links that expire</li></ul>
 </div>
-<div class="reveal"><figure class="mock" aria-label="Illustration of a branded executive summary report and its export formats">
-<div class="mock-bar"><i></i><i></i><i></i><span class="mock-title">Reports &middot; Executive summary</span></div>
-<div class="mock-body">
-<div class="report-page">
-<div class="rp-head"><span>Executive summary</span><span style="color:#1557c7">Your logo</span></div>
-<div class="rp-cols"><div><b>76</b>Posture score</div><div><b>7</b>Critical</div><div><b>82%</b>CIS pass rate</div></div>
-<div class="rp-line" style="width:92%"></div><div class="rp-line" style="width:80%"></div><div class="rp-line" style="width:86%"></div><div class="rp-line" style="width:60%"></div>
-</div>
+<div class="reveal"><figure class="ui" style="margin:0" aria-label="Illustration of a branded executive summary report and its export formats">
+<div class="ui-bar"><i></i><i></i><i></i><span class="ui-title">reports / executive summary</span></div>
+<div class="ui-body" style="padding-bottom:34px">
+<div class="report-thumb">
+<div class="paper"><div class="ph"><span>Executive summary</span><span>Your logo</span></div><div class="pk"><div><b>76</b>Posture</div><div><b>7</b>Critical</div><div><b>82%</b>CIS</div></div><i style="width:92%"></i><i style="width:80%"></i><i style="width:86%"></i><i style="width:60%"></i></div>
 <div class="formats"><span>PDF</span><span>Excel</span><span>CSV</span><span>Scheduled email</span><span>Expiring link</span></div>
 </div>
-<figcaption class="mock-note">Illustrative sample data</figcaption>
+</div>
+<figcaption class="ui-note">Illustrative sample data</figcaption>
 </figure></div>
 </div>
 </div>
@@ -274,10 +256,10 @@
 <h2 id="ops-title">Fits the way your team already works.</h2>
 </div>
 <div class="cards">
-<article class="card reveal"><span class="icon-tile tile-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg></span><h3>Alerts</h3><p>Get notified by email or Slack when new findings match the rules you set.</p></article>
-<article class="card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><h3>Schedules and profiles</h3><p>Schedule scans and use scan profiles to control which checks run where.</p></article>
-<article class="card reveal"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3v5M15 3v5M6.5 8h11v3a5.5 5.5 0 0 1-11 0V8ZM12 16.5V21"/></svg></span><h3>Integrations</h3><p>Send findings to Amazon S3, AWS Security Hub, Jira and Slack.</p></article>
-<article class="card reveal"><span class="icon-tile tile-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16.5 14.6c2.5.2 4 1.8 4.5 4.4"/></svg></span><h3>Teams and roles</h3><p>Invite your team and control who can see and change what with role-based access and single sign-on.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg></span><h3>Alerts</h3><p>Get notified by email or Slack when new findings match the rules you set.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><h3>Schedules and profiles</h3><p>Schedule scans and use scan profiles to control which checks run where.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3v5M15 3v5M6.5 8h11v3a5.5 5.5 0 0 1-11 0V8ZM12 16.5V21"/></svg></span><h3>Integrations</h3><p>Send findings to Amazon S3, AWS Security Hub, Jira and Slack.</p></article>
+<article class="card glow-card reveal"><span class="icon-tile tile-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16.5 14.6c2.5.2 4 1.8 4.5 4.4"/></svg></span><h3>Teams and roles</h3><p>Invite your team and control who can see and change what with role-based access and single sign-on.</p></article>
 </div>
 </div>
 </section>
@@ -289,12 +271,13 @@
 <h2 id="dep-title">Run it our way or yours.</h2>
 </div>
 <div class="cards two">
-<div class="card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 18h10.5a4.5 4.5 0 0 0 .6-8.96A6 6 0 0 0 6.3 10.1 4 4 0 0 0 7 18Z"/></svg></span><h3>Software as a service</h3><p>We run and update the platform. You connect your accounts with read-only access and start scanning.</p></div>
-<div class="card reveal"><span class="icon-tile tile-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01M8 16.5h.01"/></svg></span><h3>In your own AWS account</h3><p>Deploy the platform inside your own AWS account so scan data stays in your environment. Available on request.</p></div>
+<div class="card glow-card reveal"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 18h10.5a4.5 4.5 0 0 0 .6-8.96A6 6 0 0 0 6.3 10.1 4 4 0 0 0 7 18Z"/></svg></span><h3>Software as a service</h3><p>We run and update the platform. You connect your accounts with read-only access and start scanning.</p></div>
+<div class="card glow-card reveal"><span class="icon-tile tile-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01M8 16.5h.01"/></svg></span><h3>In your own AWS account</h3><p>Deploy the platform inside your own AWS account so scan data stays in your environment. Available on request.</p></div>
 </div>
 </div>
 </section>
-<section class="section" aria-labelledby="cta-title">
+
+<section class="section" aria-labelledby="cta-title" style="padding-top:0">
 <div class="container">
 <div class="cta-band reveal">
 <div>
@@ -312,7 +295,7 @@
 <footer class="site-footer">
 <div class="container">
 <div class="footer-grid">
-<div>
+<div class="footer-brand">
 <a class="brand" href="index.html" aria-label="Cloudsneeker home"><svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
 <defs><linearGradient id="fmc" x1="8" y1="18" x2="56" y2="47" gradientUnits="userSpaceOnUse"><stop stop-color="#5BA3FF"/><stop offset=".52" stop-color="#2583FF"/><stop offset="1" stop-color="#0D9488"/></linearGradient>
 <linearGradient id="fms" x1="23" y1="37" x2="43" y2="58" gradientUnits="userSpaceOnUse"><stop stop-color="#2DD4BF"/><stop offset=".5" stop-color="#2583FF"/><stop offset="1" stop-color="#1A6AE6"/></linearGradient></defs>
@@ -323,23 +306,35 @@
 <path d="m32 34 11 4v8.2c0 6.4-4.5 10.5-11 13.8-6.5-3.3-11-7.4-11-13.8V38l11-4Z" fill="url(#fms)" stroke="#C5DCFF" stroke-width="1.5" stroke-linejoin="round"/>
 <path d="M27 47.5h10M29 44.5h6l2 3-2 3h-6l-2-3 2-3Z" fill="none" stroke="#D9FCFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg><span>Cloud<span class="brand-accent">sneeker</span></span></a>
-<p class="muted" style="margin-top:14px;max-width:36ch">Cloud security posture, continuously. A platform and a team that help you see more, find risk and stay ahead.</p>
+<p>Cloud security posture, continuously. A platform and a team that help you see more, find risk and stay ahead.</p>
+<p class="footer-tag" aria-hidden="true"><span>See more</span><span>/</span><span>Find risk</span><span>/</span><span>Stay ahead</span></p>
 </div>
 <div>
 <h2>Platform</h2>
 <ul>
 <li><a href="platform.html#cloud-security">Cloud Security</a></li>
+<li><a href="platform.html#attack-paths">Attack Paths</a></li>
+<li><a href="platform.html#seeker-ai">Seeker AI</a></li>
 <li><a href="platform.html#application-security">Application Security</a></li>
 <li><a href="platform.html#governance">Cloud Governance</a></li>
 <li><a href="platform.html#reports">Reports</a></li>
-<li><a href="pricing.html">Pricing</a></li>
+</ul>
+</div>
+<div>
+<h2>Services</h2>
+<ul>
+<li><a href="services.html#assessment">Security assessment</a></li>
+<li><a href="services.html#compliance">Compliance readiness</a></li>
+<li><a href="services.html#appsec">Application security review</a></li>
+<li><a href="services.html#managed">Managed cloud security</a></li>
+<li><a href="services.html#architecture">Architecture advisory</a></li>
 </ul>
 </div>
 <div>
 <h2>Company</h2>
 <ul>
-<li><a href="services.html">Services</a></li>
 <li><a href="about.html">About</a></li>
+<li><a href="pricing.html">Pricing</a></li>
 <li><a href="security.html">Security</a></li>
 <li><a href="contact.html">Contact</a></li>
 </ul>
@@ -354,8 +349,8 @@
 </div>
 </div>
 <div class="footer-bottom">
-<p style="margin:0">&copy; <span data-year>2026</span> <span class="placeholder">[Company legal name]</span>. All rights reserved.</p>
-<p style="margin:0">Cloudsneeker is a product of <span class="placeholder">[Company legal name]</span>.</p>
+<p>&copy; <span data-year>2026</span> <span class="placeholder">[Company legal name]</span>. All rights reserved.</p>
+<p>Cloudsneeker is a product of <span class="placeholder">[Company legal name]</span>.</p>
 </div>
 </div>
 </footer>
