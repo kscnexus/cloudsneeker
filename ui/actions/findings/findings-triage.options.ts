@@ -1,3 +1,4 @@
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { isCloud } from "@/lib/shared/env";
 import {
   FINDING_TRIAGE_DISABLED_REASON,
@@ -10,7 +11,8 @@ interface FindingTriageAdapterOptions {
 }
 
 export function getFindingTriageAdapterOptions(): FindingTriageAdapterOptions {
-  const isCloudEnvironment = isCloud();
+  const isCloudEnvironment =
+    isCloud() || isCloudsneekerFeatureEnabled("findingTriage"); // cloudsneeker-hook
 
   return {
     canEdit: isCloudEnvironment,

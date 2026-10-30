@@ -13,5 +13,7 @@ Read these pages in order when you are new to the repository:
 7. [Feature Verification](feature-verification.md) — unit tests, compatibility, and integration checks
 8. [Upstream Sync](upstream-sync.md) — how to add features and still merge Prowler
 9. [Upstream Hooks](upstream-hooks.md) — every Prowler file Cloudsneeker touches, the brand modules, and the build-time rebrand rules
+10. [Audit Log](audit-log.md) — what the user-action audit log records, how it is captured, and its API
+11. [Finding Triage](finding-triage.md) — triage status and notes per finding UID, the API, the UI hooks, and known gaps
 
 Agent rules for day-to-day coding stay in the root [`AGENTS.md`](../AGENTS.md) and in each component `AGENTS.md`. Cursor rules in [`.cursor/rules/`](../.cursor/rules/) enforce the upstream split on every session. Skills under [`skills/`](../skills/) hold the patterns those rules point to. Use this knowledge base for orientation, then open the matching skill before changing code.

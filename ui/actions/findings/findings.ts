@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { attachFindingTriageSummariesToResponse } from "@/actions/findings/findings-triage.adapter";
 import { getFindingTriageAdapterOptions } from "@/actions/findings/findings-triage.options";
+import { withCloudsneekerTriage } from "@/cloudsneeker/lib/finding-triage-server"; // cloudsneeker-hook
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { appendSanitizedProviderTypeFilters } from "@/lib/provider-filters";
 import { handleApiResponse } from "@/lib/server-actions-helper";
@@ -43,7 +44,9 @@ export const getFindings = async ({
     const findings = await fetch(url.toString(), {
       headers,
     });
-    const response = await handleApiResponse(findings);
+    const response = await withCloudsneekerTriage(
+      await handleApiResponse(findings),
+    ); // cloudsneeker-hook
 
     return withFindingTriageSummaries(response);
   } catch (error) {
@@ -80,7 +83,9 @@ export const getLatestFindings = async ({
     const findings = await fetch(url.toString(), {
       headers,
     });
-    const response = await handleApiResponse(findings);
+    const response = await withCloudsneekerTriage(
+      await handleApiResponse(findings),
+    ); // cloudsneeker-hook
 
     return withFindingTriageSummaries(response);
   } catch (error) {
@@ -174,7 +179,7 @@ export const getFindingById = async (
       headers,
     });
 
-    return handleApiResponse(response);
+    return withCloudsneekerTriage(await handleApiResponse(response)); // cloudsneeker-hook
   } catch (error) {
     console.error("Error fetching finding by ID:", error);
     return undefined;

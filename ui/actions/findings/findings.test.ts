@@ -73,8 +73,7 @@ describe("findings actions triage projection", () => {
         status: FINDING_TRIAGE_STATUS.UNDER_REVIEW,
         label: "Under Review",
         hasVisibleNote: true,
-        canEdit: false,
-        disabledReason: "cloud_only",
+        canEdit: true, // cloudsneeker-hook: findingTriage is on without UI_CLOUD_ENABLED
       }),
     );
     expect(result?.data[0].triage).not.toHaveProperty("triage_status");

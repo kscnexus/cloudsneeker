@@ -48,8 +48,8 @@ Status: **Have** (shipped and usable), **Partial** (exists with material gaps), 
 
 | Capability | Status | Evidence and gap |
 | --- | --- | --- |
-| User-action audit log | Missing | No audit model or middleware. Only `created_by` on some rows (`MuteRule`) and CloudWatch app logs. |
-| Audit export / SIEM stream of admin events | Missing | Nothing to export. |
+| User-action audit log | Have (pending deploy) | EB-007: `cloudsneeker_api.AuditEvent` (RLS) written by one middleware for every mutating `/api/v1` request plus sign-in success/failure; Settings → Organization → Audit log. See [`audit-log.md`](audit-log.md). |
+| Audit export / SIEM stream of admin events | Partial | CSV export of the audit log (`GET /audit-events/export`); no SIEM stream yet (EB-033). |
 | Infra audit | Partial | VPC flow logs (14 days), ALB access logs to S3, RDS Postgres logs (`platform.yaml`). CloudTrail is account-level and not managed by the stack (unverified). |
 
 ### Data Protection

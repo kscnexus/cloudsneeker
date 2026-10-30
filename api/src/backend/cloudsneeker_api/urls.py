@@ -10,6 +10,7 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 """
 
 from cloudsneeker_api.views import BrandView
+from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_reports import (
     ReportRunViewSet,
     ReportScheduleViewSet,
@@ -36,6 +37,7 @@ from cloudsneeker_api.views_slack import (
     SlackOAuthExchangeView,
 )
 from cloudsneeker_api.views_trivy import TrivyRunViewSet, TrivyTargetViewSet
+from cloudsneeker_api.views_triage import FindingTriageViewSet  # Finding triage (EB-010)
 from django.urls import include, path
 from rest_framework_nested import routers
 
@@ -68,6 +70,37 @@ router.register(
 router.register(
     r"report-share-links", ReportShareLinkViewSet, basename="report-share-links"
 )
+
+# --- Audit log (EB-007) ---
+router.register(r"audit-events", AuditEventViewSet, basename="audit-events")
+
+# --- Finding triage (EB-010) ---
+router.register(r"finding-triages", FindingTriageViewSet, basename="finding-triages")
+
+# Paths keyed by the finding UID that the inherited findings UI calls. ``path``
+# accepts UIDs with ``/`` (the UI URL-encodes them; Django decodes before
+# matching). Upstream ``findings/{pk}`` routes never match: their pk excludes
+# ``/`` and ``.``.
+finding_triage_urlpatterns = [
+    path(
+        "findings/<path:finding_uid>/triage/notes/<uuid:note_id>",
+        FindingTriageViewSet.as_view(
+            {"patch": "uid_note_detail", "delete": "uid_note_detail"}
+        ),
+        name="finding-uid-triage-note-detail",
+    ),
+    path(
+        "findings/<path:finding_uid>/triage/notes",
+        FindingTriageViewSet.as_view({"get": "uid_notes", "post": "uid_notes"}),
+        name="finding-uid-triage-notes",
+    ),
+    path(
+        "findings/<path:finding_uid>/triage",
+        FindingTriageViewSet.as_view({"get": "uid_retrieve", "patch": "uid_update"}),
+        name="finding-uid-triage",
+    ),
+]
+# --- End finding triage (EB-010) ---
 
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),
@@ -106,5 +139,6 @@ urlpatterns = [
         SharedReportView.as_view(),
         name="shared-report",
     ),
+    *finding_triage_urlpatterns,  # Finding triage (EB-010)
     path("", include(router.urls)),
 ]

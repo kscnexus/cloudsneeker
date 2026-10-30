@@ -189,3 +189,22 @@ def scheduled_report_task(tenant_id: str, schedule_id: str):
     from cloudsneeker_api.reports.schedule import run_scheduled_report
 
     return run_scheduled_report(tenant_id=tenant_id, schedule_id=schedule_id)
+
+
+# --- Audit log (EB-007) -------------------------------------------------------
+
+
+@shared_task(name="cloudsneeker-purge-audit-events", queue="celery")
+def purge_audit_events_task(older_than_days: int | None = None):
+    """Celery Beat entrypoint: delete audit events past the retention window.
+
+    The window is ``AUDIT_LOG_RETENTION_DAYS`` (default 365). Each tenant is
+    purged in its own RLS transaction.
+    """
+    from api.db_router import MainRouter
+    from api.models import Tenant
+    from cloudsneeker_api.audit import purge_all_tenants, retention_days
+
+    days = older_than_days or retention_days()
+    tenant_ids = Tenant.objects.using(MainRouter.admin_db).values_list("id", flat=True)
+    return {"deleted": purge_all_tenants(tenant_ids, days), "retention_days": days}

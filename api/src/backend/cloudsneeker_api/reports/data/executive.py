@@ -25,6 +25,7 @@ from cloudsneeker_api.reports.data.common import (
 )
 from cloudsneeker_api.reports.data.compliance import compliance_scan_ids
 from cloudsneeker_api.reports.schema import ReportData, ReportFilters, ReportTable
+from cloudsneeker_api.services.finding_triage import triage_counts
 from django.utils import timezone
 
 APPSEC_SCOPE = ScanScope(
@@ -313,6 +314,15 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
         "sources_in_scope": sources_count,
         "governance_matched_resources": governance_data.kpis.get("matched_resources", 0),
     }
+    triage = finding_triage_summary(tenant_id, all_ids, filters)
+    data.kpis.update(
+        {
+            "triage_in_progress": triage["in_progress"],
+            "triage_resolved": triage["resolved"],
+            "triage_false_positive": triage["false_positive"],
+        }
+    )
+    data.extra["triage"] = triage
     data.headline = executive_headline(
         data.grade,
         data.score,
@@ -360,6 +370,41 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
         ),
     ]
     return data
+
+
+def finding_triage_summary(
+    tenant_id: str, scan_ids: list, filters: ReportFilters
+) -> dict[str, Any]:
+    """Triage counts for the findings in scope.
+
+    Counts triage rows whose finding UID appears in the in-scope scans.
+    ``in_progress`` adds ``under_review`` and ``remediating``. Open-issue
+    counts and the score are unchanged: false positives still count as open
+    until they are muted (follow-up in ``knowledge-base/finding-triage.md``).
+
+    Args:
+        tenant_id: Tenant UUID string.
+        scan_ids: In-scope scan ids.
+        filters: Report filters.
+
+    Returns:
+        ``{"by_status": {...}, "in_progress", "resolved", "false_positive",
+        "risk_accepted", "triaged"}``.
+    """
+    if not scan_ids:
+        counts = triage_counts(tenant_id, [])
+    else:
+        counts = triage_counts(
+            tenant_id, findings_for(tenant_id, scan_ids, filters).values("uid")
+        )
+    return {
+        "by_status": counts,
+        "in_progress": counts["under_review"] + counts["remediating"],
+        "resolved": counts["resolved"],
+        "false_positive": counts["false_positive"],
+        "risk_accepted": counts["risk_accepted"],
+        "triaged": sum(counts.values()) - counts["open"],
+    }
 
 
 def _domain_row(

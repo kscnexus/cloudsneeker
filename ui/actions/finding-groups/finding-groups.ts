@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import type { FindingsFilterParam } from "@/actions/findings/findings-filters";
+import { withCloudsneekerTriage } from "@/cloudsneeker/lib/finding-triage-server"; // cloudsneeker-hook
 import {
   apiBaseUrl,
   composeSort,
@@ -202,7 +203,7 @@ async function fetchFindingGroupResourcesEndpoint(
 
   try {
     const response = await fetch(url.toString(), { headers });
-    return handleApiResponse(response);
+    return withCloudsneekerTriage(await handleApiResponse(response)); // cloudsneeker-hook
   } catch (error) {
     console.error(`Error fetching ${endpointPrefix} resources:`, error);
     return undefined;

@@ -64,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "api.middleware.APILoggingMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "cloudsneeker_api.audit.AuditLogMiddleware",  # cloudsneeker-hook
 ]
 
 SITE_ID = 1

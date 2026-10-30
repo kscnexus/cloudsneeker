@@ -32,4 +32,9 @@ describe("CLOUDSNEEKER_FEATURES", () => {
     expect(CLOUDSNEEKER_FEATURES.reports).toBe(true);
     expect(isCloudsneekerFeatureEnabled("reports")).toBe(true);
   });
+
+  it("enables finding triage", () => {
+    expect(CLOUDSNEEKER_FEATURES.findingTriage).toBe(true);
+    expect(isCloudsneekerFeatureEnabled("findingTriage")).toBe(true);
+  });
 });

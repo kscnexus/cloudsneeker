@@ -155,7 +155,13 @@ describe("withCloudsneekerNavigation", () => {
       { label: null, items: ["Overview", BRAND.assistantName] },
       {
         label: NAVIGATION_SECTION_LABEL.CLOUD_SECURITY,
-        items: ["Findings", "Resources", "Attack Paths", "Compliance"],
+        items: [
+          "Findings",
+          "Triage",
+          "Resources",
+          "Attack Paths",
+          "Compliance",
+        ],
       },
       {
         label: NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
@@ -319,7 +325,35 @@ describe("withCloudsneekerNavigation", () => {
       expect.objectContaining({ label: "Users", href: "/users" }),
       expect.objectContaining({ label: "Invitations", href: "/invitations" }),
       expect.objectContaining({ label: "Roles", href: "/roles" }),
+      expect.objectContaining({
+        label: "Audit log",
+        href: "/settings/audit-log",
+        active: false,
+      }),
     ]);
+  });
+
+  it("adds the audit log under Organization and marks it active", () => {
+    const result = withCloudsneekerNavigation(
+      upstreamSections(),
+      "/settings/audit-log",
+    );
+
+    const children = childrenOf(result, "Organization");
+    expect(children.at(-1)).toMatchObject({
+      kind: NAVIGATION_ITEM_KIND.LINK,
+      label: "Audit log",
+      href: "/settings/audit-log",
+      active: true,
+    });
+    expect(
+      children.filter((entry) => entry.label === "Audit log"),
+    ).toHaveLength(1);
+    expect(
+      result.find(
+        (section) => section.label === NAVIGATION_SECTION_LABEL.SETTINGS,
+      )?.items.map((item) => item.label),
+    ).toEqual(["Configuration", "Organization"]);
   });
 
   it("removes HELP and does not mutate the upstream sections", () => {
@@ -362,6 +396,7 @@ describe("withCloudsneekerNavigation", () => {
 
     expect(itemLabels(NAVIGATION_SECTION_LABEL.CLOUD_SECURITY)).toEqual([
       "Findings",
+      "Triage",
       "Resources",
       "Attack Paths",
       "Compliance",
@@ -383,3 +418,35 @@ describe("withCloudsneekerNavigation", () => {
     expect(result[0]?.items.map((item) => item.label)).toEqual(["Overview"]);
   });
 });
+
+// --- Finding triage (EB-010) ---
+describe("withCloudsneekerNavigation finding triage", () => {
+  const triageLink = (sections: NavigationSection[]) =>
+    sections
+      .find(
+        (section) => section.label === NAVIGATION_SECTION_LABEL.CLOUD_SECURITY,
+      )
+      ?.items.find((item) => item.label === "Triage");
+
+  it("links the Triage page right after Findings", () => {
+    const item = triageLink(
+      withCloudsneekerNavigation(upstreamSections(), "/"),
+    );
+
+    expect(item).toMatchObject({
+      kind: NAVIGATION_ITEM_KIND.LINK,
+      href: "/triage",
+      active: false,
+    });
+  });
+
+  it("marks Triage active on its page only", () => {
+    expect(
+      triageLink(withCloudsneekerNavigation(upstreamSections(), "/triage")),
+    ).toMatchObject({ active: true });
+    expect(
+      triageLink(withCloudsneekerNavigation(upstreamSections(), "/findings")),
+    ).toMatchObject({ active: false });
+  });
+});
+// --- End finding triage (EB-010) ---

@@ -8,6 +8,7 @@
 import {
   Bell,
   Boxes,
+  ClipboardCheck,
   FileBarChart,
   type LucideIcon,
   Scale,
@@ -116,6 +117,13 @@ const PROFILE_CHILD: NavigationChildLink = {
   kind: NAVIGATION_ITEM_KIND.LINK,
   href: "/profile",
   label: "Profile",
+};
+
+/** Tenant audit log; the page itself checks the manage account permission. */
+const AUDIT_LOG_CHILD: NavigationChildLink = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: PRODUCT_ROUTE.AUDIT_LOG,
+  label: "Audit log",
 };
 
 interface UpstreamIndex {
@@ -229,6 +237,16 @@ export const withCloudsneekerNavigation = (
 
   const cloudSecurityItems = [
     takeLink("/findings"),
+    // --- Finding triage (EB-010) ---
+    isCloudsneekerFeatureEnabled("findingTriage")
+      ? productLink(
+          PRODUCT_ROUTE.FINDING_TRIAGE,
+          "Triage",
+          ClipboardCheck,
+          pathname,
+        )
+      : undefined,
+    // --- End finding triage (EB-010) ---
     takeLink("/resources"),
     takeLink("/attack-paths"),
     takeLink("/compliance"),
@@ -305,21 +323,34 @@ export const withCloudsneekerNavigation = (
       ? { ...upstream.configuration, children: configurationChildren }
       : undefined;
 
+  const withProductChild = (
+    children: NavigationChild[],
+    productChild: NavigationChildLink,
+    position: "start" | "end",
+  ): NavigationChild[] => {
+    if (children.some((entry) => entry.label === productChild.label)) {
+      return children;
+    }
+    const entry = {
+      ...productChild,
+      active: isRouteActive(pathname, productChild.href),
+    };
+    return position === "start" ? [entry, ...children] : [...children, entry];
+  };
+
   const organization: NavigationCollapsible | undefined =
     upstream.organization
       ? {
           ...upstream.organization,
-          children: upstream.organization.children.some(
-            (child) => child.label === PROFILE_CHILD.label,
-          )
-            ? upstream.organization.children
-            : [
-                {
-                  ...PROFILE_CHILD,
-                  active: isRouteActive(pathname, PROFILE_CHILD.href),
-                },
-                ...upstream.organization.children,
-              ],
+          children: withProductChild(
+            withProductChild(
+              upstream.organization.children,
+              PROFILE_CHILD,
+              "start",
+            ),
+            AUDIT_LOG_CHILD,
+            "end",
+          ),
         }
       : undefined;
 

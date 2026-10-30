@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  FINDING_TRIAGE_DISABLED_REASON,
-  FINDING_TRIAGE_STATUS,
-} from "@/types/findings-triage";
+import { FINDING_TRIAGE_STATUS } from "@/types/findings-triage"; // cloudsneeker-hook: CLOUD_ONLY expectation removed
 
 import {
   adaptFindingGroupResourcesResponse,
@@ -289,7 +286,8 @@ describe("adaptFindingGroupResourcesResponse — malformed input", () => {
     );
   });
 
-  it("should leave triage editing disabled until a real capability is provided", () => {
+  // cloudsneeker-hook: findingTriage enables editing without UI_CLOUD_ENABLED
+  it("should enable triage editing through the findingTriage feature", () => {
     // Given
     vi.stubEnv("UI_CLOUD_ENABLED", "false");
     const input = {
@@ -332,8 +330,7 @@ describe("adaptFindingGroupResourcesResponse — malformed input", () => {
     // Then
     expect(row.triage).toEqual(
       expect.objectContaining({
-        canEdit: false,
-        disabledReason: FINDING_TRIAGE_DISABLED_REASON.CLOUD_ONLY,
+        canEdit: true, // cloudsneeker-hook: findingTriage is on without UI_CLOUD_ENABLED
       }),
     );
   });

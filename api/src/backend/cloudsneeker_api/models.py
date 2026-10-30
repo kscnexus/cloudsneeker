@@ -755,3 +755,204 @@ class ReportShareLink(CloudsneekerRLSModel):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}report-share-links"
+
+
+# --- Audit log (EB-007) -------------------------------------------------------
+
+
+class AuditEvent(CloudsneekerRLSModel):
+    """One user action in a tenant, written by ``cloudsneeker_api.audit``.
+
+    Append-only: the API exposes no update or delete, and the retention task
+    is the only code that removes rows. ``metadata`` holds field names and
+    other non-secret context only, never submitted values.
+    """
+
+    class Outcome(models.TextChoices):
+        SUCCESS = "success", "Success"
+        FAILURE = "failure", "Failure"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    # Kept as a plain UUID plus an email snapshot so events outlive the user.
+    actor_id = models.UUIDField(null=True, blank=True)
+    actor_email = models.CharField(max_length=254, blank=True, default="")
+    action = models.CharField(max_length=100)
+    target_type = models.CharField(max_length=64, blank=True, default="")
+    target_id = models.CharField(max_length=255, blank=True, default="")
+    target_label = models.CharField(max_length=255, blank=True, default="")
+    outcome = models.CharField(
+        max_length=16, choices=Outcome.choices, default=Outcome.SUCCESS
+    )
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True, default="")
+    request_id = models.CharField(max_length=64, blank=True, default="")
+    method = models.CharField(max_length=10, blank=True, default="")
+    path = models.CharField(max_length=512, blank=True, default="")
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}audit_events"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "-inserted_at"],
+                name="cs_audit_tenant_ins_idx",
+            ),
+            models.Index(
+                fields=["tenant_id", "action"],
+                name="cs_audit_tenant_action_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}audit-events"
+
+
+# --- Finding triage (EB-010) --------------------------------------------------
+# Keyed by the stable finding UID so a status survives rescans (upstream
+# ``Finding`` rows are per scan). EB-019 (risk acceptance), EB-020 (ownership)
+# and EB-021 (SLA) extend ``FindingTriage``; keep new columns nullable.
+
+FINDING_TRIAGE_NOTE_MAX_LENGTH = 4000
+
+
+class FindingTriage(CloudsneekerRLSModel):
+    """Workflow state of one finding UID in a tenant."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        UNDER_REVIEW = "under_review", "Under review"
+        REMEDIATING = "remediating", "Remediating"
+        RESOLVED = "resolved", "Resolved"
+        # Reserved for EB-019 (expiry and approver); allowed now.
+        RISK_ACCEPTED = "risk_accepted", "Risk accepted"
+        FALSE_POSITIVE = "false_positive", "False positive"
+        REOPENED = "reopened", "Reopened"
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        BULK = "bulk", "Bulk"
+        # Reserved for EB-031 / EB-042 (ticket sync) and rescan automation.
+        INTEGRATION = "integration", "Integration"
+        AUTOMATION = "automation", "Automation"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    finding_uid = models.CharField(max_length=300)
+    status = models.CharField(
+        max_length=32, choices=Status.choices, default=Status.OPEN
+    )
+    status_changed_at = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(
+        max_length=32, choices=Source.choices, default=Source.MANUAL
+    )
+    # Denormalized from the latest finding with this UID, for filtering and
+    # provider visibility without joining the partitioned findings table.
+    check_id = models.CharField(max_length=100, blank=True, default="")
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_finding_triages",
+    )
+    # EB-020: owner of the finding.
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_assigned_finding_triages",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_updated_finding_triages",
+    )
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}finding_triages"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id", "finding_uid"),
+                name="unique_cs_finding_triage_uid_per_tenant",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "status"], name="cs_triage_tenant_status_idx"
+            ),
+            models.Index(
+                fields=["tenant_id", "check_id"], name="cs_triage_tenant_check_idx"
+            ),
+            models.Index(
+                fields=["tenant_id", "provider_id"],
+                name="cs_triage_tenant_provider_idx",
+            ),
+            models.Index(
+                fields=["tenant_id", "-updated_at"],
+                name="cs_triage_tenant_updated_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}finding-triages"
+
+
+class FindingTriageNote(CloudsneekerRLSModel):
+    """Plain-text note in a triage thread (newest first in the API)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    triage = models.ForeignKey(
+        FindingTriage, on_delete=models.CASCADE, related_name="notes"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_finding_triage_notes",
+    )
+    body = models.TextField(max_length=FINDING_TRIAGE_NOTE_MAX_LENGTH)
+    # Status the triage moved to when this note was written, if any.
+    status = models.CharField(max_length=32, blank=True, default="")
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}finding_triage_notes"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "triage_id", "-inserted_at"],
+                name="cs_triage_note_tenant_ins_idx",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}finding-triage-notes"
+
+
+# --- End finding triage (EB-010) ----------------------------------------------

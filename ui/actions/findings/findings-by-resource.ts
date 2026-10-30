@@ -4,6 +4,7 @@ import {
   getFindingGroupResources,
   getLatestFindingGroupResources,
 } from "@/actions/finding-groups";
+import { withCloudsneekerTriage } from "@/cloudsneeker/lib/finding-triage-server"; // cloudsneeker-hook
 import {
   apiBaseUrl,
   getAuthHeaders,
@@ -279,7 +280,7 @@ export const getLatestFindingsByResourceUid = async ({
       headers,
     });
 
-    return handleApiResponse(findings);
+    return withCloudsneekerTriage(await handleApiResponse(findings)); // cloudsneeker-hook
   } catch (error) {
     console.error("Error fetching findings by resource UID:", error);
     return undefined;
