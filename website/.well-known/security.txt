@@ -1,5 +1,4 @@
-# TODO: replace the contact, domain and expiry date before publishing.
-Contact: mailto:security@example.com
+Contact: mailto:info@kscnexus.com
 Expires: 2027-10-30T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://kscnexus.com/.well-known/security.txt
