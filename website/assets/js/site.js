@@ -228,4 +228,16 @@
       }
     });
   }
+
+  // Preselect the free audit topic when arriving from an audit link.
+  var interest = document.getElementById("interest");
+  if (interest) {
+    try {
+      if (new URLSearchParams(window.location.search).get("topic") === "audit") {
+        interest.value = "Free cloud security audit";
+      }
+    } catch (e) {
+      /* older browsers: leave the default topic */
+    }
+  }
 })();
