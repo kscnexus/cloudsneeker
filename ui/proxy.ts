@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextAuthRequest } from "next-auth";
 
 import { auth } from "@/auth.config";
+import { applyHsts } from "@/cloudsneeker/lib/hsts"; // cloudsneeker-hook
 import { getCspHeader } from "@/lib/csp";
 import {
   GATED_INTEGRATIONS,
@@ -55,7 +56,7 @@ const withSecurityHeaders = (response: NextResponse): NextResponse => {
       posthogToolbarEnabled: process.env.NODE_ENV === "development",
     }),
   );
-  return response;
+  return applyHsts(response); // cloudsneeker-hook: HSTS on HTTPS stacks (EB-015)
 };
 
 const redirect = (url: URL): NextResponse =>

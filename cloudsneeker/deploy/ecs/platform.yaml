@@ -1244,6 +1244,9 @@ Resources:
             # EB-002: accounts are created by invitation only.
             - Name: CLOUDSNEEKER_SELF_REGISTRATION_ENABLED
               Value: "false"
+            # EB-015: HSTS for a year, only when the stack serves HTTPS.
+            - Name: DJANGO_SECURE_HSTS_SECONDS
+              Value: !If [UseHttps, "31536000", "0"]
             - Name: DJANGO_TMP_OUTPUT_DIRECTORY
               Value: /tmp/prowler_api_output
             - Name: POSTGRES_HOST
@@ -1548,6 +1551,9 @@ Resources:
             # EB-002: hide sign-up; invitation links still work.
             - Name: CLOUDSNEEKER_SELF_REGISTRATION_ENABLED
               Value: "false"
+            # EB-015: HSTS for a year, only when the stack serves HTTPS.
+            - Name: CLOUDSNEEKER_HSTS_SECONDS
+              Value: !If [UseHttps, "31536000", "0"]
             - Name: PROWLER_MCP_SERVER_URL
               Value: http://mcp.cloudsneeker.local:8000/mcp
             - Name: NEXT_PUBLIC_PROWLER_RELEASE_VERSION
