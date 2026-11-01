@@ -1,6 +1,7 @@
 name: 'Cloudsneeker: Publish images'
-# Builds each service image in its own job and rolls only the services
-# that use that image. A push of main builds every image. A manual run
+# Builds each service image in its own job, scans it with Trivy, uploads
+# its SBOM, and rolls only the services that use that image. An image with
+# a fixable critical CVE is never pushed. A push of main builds every image. A manual run
 # can build one image. The stack keeps its current PlatformMode.
 
 on:
@@ -102,7 +103,9 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
-      - name: Build and push ${{ matrix.image }}
+      # Build into the local image store so the image is scanned before
+      # anything reaches the registry.
+      - name: Build ${{ matrix.image }}
         id: image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}/cloudsneeker
@@ -119,23 +122,59 @@ jobs:
               docker buildx build --builder default --load -t "$image" \
                 --build-arg "BASE_IMAGE=cloudsneeker/api-base:${tag}" \
                 -f cloudsneeker/deploy/docker/api.Dockerfile build
-              docker push "$image"
               ;;
             ui)
-              docker buildx build --push -t "$image" --target prod \
+              docker buildx build --load -t "$image" --target prod \
                 --build-arg "NEXT_PUBLIC_PROWLER_RELEASE_VERSION=${tag}" build/tree/ui
               ;;
             mcp)
-              docker buildx build --push -t "$image" build/tree/mcp_server
+              docker buildx build --load -t "$image" build/tree/mcp_server
               ;;
             neo4j)
               docker pull "$NEO4J_IMAGE"
               docker tag "$NEO4J_IMAGE" "$image"
-              docker push "$image"
               ;;
           esac
+          # A short local name keeps the scan report artifact name valid.
+          docker tag "$image" "cloudsneeker-${IMAGE_NAME}:${tag}"
+          echo "scan_name=cloudsneeker-${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
           echo "uri=${image}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      # Fails on critical CVEs that have a fix. Accepted findings go in
+      # .trivyignore.yaml with a reason. The pinned third-party graph
+      # database image is reported but does not gate: it is only updated
+      # by bumping NEO4J_IMAGE.
+      - name: Scan ${{ matrix.image }} for vulnerabilities
+        uses: ./.github/actions/trivy-scan
+        with:
+          image-name: ${{ steps.image.outputs.scan_name }}
+          image-tag: ${{ steps.image.outputs.tag }}
+          severity: CRITICAL,HIGH
+          fail-on-severity: ${{ matrix.image == 'neo4j' && 'none' || 'critical' }}
+          upload-sarif: 'false'
+          create-pr-comment: 'false'
+
+      - name: Generate SBOM for ${{ matrix.image }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.uri }}
+          format: cyclonedx
+          output: sbom-${{ matrix.image }}.cdx.json
+          scan-type: image
+          version: 'v0.74.0'
+
+      - name: Upload SBOM for ${{ matrix.image }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.image }}-${{ steps.image.outputs.tag }}
+          path: sbom-${{ matrix.image }}.cdx.json
+          retention-days: 7
+
+      - name: Push ${{ matrix.image }}
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        run: docker push "$IMAGE_URI"
 
       - name: Deploy ${{ matrix.image }}
         env:
