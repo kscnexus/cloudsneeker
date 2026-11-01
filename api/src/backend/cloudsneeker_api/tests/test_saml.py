@@ -137,9 +137,14 @@ class TestAdapter:
             "cloudsneeker_api.saml.CloudsneekerSocialAccountAdapter"
         )
 
-    def test_metadata_advertises_signing(self, client, saml_setup, sp_keys):
+    def test_metadata_advertises_signing(self, client, saml_setup, sp_keys, settings):
+        # python3-saml refuses single-label hosts such as "testserver".
+        settings.ALLOWED_HOSTS = ["app.example.com"]
         response = client.get(
-            reverse("saml_metadata", kwargs={"organization_slug": saml_setup["domain"]})
+            reverse(
+                "saml_metadata", kwargs={"organization_slug": saml_setup["domain"]}
+            ),
+            HTTP_HOST="app.example.com",
         )
         assert response.status_code == status.HTTP_200_OK
         body = response.content.decode()
