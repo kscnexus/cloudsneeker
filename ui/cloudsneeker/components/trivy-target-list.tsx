@@ -2,7 +2,10 @@ import { ScanSearch } from "lucide-react";
 import Link from "next/link";
 
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
-import { CARD_LIST_CLASS, FOCUS_RING_CLASS } from "@/cloudsneeker/lib/ui-classes";
+import {
+  CARD_LIST_CLASS,
+  FOCUS_RING_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
 import { Badge, Button } from "@/components/shadcn";
@@ -20,7 +23,7 @@ export const TrivyTargetList = ({ targets }: TrivyTargetListProps) => {
       <EmptyState
         icon={<ScanSearch />}
         title="No targets yet"
-        description="Add an Infrastructure as Code, container image, code archive, dependency, source code, SBOM, or Kubernetes target. Results land in Findings next to your cloud security results."
+        description="Add a code repository, Infrastructure as Code, container image, code archive, source code, SBOM, or Kubernetes target. Results land in Findings next to your cloud security results."
         action={
           <Button asChild size="sm">
             <Link href={appSecurityHref("new")}>Create a target</Link>

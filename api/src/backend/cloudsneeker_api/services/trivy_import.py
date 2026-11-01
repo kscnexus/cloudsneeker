@@ -421,6 +421,40 @@ def trivy_results_to_finding_rows(
                 }
             )
 
+        for license_ in result.get("Licenses") or []:
+            if not isinstance(license_, dict):
+                continue
+            name = str(license_.get("Name") or "unknown")
+            pkg = str(license_.get("PkgName") or license_.get("FilePath") or target)
+            category = str(license_.get("Category") or "unknown")
+            severity = _normalize_severity(license_.get("Severity"))
+            title = f"{pkg} uses the {name} license ({category})"
+            uid = f"trivy-{mode}-license-{name}-{pkg}-{target}"[:300]
+            rows.append(
+                {
+                    "uid": uid,
+                    "status": "FAIL",
+                    "status_extended": title[:5000],
+                    "severity": severity,
+                    "impact": severity,
+                    "check_id": f"license-{name}"[:100],
+                    "check_metadata": {
+                        "CheckTitle": title[:256],
+                        "Description": str(license_.get("Link") or title)[:2000],
+                        "Severity": severity,
+                        "Provider": "trivy",
+                        "ServiceName": "license",
+                        "ResourceType": resource_type[:100],
+                    },
+                    "raw_result": license_,
+                    "resource_regions": ["global"],
+                    "resource_services": ["license"],
+                    "resource_types": [resource_type[:100]],
+                    "resource_uid": f"{target}:{pkg}"[:300],
+                    "resource_name": pkg[:300] or target[:300],
+                }
+            )
+
     return rows
 
 

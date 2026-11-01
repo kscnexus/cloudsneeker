@@ -11,6 +11,7 @@ import pytest
 from cloudsneeker_api.models import JSON_API_TYPE_PREFIX, TrivyRun, TrivyTarget
 from cloudsneeker_api.services.trivy import (
     MODE_PROVIDER_TYPES,
+    MODE_SCANNERS,
     PROWLER_SCAN_MODES,
     TRIVY_MODES,
     TrivyHubError,
@@ -21,6 +22,7 @@ from cloudsneeker_api.services.trivy import (
     enqueue_trivy_run,
     is_valid_trivy_mode,
     normalize_repository_url,
+    normalize_scanners,
     run_trivy_cli,
     scrub_secrets,
     validate_target_config,
@@ -136,6 +138,64 @@ class TestValidateTargetConfig:
         cfg = validate_target_config("iac", {})
         assert cfg["scanners"] == ["vuln", "misconfig", "secret"]
 
+    def test_repo_defaults_to_every_repository_scanner(self):
+        cfg = validate_target_config(
+            "repo", {"repository_url": "https://github.com/acme/app"}
+        )
+        assert cfg["scanners"] == ["vuln", "misconfig", "secret", "license"]
+
+    @pytest.mark.parametrize(
+        "mode, default",
+        [
+            ("iac", ["vuln", "misconfig", "secret"]),
+            ("image", ["vuln", "misconfig", "secret"]),
+            ("fs", ["vuln", "misconfig", "secret", "license"]),
+            ("repo", ["vuln", "misconfig", "secret", "license"]),
+            ("sbom", ["vuln"]),
+            ("k8s", ["vuln", "misconfig", "secret"]),
+        ],
+    )
+    def test_mode_defaults_are_supported(self, mode, default):
+        assert normalize_scanners(mode, None) == default
+        assert set(default) <= set(MODE_SCANNERS[mode])
+
+    def test_scanners_are_deduplicated_and_ordered(self):
+        assert normalize_scanners("repo", [" License", "secret", "vuln", "secret"]) == [
+            "vuln",
+            "secret",
+            "license",
+        ]
+
+    @pytest.mark.parametrize(
+        "mode, scanners",
+        [
+            ("sbom", ["misconfig"]),
+            ("repo", ["rbac"]),
+            ("k8s", ["license"]),
+            ("fs", ["bogus"]),
+        ],
+    )
+    def test_rejects_scanners_the_mode_does_not_support(self, mode, scanners):
+        with pytest.raises(TrivyHubError, match="does not support scanner"):
+            normalize_scanners(mode, scanners)
+
+    def test_rejects_empty_scanner_list(self):
+        with pytest.raises(TrivyHubError, match="at least one scanner"):
+            normalize_scanners("repo", [])
+
+    def test_lenient_drops_unsupported_scanners_for_saved_targets(self):
+        assert normalize_scanners("sbom", ["vuln", "misconfig"], strict=False) == [
+            "vuln"
+        ]
+        assert normalize_scanners("sbom", ["secret"], strict=False) == ["vuln"]
+        cfg = validate_target_config(
+            "sbom", {"sbom": "{}", "scanners": ["misconfig"]}, strict=False
+        )
+        assert cfg["scanners"] == ["vuln"]
+
+    def test_sast_has_no_scanners(self):
+        assert normalize_scanners("sast", ["vuln"]) == []
+
     def test_repo_ok(self):
         cfg = validate_target_config(
             "repo", {"repository_url": "https://github.com/acme/app"}
@@ -239,6 +299,31 @@ class TestTrivyImportMapping:
         assert rows[1]["check_id"] == "AVD-1"
         assert rows[1]["severity"] == "critical"
         assert rows[2]["check_id"] == "aws-key"
+
+    def test_maps_licenses(self):
+        report = {
+            "Results": [
+                {
+                    "Target": "go.mod",
+                    "Class": "license",
+                    "Licenses": [
+                        {
+                            "Severity": "HIGH",
+                            "Category": "restricted",
+                            "PkgName": "github.com/acme/lib",
+                            "Name": "GPL-3.0",
+                            "Link": "https://spdx.org/licenses/GPL-3.0.html",
+                        }
+                    ],
+                }
+            ]
+        }
+        rows = trivy_results_to_finding_rows(report, mode="repo")
+        assert len(rows) == 1
+        assert rows[0]["check_id"] == "license-GPL-3.0"
+        assert rows[0]["severity"] == "high"
+        assert rows[0]["resource_services"] == ["license"]
+        assert "GPL-3.0" in rows[0]["check_metadata"]["CheckTitle"]
 
 
 class TestBuildTrivyCommand:

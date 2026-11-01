@@ -10,7 +10,11 @@ import {
   trivyTargetFormSchema,
 } from "@/cloudsneeker/lib/trivy-form-schema";
 import {
+  defaultScannersForMode,
+  labelForProviderType,
   SAST_RULESET_OPTIONS,
+  scannersForMode,
+  scannersForModeFrom,
   TRIVY_MODE_OPTIONS,
 } from "@/cloudsneeker/lib/trivy-modes";
 import { TRIVY_MODE } from "@/cloudsneeker/types/trivy";
@@ -32,12 +36,113 @@ describe("trivyTargetFormSchema", () => {
       mode: TRIVY_MODE.SBOM,
       providerId: "11111111-1111-4111-8111-111111111111",
       sbom: '{"bomFormat":"CycloneDX"}',
-      scanners: "vuln",
+      scanners: ["vuln"],
     });
     expect(buildTrivyConfig(values)).toEqual({
       scanners: ["vuln"],
       sbom: '{"bomFormat":"CycloneDX"}',
     });
+  });
+});
+
+describe("repository targets", () => {
+  const repo = {
+    name: "app-repo",
+    mode: TRIVY_MODE.REPO,
+    providerId: "11111111-1111-4111-8111-111111111111",
+    repositoryUrl: "https://github.com/acme/app",
+  };
+
+  it("is the first mode and is labelled as a full code repository", () => {
+    expect(TRIVY_MODE_OPTIONS[0]).toMatchObject({
+      value: TRIVY_MODE.REPO,
+      label: "Code repository",
+      providerTypes: ["iac"],
+    });
+    expect(labelForProviderType("iac")).toBe("Code repository");
+  });
+
+  it("runs every repository scanner by default, IaC included", () => {
+    expect(buildTrivyConfig(trivyTargetFormSchema.parse(repo))).toEqual({
+      scanners: ["vuln", "misconfig", "secret", "license"],
+      repository_url: "https://github.com/acme/app",
+    });
+  });
+
+  it("saves only the selected scan types in canonical order", () => {
+    const values = trivyTargetFormSchema.parse({
+      ...repo,
+      scanners: ["license", "vuln"],
+    });
+    expect(buildTrivyConfig(values).scanners).toEqual(["vuln", "license"]);
+  });
+});
+
+describe("scan types per mode", () => {
+  const providerId = "11111111-1111-4111-8111-111111111111";
+
+  it.each([
+    [TRIVY_MODE.REPO, ["vuln", "misconfig", "secret", "license"]],
+    [TRIVY_MODE.FS, ["vuln", "misconfig", "secret", "license"]],
+    [TRIVY_MODE.SBOM, ["vuln", "license"]],
+    [TRIVY_MODE.K8S, ["vuln", "misconfig", "secret", "rbac"]],
+    [TRIVY_MODE.IAC, ["vuln", "misconfig", "secret"]],
+    [TRIVY_MODE.IMAGE, ["vuln", "misconfig", "secret"]],
+    [TRIVY_MODE.SAST, []],
+  ] as const)("%s supports %j", (mode, scanners) => {
+    expect(scannersForMode(mode)).toEqual(scanners);
+    for (const name of defaultScannersForMode(mode)) {
+      expect(scanners).toContain(name);
+    }
+  });
+
+  it("rejects scan types the mode does not support", () => {
+    const result = trivyTargetFormSchema.safeParse({
+      name: "sbom-scan",
+      mode: TRIVY_MODE.SBOM,
+      providerId,
+      sbom: "{}",
+      scanners: ["vuln", "secret"],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ["scanners"],
+      message: "This mode does not support: Secrets.",
+    });
+  });
+
+  it("requires at least one scan type", () => {
+    const result = trivyTargetFormSchema.safeParse({
+      name: "k8s-scan",
+      mode: TRIVY_MODE.K8S,
+      providerId,
+      scanners: [],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["scanners"]);
+  });
+
+  it("always saves the full set for provider-scan modes", () => {
+    const values = trivyTargetFormSchema.parse({
+      name: "iac-scan",
+      mode: TRIVY_MODE.IAC,
+      providerId,
+      scanners: ["vuln"],
+    });
+    expect(buildTrivyConfig(values)).toEqual({
+      scanners: ["vuln", "misconfig", "secret"],
+    });
+  });
+
+  it("drops scanners saved before each mode had its own list", () => {
+    expect(
+      scannersForModeFrom(TRIVY_MODE.SBOM, ["vuln", "misconfig", "secret"]),
+    ).toEqual(["vuln"]);
+    expect(scannersForModeFrom(TRIVY_MODE.SBOM, ["secret"])).toEqual(["vuln"]);
+    expect(scannersForModeFrom(TRIVY_MODE.K8S, ["rbac", "vuln"])).toEqual([
+      "vuln",
+      "rbac",
+    ]);
   });
 });
 

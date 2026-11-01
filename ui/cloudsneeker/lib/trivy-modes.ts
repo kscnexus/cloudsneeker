@@ -1,15 +1,24 @@
 import {
   SAST_RULESET,
   TRIVY_MODE,
+  TRIVY_SCANNER,
   type TrivyMode,
+  type TrivyScanner,
 } from "@/cloudsneeker/types/trivy";
 
 export const TRIVY_MODE_OPTIONS = [
   {
-    value: TRIVY_MODE.IAC,
-    label: "Infrastructure as Code",
+    value: TRIVY_MODE.REPO,
+    label: "Code repository",
     description:
-      "Scan Terraform, CloudFormation and Kubernetes manifests from an Infrastructure as Code source.",
+      "Scan a Git repository for vulnerable dependencies, secrets, Infrastructure as Code misconfigurations and licenses.",
+    providerTypes: ["iac"] as const,
+  },
+  {
+    value: TRIVY_MODE.IAC,
+    label: "Infrastructure as Code (repository policies)",
+    description:
+      "Check the Terraform, CloudFormation and Kubernetes files in a repository source against cloud security policies.",
     providerTypes: ["iac"] as const,
   },
   {
@@ -22,14 +31,7 @@ export const TRIVY_MODE_OPTIONS = [
     value: TRIVY_MODE.FS,
     label: "Code archive",
     description:
-      "Scan an uploaded zip or tar archive for vulnerable dependencies, misconfigurations and secrets.",
-    providerTypes: ["iac"] as const,
-  },
-  {
-    value: TRIVY_MODE.REPO,
-    label: "Dependencies (repository)",
-    description:
-      "Scan a remote Git repository for vulnerable dependencies and secrets. Attach it to an Infrastructure as Code source.",
+      "Scan an uploaded zip or tar archive for vulnerable dependencies, misconfigurations, secrets and licenses.",
     providerTypes: ["iac"] as const,
   },
   {
@@ -42,7 +44,8 @@ export const TRIVY_MODE_OPTIONS = [
   {
     value: TRIVY_MODE.K8S,
     label: "Kubernetes",
-    description: "Scan a Kubernetes cluster from a connected Kubernetes source.",
+    description:
+      "Scan a Kubernetes cluster from a connected Kubernetes source.",
     providerTypes: ["kubernetes"] as const,
   },
   {
@@ -53,6 +56,95 @@ export const TRIVY_MODE_OPTIONS = [
     providerTypes: ["iac"] as const,
   },
 ] as const;
+
+export const TRIVY_SCANNER_OPTIONS = [
+  {
+    value: TRIVY_SCANNER.VULN,
+    label: "Vulnerabilities",
+    description: "Known CVEs in dependencies and OS packages.",
+  },
+  {
+    value: TRIVY_SCANNER.MISCONFIG,
+    label: "Misconfigurations (IaC)",
+    description: "Terraform, CloudFormation, Kubernetes and Dockerfile issues.",
+  },
+  {
+    value: TRIVY_SCANNER.SECRET,
+    label: "Secrets",
+    description: "Keys, tokens and passwords committed to code.",
+  },
+  {
+    value: TRIVY_SCANNER.LICENSE,
+    label: "Licenses",
+    description: "Restricted or unknown open-source licenses.",
+  },
+  {
+    value: TRIVY_SCANNER.RBAC,
+    label: "RBAC",
+    description: "Over-privileged Kubernetes roles and bindings.",
+  },
+] as const;
+
+const { VULN, MISCONFIG, SECRET, LICENSE, RBAC } = TRIVY_SCANNER;
+
+// Mirrors `MODE_SCANNERS` / `MODE_DEFAULT_SCANNERS` (`services/trivy.py`).
+const MODE_SCANNERS: Partial<Record<TrivyMode, readonly TrivyScanner[]>> = {
+  [TRIVY_MODE.IAC]: [VULN, MISCONFIG, SECRET],
+  [TRIVY_MODE.IMAGE]: [VULN, MISCONFIG, SECRET],
+  [TRIVY_MODE.FS]: [VULN, MISCONFIG, SECRET, LICENSE],
+  [TRIVY_MODE.REPO]: [VULN, MISCONFIG, SECRET, LICENSE],
+  [TRIVY_MODE.SBOM]: [VULN, LICENSE],
+  [TRIVY_MODE.K8S]: [VULN, MISCONFIG, SECRET, RBAC],
+};
+
+const MODE_DEFAULT_SCANNERS: Partial<
+  Record<TrivyMode, readonly TrivyScanner[]>
+> = {
+  ...MODE_SCANNERS,
+  [TRIVY_MODE.SBOM]: [VULN],
+  [TRIVY_MODE.K8S]: [VULN, MISCONFIG, SECRET],
+};
+
+/** Modes whose provider scan runs every listed scanner regardless of choice. */
+const FIXED_SCANNER_MODES: readonly TrivyMode[] = [
+  TRIVY_MODE.IAC,
+  TRIVY_MODE.IMAGE,
+];
+
+/** Scanners a mode supports; empty for static analysis. */
+export const scannersForMode = (mode: TrivyMode): readonly TrivyScanner[] =>
+  MODE_SCANNERS[mode] ?? [];
+
+export const defaultScannersForMode = (mode: TrivyMode): TrivyScanner[] => [
+  ...(MODE_DEFAULT_SCANNERS[mode] ?? []),
+];
+
+export const hasFixedScanners = (mode: TrivyMode): boolean =>
+  FIXED_SCANNER_MODES.includes(mode);
+
+/** Supported scanners from `values`, in canonical order, or the mode default. */
+export const scannersForModeFrom = (
+  mode: TrivyMode,
+  values: readonly string[],
+): TrivyScanner[] => {
+  const supported = scannersForMode(mode).filter((name) =>
+    values.includes(name),
+  );
+  return supported.length > 0 ? supported : defaultScannersForMode(mode);
+};
+
+export const labelForTrivyScanner = (scanner: string): string =>
+  TRIVY_SCANNER_OPTIONS.find((item) => item.value === scanner)?.label ??
+  scanner;
+
+const PROVIDER_TYPE_LABELS: Record<string, string> = {
+  iac: "Code repository",
+  image: "Container registry",
+  kubernetes: "Kubernetes",
+};
+
+export const labelForProviderType = (providerType: string): string =>
+  PROVIDER_TYPE_LABELS[providerType] ?? providerType;
 
 export const SAST_RULESET_OPTIONS = [
   {

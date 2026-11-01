@@ -1,9 +1,17 @@
 import { z } from "zod";
 
 import {
+  defaultScannersForMode,
+  hasFixedScanners,
+  labelForTrivyScanner,
+  scannersForMode,
+} from "@/cloudsneeker/lib/trivy-modes";
+import {
   SAST_RULESET,
   type SastRuleset,
   TRIVY_MODE,
+  TRIVY_SCANNER,
+  type TrivyMode,
 } from "@/cloudsneeker/types/trivy";
 
 /** Where a SAST target reads its code from. */
@@ -19,6 +27,7 @@ export const SAST_MAX_EXCLUDE_PATTERNS = 50;
 export const SAST_MAX_EXCLUDE_LENGTH = 200;
 
 const SAST_RULESET_VALUES = Object.values(SAST_RULESET);
+const TRIVY_SCANNER_VALUES = Object.values(TRIVY_SCANNER);
 
 /** Code archive formats the scan worker can unpack. */
 export const CODE_ARCHIVE_EXTENSIONS = [
@@ -65,7 +74,10 @@ export const trivyTargetFormSchema = z
       TRIVY_MODE.SAST,
     ]),
     providerId: z.uuid(),
-    scanners: z.string().optional().default("vuln,misconfig,secret"),
+    scanners: z
+      .array(z.enum(TRIVY_SCANNER_VALUES))
+      .optional()
+      .default(defaultScannersForMode(TRIVY_MODE.REPO)),
     images: z.string().optional().default(""),
     repositoryUrl: z.string().optional().default(""),
     archiveB64: z.string().optional().default(""),
@@ -85,6 +97,25 @@ export const trivyTargetFormSchema = z
     scheduleTimezone: z.string().optional().default("UTC"),
   })
   .superRefine((values, ctx) => {
+    if (values.mode !== TRIVY_MODE.SAST && !hasFixedScanners(values.mode)) {
+      const allowed = scannersForMode(values.mode);
+      const unsupported = values.scanners.filter(
+        (name) => !allowed.includes(name),
+      );
+      if (values.scanners.length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["scanners"],
+          message: "Select at least one scan type.",
+        });
+      } else if (unsupported.length > 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["scanners"],
+          message: `This mode does not support: ${unsupported.map(labelForTrivyScanner).join(", ")}.`,
+        });
+      }
+    }
     if (values.mode === TRIVY_MODE.REPO && !values.repositoryUrl.trim()) {
       ctx.addIssue({
         code: "custom",
@@ -171,6 +202,15 @@ export const trivyTargetFormSchema = z
 export type TrivyTargetFormInput = z.input<typeof trivyTargetFormSchema>;
 export type TrivyTargetFormValues = z.output<typeof trivyTargetFormSchema>;
 
+/** Scanners saved for a mode; fixed-scanner modes always run their full set. */
+const scannersToSave = (
+  mode: TrivyMode,
+  selected: readonly string[],
+): string[] => {
+  if (hasFixedScanners(mode)) return defaultScannersForMode(mode);
+  return scannersForMode(mode).filter((name) => selected.includes(name));
+};
+
 export const buildTrivyConfig = (
   values: TrivyTargetFormValues,
 ): Record<string, unknown> => {
@@ -187,11 +227,9 @@ export const buildTrivyConfig = (
       exclude: parseExcludePatterns(values.exclude),
     };
   }
-  const scanners = values.scanners
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const config: Record<string, unknown> = { scanners };
+  const config: Record<string, unknown> = {
+    scanners: scannersToSave(values.mode, values.scanners),
+  };
 
   if (values.mode === TRIVY_MODE.IMAGE) {
     const images = values.images

@@ -8,6 +8,17 @@ export const TRIVY_MODE = {
   SAST: "sast",
 } as const;
 
+/** Trivy scanners accepted by `normalize_scanners` (`services/trivy.py`). */
+export const TRIVY_SCANNER = {
+  VULN: "vuln",
+  MISCONFIG: "misconfig",
+  SECRET: "secret",
+  LICENSE: "license",
+  RBAC: "rbac",
+} as const;
+
+export type TrivyScanner = (typeof TRIVY_SCANNER)[keyof typeof TRIVY_SCANNER];
+
 /** Rule packs accepted by `validate_sast_config` (`services/sast.py`). */
 export const SAST_RULESET = {
   AUTO: "auto",

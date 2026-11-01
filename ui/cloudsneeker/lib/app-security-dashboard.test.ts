@@ -55,8 +55,7 @@ const run = (
     status,
     trigger: TRIVY_RUN_TRIGGER.MANUAL,
     scan_id: status === TRIVY_RUN_STATUS.COMPLETED ? scanId : null,
-    summary:
-      findingCount === undefined ? {} : { finding_count: findingCount },
+    summary: findingCount === undefined ? {} : { finding_count: findingCount },
     inserted_at: "2026-10-28T09:00:00Z",
   },
 });
@@ -100,10 +99,25 @@ describe("targetMatchesCategory", () => {
     );
   });
 
-  it("counts secrets only for targets that run the secret scanner", () => {
+  it("counts repositories and archives under IaC when they scan misconfigurations", () => {
+    expect(targetMatchesCategory(target("a", TRIVY_MODE.REPO), "iac")).toBe(
+      true,
+    );
+    expect(targetMatchesCategory(target("b", TRIVY_MODE.IAC), "iac")).toBe(
+      true,
+    );
     expect(
-      targetMatchesCategory(target("a", TRIVY_MODE.FS), "secrets"),
-    ).toBe(true);
+      targetMatchesCategory(
+        target("c", TRIVY_MODE.FS, { scanners: ["vuln", "secret"] }),
+        "iac",
+      ),
+    ).toBe(false);
+  });
+
+  it("counts secrets only for targets that run the secret scanner", () => {
+    expect(targetMatchesCategory(target("a", TRIVY_MODE.FS), "secrets")).toBe(
+      true,
+    );
     expect(
       targetMatchesCategory(
         target("b", TRIVY_MODE.FS, { scanners: ["vuln"] }),
@@ -154,7 +168,11 @@ describe("buildAppSecurityDashboard", () => {
       run("r0", "gone", TRIVY_RUN_STATUS.COMPLETED, 100),
     ];
 
-    const dashboard = buildAppSecurityDashboard({ targets, runs, runTotal: 42 });
+    const dashboard = buildAppSecurityDashboard({
+      targets,
+      runs,
+      runTotal: 42,
+    });
 
     expect(dashboard).toMatchObject({
       targetCount: 3,
@@ -174,7 +192,10 @@ describe("buildAppSecurityDashboard", () => {
     const byId = Object.fromEntries(
       dashboard.categories.map((item) => [item.id, item]),
     );
-    expect(byId.dependencies).toMatchObject({ targetCount: 1, findingCount: 7 });
+    expect(byId.dependencies).toMatchObject({
+      targetCount: 1,
+      findingCount: 7,
+    });
     expect(byId.code).toMatchObject({ targetCount: 1, findingCount: 3 });
     expect(byId.containers).toMatchObject({
       targetCount: 1,

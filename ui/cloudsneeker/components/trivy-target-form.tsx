@@ -28,9 +28,15 @@ import {
   type TrivyTargetFormValues,
 } from "@/cloudsneeker/lib/trivy-form-schema";
 import {
-  SAST_RULESET_OPTIONS,
-  TRIVY_MODE_OPTIONS,
+  defaultScannersForMode,
+  hasFixedScanners,
+  labelForProviderType,
+  labelForTrivyScanner,
   providerTypesForMode,
+  SAST_RULESET_OPTIONS,
+  scannersForMode,
+  TRIVY_MODE_OPTIONS,
+  TRIVY_SCANNER_OPTIONS,
 } from "@/cloudsneeker/lib/trivy-modes";
 import {
   FORM_CHECK_CLASS,
@@ -44,8 +50,16 @@ import {
   type SastRuleset,
   TRIVY_MODE,
   type TrivyMode,
+  type TrivyScanner,
 } from "@/cloudsneeker/types/trivy";
 import { Button, Input, Textarea } from "@/components/shadcn";
+import {
+  MultiSelect,
+  MultiSelectContent,
+  MultiSelectItem,
+  MultiSelectTrigger,
+  MultiSelectValue,
+} from "@/components/shadcn/select/multiselect";
 
 const SAST_SOURCE_OPTIONS = [
   { value: SAST_SOURCE.REPOSITORY, label: "Git repository" },
@@ -80,9 +94,9 @@ export const TrivyTargetForm = ({
     defaultValues: initialValues ?? {
       name: "",
       description: "",
-      mode: TRIVY_MODE.IAC,
+      mode: TRIVY_MODE.REPO,
       providerId: providers[0]?.id ?? "",
-      scanners: "vuln,misconfig,secret",
+      scanners: defaultScannersForMode(TRIVY_MODE.REPO),
       images: "",
       repositoryUrl: "",
       archiveB64: "",
@@ -103,6 +117,16 @@ export const TrivyTargetForm = ({
     name: "scheduleEnabled",
   });
   const sastSource = useWatch({ control: form.control, name: "sastSource" });
+  const scanners: TrivyScanner[] =
+    useWatch({ control: form.control, name: "scanners" }) ?? [];
+  const availableScanners = scannersForMode(mode);
+  const fixedScanners = hasFixedScanners(mode);
+  const setScanners = (values: string[]) =>
+    form.setValue(
+      "scanners",
+      availableScanners.filter((name) => values.includes(name)),
+      { shouldDirty: true, shouldValidate: true },
+    );
   const rulesets: SastRuleset[] =
     useWatch({ control: form.control, name: "rulesets" }) ?? [];
   const toggleRuleset = (value: SastRuleset) =>
@@ -214,7 +238,15 @@ export const TrivyTargetForm = ({
           <select
             id="trivy-mode"
             className={FORM_SELECT_CLASS}
-            {...form.register("mode")}
+            {...form.register("mode", {
+              // Each mode supports its own scan types; start from its default.
+              onChange: (event: ChangeEvent<HTMLSelectElement>) =>
+                form.setValue(
+                  "scanners",
+                  defaultScannersForMode(event.target.value as TrivyMode),
+                  { shouldValidate: true },
+                ),
+            })}
           >
             {TRIVY_MODE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -229,7 +261,7 @@ export const TrivyTargetForm = ({
           label="Provider"
           help={
             requiredTypes.length > 0
-              ? `Requires a ${requiredTypes.join(" / ")} provider. Create one under Providers if the list is empty.`
+              ? `Requires a ${requiredTypes.map(labelForProviderType).join(" / ")} source. Create one under Providers if the list is empty.`
               : "Findings attach to the selected provider account."
           }
           error={errors.providerId?.message}
@@ -251,14 +283,49 @@ export const TrivyTargetForm = ({
           </select>
         </FormField>
 
-        {mode !== TRIVY_MODE.SAST ? (
+        {availableScanners.length > 0 ? (
           <FormField
             id="trivy-scanners"
-            label="Scanners"
-            help="Comma-separated, for example vuln,misconfig,secret."
+            label="Scan types"
+            help={
+              fixedScanners
+                ? "This source always runs every scan type listed."
+                : `Available for this mode: ${availableScanners.map(labelForTrivyScanner).join(", ")}.`
+            }
             error={errors.scanners?.message}
           >
-            <Input id="trivy-scanners" {...form.register("scanners")} />
+            <MultiSelect
+              values={fixedScanners ? [...availableScanners] : scanners}
+              onValuesChange={setScanners}
+            >
+              <MultiSelectTrigger
+                id="trivy-scanners"
+                aria-label="Scan types"
+                aria-invalid={Boolean(errors.scanners)}
+                disabled={fixedScanners}
+              >
+                <MultiSelectValue placeholder="Choose scan types" />
+              </MultiSelectTrigger>
+              <MultiSelectContent search={false}>
+                {TRIVY_SCANNER_OPTIONS.filter((option) =>
+                  availableScanners.includes(option.value),
+                ).map((option) => (
+                  <MultiSelectItem
+                    key={option.value}
+                    value={option.value}
+                    badgeLabel={option.label}
+                    keywords={[option.label]}
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      {option.label}
+                      <span className="text-text-neutral-tertiary text-xs">
+                        {option.description}
+                      </span>
+                    </span>
+                  </MultiSelectItem>
+                ))}
+              </MultiSelectContent>
+            </MultiSelect>
           </FormField>
         ) : null}
 

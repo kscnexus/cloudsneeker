@@ -133,8 +133,10 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
         if config is None and self.instance is not None:
             config = self.instance.config
         if mode is not None:
+            # A schedule-only edit keeps scanners saved before validation.
+            strict = "config" in attrs or "mode" in attrs
             try:
-                attrs["config"] = validate_target_config(mode, config)
+                attrs["config"] = validate_target_config(mode, config, strict=strict)
             except TrivyHubError as exc:
                 raise ValidationError({"config": scrub_engine_text(str(exc))}) from exc
 

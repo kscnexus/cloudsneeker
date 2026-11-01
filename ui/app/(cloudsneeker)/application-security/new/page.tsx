@@ -4,6 +4,7 @@ import { getProviders } from "@/actions/providers/providers";
 import { BRAND } from "@/cloudsneeker/brand";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
+import { labelForProviderType } from "@/cloudsneeker/lib/trivy-modes";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 
 export default async function NewTrivyTargetPage() {
@@ -12,7 +13,7 @@ export default async function NewTrivyTargetPage() {
     id: provider.id,
     providerType: provider.attributes.provider,
     label: [
-      provider.attributes.provider,
+      labelForProviderType(provider.attributes.provider),
       provider.attributes.alias || provider.attributes.uid || provider.id,
     ]
       .filter(Boolean)

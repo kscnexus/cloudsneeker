@@ -10,6 +10,10 @@ import {
   type TrivyTargetFormInput,
 } from "@/cloudsneeker/lib/trivy-form-schema";
 import {
+  labelForProviderType,
+  scannersForModeFrom,
+} from "@/cloudsneeker/lib/trivy-modes";
+import {
   SAST_RULESET,
   type SastRuleset,
   TRIVY_MODE,
@@ -48,7 +52,7 @@ export default async function EditTrivyTargetPage({
     id: provider.id,
     providerType: provider.attributes.provider,
     label: [
-      provider.attributes.provider,
+      labelForProviderType(provider.attributes.provider),
       provider.attributes.alias || provider.attributes.uid || provider.id,
     ]
       .filter(Boolean)
@@ -60,9 +64,11 @@ export default async function EditTrivyTargetPage({
     description: target.attributes.description ?? "",
     mode: target.attributes.mode,
     providerId: target.attributes.provider_id,
-    scanners: Array.isArray(config.scanners)
-      ? config.scanners.join(",")
-      : "vuln,misconfig,secret",
+    // Drops scanners saved before each mode had its own list.
+    scanners: scannersForModeFrom(
+      target.attributes.mode,
+      Array.isArray(config.scanners) ? config.scanners : [],
+    ),
     images: Array.isArray(config.images) ? config.images.join("\n") : "",
     repositoryUrl:
       typeof config.repository_url === "string" ? config.repository_url : "",

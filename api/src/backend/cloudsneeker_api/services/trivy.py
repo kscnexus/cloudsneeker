@@ -69,6 +69,24 @@ MODE_PROVIDER_TYPES: dict[str, frozenset[str]] = {
 REPOSITORY_URL_MODES = frozenset({TrivyTarget.Mode.REPO, TrivyTarget.Mode.SAST})
 
 DEFAULT_SCANNERS = ("vuln", "misconfig", "secret")
+
+# Trivy ``--scanners`` values each mode accepts. IaC and image runs go through
+# the provider scan, which runs this fixed set whatever the target lists.
+MODE_SCANNERS: dict[str, tuple[str, ...]] = {
+    TrivyTarget.Mode.IAC: DEFAULT_SCANNERS,
+    TrivyTarget.Mode.IMAGE: DEFAULT_SCANNERS,
+    TrivyTarget.Mode.FS: ("vuln", "misconfig", "secret", "license"),
+    TrivyTarget.Mode.REPO: ("vuln", "misconfig", "secret", "license"),
+    TrivyTarget.Mode.SBOM: ("vuln", "license"),
+    TrivyTarget.Mode.K8S: ("vuln", "misconfig", "secret", "rbac"),
+}
+
+# Scanners a target runs when its config lists none.
+MODE_DEFAULT_SCANNERS: dict[str, tuple[str, ...]] = {
+    **MODE_SCANNERS,
+    TrivyTarget.Mode.SBOM: ("vuln",),
+    TrivyTarget.Mode.K8S: DEFAULT_SCANNERS,
+}
 TRIVY_TIMEOUT_SECONDS = int(os.environ.get("TRIVY_HUB_TIMEOUT_SECONDS", "900"))
 MAX_ARCHIVE_BYTES = int(os.environ.get("TRIVY_HUB_MAX_ARCHIVE_BYTES", str(50 * 1024 * 1024)))
 MAX_SBOM_CHARS = int(os.environ.get("TRIVY_HUB_MAX_SBOM_CHARS", str(5 * 1024 * 1024)))
@@ -214,12 +232,57 @@ def assert_provider_matches_mode(
             )
 
 
-def validate_target_config(mode: str, config: dict[str, Any] | None) -> dict[str, Any]:
+def normalize_scanners(mode: str, scanners: Any, *, strict: bool = True) -> list[str]:
+    """Return the Trivy scanners a target of ``mode`` runs.
+
+    Args:
+        mode: Trivy Hub mode.
+        scanners: ``config.scanners`` as stored or sent by the client.
+        strict: Reject scanners the mode does not support. When False (runs
+            of targets saved before the per-mode lists), drop them instead.
+
+    Returns:
+        Deduplicated scanner names in :data:`MODE_SCANNERS` order; the mode
+        default when none are listed. Empty for SAST, which has no scanners.
+
+    Raises:
+        TrivyHubError: When ``scanners`` is malformed, empty or, in strict
+            mode, lists a scanner the mode does not support.
+    """
+    allowed = MODE_SCANNERS.get(mode)
+    if allowed is None:
+        return []
+    if scanners is None:
+        return list(MODE_DEFAULT_SCANNERS[mode])
+    if not isinstance(scanners, list) or not all(
+        isinstance(item, str) and item.strip() for item in scanners
+    ):
+        raise TrivyHubError("config.scanners must be a list of scanner names.")
+    requested = {item.strip().lower() for item in scanners}
+    unsupported = sorted(requested - set(allowed))
+    if unsupported and strict:
+        raise TrivyHubError(
+            f"Mode '{mode}' does not support scanner(s): {', '.join(unsupported)}. "
+            f"Choose from: {', '.join(allowed)}."
+        )
+    selected = [name for name in allowed if name in requested]
+    if not selected:
+        if strict:
+            raise TrivyHubError("config.scanners must list at least one scanner.")
+        return list(MODE_DEFAULT_SCANNERS[mode])
+    return selected
+
+
+def validate_target_config(
+    mode: str, config: dict[str, Any] | None, *, strict: bool = True
+) -> dict[str, Any]:
     """Validate and normalize target config for a mode.
 
     Args:
         mode: Trivy Hub mode.
         config: Raw config JSON from the client.
+        strict: See :func:`normalize_scanners`; runs pass False so targets
+            saved before scanner validation keep running.
 
     Returns:
         Normalized config mapping.
@@ -231,15 +294,7 @@ def validate_target_config(mode: str, config: dict[str, Any] | None) -> dict[str
         raise TrivyHubError(f"Unknown Trivy mode: {mode}")
     cfg = dict(config or {})
 
-    scanners = cfg.get("scanners")
-    if scanners is not None:
-        if not isinstance(scanners, list) or not all(
-            isinstance(item, str) and item.strip() for item in scanners
-        ):
-            raise TrivyHubError("config.scanners must be a list of scanner names.")
-        cfg["scanners"] = [item.strip() for item in scanners]
-    else:
-        cfg["scanners"] = list(DEFAULT_SCANNERS)
+    cfg["scanners"] = normalize_scanners(mode, cfg.get("scanners"), strict=strict)
 
     if mode == TrivyTarget.Mode.IMAGE:
         images = cfg.get("images") or cfg.get("image")
@@ -674,7 +729,7 @@ def enqueue_trivy_run(
         target = TrivyTarget.objects.select_related("provider").get(
             tenant_id=tenant_id, id=target_id
         )
-        config = validate_target_config(target.mode, target.config)
+        config = validate_target_config(target.mode, target.config, strict=False)
         assert_provider_matches_mode(target.provider, target.mode, config)
         active = TrivyRun.objects.filter(
             tenant_id=tenant_id,
@@ -739,7 +794,7 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
         try:
             # Inside the try so a target edited after enqueue fails the run
             # instead of leaving it running.
-            config = validate_target_config(mode, target.config)
+            config = validate_target_config(mode, target.config, strict=False)
             assert_provider_matches_mode(provider, mode, config)
             if mode in PROWLER_SCAN_MODES:
                 scan = _enqueue_provider_scan(

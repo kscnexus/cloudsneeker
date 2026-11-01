@@ -31,8 +31,11 @@ export const APP_SECURITY_CATEGORY_PARAM = "category";
 /** Scanner name a target needs to count under Secrets. */
 const SECRET_SCANNER = "secret";
 
+/** Scanner name a repository or archive needs to count under IaC. */
+const MISCONFIG_SCANNER = "misconfig";
+
 /** Scanners a target runs when its config does not list any (API default). */
-const DEFAULT_SCANNERS = ["vuln", "misconfig", SECRET_SCANNER] as const;
+const DEFAULT_SCANNERS = ["vuln", MISCONFIG_SCANNER, SECRET_SCANNER] as const;
 
 export interface AppSecurityCategoryDefinition {
   id: AppSecurityCategory;
@@ -48,7 +51,8 @@ export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
     {
       id: APP_SECURITY_CATEGORY.DEPENDENCIES,
       label: "Dependencies",
-      description: "Vulnerable open-source packages in repositories and code archives.",
+      description:
+        "Vulnerable open-source packages in repositories and code archives.",
       modes: [TRIVY_MODE.REPO, TRIVY_MODE.FS],
     },
     {
@@ -67,7 +71,8 @@ export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
       id: APP_SECURITY_CATEGORY.IAC,
       label: "Infrastructure as Code",
       description: "Misconfigured Terraform, CloudFormation and manifests.",
-      modes: [TRIVY_MODE.IAC],
+      modes: [TRIVY_MODE.IAC, TRIVY_MODE.REPO, TRIVY_MODE.FS],
+      scanner: MISCONFIG_SCANNER,
     },
     {
       id: APP_SECURITY_CATEGORY.SECRETS,
