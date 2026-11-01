@@ -14,6 +14,10 @@ vi.mock("@/cloudsneeker/actions/trivy", () => ({
   updateTrivyTarget: vi.fn(),
 }));
 
+vi.mock("@/cloudsneeker/actions/sbom", () => ({
+  generateSbomFromDescription: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, refresh: vi.fn() }),
 }));
