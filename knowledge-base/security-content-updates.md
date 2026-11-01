@@ -23,7 +23,7 @@ updated, and who owns the update.
 
 | When | Task | Owner |
 | --- | --- | --- |
-| Continuous | CVE data: `manage.py cloudsneeker_vuln_db` on a worker shows the snapshot age and fails when it is over 24 hours. Watch the worker log for `cloudsneeker-refresh-vuln-db` failures | Platform on-call |
+| Continuous | CVE data: `manage.py cloudsneeker_vuln_db` on a worker (one-off task family `cloudsneeker-worker-oneoff`, which mounts the cache; add `--refresh` to download now) shows the snapshot age and fails when it is over 24 hours. Watch the worker log for `cloudsneeker-refresh-vuln-db` failures | Platform on-call |
 | Weekly | Review new upstream Prowler releases and security advisories; bump Trivy if a release fixes detection gaps | Detection engineer |
 | Every upstream minor release (about monthly) | Merge the upstream tag with `cloudsneeker/tools/sync-upstream.ps1`, re-apply hooks per [Upstream Hooks](upstream-hooks.md), run the full CI suite (`cloudsneeker-tests.yml` via `workflow_dispatch`), deploy, and spot-check one scan per provider | Engineering |
 | Quarterly | Bump SAST rules and OpenGrep after a license review; review Custodian starter templates against new cloud services | Detection engineer |
