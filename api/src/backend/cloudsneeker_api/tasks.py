@@ -229,3 +229,24 @@ def operator_daily_task():
     expired = expire_subscriptions()
     snapshots = snapshot_usage()
     return {"expired": expired, "snapshots": snapshots}
+
+
+# --- Shared vulnerability database (EB-047) -----------------------------------
+
+
+@shared_task(name="cloudsneeker-refresh-vuln-db", queue="celery")
+def refresh_vuln_db_task():
+    """Celery Beat entrypoint: download a fresh Trivy database snapshot.
+
+    Does nothing when the shared cache is not configured.
+    """
+    from cloudsneeker_api.services import vuln_db
+
+    if vuln_db.cache_root() is None:
+        return {"refreshed": False, "reason": "not configured"}
+    snapshot = vuln_db.refresh()
+    return {
+        "refreshed": True,
+        "snapshot": snapshot.path.name,
+        "java_db": snapshot.java_db,
+    }

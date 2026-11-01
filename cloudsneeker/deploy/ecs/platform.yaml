@@ -649,6 +649,22 @@ Resources:
           OwnerGid: "1000"
           Permissions: "750"
 
+  # EB-047: shared vulnerability database snapshots for Application Security
+  # scans. Holds downloaded public data only; safe to delete at any time.
+  VulnDbAccessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref FileSystem
+      PosixUser:
+        Uid: "1000"
+        Gid: "1000"
+      RootDirectory:
+        Path: /vuln-db
+        CreationInfo:
+          OwnerUid: "1000"
+          OwnerGid: "1000"
+          Permissions: "750"
+
   Neo4jAccessPoint:
     Type: AWS::EFS::AccessPoint
     DeletionPolicy: Retain
@@ -1337,6 +1353,13 @@ Resources:
             AuthorizationConfig:
               AccessPointId: !Ref OutputAccessPoint
               IAM: ENABLED
+        - Name: vuln-db
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystem
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref VulnDbAccessPoint
+              IAM: ENABLED
       ContainerDefinitions:
         - Name: worker
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/api:${ImageTag}
@@ -1355,6 +1378,9 @@ Resources:
             - SourceVolume: output
               ContainerPath: /tmp/prowler_api_output
               ReadOnly: false
+            - SourceVolume: vuln-db
+              ContainerPath: /var/cache/cloudsneeker/vuln-db
+              ReadOnly: false
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -1370,6 +1396,8 @@ Resources:
               Value: ndjson
             - Name: DJANGO_TMP_OUTPUT_DIRECTORY
               Value: /tmp/prowler_api_output
+            - Name: CLOUDSNEEKER_VULN_DB_CACHE_DIR
+              Value: /var/cache/cloudsneeker/vuln-db
             - Name: POSTGRES_HOST
               Value: !GetAtt Database.Endpoint.Address
             - Name: POSTGRES_PORT
