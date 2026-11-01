@@ -256,4 +256,4 @@ Write-Host "GitHub Actions publishes images when main is pushed. Pass -ImageTag 
 $url = Invoke-AwsText @("cloudformation", "describe-stacks", "--stack-name", "cloudsneeker", "--query", "Stacks[0].Outputs[?OutputKey=='ServiceUrl'].OutputValue | [0]")
 Write-Host ""
 Write-Host "Cloudsneeker is starting at $url"
-Write-Host "Sign-up is open on that address. The first page can take a few minutes while the API finishes database migrations."
+Write-Host "Self sign-up is closed: invite users from Settings. The first page can take a few minutes while the API finishes database migrations."
