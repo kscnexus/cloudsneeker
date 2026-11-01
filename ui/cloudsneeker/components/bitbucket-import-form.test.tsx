@@ -69,6 +69,44 @@ describe("BitbucketImportForm", () => {
     expect(listMock).not.toHaveBeenCalled();
   });
 
+  it("imports typed repositories with an SSH key and no token", async () => {
+    importMock.mockResolvedValue([
+      {
+        repositoryUrl: "https://bitbucket.org/acme/web.git",
+        status: "added",
+        providerId: "p1",
+      },
+    ]);
+    const user = userEvent.setup();
+    render(<BitbucketImportForm />);
+
+    await user.type(screen.getByLabelText("Workspace ID"), "acme");
+    await user.click(screen.getByRole("button", { name: "SSH key" }));
+    await user.type(screen.getByLabelText("SSH private key"), "KEY");
+    await user.type(
+      screen.getByLabelText("Repositories (optional, no access token needed)"),
+      "web",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Add 1 typed repository" }),
+    );
+
+    expect(listMock).not.toHaveBeenCalled();
+    expect(importMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cloneMethod: "ssh",
+        repositories: [
+          {
+            full_name: "acme/web",
+            repository_url: "https://bitbucket.org/acme/web.git",
+            ssh_url: "git@bitbucket.org:acme/web.git",
+          },
+        ],
+      }),
+    );
+    expect(await screen.findByText("Added")).toBeInTheDocument();
+  });
+
   it("shows the listing error", async () => {
     listMock.mockResolvedValue({ error: "Bitbucket rejected the token." });
     const user = userEvent.setup();

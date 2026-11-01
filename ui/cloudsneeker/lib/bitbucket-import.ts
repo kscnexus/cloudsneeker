@@ -165,3 +165,87 @@ export const chunk = <T>(items: T[], size: number): T[][] => {
   }
   return chunks;
 };
+
+type ImportedRepository = BitbucketImportRequest["repositories"][number];
+
+export interface ManualRepositories {
+  repositories: ImportedRepository[];
+  invalid: string[];
+}
+
+const BITBUCKET_CLOUD_HOST = "bitbucket.org";
+const REPOSITORY_PATH = /^[\w.-]+(\/[\w.-]+)+$/;
+const SCP_SSH_URL = /^[\w.-]+@([\w.-]+):(.+)$/;
+
+const withoutGitSuffix = (path: string) =>
+  path.replace(/\/+$/, "").replace(/\.git$/, "");
+
+const fromHostPath = (
+  host: string,
+  path: string,
+  sshUrl: string,
+): ImportedRepository | null => {
+  const fullName = withoutGitSuffix(path.replace(/^\/+/, ""));
+  if (!REPOSITORY_PATH.test(fullName)) return null;
+  return {
+    full_name: fullName,
+    repository_url: `https://${host}/${fullName}.git`,
+    ssh_url: sshUrl,
+  };
+};
+
+const cloudRepository = (fullName: string) =>
+  fromHostPath(
+    BITBUCKET_CLOUD_HOST,
+    fullName,
+    `git@${BITBUCKET_CLOUD_HOST}:${withoutGitSuffix(fullName)}.git`,
+  );
+
+const parseManualEntry = (
+  entry: string,
+  workspace: string,
+): ImportedRepository | null => {
+  const scp = entry.match(SCP_SSH_URL);
+  if (scp) {
+    const [, host, path] = scp;
+    return fromHostPath(host, path, `${withoutGitSuffix(entry)}.git`);
+  }
+  if (/^(ssh|https):\/\//i.test(entry)) {
+    let url: URL;
+    try {
+      url = new URL(entry);
+    } catch {
+      return null;
+    }
+    if (url.protocol === "ssh:") {
+      return fromHostPath(url.hostname, url.pathname, entry);
+    }
+    // Only Bitbucket Cloud links map to a known SSH URL; extra path parts
+    // such as /src/main are dropped.
+    return url.hostname === BITBUCKET_CLOUD_HOST
+      ? cloudRepository(
+          url.pathname.split("/").filter(Boolean).slice(0, 2).join("/"),
+        )
+      : null;
+  }
+  const path = entry.includes("/") ? entry : `${workspace.trim()}/${entry}`;
+  return cloudRepository(path);
+};
+
+/**
+ * Repositories typed by hand for an SSH-key import: `workspace/repo`, a bare
+ * `repo` in the given workspace, a Bitbucket Cloud link, or an SSH clone URL.
+ */
+export const parseManualRepositories = (
+  text: string,
+  workspace: string,
+): ManualRepositories => {
+  const repositories = new Map<string, ImportedRepository>();
+  const invalid: string[] = [];
+  for (const entry of text.split(/[\s,]+/).filter(Boolean)) {
+    const repository = parseManualEntry(entry, workspace);
+    if (repository) repositories.set(repository.repository_url, repository);
+    else invalid.push(entry);
+  }
+  return { repositories: [...repositories.values()], invalid };
+};

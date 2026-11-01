@@ -10,6 +10,7 @@ import {
   buildProviderBody,
   buildCloneSecret,
   buildSecretBody,
+  parseManualRepositories,
   chunk,
   cloneUrlFor,
   defaultSelection,
@@ -235,5 +236,63 @@ describe("selection helpers", () => {
   it("chunks a list", () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(chunk([], 2)).toEqual([]);
+  });
+});
+
+describe("parseManualRepositories", () => {
+  it("reads names, links and SSH URLs and dedupes them", () => {
+    const { repositories, invalid } = parseManualRepositories(
+      [
+        "acme/web",
+        "api",
+        "https://bitbucket.org/acme/infra/src/main",
+        "git@bitbucket.org:acme/web.git",
+        "ssh://git@git.example.com:7999/plat/core.git",
+      ].join("\n"),
+      "acme",
+    );
+
+    expect(invalid).toEqual([]);
+    expect(repositories).toEqual([
+      {
+        full_name: "acme/web",
+        repository_url: "https://bitbucket.org/acme/web.git",
+        ssh_url: "git@bitbucket.org:acme/web.git",
+      },
+      {
+        full_name: "acme/api",
+        repository_url: "https://bitbucket.org/acme/api.git",
+        ssh_url: "git@bitbucket.org:acme/api.git",
+      },
+      {
+        full_name: "acme/infra",
+        repository_url: "https://bitbucket.org/acme/infra.git",
+        ssh_url: "git@bitbucket.org:acme/infra.git",
+      },
+      {
+        full_name: "plat/core",
+        repository_url: "https://git.example.com/plat/core.git",
+        ssh_url: "ssh://git@git.example.com:7999/plat/core.git",
+      },
+    ]);
+  });
+
+  it("accepts a plain Bitbucket link", () => {
+    expect(
+      parseManualRepositories("https://bitbucket.org/acme/infra", "")
+        .repositories,
+    ).toEqual([
+      {
+        full_name: "acme/infra",
+        repository_url: "https://bitbucket.org/acme/infra.git",
+        ssh_url: "git@bitbucket.org:acme/infra.git",
+      },
+    ]);
+  });
+
+  it("rejects a bare name without a workspace and other hosts' links", () => {
+    expect(
+      parseManualRepositories("web, https://github.com/a/b", "").invalid,
+    ).toEqual(["web", "https://github.com/a/b"]);
   });
 });

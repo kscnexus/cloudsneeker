@@ -12,6 +12,7 @@ import {
   chunk,
   defaultSelection,
   filterRepositories,
+  parseManualRepositories,
 } from "@/cloudsneeker/lib/bitbucket-import";
 import {
   BITBUCKET_CLONE_METHOD,
@@ -20,6 +21,7 @@ import {
   type BitbucketCloneMethod,
   type BitbucketConnection,
   type BitbucketHost,
+  type BitbucketImportRequest,
   type BitbucketImportResult,
   type BitbucketImportStatus,
   type BitbucketRepositoryListing,
@@ -116,6 +118,7 @@ export const BitbucketImportForm = () => {
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  const [manualText, setManualText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isListing, setIsListing] = useState(false);
   const [progress, setProgress] = useState<{
@@ -160,11 +163,12 @@ export const BitbucketImportForm = () => {
     }
   };
 
-  const onImport = async () => {
-    if (!listing) return;
-    const chosen = listing.repositories.filter((repository) =>
-      selected.has(repository.repository_url),
-    );
+  const manual = parseManualRepositories(manualText, connection.workspace);
+
+  const importRepositories = async (
+    chosen: BitbucketImportRequest["repositories"],
+    cloneUsername: string,
+  ): Promise<boolean> => {
     setError(null);
     setProgress({ done: 0, total: chosen.length });
     let done = 0;
@@ -177,13 +181,13 @@ export const BitbucketImportForm = () => {
         })),
         cloneMethod,
         accessToken: connection.accessToken,
-        cloneUsername: listing.cloneUsername,
+        cloneUsername,
         ...(usesSsh ? { sshKey } : {}),
       });
       if ("error" in outcome) {
         setError(outcome.error);
         setProgress(null);
-        return;
+        return false;
       }
       setResults((current) => {
         const next = { ...current };
@@ -198,10 +202,24 @@ export const BitbucketImportForm = () => {
       if (skipped) {
         // The plan limit was reached; the rest would be skipped too.
         setProgress({ done: chosen.length, total: chosen.length });
-        return;
+        return false;
       }
     }
-    setSelected(new Set());
+    return true;
+  };
+
+  const onImport = async () => {
+    if (!listing) return;
+    const chosen = listing.repositories.filter((repository) =>
+      selected.has(repository.repository_url),
+    );
+    if (await importRepositories(chosen, listing.cloneUsername)) {
+      setSelected(new Set());
+    }
+  };
+
+  const onImportManual = async () => {
+    await importRepositories(manual.repositories, "");
   };
 
   const toggle = (url: string, checked: boolean) =>
@@ -386,6 +404,73 @@ export const BitbucketImportForm = () => {
                 />
               </div>
             )}
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label htmlFor="bitbucket-manual-repositories">
+                Repositories (optional, no access token needed)
+              </Label>
+              <Textarea
+                id="bitbucket-manual-repositories"
+                rows={3}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder={"acme/web\ngit@bitbucket.org:acme/api.git"}
+                value={manualText}
+                onChange={(event) => setManualText(event.target.value)}
+              />
+              <p className="text-text-neutral-tertiary text-xs">
+                One per line: workspace/repository, a repository name in the
+                workspace above, a Bitbucket link or an SSH clone URL. Or list
+                them with an access token below.
+              </p>
+              {manual.invalid.length > 0 && (
+                <p className="text-text-error-primary text-xs">
+                  Not understood: {manual.invalid.join(", ")}
+                </p>
+              )}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onImportManual}
+                  disabled={
+                    manual.repositories.length === 0 ||
+                    isImporting ||
+                    !hasCloneCredentials
+                  }
+                >
+                  {`Add ${manual.repositories.length} typed ${manual.repositories.length === 1 ? "repository" : "repositories"}`}
+                </Button>
+              </div>
+              {manual.repositories.some(
+                (repository) => results[repository.repository_url],
+              ) && (
+                <ul className="flex flex-col gap-1 text-sm">
+                  {manual.repositories.map((repository) => {
+                    const result = results[repository.repository_url];
+                    if (!result) return null;
+                    const badge = RESULT_BADGE[result.status];
+                    return (
+                      <li
+                        key={repository.repository_url}
+                        className="flex flex-wrap items-center gap-2"
+                      >
+                        <span className="font-medium">
+                          {repository.full_name}
+                        </span>
+                        <Badge variant={badge.variant} size="sm">
+                          {badge.label}
+                        </Badge>
+                        {result.message && (
+                          <span className="text-text-neutral-tertiary text-xs">
+                            {result.message}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -529,19 +614,25 @@ export const BitbucketImportForm = () => {
               </Button>
             )}
           </div>
-
-          {resultList.length > 0 && !isImporting && (
-            <Alert variant={problemCount > 0 ? "warning" : "success"}>
-              <AlertDescription>
-                {addedCount} added as Infrastructure as Code providers.
-                {problemCount > 0 &&
-                  ` ${problemCount} not added; see the status column.`}
-                {addedCount > 0 &&
-                  " Connection checks have started; scan them from the providers page."}
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
+      )}
+
+      {resultList.length > 0 && !isImporting && (
+        <Alert variant={problemCount > 0 ? "warning" : "success"}>
+          <AlertDescription>
+            {addedCount} added as Infrastructure as Code providers.
+            {problemCount > 0 && ` ${problemCount} not added; see the status.`}
+            {addedCount > 0 && (
+              <>
+                {" Connection checks have started; scan them from the "}
+                <Link href="/providers" className="underline">
+                  providers page
+                </Link>
+                .
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );
