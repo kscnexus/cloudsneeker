@@ -7,9 +7,9 @@ the customer's data stays out of the operator's own organization list.
 
 Invited users join as members upstream. :func:`promote_sole_member` (wired to
 ``Invitation`` saves in :mod:`cloudsneeker_api.signals`) makes the accepting
-user the owner when they are the organization's only member, which only
-happens for organizations created here: any other organization already had a
-member who sent the invitation.
+user the owner when a platform operator sent the invitation and the user is
+the organization's only member, which only happens for organizations created
+here. Any other invitation keeps the upstream member role.
 
 Writes go through ``MainRouter.admin_db`` because the tenant does not exist in
 any session yet.
@@ -184,11 +184,20 @@ def promote_sole_member(invitation) -> bool:
     logged and the user stays a member with the invitation's roles.
     """
     from api.models import Invitation, Membership
+    from cloudsneeker_api.models import PlatformOperator
 
-    if invitation.state != Invitation.State.ACCEPTED:
+    if invitation.state != Invitation.State.ACCEPTED or not invitation.inviter_id:
         return False
     try:
         alias = _admin_db()
+        # Only invitations the operator console sent: their inviter is a
+        # platform operator (active or since revoked).
+        if (
+            not PlatformOperator.objects.using(alias)
+            .filter(user_id=invitation.inviter_id)
+            .exists()
+        ):
+            return False
         memberships = list(
             Membership.objects.using(alias).filter(tenant_id=invitation.tenant_id)[:2]
         )

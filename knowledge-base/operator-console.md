@@ -159,10 +159,10 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
 * First owner: invited users join upstream as members. A `post_save`
   receiver on `Invitation` (`signals.py`, connected in
   `CloudsneekerApiConfig.ready`, no upstream edit) makes the accepting user
-  the owner when they are the tenant's only member and their email matches
-  the invitation. Only console-created tenants have no member when an
-  invitation is accepted, so invitations into existing organizations still
-  give the member role.
+  the owner when a platform operator sent the invitation (active or since
+  revoked), they are the tenant's only member, and their email matches the
+  invitation. Every other invitation, including upstream flows that accept
+  into an empty tenant, keeps the member role.
 * Daily task `cloudsneeker-operator-daily` (Celery beat, registered by the
   migration): expires subscriptions whose `ends_at` (or trial end) passed and
   writes one `UsageSnapshot` per tenant and day.

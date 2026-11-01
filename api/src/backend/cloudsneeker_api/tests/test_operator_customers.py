@@ -227,6 +227,22 @@ class TestFirstAdminBecomesOwner:
         membership = Membership.objects.get(user=user, tenant_id=body["data"]["id"])
         assert membership.role == Membership.RoleChoices.OWNER
 
+    def test_non_operator_invitation_to_an_empty_organization_stays_member(
+        self, create_test_user
+    ):
+        # Upstream flows (e.g. social sign-in) can accept into a tenant with no
+        # members; only invitations sent by a platform operator promote.
+        tenant = Tenant.objects.create(name="Empty")
+        invitation = Invitation.objects.create(
+            tenant_id=tenant.id, email="frank@example.com", inviter=create_test_user
+        )
+        user = User.objects.create_user(
+            name="Frank", email="frank@example.com", password=PASSWORD
+        )
+        accept_invitation_for_user(user=user, invitation_token=invitation.token)
+        membership = Membership.objects.get(user=user, tenant=tenant)
+        assert membership.role == Membership.RoleChoices.MEMBER
+
     def test_invitation_to_an_existing_organization_stays_member(
         self, tenants_fixture, create_test_user
     ):
