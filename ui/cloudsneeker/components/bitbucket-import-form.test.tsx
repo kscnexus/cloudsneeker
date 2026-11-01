@@ -19,6 +19,7 @@ const repo = (fullName: string, alreadyAdded = false) => ({
   full_name: fullName,
   repository_url: `https://bitbucket.org/${fullName}.git`,
   html_url: `https://bitbucket.org/${fullName}`,
+  ssh_url: `git@bitbucket.org:${fullName}.git`,
   project: "Platform",
   is_private: true,
   updated_on: null,
@@ -110,9 +111,11 @@ describe("BitbucketImportForm", () => {
       repositories: [
         {
           repository_url: "https://bitbucket.org/acme/web.git",
+          ssh_url: "git@bitbucket.org:acme/web.git",
           full_name: "acme/web",
         },
       ],
+      cloneMethod: "token",
       accessToken: "tok",
       cloneUsername: "",
     });
@@ -149,5 +152,41 @@ describe("BitbucketImportForm", () => {
       await screen.findByText("Your plan allows 3 providers."),
     ).toBeInTheDocument();
     expect(screen.getByText(/1 not added/)).toBeInTheDocument();
+  });
+
+  it("imports with an SSH key once one is pasted", async () => {
+    listMock.mockResolvedValue({
+      repositories: [repo("acme/web")],
+      cloneUsername: "",
+      truncated: false,
+    });
+    importMock.mockResolvedValue([
+      {
+        repositoryUrl: "https://bitbucket.org/acme/web.git",
+        status: "added",
+        providerId: "p1",
+      },
+    ]);
+    const user = userEvent.setup();
+    render(<BitbucketImportForm />);
+
+    await fillCloud(user);
+    await user.click(screen.getByRole("button", { name: "List repositories" }));
+    await user.click(await screen.findByRole("button", { name: "SSH key" }));
+
+    const add = screen.getByRole("button", { name: "Add 1 repository" });
+    expect(add).toBeDisabled();
+    expect(screen.queryByLabelText("SSH host key")).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("SSH private key"), "KEY");
+    expect(add).toBeEnabled();
+    await user.click(add);
+
+    expect(importMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cloneMethod: "ssh",
+        sshKey: { privateKey: "KEY", passphrase: "", knownHosts: "" },
+      }),
+    );
   });
 });

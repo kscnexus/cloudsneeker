@@ -1,6 +1,8 @@
 import {
+  BITBUCKET_CLONE_METHOD,
   BITBUCKET_HOST,
   type BitbucketConnection,
+  type BitbucketImportRequest,
   type BitbucketRepository,
   type BitbucketRepositoryListing,
 } from "@/cloudsneeker/types/bitbucket";
@@ -66,23 +68,51 @@ export const buildProviderBody = (repositoryUrl: string, fullName: string) => {
   };
 };
 
+/** URL the provider clones: the HTTPS URL, or the SSH URL for SSH keys. */
+export const cloneUrlFor = (
+  repository: BitbucketImportRequest["repositories"][number],
+  request: Pick<BitbucketImportRequest, "cloneMethod">,
+): string =>
+  request.cloneMethod === BITBUCKET_CLONE_METHOD.SSH
+    ? repository.ssh_url
+    : repository.repository_url;
+
+/** IaC provider secret for one repository: the token, or the SSH key. */
+export const buildCloneSecret = (
+  repositoryUrl: string,
+  request: Omit<BitbucketImportRequest, "repositories">,
+): Record<string, string> => {
+  if (request.cloneMethod === BITBUCKET_CLONE_METHOD.SSH && request.sshKey) {
+    const { privateKey, passphrase, knownHosts } = request.sshKey;
+    return {
+      [ProviderCredentialFields.REPOSITORY_URL]: repositoryUrl,
+      [ProviderCredentialFields.SSH_PRIVATE_KEY]: privateKey.trim(),
+      ...(passphrase
+        ? { [ProviderCredentialFields.SSH_KEY_PASSPHRASE]: passphrase }
+        : {}),
+      ...(knownHosts.trim()
+        ? { [ProviderCredentialFields.SSH_KNOWN_HOSTS]: knownHosts.trim() }
+        : {}),
+    };
+  }
+  return {
+    [ProviderCredentialFields.REPOSITORY_URL]: repositoryUrl,
+    [ProviderCredentialFields.ACCESS_TOKEN]: request.accessToken,
+    ...(request.cloneUsername
+      ? { [ProviderCredentialFields.IAC_USERNAME]: request.cloneUsername }
+      : {}),
+  };
+};
+
 export const buildSecretBody = (
   providerId: string,
-  repositoryUrl: string,
-  accessToken: string,
-  cloneUsername: string,
+  secret: Record<string, string>,
 ) => ({
   data: {
     type: "provider-secrets",
     attributes: {
       secret_type: "static",
-      secret: {
-        [ProviderCredentialFields.REPOSITORY_URL]: repositoryUrl,
-        [ProviderCredentialFields.ACCESS_TOKEN]: accessToken,
-        ...(cloneUsername
-          ? { [ProviderCredentialFields.IAC_USERNAME]: cloneUsername }
-          : {}),
-      },
+      secret,
     },
     relationships: {
       provider: { data: { id: providerId, type: "providers" } },

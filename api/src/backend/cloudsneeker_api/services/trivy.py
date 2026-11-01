@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import io
 import json
 import os
 import shutil
@@ -33,6 +34,8 @@ from cloudsneeker.git_auth import (
     redact,
     strip_userinfo,
 )
+from cloudsneeker.git_ssh import GitSshError, is_ssh_url, ssh_secret_args
+from cloudsneeker.git_ssh import clone as git_clone
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
 from cloudsneeker_api.services.brand_text import scrub_engine_text
 from django.db import transaction
@@ -88,7 +91,9 @@ MODE_DEFAULT_SCANNERS: dict[str, tuple[str, ...]] = {
     TrivyTarget.Mode.K8S: DEFAULT_SCANNERS,
 }
 TRIVY_TIMEOUT_SECONDS = int(os.environ.get("TRIVY_HUB_TIMEOUT_SECONDS", "900"))
-MAX_ARCHIVE_BYTES = int(os.environ.get("TRIVY_HUB_MAX_ARCHIVE_BYTES", str(50 * 1024 * 1024)))
+MAX_ARCHIVE_BYTES = int(
+    os.environ.get("TRIVY_HUB_MAX_ARCHIVE_BYTES", str(50 * 1024 * 1024))
+)
 MAX_SBOM_CHARS = int(os.environ.get("TRIVY_HUB_MAX_SBOM_CHARS", str(5 * 1024 * 1024)))
 
 
@@ -184,8 +189,11 @@ def _has_embedded_credentials(url: str) -> bool:
     """Return True when ``url`` carries a user name or password.
 
     The ``<org>@dev.azure.com/<org>/...`` form Azure DevOps puts in clone URLs
-    is not a credential and is allowed.
+    is not a credential and is allowed, and so is the login name of an SSH URL
+    (``ssh://git@host/...``): SSH authenticates with the provider's key.
     """
+    if is_ssh_url(url):
+        return False
     try:
         parts = urlsplit(url)
     except ValueError:
@@ -471,6 +479,46 @@ def _repo_credentials(provider: Provider) -> tuple[str, str | None]:
     return str(token), (str(username) if username else None)
 
 
+def repo_ssh_args(provider: Provider) -> tuple[str | None, str | None, str | None]:
+    """Return ``(private_key, known_hosts, passphrase)`` from the provider secret."""
+    secret = {}
+    if getattr(provider, "secret", None) is not None:
+        secret = provider.secret.secret or {}
+    return ssh_secret_args(secret)
+
+
+def clone_ssh_repository(repository_url: str, provider: Provider, dest: Path) -> Path:
+    """Clone an SSH repository URL with the provider's key into ``dest``.
+
+    ``trivy repo`` cannot authenticate over SSH, so SSH repositories are
+    cloned here and scanned with ``trivy fs``. ``.git`` is removed afterwards.
+
+    Args:
+        repository_url: ``git@host:owner/repo`` or ``ssh://`` URL.
+        provider: Linked IaC provider holding ``ssh_private_key``.
+        dest: Directory to clone into (created if missing).
+
+    Returns:
+        ``dest``.
+
+    Raises:
+        TrivyHubError: The key is missing or unreadable, or the clone failed.
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    try:
+        git_clone(
+            repository_url,
+            str(dest),
+            *repo_ssh_args(provider),
+            depth=1,
+            errstream=io.BytesIO(),
+        )
+    except GitSshError as error:
+        raise TrivyHubError(f"Repository clone failed: {error}") from None
+    shutil.rmtree(dest / ".git", ignore_errors=True)
+    return dest
+
+
 def _repo_token_env(provider: Provider) -> dict[str, str]:
     token, _username = _repo_credentials(provider)
     if not token:
@@ -586,6 +634,11 @@ def build_trivy_command(
         return [*common, "fs", str(scan_path)], env
 
     if mode == TrivyTarget.Mode.REPO:
+        if is_ssh_url(str(config["repository_url"])):
+            clone_dir = clone_ssh_repository(
+                str(config["repository_url"]), provider, work_dir / "repository"
+            )
+            return [*common, "fs", str(clone_dir)], env
         url, repo_env, _secrets = repo_scan_target(
             str(config["repository_url"]), provider
         )
@@ -706,9 +759,7 @@ def _enqueue_provider_scan(
             "provider_id": str(provider.id),
         },
     )
-    enqueue_scan_execution_on_commit(
-        tenant_id=tenant_id, scan=scan, task_id=task_id
-    )
+    enqueue_scan_execution_on_commit(tenant_id=tenant_id, scan=scan, task_id=task_id)
     return scan
 
 
@@ -763,9 +814,7 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
 
     with rls_transaction(tenant_id):
         run = (
-            TrivyRun.objects.select_related(
-                "target", "provider", "provider__secret"
-            )
+            TrivyRun.objects.select_related("target", "provider", "provider__secret")
             .filter(tenant_id=tenant_id, id=run_id)
             .first()
         )

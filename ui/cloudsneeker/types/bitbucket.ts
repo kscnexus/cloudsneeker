@@ -21,6 +21,8 @@ export interface BitbucketRepository {
   full_name: string;
   repository_url: string;
   html_url: string;
+  /** SSH clone URL; empty when Bitbucket does not offer SSH for the repository. */
+  ssh_url: string;
   project: string;
   is_private: boolean;
   updated_on: string | null;
@@ -50,8 +52,28 @@ export interface BitbucketImportResult {
   message?: string;
 }
 
+export const BITBUCKET_CLONE_METHOD = {
+  TOKEN: "token",
+  SSH: "ssh",
+} as const;
+
+export type BitbucketCloneMethod =
+  (typeof BITBUCKET_CLONE_METHOD)[keyof typeof BITBUCKET_CLONE_METHOD];
+
+export interface BitbucketSshKey {
+  privateKey: string;
+  passphrase: string;
+  /** Host key lines for Bitbucket Data Center / Server. */
+  knownHosts: string;
+}
+
 export interface BitbucketImportRequest {
-  repositories: Pick<BitbucketRepository, "repository_url" | "full_name">[];
+  repositories: Pick<
+    BitbucketRepository,
+    "repository_url" | "ssh_url" | "full_name"
+  >[];
+  cloneMethod: BitbucketCloneMethod;
   accessToken: string;
   cloneUsername: string;
+  sshKey?: BitbucketSshKey;
 }

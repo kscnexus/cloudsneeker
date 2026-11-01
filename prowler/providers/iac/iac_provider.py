@@ -8,8 +8,9 @@ from typing import Generator, List
 
 from alive_progress import alive_bar
 from colorama import Fore, Style
-from dulwich import porcelain
+from dulwich import porcelain  # noqa: F401  # cloudsneeker-hook: tests patch this name
 
+from cloudsneeker import git_ssh  # cloudsneeker-hook
 from cloudsneeker.git_auth import (  # cloudsneeker-hook
     authenticated_clone_url,
     iac_clone_url,
@@ -57,6 +58,9 @@ class IacProvider(Provider):
         oauth_app_token: str = None,
         provider_uid: str = None,
         username: str = None,  # cloudsneeker-hook
+        ssh_private_key: str = None,  # cloudsneeker-hook
+        ssh_known_hosts: str = None,  # cloudsneeker-hook
+        ssh_key_passphrase: str = None,  # cloudsneeker-hook
     ):
         logger.info("Instantiating IAC Provider...")
 
@@ -72,6 +76,11 @@ class IacProvider(Provider):
         self._auth_method = "No auth"
         self._temp_clone_dir = None  # Track temporary directory for cleanup
         self.git_username = username  # cloudsneeker-hook
+        self.git_ssh = (
+            ssh_private_key,
+            ssh_known_hosts,
+            ssh_key_passphrase,
+        )  # cloudsneeker-hook
 
         if scan_repository_url:
             oauth_app_token = oauth_app_token or environ.get("GITHUB_OAUTH_APP_TOKEN")
@@ -363,8 +372,11 @@ class IacProvider(Provider):
                     ) as bar:
                         try:
                             bar.title = f"-> Cloning {original_url}..."
-                            porcelain.clone(
-                                repository_url, temporary_directory, depth=1
+                            git_ssh.clone(  # cloudsneeker-hook
+                                repository_url,
+                                temporary_directory,
+                                *getattr(self, "git_ssh", ()),
+                                depth=1,
                             )
                             bar.title = "-> Repository cloned successfully!"
                         except Exception as clone_error:
@@ -373,12 +385,22 @@ class IacProvider(Provider):
                 else:
                     # No TTY, just clone without progress bar
                     logger.info(f"Cloning {original_url}...")
-                    porcelain.clone(repository_url, temporary_directory, depth=1)
+                    git_ssh.clone(
+                        repository_url,
+                        temporary_directory,
+                        *getattr(self, "git_ssh", ()),
+                        depth=1,
+                    )  # cloudsneeker-hook
                     logger.info("Repository cloned successfully!")
             except (AttributeError, OSError):
                 # Fallback if isatty() check fails
                 logger.info(f"Cloning {original_url}...")
-                porcelain.clone(repository_url, temporary_directory, depth=1)
+                git_ssh.clone(
+                    repository_url,
+                    temporary_directory,
+                    *getattr(self, "git_ssh", ()),
+                    depth=1,
+                )  # cloudsneeker-hook
                 logger.info("Repository cloned successfully!")
 
             # Detect the branch name from the cloned repository
@@ -525,7 +547,6 @@ class IacProvider(Provider):
 
             # Process all trivy findings
             for finding in output:
-
                 # Process Misconfigurations
                 for misconfiguration in finding.get("Misconfigurations", []):
                     report = self._process_finding(
@@ -624,6 +645,9 @@ class IacProvider(Provider):
         raise_on_exception: bool = True,
         provider_id: str = None,
         username: str = None,  # cloudsneeker-hook
+        ssh_private_key: str = None,  # cloudsneeker-hook
+        ssh_known_hosts: str = None,  # cloudsneeker-hook
+        ssh_key_passphrase: str = None,  # cloudsneeker-hook
     ) -> "Connection":
         """Test connection to IaC repository.
 
@@ -668,7 +692,9 @@ class IacProvider(Provider):
                     )
 
                     # Use dulwich to test the connection
-                    porcelain.ls_remote(auth_url)
+                    git_ssh.ls_remote(
+                        auth_url, ssh_private_key, ssh_known_hosts, ssh_key_passphrase
+                    )  # cloudsneeker-hook
 
                     return Connection(is_connected=True)
 

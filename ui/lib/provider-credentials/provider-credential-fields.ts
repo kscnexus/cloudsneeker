@@ -53,6 +53,9 @@ export const ProviderCredentialFields = {
   REPOSITORY_URL: "repository_url",
   ACCESS_TOKEN: "access_token",
   IAC_USERNAME: "username", // cloudsneeker-hook: private Git hosts (Bitbucket app passwords, Azure DevOps)
+  SSH_PRIVATE_KEY: "ssh_private_key", // cloudsneeker-hook: SSH deploy keys
+  SSH_KNOWN_HOSTS: "ssh_known_hosts", // cloudsneeker-hook: SSH deploy keys
+  SSH_KEY_PASSPHRASE: "ssh_key_passphrase", // cloudsneeker-hook: SSH deploy keys
 
   // Image (Container Registry) fields
   REGISTRY_USERNAME: "registry_username",
@@ -130,6 +133,9 @@ export const ErrorPointers = {
   REPOSITORY_URL: "/data/attributes/secret/repository_url",
   ACCESS_TOKEN: "/data/attributes/secret/access_token",
   IAC_USERNAME: "/data/attributes/secret/username", // cloudsneeker-hook: private Git hosts
+  SSH_PRIVATE_KEY: "/data/attributes/secret/ssh_private_key", // cloudsneeker-hook: SSH deploy keys
+  SSH_KNOWN_HOSTS: "/data/attributes/secret/ssh_known_hosts", // cloudsneeker-hook: SSH deploy keys
+  SSH_KEY_PASSPHRASE: "/data/attributes/secret/ssh_key_passphrase", // cloudsneeker-hook: SSH deploy keys
   REGISTRY_USERNAME: "/data/attributes/secret/registry_username",
   REGISTRY_PASSWORD: "/data/attributes/secret/registry_password",
   REGISTRY_TOKEN: "/data/attributes/secret/registry_token",

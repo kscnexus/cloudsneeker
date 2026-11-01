@@ -22,6 +22,9 @@ export const REGISTRY_INSECURE_VALUES = Object.values(
 
 export interface IacSecretExtras {
   [ProviderCredentialFields.IAC_USERNAME]?: string;
+  [ProviderCredentialFields.SSH_PRIVATE_KEY]?: string;
+  [ProviderCredentialFields.SSH_KNOWN_HOSTS]?: string;
+  [ProviderCredentialFields.SSH_KEY_PASSPHRASE]?: string;
 }
 
 export interface ImageSecretExtras {
@@ -47,9 +50,28 @@ export const parseFormBoolean = (
   return undefined;
 };
 
+// The SSH key and known-hosts lines keep their line breaks; the passphrase is
+// sent exactly as typed.
+const IAC_SSH_FIELDS = [
+  ProviderCredentialFields.SSH_PRIVATE_KEY,
+  ProviderCredentialFields.SSH_KNOWN_HOSTS,
+  ProviderCredentialFields.SSH_KEY_PASSPHRASE,
+] as const;
+
 export const buildIacSecretExtras = (formData: FormData): IacSecretExtras => {
+  const extras: IacSecretExtras = {};
   const username = readText(formData, ProviderCredentialFields.IAC_USERNAME);
-  return username ? { [ProviderCredentialFields.IAC_USERNAME]: username } : {};
+  if (username) extras[ProviderCredentialFields.IAC_USERNAME] = username;
+  for (const field of IAC_SSH_FIELDS) {
+    const value = formData.get(field);
+    if (typeof value === "string" && value.trim() !== "") {
+      extras[field] =
+        field === ProviderCredentialFields.SSH_KEY_PASSPHRASE
+          ? value
+          : value.trim();
+    }
+  }
+  return extras;
 };
 
 export const buildImageSecretExtras = (

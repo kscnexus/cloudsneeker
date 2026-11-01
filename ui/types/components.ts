@@ -266,6 +266,9 @@ export type IacCredentials = {
   [ProviderCredentialFields.REPOSITORY_URL]: string;
   [ProviderCredentialFields.ACCESS_TOKEN]?: string;
   [ProviderCredentialFields.IAC_USERNAME]?: string; // cloudsneeker-hook: private Git hosts
+  [ProviderCredentialFields.SSH_PRIVATE_KEY]?: string; // cloudsneeker-hook: SSH deploy keys
+  [ProviderCredentialFields.SSH_KNOWN_HOSTS]?: string; // cloudsneeker-hook: SSH deploy keys
+  [ProviderCredentialFields.SSH_KEY_PASSPHRASE]?: string; // cloudsneeker-hook: SSH deploy keys
   [ProviderCredentialFields.PROVIDER_ID]: string;
 };
 

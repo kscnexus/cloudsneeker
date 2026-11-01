@@ -42,6 +42,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from cloudsneeker.git_auth import redact, strip_userinfo
+from cloudsneeker.git_ssh import is_ssh_url, ssh_host
 
 CLOUD_API = "https://api.bitbucket.org/2.0"
 CLOUD_API_TOKEN_CLONE_USERNAME = "x-bitbucket-api-token-auth"
@@ -74,6 +75,7 @@ class BitbucketRepository:
     full_name: str
     repository_url: str
     html_url: str
+    ssh_url: str
     project: str
     is_private: bool
     updated_on: str | None
@@ -96,7 +98,9 @@ def normalize_repository_url(url: str) -> str:
 
     Drops userinfo, a trailing ``/`` and ``.git``, and lowercases the result,
     so ``https://u@bitbucket.org/Acme/App.git`` matches
-    ``https://bitbucket.org/acme/app``.
+    ``https://bitbucket.org/acme/app``. An SSH URL becomes
+    ``https://<host>/<path>``, so ``git@bitbucket.org:acme/app.git`` matches
+    too (Bitbucket Server SSH paths differ from its ``/scm/`` HTTPS paths).
 
     Args:
         url: Repository URL.
@@ -104,7 +108,14 @@ def normalize_repository_url(url: str) -> str:
     Returns:
         The normalized key.
     """
-    value = strip_userinfo((url or "").strip()).rstrip("/")
+    value = (url or "").strip()
+    if is_ssh_url(value):
+        if value.lower().startswith("ssh://"):
+            path = urlsplit(value).path
+        else:
+            path = value.split(":", 1)[1]
+        value = f"https://{ssh_host(value)}/{path.lstrip('/')}"
+    value = strip_userinfo(value).rstrip("/")
     if value.lower().endswith(".git"):
         value = value[:-4]
     return value.rstrip("/").lower()
@@ -213,6 +224,14 @@ def _get_json(
     return payload
 
 
+def _ssh_href(links: dict) -> str:
+    for link in (links or {}).get("clone") or []:
+        href = (link or {}).get("href") or ""
+        if (link or {}).get("name") == "ssh" and is_ssh_url(href):
+            return href
+    return ""
+
+
 def _clone_href(links: dict, names: tuple[str, ...]) -> str:
     for link in (links or {}).get("clone") or []:
         href = (link or {}).get("href") or ""
@@ -240,6 +259,7 @@ def _list_cloud(
                     full_name=item.get("full_name") or "",
                     repository_url=clone_url,
                     html_url=((links.get("html") or {}).get("href")) or "",
+                    ssh_url=_ssh_href(links),
                     project=((item.get("project") or {}).get("name")) or "",
                     is_private=bool(item.get("is_private")),
                     updated_on=item.get("updated_on"),
@@ -284,6 +304,7 @@ def _list_server(
                     full_name=f"{item_project.get('key', '')}/{slug}".strip("/"),
                     repository_url=clone_url,
                     html_url=(html or {}).get("href") or "",
+                    ssh_url=_ssh_href(links),
                     project=item_project.get("name") or item_project.get("key") or "",
                     is_private=not bool(item.get("public")),
                     updated_on=None,

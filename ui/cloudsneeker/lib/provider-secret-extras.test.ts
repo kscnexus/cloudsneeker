@@ -61,6 +61,27 @@ describe("buildIacSecretExtras", () => {
   });
 });
 
+describe("buildIacSecretExtras SSH fields", () => {
+  it("adds the SSH key, host key and passphrase", () => {
+    const formData = new FormData();
+    formData.set("ssh_private_key", "  KEY\n");
+    formData.set("ssh_known_hosts", " host ssh-ed25519 AAAA ");
+    formData.set("ssh_key_passphrase", " pass ");
+    expect(buildIacSecretExtras(formData)).toEqual({
+      ssh_private_key: "KEY",
+      ssh_known_hosts: "host ssh-ed25519 AAAA",
+      ssh_key_passphrase: " pass ",
+    });
+  });
+
+  it("omits empty SSH fields", () => {
+    const formData = new FormData();
+    formData.set("ssh_private_key", "  ");
+    formData.set("ssh_key_passphrase", "");
+    expect(buildIacSecretExtras(formData)).toEqual({});
+  });
+});
+
 describe("buildImageSecretExtras", () => {
   it("adds ECR role fields and the insecure flag as a boolean", () => {
     // Given
