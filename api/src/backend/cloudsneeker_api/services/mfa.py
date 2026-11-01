@@ -123,15 +123,22 @@ def tenant_requires_mfa(tenant_id) -> bool:
 
 
 def enrolment_required(user_id, tenant_id) -> bool:
-    """The tenant requires MFA and this password user has not enrolled."""
+    """The tenant requires MFA and this password user has not enrolled.
+
+    The tenant lookup always runs (one indexed query), so every request costs
+    the same and turning the requirement on applies at once. Only the
+    per-user part is cached, and only in tenants that require MFA.
+    """
     if not user_id or not tenant_id:
+        return False
+    if not tenant_requires_mfa(tenant_id):
         return False
     key = _ENROLMENT_CACHE_KEY.format(user_id=user_id, tenant_id=tenant_id)
     cached = cache.get(key)
     if cached is not None:
         return cached
     required = False
-    if tenant_requires_mfa(tenant_id) and not is_enabled(user_id):
+    if not is_enabled(user_id):
         from api.models import User
 
         user = User.objects.using(_db()).filter(pk=user_id).first()

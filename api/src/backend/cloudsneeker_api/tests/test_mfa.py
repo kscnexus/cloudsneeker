@@ -347,6 +347,17 @@ class TestTenantPolicy:
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.json()["errors"][0]["code"] == "mfa_required_by_organization"
 
+    def test_enrolment_check_costs_the_same_on_every_request(
+        self, create_test_user, tenants_fixture, django_assert_num_queries
+    ):
+        # Query-count tests compare two requests, so no lazily filled cache
+        # may make the first one cost more than the next.
+        for _ in range(2):
+            with django_assert_num_queries(1):
+                assert not service.enrolment_required(
+                    str(create_test_user.pk), str(tenants_fixture[0].id)
+                )
+
     def test_sso_users_are_not_held(self, authenticated_client, tenants_fixture):
         _enrol(authenticated_client)
         self._require(authenticated_client)
