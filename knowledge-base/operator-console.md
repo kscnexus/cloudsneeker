@@ -49,22 +49,55 @@ python manage.py cloudsneeker_operator list
 python manage.py cloudsneeker_operator revoke someone@company.com
 ```
 
-On ECS, run it as a one-off task of the API task definition (same cluster,
-subnets and security group as the API service; the API image's working
-directory is the Django project):
+On ECS, a command override on the API task definition does not work: the
+image's entrypoint is `docker-entrypoint.sh prod`, which ignores extra
+arguments and starts Gunicorn. Use a one-off task definition instead, copied
+from the API one with `manage.py` as the entrypoint. The API image's working
+directory is the Django project.
 
-```powershell
-aws ecs run-task --profile kscnexus --region us-east-1 `
-  --cluster <cluster> --task-definition <api-task-definition> `
-  --launch-type FARGATE `
-  --network-configuration "awsvpcConfiguration={subnets=[<private-subnet>],securityGroups=[<api-sg>],assignPublicIp=DISABLED}" `
-  --overrides '{"containerOverrides":[{"name":"<api-container>","command":["python","manage.py","cloudsneeker_operator","grant","you@company.com","--role","owner"]}]}'
-```
+1. Register the one-off task definition (family `cloudsneeker-api-oneoff`).
+   Register it again after the API image tag changes, so it runs the same
+   code as the API service:
 
-Check the task's CloudWatch log for "is an operator with role owner", then
-sign in again: the sidebar shows **Operator console** under Organization and
-`/operator` opens. Every grant and revoke is in the operator audit log with
-the actor `cli`.
+   ```powershell
+   $td = aws ecs describe-task-definition --profile kscnexus --region us-east-1 `
+     --task-definition cloudsneeker-api --query taskDefinition | ConvertFrom-Json
+   $c = $td.containerDefinitions[0]
+   $c | Add-Member -Force entryPoint @("uv","run","python","manage.py")
+   $c | Add-Member -Force command @("cloudsneeker_operator","list")
+   $c.PSObject.Properties.Remove("healthCheck")
+   $c.PSObject.Properties.Remove("portMappings")
+   $c.logConfiguration.options."awslogs-stream-prefix" = "oneoff"
+   $keep = "containerDefinitions","taskRoleArn","executionRoleArn","networkMode",
+     "requiresCompatibilities","cpu","memory","volumes","runtimePlatform","ephemeralStorage"
+   $out = @{ family = "cloudsneeker-api-oneoff" }
+   foreach ($k in $keep) { if ($td.$k) { $out[$k] = $td.$k } }
+   $out | ConvertTo-Json -Depth 20 | Out-File -Encoding ascii td-oneoff.json
+   aws ecs register-task-definition --profile kscnexus --region us-east-1 `
+     --cli-input-json file://td-oneoff.json
+   ```
+
+2. Run the command with the API service's subnets and security group (read
+   them with `aws ecs describe-services --cluster cloudsneeker --services api
+   --query 'services[0].networkConfiguration'`). The override is only the
+   `manage.py` arguments:
+
+   ```powershell
+   aws ecs run-task --profile kscnexus --region us-east-1 `
+     --cluster cloudsneeker --task-definition cloudsneeker-api-oneoff `
+     --launch-type FARGATE `
+     --network-configuration "awsvpcConfiguration={subnets=[<subnet-a>,<subnet-b>],securityGroups=[<api-sg>],assignPublicIp=DISABLED}" `
+     --overrides '{"containerOverrides":[{"name":"api","command":["cloudsneeker_operator","grant","you@company.com","--role","owner"]}]}'
+   ```
+
+3. Wait for the task to stop (`aws ecs wait tasks-stopped`), then read log
+   group `/ecs/cloudsneeker/api`, stream `oneoff/api/<task id>`. In Git Bash,
+   set `MSYS_NO_PATHCONV=1` first or the log group path is rewritten.
+
+Look for "is an operator with role owner", then sign in again: the sidebar
+shows **Operator console** under Organization and `/operator` opens. Every
+grant and revoke is in the operator audit log with the actor `cli`. The same
+task definition runs `list`, `revoke` and other `manage.py` commands.
 
 ### What was built
 
