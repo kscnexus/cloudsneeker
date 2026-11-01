@@ -59,6 +59,16 @@ describe("BitbucketImportForm", () => {
     expect(screen.getByLabelText("Project key (optional)")).toBeInTheDocument();
   });
 
+  it("offers the SSH key option before repositories are listed", async () => {
+    const user = userEvent.setup();
+    render(<BitbucketImportForm />);
+
+    await user.click(screen.getByRole("button", { name: "SSH key" }));
+
+    expect(screen.getByLabelText("SSH private key")).toBeInTheDocument();
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
   it("shows the listing error", async () => {
     listMock.mockResolvedValue({ error: "Bitbucket rejected the token." });
     const user = userEvent.setup();

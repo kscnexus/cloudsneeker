@@ -320,6 +320,76 @@ export const BitbucketImportForm = () => {
         />
       </div>
 
+      <div className="flex flex-col gap-3">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Clone repositories with"
+        >
+          <span className="text-text-neutral-secondary text-sm">
+            Clone repositories with
+          </span>
+          {Object.values(BITBUCKET_CLONE_METHOD).map((method) => (
+            <Button
+              key={method}
+              type="button"
+              size="sm"
+              variant={cloneMethod === method ? "default" : "outline"}
+              aria-pressed={cloneMethod === method}
+              disabled={isImporting}
+              onClick={() => setCloneMethod(method)}
+            >
+              {CLONE_METHOD_LABEL[method]}
+            </Button>
+          ))}
+        </div>
+        {usesSsh && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label htmlFor="bitbucket-ssh-key">SSH private key</Label>
+              <Textarea
+                id="bitbucket-ssh-key"
+                rows={4}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                value={sshKey.privateKey}
+                onChange={(event) =>
+                  updateSshKey("privateKey")(event.target.value)
+                }
+              />
+              <p className="text-text-neutral-tertiary text-xs">
+                Add its public key to a Bitbucket account that can read these
+                repositories, or to each repository as a read-only access key.
+                Every picked repository is added with its SSH URL and this key.
+              </p>
+            </div>
+            <Field
+              id="bitbucket-ssh-passphrase"
+              label="Key passphrase (PEM keys only)"
+              type="password"
+              value={sshKey.passphrase}
+              onChange={updateSshKey("passphrase")}
+            />
+            {isServer && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bitbucket-ssh-known-hosts">SSH host key</Label>
+                <Textarea
+                  id="bitbucket-ssh-known-hosts"
+                  rows={2}
+                  spellCheck={false}
+                  placeholder="Output of ssh-keyscan -p 7999 git.example.com"
+                  value={sshKey.knownHosts}
+                  onChange={(event) =>
+                    updateSshKey("knownHosts")(event.target.value)
+                  }
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div>
         <Button
           type="button"
@@ -440,79 +510,6 @@ export const BitbucketImportForm = () => {
               </table>
             </div>
           )}
-
-          <div className="flex flex-col gap-3">
-            <div
-              className="flex flex-wrap items-center gap-2"
-              role="group"
-              aria-label="Clone repositories with"
-            >
-              <span className="text-text-neutral-secondary text-sm">
-                Clone repositories with
-              </span>
-              {Object.values(BITBUCKET_CLONE_METHOD).map((method) => (
-                <Button
-                  key={method}
-                  type="button"
-                  size="sm"
-                  variant={cloneMethod === method ? "default" : "outline"}
-                  aria-pressed={cloneMethod === method}
-                  disabled={isImporting}
-                  onClick={() => setCloneMethod(method)}
-                >
-                  {CLONE_METHOD_LABEL[method]}
-                </Button>
-              ))}
-            </div>
-            {usesSsh && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <Label htmlFor="bitbucket-ssh-key">SSH private key</Label>
-                  <Textarea
-                    id="bitbucket-ssh-key"
-                    rows={4}
-                    spellCheck={false}
-                    autoComplete="off"
-                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                    value={sshKey.privateKey}
-                    onChange={(event) =>
-                      updateSshKey("privateKey")(event.target.value)
-                    }
-                  />
-                  <p className="text-text-neutral-tertiary text-xs">
-                    Add its public key to a Bitbucket account that can read
-                    these repositories, or to each repository as a read-only
-                    access key. Every picked repository is added with its SSH
-                    URL and this key.
-                  </p>
-                </div>
-                <Field
-                  id="bitbucket-ssh-passphrase"
-                  label="Key passphrase (PEM keys only)"
-                  type="password"
-                  value={sshKey.passphrase}
-                  onChange={updateSshKey("passphrase")}
-                />
-                {isServer && (
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="bitbucket-ssh-known-hosts">
-                      SSH host key
-                    </Label>
-                    <Textarea
-                      id="bitbucket-ssh-known-hosts"
-                      rows={2}
-                      spellCheck={false}
-                      placeholder="Output of ssh-keyscan -p 7999 git.example.com"
-                      value={sshKey.knownHosts}
-                      onChange={(event) =>
-                        updateSshKey("knownHosts")(event.target.value)
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
