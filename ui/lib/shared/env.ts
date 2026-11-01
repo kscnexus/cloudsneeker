@@ -1,6 +1,7 @@
 /**
  * Shared environment helpers.
  */
+import { isCloudsneekerSelfRegistrationEnabled } from "@/cloudsneeker/lib/self-registration"; // cloudsneeker-hook
 import { readRuntimeConfigIsland } from "@/lib/runtime-config.shared";
 import { readBoolEnv, readOptOutEnv } from "@/lib/runtime-env";
 
@@ -28,7 +29,7 @@ export function isCloud(): boolean {
  * `UI_SELF_REGISTRATION_ENABLED` (island, then env), on unless "false".
  */
 export function isSelfRegistrationEnabled(): boolean {
-  if (!isCloud()) return true;
+  if (!isCloud()) return isCloudsneekerSelfRegistrationEnabled(); // cloudsneeker-hook
 
   const islandConfig = readRuntimeConfigIsland();
   if (islandConfig) return islandConfig.selfRegistrationEnabled;

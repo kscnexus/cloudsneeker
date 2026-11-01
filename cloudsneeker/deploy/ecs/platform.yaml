@@ -1214,6 +1214,9 @@ Resources:
               Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
             - Name: DJANGO_UI_BASE_URL
               Value: !If [UseHttps, !Sub "https://${DomainName}", !Sub "http://${LoadBalancer.DNSName}"]
+            # EB-002: accounts are created by invitation only.
+            - Name: CLOUDSNEEKER_SELF_REGISTRATION_ENABLED
+              Value: "false"
             - Name: DJANGO_TMP_OUTPUT_DIRECTORY
               Value: /tmp/prowler_api_output
             - Name: POSTGRES_HOST
@@ -1509,6 +1512,9 @@ Resources:
             - Name: UI_API_DOCS_URL
               Value: !If [UseHttps, !Sub "https://${DomainName}/api/v1/docs", !Sub "http://${LoadBalancer.DNSName}/api/v1/docs"]
             - Name: UI_CLOUD_ENABLED
+              Value: "false"
+            # EB-002: hide sign-up; invitation links still work.
+            - Name: CLOUDSNEEKER_SELF_REGISTRATION_ENABLED
               Value: "false"
             - Name: PROWLER_MCP_SERVER_URL
               Value: http://mcp.cloudsneeker.local:8000/mcp
