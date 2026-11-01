@@ -59,7 +59,9 @@ from psqlextra.models import PostgresPartitionedModel
 from psqlextra.types import PostgresPartitioningMethod
 from uuid6 import uuid7
 
-fernet = Fernet(settings.SECRETS_ENCRYPTION_KEY.encode())
+from cloudsneeker_api.crypto import build_fernet  # cloudsneeker-hook
+
+fernet = build_fernet(settings.SECRETS_ENCRYPTION_KEY)  # cloudsneeker-hook: key rotation (EB-016)
 
 # Convert Prowler Severity enum to Django TextChoices
 SeverityChoices = enum_to_choices(Severity)

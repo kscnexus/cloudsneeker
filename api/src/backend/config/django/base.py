@@ -254,7 +254,10 @@ SECRETS_ENCRYPTION_KEY = env.str("DJANGO_SECRETS_ENCRYPTION_KEY", "")
 
 # DRF Simple API Key settings
 DRF_API_KEY = {
-    "FERNET_SECRET": SECRETS_ENCRYPTION_KEY,
+    # cloudsneeker-hook: API keys keep their own key so rotating the data key
+    # (EB-016) does not revoke them; defaults to the data key.
+    "FERNET_SECRET": env.str("DJANGO_API_KEY_FERNET_SECRET", "")
+    or SECRETS_ENCRYPTION_KEY,
     "API_KEY_LIFETIME": 365,
     "AUTHENTICATION_KEYWORD_HEADER": "Api-Key",
 }
