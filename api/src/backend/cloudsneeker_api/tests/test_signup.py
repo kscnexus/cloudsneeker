@@ -79,8 +79,10 @@ class TestSignupGate:
         assert not User.objects.filter(email=expired.email).exists()
 
     def test_closed_allows_the_first_user_of_a_new_install(self, client, closed_signup):
-        assert not User.objects.exists()
-        response = _sign_up(client, "owner@example.com")
+        # The session fixtures always create a user, so stand in for an
+        # empty database.
+        with patch.object(signup, "_has_users", return_value=False):
+            response = _sign_up(client, "owner@example.com")
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_closed_leaves_other_requests_alone(
