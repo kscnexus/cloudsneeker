@@ -27,6 +27,13 @@ Parameters:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
+  ExtraAssumableRoleArns:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: >
+      Extra IAM role ARNs (wildcards allowed) the app may assume for scans,
+      integrations and ECR, for customer roles whose names contain neither
+      "Cloudsneeker" nor "Prowler". An external ID is still required.
   AlertEmail:
     Type: String
     Default: ""
@@ -60,6 +67,7 @@ Conditions:
     - !Condition RunCompute
   MultiAzDatabase: !Equals [!Ref DatabaseMultiAz, "true"]
   HasAlertEmail: !Not [!Equals [!Ref AlertEmail, ""]]
+  HasExtraAssumableRoles: !Not [!Equals [!Join ["", !Ref ExtraAssumableRoleArns], ""]]
 
 Resources:
   Vpc:
@@ -720,7 +728,9 @@ Resources:
                 Resource: !GetAtt FileSystem.Arn
         # Container image scans of private Amazon ECR (cloudsneeker_api/ecr_auth.py):
         # mint short-lived ECR tokens with this role, or assume a customer's
-        # role (with its external ID) to read their registry.
+        # role to read their registry. Customer roles (scans, integrations,
+        # ECR) are assumable only by name pattern and with an external ID, so
+        # the app cannot be used as a confused deputy (EB-004).
         - PolicyName: registry-scanning
           PolicyDocument:
             Version: "2012-10-17"
@@ -739,7 +749,23 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/*
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: "*"
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::*:role/*Cloudsneeker*
+                  - !Sub arn:${AWS::Partition}:iam::*:role/*cloudsneeker*
+                  - !Sub arn:${AWS::Partition}:iam::*:role/*Prowler*
+                  - !Sub arn:${AWS::Partition}:iam::*:role/*prowler*
+                Condition:
+                  "Null":
+                    sts:ExternalId: "false"
+              - !If
+                - HasExtraAssumableRoles
+                - Effect: Allow
+                  Action: sts:AssumeRole
+                  Resource: !Ref ExtraAssumableRoleArns
+                  Condition:
+                    "Null":
+                      sts:ExternalId: "false"
+                - !Ref AWS::NoValue
 
   Cluster:
     Type: AWS::ECS::Cluster

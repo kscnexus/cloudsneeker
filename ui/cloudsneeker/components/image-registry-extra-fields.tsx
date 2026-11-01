@@ -47,7 +47,7 @@ export const ImageRegistryExtraFields = ({
       <WizardInputField
         control={control}
         name={ProviderCredentialFields.ECR_EXTERNAL_ID}
-        label="ECR External ID (Optional)"
+        label="ECR External ID (required with a role ARN)"
         labelPlacement="inside"
         placeholder="External ID required by the role trust policy"
         variant="bordered"

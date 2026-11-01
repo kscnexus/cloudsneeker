@@ -113,11 +113,13 @@ class TestMintEcrCredentials:
             aws_session_token="assumed-session",
         )
 
-    def test_assume_role_without_external_id(self):
+    @pytest.mark.parametrize("external_id", [None, ""])
+    def test_assume_role_requires_external_id(self, external_id):
         sts = _sts_client()
         with _patch_boto(_ecr_client(), sts):
-            mint_ecr_credentials(ECR_HOST, ROLE_ARN)
-        assert "ExternalId" not in sts.assume_role.call_args.kwargs
+            with pytest.raises(EcrAuthError, match="external ID"):
+                mint_ecr_credentials(ECR_HOST, ROLE_ARN, external_id)
+        sts.assume_role.assert_not_called()
 
     def test_assume_role_failure_is_clear(self):
         sts = _sts_client()
@@ -203,7 +205,12 @@ def _image_provider(uid: str, secret: dict) -> MagicMock:
 class TestUpstreamHooks:
     def test_scan_kwargs_get_minted_credentials(self):
         provider = _image_provider(
-            ECR_HOST, {"ecr_role_arn": ROLE_ARN, "registry_insecure": True}
+            ECR_HOST,
+            {
+                "ecr_role_arn": ROLE_ARN,
+                "ecr_external_id": "ext-1",
+                "registry_insecure": True,
+            },
         )
         with _patch_boto(_ecr_client()):
             kwargs = get_prowler_provider_kwargs(provider)

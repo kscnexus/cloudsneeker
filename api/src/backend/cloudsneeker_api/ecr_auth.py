@@ -7,7 +7,8 @@ credentials are stored, :func:`apply_ecr_auth` mints a fresh token with
 ``ecr:GetAuthorizationToken``:
 
 * with ``ecr_role_arn`` on the secret, the worker first assumes that role
-  (``ecr_external_id`` is sent as ``ExternalId`` when set);
+  with ``ecr_external_id`` as ``ExternalId`` (required: the hosted task role
+  may only assume roles with an external ID, EB-004);
 * without it, the worker's own AWS credentials are used.
 
 ``ecr_role_arn`` and ``ecr_external_id`` never reach ``ImageProvider``, which
@@ -95,24 +96,30 @@ def mint_ecr_credentials(
     Args:
         host: ECR registry host, ``<account>.dkr.ecr.<region>.amazonaws.com``.
         role_arn: Optional IAM role to assume before calling ECR.
-        external_id: Optional ``ExternalId`` for the role assumption.
+        external_id: ``ExternalId`` for the role assumption; required with
+            ``role_arn``.
 
     Returns:
         ``(username, password)``; the username is ``AWS``.
 
     Raises:
-        EcrAuthError: When the role cannot be assumed or ECR refuses the token.
+        EcrAuthError: When the role has no external ID, cannot be assumed,
+            or ECR refuses the token.
     """
     account_id, region = ecr_host_parts(host)
     session_kwargs: dict[str, Any] = {"region_name": region}
 
     if role_arn:
+        if not external_id:
+            raise EcrAuthError(
+                f"The ECR role for {host} needs an external ID. Add one to the "
+                "role's trust policy (sts:ExternalId) and to this provider."
+            )
         assume_kwargs: dict[str, Any] = {
             "RoleArn": role_arn,
             "RoleSessionName": ECR_ROLE_SESSION_NAME,
+            "ExternalId": external_id,
         }
-        if external_id:
-            assume_kwargs["ExternalId"] = external_id
         try:
             sts = boto3.client("sts", region_name=region)
             credentials = sts.assume_role(**assume_kwargs)["Credentials"]
