@@ -3,11 +3,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { authenticate } from "@/actions/auth";
 import { initiateSamlAuth } from "@/actions/integrations/saml";
+import { MfaCodeField } from "@/cloudsneeker/components/mfa-code-field"; // cloudsneeker-hook
+import {
+  isMfaChallengeCode,
+  type MfaChallengeCode,
+  withOtpCode,
+} from "@/cloudsneeker/lib/mfa"; // cloudsneeker-hook
 import { AuthDivider } from "@/components/auth/oss/auth-divider";
 import { AuthFooterLink } from "@/components/auth/oss/auth-footer-link";
 import { AuthLayout } from "@/components/auth/oss/auth-layout";
@@ -47,6 +53,11 @@ export const SignInForm = ({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  // cloudsneeker-hook: MFA code step (EB-008)
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallengeCode | null>(
+    null,
+  );
+  const [otpCode, setOtpCode] = useState("");
   const callbackUrl = getSafeCallbackPath(searchParams, "callbackUrl");
   const socialCallbackUrl = appendAttributionToCallbackPath(
     callbackUrl,
@@ -141,10 +152,18 @@ export const SignInForm = ({
       return;
     }
 
-    const result = await authenticate(null, {
-      email: data.email.toLowerCase(),
-      password: data.password,
-    });
+    const credentials = withOtpCode(
+      { email: data.email.toLowerCase(), password: data.password },
+      mfaChallenge ? otpCode : null,
+    ); // cloudsneeker-hook: MFA code
+    const result = await authenticate(null, credentials);
+
+    // cloudsneeker-hook: the API asked for (or rejected) a verification code
+    const challenge = result?.message;
+    if (isMfaChallengeCode(challenge)) {
+      setMfaChallenge(challenge);
+      return;
+    }
 
     if (result?.message === "Success") {
       router.push(resolvePostLoginPath(callbackUrl, isCloud()));
@@ -198,6 +217,14 @@ export const SignInForm = ({
           />
           {!isSamlMode && (
             <CustomInput control={form.control} name="password" password />
+          )}
+          {/* cloudsneeker-hook: MFA code step */}
+          {!isSamlMode && mfaChallenge && (
+            <MfaCodeField
+              challenge={mfaChallenge}
+              value={otpCode}
+              onChange={setOtpCode}
+            />
           )}
 
           <Button

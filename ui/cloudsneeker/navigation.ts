@@ -120,6 +120,13 @@ const PROFILE_CHILD: NavigationChildLink = {
   label: "Profile",
 };
 
+/** MFA for the signed-in user; admins also set the tenant requirement. */
+const SECURITY_CHILD: NavigationChildLink = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: PRODUCT_ROUTE.SECURITY,
+  label: "Security",
+};
+
 /** Tenant audit log; the page itself checks the manage account permission. */
 const AUDIT_LOG_CHILD: NavigationChildLink = {
   kind: NAVIGATION_ITEM_KIND.LINK,
@@ -431,7 +438,11 @@ const regroupNavigation = (
         ...upstream.organization,
         children: withProductChild(
           withProductChild(
-            upstream.organization.children,
+            withProductChild(
+              upstream.organization.children,
+              SECURITY_CHILD,
+              "start",
+            ),
             PROFILE_CHILD,
             "start",
           ),

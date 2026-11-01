@@ -1161,3 +1161,65 @@ class OperatorAuditEvent(models.Model):
 
 
 # --- End operator console -----------------------------------------------------
+
+
+# --- Multi-factor authentication (EB-008) -------------------------------------
+# Per-user and per-tenant rows outside row-level security, read and written
+# through the admin connection like the operator console tables.
+
+
+class UserMfa(models.Model):
+    """A password user's authenticator (TOTP) and recovery codes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_mfa",
+    )
+    # Fernet token of the base32 secret (same key as provider secrets).
+    secret_encrypted = models.TextField()
+    # Null until the user proves the authenticator works with a first code.
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Highest time step accepted, so a code cannot be used twice.
+    last_used_step = models.BigIntegerField(null=True, blank=True)
+    # HMAC-SHA256 digests of unused recovery codes; each is removed when used.
+    recovery_code_hashes = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}user_mfa"
+
+    @property
+    def secret(self) -> str:
+        return fernet.decrypt(self.secret_encrypted.encode()).decode()
+
+    @secret.setter
+    def secret(self, value: str) -> None:
+        self.secret_encrypted = fernet.encrypt(value.encode()).decode()
+
+    @property
+    def enabled(self) -> bool:
+        return self.confirmed_at is not None
+
+
+class TenantMfaPolicy(models.Model):
+    """Whether an organization requires MFA from its password users."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    tenant = models.OneToOneField(
+        "api.Tenant",
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_mfa_policy",
+    )
+    require_mfa = models.BooleanField(default=False)
+    updated_by = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}tenant_mfa_policies"
+
+
+# --- End multi-factor authentication ------------------------------------------

@@ -3,6 +3,12 @@
 import { AuthError } from "next-auth";
 
 import { signIn, signOut } from "@/auth.config";
+import { otpCodeAttribute } from "@/cloudsneeker/lib/mfa"; // cloudsneeker-hook
+import {
+  mfaSignInResult,
+  rethrowMfaChallenge,
+  throwIfMfaChallenge,
+} from "@/cloudsneeker/lib/mfa-server"; // cloudsneeker-hook
 import { apiBaseUrl } from "@/lib";
 import { fetchCurrentUser } from "@/lib/auth/current-user";
 import { addAuthEvent } from "@/lib/sentry-breadcrumbs";
@@ -23,6 +29,8 @@ export async function authenticate(
       message: "Success",
     };
   } catch (error) {
+    const mfaResult = mfaSignInResult(error); // cloudsneeker-hook: MFA code step
+    if (mfaResult) return mfaResult; // cloudsneeker-hook
     if (error instanceof AuthError) {
       addAuthEvent("error", { type: error.type });
       switch (error.type) {
@@ -112,6 +120,7 @@ export const getToken = async (formData: SignInFormData) => {
       attributes: {
         email: formData.email,
         password: formData.password,
+        ...otpCodeAttribute(formData), // cloudsneeker-hook: MFA code
       },
     },
   };
@@ -126,7 +135,10 @@ export const getToken = async (formData: SignInFormData) => {
       body: JSON.stringify(bodyData),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      await throwIfMfaChallenge(response); // cloudsneeker-hook: MFA code step
+      return null;
+    }
 
     const parsedResponse = await response.json();
 
@@ -136,7 +148,8 @@ export const getToken = async (formData: SignInFormData) => {
       accessToken,
       refreshToken,
     };
-  } catch (_error) {
+  } catch (error) {
+    rethrowMfaChallenge(error); // cloudsneeker-hook
     throw new Error("Error in trying to get token");
   }
 };

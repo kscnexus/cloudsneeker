@@ -320,6 +320,11 @@ describe("withCloudsneekerNavigation", () => {
         kind: NAVIGATION_ITEM_KIND.LINK,
         active: true,
       }),
+      expect.objectContaining({
+        label: "Security",
+        href: "/settings/security",
+        active: false,
+      }),
       expect.objectContaining({ label: "Users", href: "/users" }),
       expect.objectContaining({ label: "Invitations", href: "/invitations" }),
       expect.objectContaining({ label: "Roles", href: "/roles" }),

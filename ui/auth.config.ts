@@ -10,6 +10,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
 import { getToken, getUserByMe } from "./actions/auth";
+import { withOtpCode } from "./cloudsneeker/lib/mfa"; // cloudsneeker-hook
 import { apiBaseUrl } from "./lib";
 import { UserMeError } from "./lib/auth-errors";
 import {
@@ -274,22 +275,23 @@ export const authConfig = {
       credentials: {
         email: { label: "email", type: "text" },
         password: { label: "password", type: "password" },
+        otpCode: { label: "code", type: "text" }, // cloudsneeker-hook: MFA
       },
       async authorize(credentials) {
         const parsedCredentials = z
           .object({
             email: z.email(),
             password: z.string().min(12),
+            otpCode: z.string().max(32).optional(), // cloudsneeker-hook: MFA
           })
           .safeParse(credentials);
 
         if (!parsedCredentials.success) return null;
 
-        const { email, password } = parsedCredentials.data;
-        const tokenResponse = await getToken({
-          email,
-          password,
-        });
+        const { email, password, otpCode } = parsedCredentials.data;
+        const tokenResponse = await getToken(
+          withOtpCode({ email, password }, otpCode), // cloudsneeker-hook: MFA
+        );
         if (!tokenResponse) return null;
 
         const userMeResponse = await getUserByMe(tokenResponse.accessToken);

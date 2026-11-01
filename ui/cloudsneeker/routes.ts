@@ -10,6 +10,8 @@ export const PRODUCT_ROUTE = {
   SHARED_REPORTS: "/shared-reports",
   /** Finding triage list by status (EB-010). */
   FINDING_TRIAGE: "/triage",
+  /** Account security: MFA for the signed-in user and the tenant (EB-008). */
+  SECURITY: "/settings/security",
   /** Tenant audit log (Settings, admins only). */
   AUDIT_LOG: "/settings/audit-log",
   /** Operator console (platform operators only, own route group). */

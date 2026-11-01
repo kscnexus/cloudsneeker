@@ -24,6 +24,14 @@ from cloudsneeker_api.views_features import (
     IngestionViewSet,
     ScanConfigurationViewSet,
 )
+from cloudsneeker_api.views_mfa import (  # Multi-factor authentication (EB-008)
+    MfaDisableView,
+    MfaEnrolmentConfirmView,
+    MfaEnrolmentView,
+    MfaPolicyView,
+    MfaRecoveryCodesView,
+    MfaStatusView,
+)
 from cloudsneeker_api.views_operator import (  # Operator console (Phase 1)
     EntitlementsView,
     OperatorAuditListView,
@@ -158,6 +166,25 @@ operator_urlpatterns = [
 ]
 # --- End operator console ---
 
+# --- Multi-factor authentication (EB-008) ---
+mfa_urlpatterns = [
+    path("mfa", MfaStatusView.as_view(), name="mfa-status"),
+    path("mfa/enrolment", MfaEnrolmentView.as_view(), name="mfa-enrolment"),
+    path(
+        "mfa/enrolment/confirm",
+        MfaEnrolmentConfirmView.as_view(),
+        name="mfa-enrolment-confirm",
+    ),
+    path(
+        "mfa/recovery-codes",
+        MfaRecoveryCodesView.as_view(),
+        name="mfa-recovery-codes",
+    ),
+    path("mfa/disable", MfaDisableView.as_view(), name="mfa-disable"),
+    path("mfa/policy", MfaPolicyView.as_view(), name="mfa-policy"),
+]
+# --- End multi-factor authentication ---
+
 urlpatterns = [
     path("cloudsneeker/brand", BrandView.as_view(), name="cloudsneeker-brand"),
     path(
@@ -202,5 +229,6 @@ urlpatterns = [
     ),
     *finding_triage_urlpatterns,  # Finding triage (EB-010)
     *operator_urlpatterns,  # Operator console (Phase 1)
+    *mfa_urlpatterns,  # Multi-factor authentication (EB-008)
     path("", include(router.urls)),
 ]
