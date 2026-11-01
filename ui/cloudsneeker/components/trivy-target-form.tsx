@@ -15,6 +15,7 @@ import {
   FormChoiceGroup,
   FormField,
 } from "@/cloudsneeker/components/form-layout";
+import { SbomSourceFields } from "@/cloudsneeker/components/sbom-source-fields";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
   buildTrivyConfig,
@@ -130,6 +131,7 @@ export const TrivyTargetForm = ({
     name: "scheduleEnabled",
   });
   const sastSource = useWatch({ control: form.control, name: "sastSource" });
+  const sbom = useWatch({ control: form.control, name: "sbom" }) ?? "";
   const scanners: TrivyScanner[] =
     useWatch({ control: form.control, name: "scanners" }) ?? [];
   const availableScanners = scannersForMode(mode);
@@ -388,19 +390,16 @@ export const TrivyTargetForm = ({
         ) : null}
 
         {mode === TRIVY_MODE.SBOM ? (
-          <FormField
-            id="trivy-sbom"
-            label="SBOM content"
-            help="Paste a CycloneDX or SPDX document."
+          <SbomSourceFields
+            value={sbom}
+            onChange={(next) =>
+              form.setValue("sbom", next, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
             error={errors.sbom?.message}
-          >
-            <Textarea
-              id="trivy-sbom"
-              rows={8}
-              className="font-mono text-xs"
-              {...form.register("sbom")}
-            />
-          </FormField>
+          />
         ) : null}
 
         {mode === TRIVY_MODE.K8S ? (
