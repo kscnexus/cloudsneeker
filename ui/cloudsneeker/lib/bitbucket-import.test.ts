@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { BITBUCKET_HOST } from "@/cloudsneeker/types/bitbucket";
+import {
+  BITBUCKET_CLONE_METHOD,
+  BITBUCKET_HOST,
+} from "@/cloudsneeker/types/bitbucket";
 
 import {
   buildListingBody,
   buildProviderBody,
+  buildCloneSecret,
   buildSecretBody,
   chunk,
+  cloneUrlFor,
   defaultSelection,
   filterRepositories,
   firstErrorDetail,
@@ -24,6 +29,7 @@ const repo = (
   full_name: fullName,
   repository_url: `https://bitbucket.org/${fullName}.git`,
   html_url: `https://bitbucket.org/${fullName}`,
+  ssh_url: `git@bitbucket.org:${fullName}.git`,
   project,
   is_private: true,
   updated_on: null,
@@ -110,37 +116,78 @@ describe("buildProviderBody", () => {
 });
 
 describe("buildSecretBody", () => {
-  it("stores the token and omits an empty username", () => {
-    const body = buildSecretBody(
-      "p1",
-      "https://bitbucket.org/acme/web.git",
-      "tok",
-      "",
-    );
+  it("wraps a secret for the provider", () => {
+    const body = buildSecretBody("p1", { repository_url: "u" });
     expect(body.data.attributes).toEqual({
       secret_type: "static",
-      secret: {
-        repository_url: "https://bitbucket.org/acme/web.git",
-        access_token: "tok",
-      },
+      secret: { repository_url: "u" },
     });
     expect(body.data.relationships.provider.data).toEqual({
       id: "p1",
       type: "providers",
     });
   });
+});
+
+describe("clone credentials", () => {
+  const tokenRequest = {
+    cloneMethod: BITBUCKET_CLONE_METHOD.TOKEN,
+    accessToken: "tok",
+    cloneUsername: "",
+  };
+  const sshRequest = {
+    cloneMethod: BITBUCKET_CLONE_METHOD.SSH,
+    accessToken: "tok",
+    cloneUsername: "x-bitbucket-api-token-auth",
+    sshKey: { privateKey: "  KEY\n", passphrase: "", knownHosts: " " },
+  };
+
+  it("clones the HTTPS URL with a token and the SSH URL with a key", () => {
+    const repository = repo("acme/web");
+    expect(cloneUrlFor(repository, tokenRequest)).toBe(
+      "https://bitbucket.org/acme/web.git",
+    );
+    expect(cloneUrlFor(repository, sshRequest)).toBe(
+      "git@bitbucket.org:acme/web.git",
+    );
+  });
+
+  it("stores the token and omits an empty username", () => {
+    expect(buildCloneSecret("https://b.org/a.git", tokenRequest)).toEqual({
+      repository_url: "https://b.org/a.git",
+      access_token: "tok",
+    });
+  });
 
   it("stores the clone username when the token needs one", () => {
-    const body = buildSecretBody(
-      "p1",
-      "u",
-      "tok",
-      "x-bitbucket-api-token-auth",
-    );
-    expect(body.data.attributes.secret).toHaveProperty(
-      "username",
-      "x-bitbucket-api-token-auth",
-    );
+    expect(
+      buildCloneSecret("u", { ...tokenRequest, cloneUsername: "x-user" }),
+    ).toHaveProperty("username", "x-user");
+  });
+
+  it("stores only the SSH key fields for SSH clones", () => {
+    expect(buildCloneSecret("git@b.org:a.git", sshRequest)).toEqual({
+      repository_url: "git@b.org:a.git",
+      ssh_private_key: "KEY",
+    });
+  });
+
+  it("keeps the passphrase as typed and the host key lines", () => {
+    expect(
+      buildCloneSecret("ssh://git@h:7999/a.git", {
+        ...sshRequest,
+        sshKey: {
+          privateKey: "KEY",
+          passphrase: " pass ",
+          knownHosts: "[h]:7999 ssh-ed25519 AAAA\n",
+        },
+      }),
+    ).toEqual({
+      repository_url: "ssh://git@h:7999/a.git",
+      ssh_private_key: "KEY",
+      ssh_key_passphrase: " pass ",
+      ssh_known_hosts: "[h]:7999 ssh-ed25519 AAAA",
+    });
   });
 });
 

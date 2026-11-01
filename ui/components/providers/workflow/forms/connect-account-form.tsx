@@ -110,7 +110,8 @@ const getProviderFieldDetails = (providerType?: ProviderType) => {
     case "iac":
       return {
         label: "Repository URL",
-        placeholder: "e.g. https://github.com/user/repo",
+        placeholder:
+          "e.g. https://github.com/user/repo or git@github.com:user/repo.git", // cloudsneeker-hook: SSH URLs
       };
     case "image":
       return {

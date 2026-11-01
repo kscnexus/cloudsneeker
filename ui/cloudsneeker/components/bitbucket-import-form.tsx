@@ -14,13 +14,16 @@ import {
   filterRepositories,
 } from "@/cloudsneeker/lib/bitbucket-import";
 import {
+  BITBUCKET_CLONE_METHOD,
   BITBUCKET_HOST,
   BITBUCKET_IMPORT_STATUS,
+  type BitbucketCloneMethod,
   type BitbucketConnection,
   type BitbucketHost,
   type BitbucketImportResult,
   type BitbucketImportStatus,
   type BitbucketRepositoryListing,
+  type BitbucketSshKey,
 } from "@/cloudsneeker/types/bitbucket";
 import {
   Alert,
@@ -30,6 +33,7 @@ import {
   Checkbox,
   Input,
   Label,
+  Textarea,
 } from "@/components/shadcn";
 
 const EMPTY_CONNECTION: BitbucketConnection = {
@@ -38,6 +42,17 @@ const EMPTY_CONNECTION: BitbucketConnection = {
   accessToken: "",
   username: "",
   serverUrl: "",
+};
+
+const EMPTY_SSH_KEY: BitbucketSshKey = {
+  privateKey: "",
+  passphrase: "",
+  knownHosts: "",
+};
+
+const CLONE_METHOD_LABEL: Record<BitbucketCloneMethod, string> = {
+  [BITBUCKET_CLONE_METHOD.TOKEN]: "Access token",
+  [BITBUCKET_CLONE_METHOD.SSH]: "SSH key",
 };
 
 const HOST_LABEL: Record<BitbucketHost, string> = {
@@ -92,6 +107,10 @@ const Field = ({
 
 export const BitbucketImportForm = () => {
   const [connection, setConnection] = useState(EMPTY_CONNECTION);
+  const [cloneMethod, setCloneMethod] = useState<BitbucketCloneMethod>(
+    BITBUCKET_CLONE_METHOD.TOKEN,
+  );
+  const [sshKey, setSshKey] = useState(EMPTY_SSH_KEY);
   const [listing, setListing] = useState<BitbucketRepositoryListing | null>(
     null,
   );
@@ -117,6 +136,10 @@ export const BitbucketImportForm = () => {
 
   const update = (field: keyof BitbucketConnection) => (value: string) =>
     setConnection((current) => ({ ...current, [field]: value }));
+  const updateSshKey = (field: keyof BitbucketSshKey) => (value: string) =>
+    setSshKey((current) => ({ ...current, [field]: value }));
+  const usesSsh = cloneMethod === BITBUCKET_CLONE_METHOD.SSH;
+  const hasCloneCredentials = !usesSsh || sshKey.privateKey.trim() !== "";
 
   const onList = async () => {
     setIsListing(true);
@@ -147,12 +170,15 @@ export const BitbucketImportForm = () => {
     let done = 0;
     for (const batch of chunk(chosen, BITBUCKET_IMPORT_BATCH_SIZE)) {
       const outcome = await importBitbucketRepositories({
-        repositories: batch.map(({ repository_url, full_name }) => ({
+        repositories: batch.map(({ repository_url, ssh_url, full_name }) => ({
           repository_url,
+          ssh_url,
           full_name,
         })),
+        cloneMethod,
         accessToken: connection.accessToken,
         cloneUsername: listing.cloneUsername,
+        ...(usesSsh ? { sshKey } : {}),
       });
       if ("error" in outcome) {
         setError(outcome.error);
@@ -415,11 +441,86 @@ export const BitbucketImportForm = () => {
             </div>
           )}
 
+          <div className="flex flex-col gap-3">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label="Clone repositories with"
+            >
+              <span className="text-text-neutral-secondary text-sm">
+                Clone repositories with
+              </span>
+              {Object.values(BITBUCKET_CLONE_METHOD).map((method) => (
+                <Button
+                  key={method}
+                  type="button"
+                  size="sm"
+                  variant={cloneMethod === method ? "default" : "outline"}
+                  aria-pressed={cloneMethod === method}
+                  disabled={isImporting}
+                  onClick={() => setCloneMethod(method)}
+                >
+                  {CLONE_METHOD_LABEL[method]}
+                </Button>
+              ))}
+            </div>
+            {usesSsh && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <Label htmlFor="bitbucket-ssh-key">SSH private key</Label>
+                  <Textarea
+                    id="bitbucket-ssh-key"
+                    rows={4}
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                    value={sshKey.privateKey}
+                    onChange={(event) =>
+                      updateSshKey("privateKey")(event.target.value)
+                    }
+                  />
+                  <p className="text-text-neutral-tertiary text-xs">
+                    Add its public key to a Bitbucket account that can read
+                    these repositories, or to each repository as a read-only
+                    access key. Every picked repository is added with its SSH
+                    URL and this key.
+                  </p>
+                </div>
+                <Field
+                  id="bitbucket-ssh-passphrase"
+                  label="Key passphrase (PEM keys only)"
+                  type="password"
+                  value={sshKey.passphrase}
+                  onChange={updateSshKey("passphrase")}
+                />
+                {isServer && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="bitbucket-ssh-known-hosts">
+                      SSH host key
+                    </Label>
+                    <Textarea
+                      id="bitbucket-ssh-known-hosts"
+                      rows={2}
+                      spellCheck={false}
+                      placeholder="Output of ssh-keyscan -p 7999 git.example.com"
+                      value={sshKey.knownHosts}
+                      onChange={(event) =>
+                        updateSshKey("knownHosts")(event.target.value)
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
               onClick={onImport}
-              disabled={selected.size === 0 || isImporting}
+              disabled={
+                selected.size === 0 || isImporting || !hasCloneCredentials
+              }
             >
               {isImporting && progress
                 ? `Adding ${progress.done} of ${progress.total}…`

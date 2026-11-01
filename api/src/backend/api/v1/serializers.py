@@ -67,6 +67,7 @@ from cloudsneeker_api.ecr_auth import ECR_ROLE_ARN_REGEX  # cloudsneeker-hook
 from cloudsneeker_api.image_filters import (  # cloudsneeker-hook
     validate_image_filter_patterns,
 )
+from cloudsneeker_api.secret_extras import validate_iac_ssh_secret  # cloudsneeker-hook
 from config.custom_logging import BackendLogger
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -1921,6 +1922,17 @@ class IacProviderSecret(serializers.Serializer):
     access_token = serializers.CharField(required=False)
     # cloudsneeker-hook: Bitbucket / Azure DevOps / generic hosts pair a username
     username = serializers.CharField(required=False, allow_blank=True)
+    # cloudsneeker-hook: SSH deploy keys for git@ / ssh:// repository URLs
+    ssh_private_key = serializers.CharField(
+        required=False, allow_blank=True, trim_whitespace=False
+    )
+    ssh_known_hosts = serializers.CharField(required=False, allow_blank=True)
+    ssh_key_passphrase = serializers.CharField(
+        required=False, allow_blank=True, trim_whitespace=False
+    )
+
+    def validate(self, attrs):  # cloudsneeker-hook
+        return validate_iac_ssh_secret(attrs)  # cloudsneeker-hook
 
     class Meta:
         resource_name = "provider-secrets"

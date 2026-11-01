@@ -315,6 +315,15 @@ export const addCredentialsFormSchema = (
                         [ProviderCredentialFields.IAC_USERNAME]: z // cloudsneeker-hook: private Git hosts
                           .string()
                           .optional(),
+                        [ProviderCredentialFields.SSH_PRIVATE_KEY]: z
+                          .string()
+                          .optional(), // cloudsneeker-hook: SSH deploy keys
+                        [ProviderCredentialFields.SSH_KNOWN_HOSTS]: z
+                          .string()
+                          .optional(), // cloudsneeker-hook: SSH deploy keys
+                        [ProviderCredentialFields.SSH_KEY_PASSPHRASE]: z
+                          .string()
+                          .optional(), // cloudsneeker-hook: SSH deploy keys
                       }
                     : providerType === "oraclecloud"
                       ? {

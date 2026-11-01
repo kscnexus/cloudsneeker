@@ -86,6 +86,8 @@ class TestNormalizeRepositoryUrl:
             "https://bitbucket.org/acme/app/",
             "https://jane@bitbucket.org/Acme/App.git",
             " https://bitbucket.org/acme/app.git ",
+            "git@bitbucket.org:acme/app.git",
+            "ssh://git@bitbucket.org/Acme/app.git",
         ],
     )
     def test_equivalent_urls_share_a_key(self, url):
@@ -106,6 +108,7 @@ class TestCloudListing:
         assert api.repository_url == "https://bitbucket.org/acme/api.git"
         assert api.html_url == "https://bitbucket.org/acme/api"
         assert api.project == "Platform"
+        assert api.ssh_url == "git@bitbucket.org:acme/api.git"
         assert api.is_private is False
         assert listing.clone_username == ""
         assert listing.truncated is False
@@ -256,6 +259,7 @@ class TestServerListing:
         infra = listing.repositories[1]
         assert infra.repository_url == "https://git.example.com/scm/ops/infra.git"
         assert infra.is_private is True
+        assert infra.ssh_url == "ssh://git@git.example.com:7999/ops/infra.git"
         assert listing.repositories[0].is_private is False
         assert listing.clone_username == "svc-scan"
         first_url = mock_get.call_args_list[0].args[0]
@@ -367,6 +371,29 @@ class TestBitbucketRepositoriesView:
         assert rows["acme/api"]["type"] == "bitbucket-repositories"
         assert body["meta"] == {"count": 2, "clone_username": "", "truncated": False}
         assert TOKEN not in response.content.decode()
+
+    @patch.object(bitbucket.requests.Session, "get")
+    def test_provider_added_over_ssh_is_flagged(
+        self, mock_get, authenticated_client, tenants_fixture
+    ):
+        from api.models import Provider
+
+        Provider.objects.create(
+            tenant_id=tenants_fixture[0].id,
+            provider="iac",
+            uid="git@bitbucket.org:acme/web.git",
+        )
+        mock_get.return_value = _response(payload={"values": [_cloud_repo("web")]})
+
+        response = authenticated_client.post(
+            URL,
+            data=_body(workspace="acme", access_token=TOKEN),
+            content_type="application/vnd.api+json",
+        )
+
+        row = response.json()["data"][0]["attributes"]
+        assert row["already_added"] is True
+        assert row["ssh_url"] == "git@bitbucket.org:acme/web.git"
 
     @patch.object(bitbucket.requests.Session, "get")
     def test_existing_provider_in_other_tenant_is_not_flagged(

@@ -108,8 +108,13 @@ class BitbucketRepositoriesView(APIView):
                 "id": repository.repository_url,
                 "attributes": {
                     **repository.to_dict(),
-                    "already_added": normalize_repository_url(repository.repository_url)
-                    in added,
+                    "already_added": bool(
+                        {
+                            normalize_repository_url(repository.repository_url),
+                            normalize_repository_url(repository.ssh_url),
+                        }
+                        & added
+                    ),
                 },
             }
             for repository in listing.repositories

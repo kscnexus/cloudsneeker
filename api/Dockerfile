@@ -33,10 +33,12 @@ ARG ZIZMOR_SHA256_ARM64=d66e37ef8a375fb07939c630ebf9709a6e0f20242bdc3faf672a7ed9
 # published python:3.12-slim-trixie carries the same vulnerable versions. The three
 # openssl packages are flagged separately, so all are named.
 # Drop each one once the base image ships its fixed version.
+# cloudsneeker-hook: openssh-client lets IaC, Application Security and SAST clones use SSH deploy keys (cloudsneeker/git_ssh.py).
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     git \
+    openssh-client \
     libicu76 \
     gcc \
     g++ \

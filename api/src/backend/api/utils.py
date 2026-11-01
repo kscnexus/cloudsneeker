@@ -22,6 +22,7 @@ from cloudsneeker_api.ecr_auth import (  # cloudsneeker-hook
     apply_ecr_auth,
     ecr_connection_kwargs,
 )
+from cloudsneeker_api.secret_extras import iac_ssh_kwargs  # cloudsneeker-hook
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
 from django.db.models import Subquery
@@ -248,6 +249,9 @@ def get_prowler_provider_kwargs(
             ]
         if username := provider.secret.secret.get("username"):  # cloudsneeker-hook
             prowler_provider_kwargs["username"] = username  # cloudsneeker-hook
+        prowler_provider_kwargs.update(
+            iac_ssh_kwargs(provider.secret.secret)
+        )  # cloudsneeker-hook
     elif provider.provider == Provider.ProviderChoices.MONGODBATLAS.value:
         prowler_provider_kwargs = {
             **prowler_provider_kwargs,
@@ -413,6 +417,9 @@ def prowler_provider_connection_test(provider: Provider) -> Connection:
             iac_test_kwargs["access_token"] = prowler_provider_kwargs["access_token"]
         if username := prowler_provider_kwargs.get("username"):  # cloudsneeker-hook
             iac_test_kwargs["username"] = username  # cloudsneeker-hook
+        iac_test_kwargs.update(
+            iac_ssh_kwargs(prowler_provider_kwargs)
+        )  # cloudsneeker-hook
         return prowler_provider.test_connection(**iac_test_kwargs)
     elif provider.provider == Provider.ProviderChoices.OPENSTACK.value:
         openstack_kwargs = {

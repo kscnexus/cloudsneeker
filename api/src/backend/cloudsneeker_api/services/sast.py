@@ -29,6 +29,8 @@ from typing import Any
 
 from api.models import Provider
 from cloudsneeker.git_auth import authenticated_clone_url, redact
+from cloudsneeker.git_ssh import GitSshError
+from cloudsneeker.git_ssh import clone as git_clone
 from cloudsneeker_api.services.trivy import (
     MAX_ARCHIVE_BYTES,
     TRIVY_TIMEOUT_SECONDS,
@@ -37,6 +39,7 @@ from cloudsneeker_api.services.trivy import (
     _has_embedded_credentials,
     _repo_credentials,
     assert_supported_archive,
+    repo_ssh_args,
     scrub_secrets,
 )
 
@@ -156,9 +159,7 @@ def _normalize_rulesets(value: Any) -> list[str]:
         name = item.strip().lower()
         if name not in SAST_RULESETS and name not in (AUTO_RULESET, ALL_RULESET):
             allowed = ", ".join([AUTO_RULESET, ALL_RULESET, *sorted(SAST_RULESETS)])
-            raise TrivyHubError(
-                f"Unknown ruleset '{item}'. Allowed: {allowed}."
-            )
+            raise TrivyHubError(f"Unknown ruleset '{item}'. Allowed: {allowed}.")
         if name not in names:
             names.append(name)
     if len(names) > 1 and (AUTO_RULESET in names or ALL_RULESET in names):
@@ -322,7 +323,8 @@ def clone_repository(
     """Shallow-clone the provider's repository into ``dest``.
 
     Uses dulwich (the API image has no ``git`` binary) with the token from
-    the IaC provider secret, like the IaC provider. ``.git`` is removed after
+    the IaC provider secret, like the IaC provider, or its SSH key when the
+    URL is in SSH form. ``.git`` is removed after
     the checkout so the remote URL with the token is not left on disk.
 
     Args:
@@ -336,13 +338,19 @@ def clone_repository(
     Raises:
         TrivyHubError: When the clone fails; the message never has a token.
     """
-    from dulwich import porcelain
-
     token, username = _repo_credentials(provider)
     clone_url = authenticated_clone_url(repository_url, token or None, username)
     secrets = tuple(s for s in (clone_url, token) if s and s != repository_url)
     try:
-        porcelain.clone(clone_url, str(dest), depth=1, errstream=io.BytesIO())
+        git_clone(
+            clone_url,
+            str(dest),
+            *repo_ssh_args(provider),
+            depth=1,
+            errstream=io.BytesIO(),
+        )
+    except GitSshError as exc:
+        raise TrivyHubError(f"Repository clone failed: {exc}") from None
     except Exception as exc:  # noqa: BLE001 - never surface a token
         raise TrivyHubError(
             f"Repository clone failed: {redact(str(exc), *secrets)}"
@@ -410,7 +418,9 @@ def run_opengrep_scan(*, config: dict[str, Any], provider: Provider) -> dict[str
         if config.get("repository_url"):
             scan_dir = work_dir / "src"
             scan_dir.mkdir()
-            secrets = clone_repository(str(config["repository_url"]), provider, scan_dir)
+            secrets = clone_repository(
+                str(config["repository_url"]), provider, scan_dir
+            )
         else:
             scan_dir = _extract_archive(str(config["archive_b64"]), work_dir)
 

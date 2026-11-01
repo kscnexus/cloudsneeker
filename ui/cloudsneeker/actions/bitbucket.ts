@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { startProviderConnectionChecks } from "@/actions/providers";
 import {
+  buildCloneSecret,
   buildListingBody,
   buildProviderBody,
   buildSecretBody,
+  cloneUrlFor,
   firstErrorDetail,
   isPlanLimitError,
   parseListing,
@@ -61,13 +63,20 @@ const importOne = async (
   request: BitbucketImportRequest,
   headers: Record<string, string>,
 ): Promise<BitbucketImportResult & { planLimit?: boolean }> => {
+  // Results stay keyed by the HTTPS URL, which the picker uses as row key.
   const repositoryUrl = repository.repository_url;
+  const cloneUrl = cloneUrlFor(repository, request);
+  if (!cloneUrl) {
+    return {
+      repositoryUrl,
+      status: BITBUCKET_IMPORT_STATUS.FAILED,
+      message: "Bitbucket offers no SSH clone URL for this repository.",
+    };
+  }
   const providerResponse = await fetch(`${apiBaseUrl}/providers`, {
     method: "POST",
     headers,
-    body: JSON.stringify(
-      buildProviderBody(repositoryUrl, repository.full_name),
-    ),
+    body: JSON.stringify(buildProviderBody(cloneUrl, repository.full_name)),
   });
   const providerDocument = await readJson(providerResponse);
 
@@ -91,12 +100,7 @@ const importOne = async (
     method: "POST",
     headers,
     body: JSON.stringify(
-      buildSecretBody(
-        providerId,
-        repositoryUrl,
-        request.accessToken,
-        request.cloneUsername,
-      ),
+      buildSecretBody(providerId, buildCloneSecret(cloneUrl, request)),
     ),
   });
 
@@ -110,7 +114,10 @@ const importOne = async (
     return {
       repositoryUrl,
       status: BITBUCKET_IMPORT_STATUS.FAILED,
-      message: firstErrorDetail(secretDocument, "Could not save the token."),
+      message: firstErrorDetail(
+        secretDocument,
+        "Could not save the credentials.",
+      ),
     };
   }
 
