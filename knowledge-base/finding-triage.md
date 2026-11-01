@@ -11,7 +11,7 @@ Upstream `Finding` rows belong to one scan. `Finding.uid` stays the same across 
 | `cloudsneeker_finding_triages` | `FindingTriage` | `finding_uid` (unique per tenant), `status`, `status_changed_at`, `source`, `check_id`, `provider`, `assignee`, `updated_by`, timestamps |
 | `cloudsneeker_finding_triage_notes` | `FindingTriageNote` | `triage`, `author`, `body` (plain text, at most 4000 characters), `status` the triage moved to with this note, timestamps |
 
-`FindingTriage.area` (`cloud`, `application_security`, `governance`, migration `0017_finding_triage_area`) scopes triage to a product area. Governance UIDs (`custodian-...`) have no `Finding` row and resolve against the latest run of their policy. See [Area Findings and Triage](area-findings.md).
+`FindingTriage.area` (`cloud`, `application_security`, `governance`, migration `0018_finding_triage_area`) scopes triage to a product area. Governance UIDs (`custodian-...`) have no `Finding` row and resolve against the latest run of their policy. See [Area Findings and Triage](area-findings.md).
 
 Both tables use tenant row-level security (`RowLevelSecurityConstraint`, migration `cloudsneeker_api/migrations/0013_finding_triage.py`). `check_id` and `provider` are copied from the latest finding with the UID on every write. Provider visibility and the `check_id` and `provider` filters read them without joining the partitioned findings table.
 

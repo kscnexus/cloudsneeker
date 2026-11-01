@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("cloudsneeker_api", "0016_sso_policy"),
+        ("cloudsneeker_api", "0017_refresh_vuln_db_periodic_task"),
     ]
 
     operations = [

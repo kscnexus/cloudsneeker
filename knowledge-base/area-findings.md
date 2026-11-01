@@ -82,7 +82,7 @@ API (`cloudsneeker_api`):
 * `services/area_findings.py`: `parse_query`, `scan_sources` (latest completed scan per provider for cloud, latest completed `TrivyRun` per target for Application Security), `list_area_findings` (one page, resources from `ResourceFindingMapping`, triage merged in). Untriaged findings read as `open`; the `open` filter also drops UIDs triaged to another status.
 * `services/governance_findings.py`: governance findings from the latest completed `CustodianRun` per policy. UID `custodian-<policy id>-<resource id>` (bounded like the import UIDs). Resource id lookup order matches the run page. First seen is the policy's first completed run.
 * `views_area_findings.py`: `GET area-findings`. The area must be in the tenant's plan (`cloud_posture`, `application_security`, `governance`); otherwise `403`. Reading follows provider visibility, like triage.
-* `FindingTriage.area` (migration `0017_finding_triage_area`, backfilled from the `trivy-` and `opengrep-` UID prefixes). Writes set it from the finding: `trivy_hub` scans are Application Security, `custodian-` UIDs are Governance, the rest Cloud. `finding-triages` accepts `filter[area]`; the UID routes and bulk resolve governance UIDs against the latest policy run.
+* `FindingTriage.area` (migration `0018_finding_triage_area`, backfilled from the `trivy-` and `opengrep-` UID prefixes). Writes set it from the finding: `trivy_hub` scans are Application Security, `custodian-` UIDs are Governance, the rest Cloud. `finding-triages` accepts `filter[area]`; the UID routes and bulk resolve governance UIDs against the latest policy run.
 * Tests: `tests/test_area_findings.py`.
 
 UI:
