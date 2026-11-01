@@ -13,57 +13,52 @@ interface BrandWordmarkProps {
 const MarkPaths = () => (
   <>
     <defs>
-      <linearGradient id="cloudsneeker-cloud" x1="8" y1="18" x2="56" y2="47">
-        <stop stopColor="#5BA3FF" />
-        <stop offset="0.52" stopColor="#2583FF" />
-        <stop offset="1" stopColor="#0D9488" />
-      </linearGradient>
-      <linearGradient id="cloudsneeker-shield" x1="23" y1="37" x2="43" y2="58">
+      <linearGradient
+        id="cloudsneeker-mark"
+        x1="10"
+        y1="10"
+        x2="90"
+        y2="90"
+        gradientUnits="userSpaceOnUse"
+      >
         <stop stopColor="#2DD4BF" />
         <stop offset="0.5" stopColor="#2583FF" />
-        <stop offset="1" stopColor="#1A6AE6" />
+        <stop offset="1" stopColor="#8B5CF6" />
       </linearGradient>
     </defs>
     <rect width="64" height="64" rx="16" fill="#07111F" />
-    <path
-      d="M16 46H14.5C9.3 46 6 42.8 6 38.3c0-4.2 2.8-7.2 7-8.1C14.4 21.9 21.5 16 30.1 16c7.4 0 13.9 4.5 16.4 11.2 6.6.1 11.5 4.4 11.5 10.3C58 42.9 53.7 46 48 46h-2"
-      fill="none"
-      stroke="url(#cloudsneeker-cloud)"
-      strokeWidth="4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M21 43c.7-10.4 4.7-18 11-21.5C38.3 25 42.3 32.6 43 43l-5.8 8H26.8L21 43Z"
-      fill="#101D38"
-      stroke="#3155C8"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
-    <path
-      d="m26.5 37 4 1.2-4.4 1.2M37.5 37l-4 1.2 4.4 1.2"
-      fill="none"
-      stroke="#7EB8FF"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      data-brand-symbol="shield"
-      d="m32 34 11 4v8.2c0 6.4-4.5 10.5-11 13.8-6.5-3.3-11-7.4-11-13.8V38l11-4Z"
-      fill="url(#cloudsneeker-shield)"
-      stroke="#C5DCFF"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M27 47.5h10M29 44.5h6l2 3-2 3h-6l-2-3 2-3Z"
-      fill="none"
-      stroke="#D9FCFF"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <g transform="translate(3 3) scale(.58)">
+      <path
+        d="M30 72H26C16 72 10 65 10 57C10 49 16 43 24 42C26 30 36 22 48 22C59 22 68 29 71 39C82 39 90 47 90 57C90 66 83 72 74 72H70"
+        fill="none"
+        stroke="url(#cloudsneeker-mark)"
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        data-brand-symbol="lens"
+        cx="48"
+        cy="58"
+        r="12"
+        fill="#0F1D36"
+        stroke="#5BA3FF"
+        strokeWidth="5.5"
+      />
+      <path
+        d="M42 54a7 7 0 0 1 6-4"
+        fill="none"
+        stroke="#2DD4BF"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M57 67L67 77"
+        stroke="#5BA3FF"
+        strokeWidth="8"
+        strokeLinecap="round"
+      />
+    </g>
   </>
 );
 
@@ -79,7 +74,7 @@ export const BrandWordmark = ({ className }: BrandWordmarkProps) => (
     role="img"
     aria-label={BRAND.name}
     className={cn(
-      "inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-text-neutral-primary",
+      "text-text-neutral-primary inline-flex items-center gap-2 text-lg font-semibold tracking-tight",
       className,
     )}
   >

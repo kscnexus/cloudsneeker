@@ -10,7 +10,7 @@ describe("BrandMark", () => {
 
     // Then
     expect(
-      container.querySelector('[data-brand-symbol="shield"]'),
+      container.querySelector('[data-brand-symbol="lens"]'),
     ).toBeInTheDocument();
     expect(container.querySelector("svg")).toHaveAttribute(
       "aria-hidden",
