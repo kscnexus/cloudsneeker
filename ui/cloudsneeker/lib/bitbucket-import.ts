@@ -92,12 +92,13 @@ export const buildSecretBody = (
 
 interface ErrorDocument {
   errors?: { detail?: string; code?: string }[];
+  detail?: string;
 }
 
 export const firstErrorDetail = (
   document: ErrorDocument | null,
   fallback: string,
-): string => document?.errors?.[0]?.detail || fallback;
+): string => document?.errors?.[0]?.detail || document?.detail || fallback;
 
 export const isPlanLimitError = (document: ErrorDocument | null): boolean =>
   Boolean(

@@ -18,6 +18,7 @@ from cloudsneeker_api.services.bitbucket import (
     list_repositories,
     normalize_repository_url,
 )
+from cloudsneeker_api.views import JSONAPIDocumentRenderer
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.exceptions import PermissionDenied
@@ -78,6 +79,8 @@ class BitbucketRepositoriesView(APIView):
     authentication_classes = [CombinedJWTOrAPIKeyAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [LenientJSONAPIParser, JSONParser]
+    # The document is built here; the default renderer would wrap it again.
+    renderer_classes = [JSONAPIDocumentRenderer]
 
     @extend_schema(
         tags=["Bitbucket"], summary="List repositories in a Bitbucket workspace"

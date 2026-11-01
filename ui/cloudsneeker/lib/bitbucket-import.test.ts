@@ -150,6 +150,9 @@ describe("errors", () => {
       "Nope",
     );
     expect(firstErrorDetail(null, "fallback")).toBe("fallback");
+    expect(firstErrorDetail({ detail: "Forbidden" }, "fallback")).toBe(
+      "Forbidden",
+    );
   });
 
   it("detects the plan limit", () => {
