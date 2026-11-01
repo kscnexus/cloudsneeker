@@ -39,6 +39,8 @@ export const CLOUDSNEEKER_FEATURES = {
    * drawer control and notes call `cloudsneeker_api` finding-triages.
    */
   findingTriage: true,
+  /** Add the repositories of a Bitbucket workspace as IaC providers at once. */
+  bitbucketImport: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;

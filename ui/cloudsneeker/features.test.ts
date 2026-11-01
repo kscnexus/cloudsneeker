@@ -37,4 +37,9 @@ describe("CLOUDSNEEKER_FEATURES", () => {
     expect(CLOUDSNEEKER_FEATURES.findingTriage).toBe(true);
     expect(isCloudsneekerFeatureEnabled("findingTriage")).toBe(true);
   });
+
+  it("enables the Bitbucket workspace import", () => {
+    expect(CLOUDSNEEKER_FEATURES.bitbucketImport).toBe(true);
+    expect(isCloudsneekerFeatureEnabled("bitbucketImport")).toBe(true);
+  });
 });

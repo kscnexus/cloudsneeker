@@ -31,6 +31,9 @@ export const operatorCustomerHref = (tenantId: string): string =>
 
 export type ProductRoute = (typeof PRODUCT_ROUTE)[keyof typeof PRODUCT_ROUTE];
 
+/** Bitbucket workspace import, beside the other integrations. */
+export const BITBUCKET_IMPORT_ROUTE = "/integrations/bitbucket";
+
 // Earlier releases served these areas under engine-named paths. They redirect
 // to the product route with the same sub-path and query.
 export const LEGACY_PRODUCT_ROUTE = {

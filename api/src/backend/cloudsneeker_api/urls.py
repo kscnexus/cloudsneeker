@@ -11,6 +11,7 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 
 from cloudsneeker_api.views import BrandView
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
+from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_features import (
     AlertRecipientConfirmView,
@@ -188,6 +189,11 @@ urlpatterns = [
         "integrations/<uuid:integration_id>/slack/channels",
         SlackChannelsView.as_view(),
         name="slack-channels",
+    ),
+    path(
+        "bitbucket/repositories",
+        BitbucketRepositoriesView.as_view(),
+        name="bitbucket-repositories",
     ),
     path(
         "shared-reports/<str:token>",

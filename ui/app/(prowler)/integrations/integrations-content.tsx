@@ -4,6 +4,7 @@ import { S3IntegrationCard } from "@/components/integrations/s3/s3-integration-c
 import { SecurityHubIntegrationCard } from "@/components/integrations/security-hub/security-hub-integration-card";
 import { SlackIntegrationCard } from "@/components/integrations/slack/slack-integration-card";
 import { SsoLinkCard } from "@/components/integrations/sso/sso-link-card";
+import { BitbucketIntegrationCard } from "@/cloudsneeker/components/bitbucket-integration-card"; // cloudsneeker-hook
 import { EmailDeliveryCard } from "@/cloudsneeker/components/email-delivery-card"; // cloudsneeker-hook
 import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { isCloud } from "@/lib/shared/env";
@@ -39,6 +40,9 @@ export function IntegrationsContent() {
 
         {/* Email delivery for alert notifications */}
         {isCloudsneekerFeatureEnabled("emailDelivery") && <EmailDeliveryCard />} {/* cloudsneeker-hook */}
+
+        {/* Bitbucket workspace import for code scanning */}
+        {isCloudsneekerFeatureEnabled("bitbucketImport") && <BitbucketIntegrationCard />} {/* cloudsneeker-hook */}
 
         {/* SSO Configuration - redirects to Profile */}
         <SsoLinkCard />

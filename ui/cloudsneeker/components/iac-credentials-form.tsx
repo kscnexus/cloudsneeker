@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Control } from "react-hook-form";
 
+import { BITBUCKET_IMPORT_ROUTE } from "@/cloudsneeker/routes";
 import { WizardInputField } from "@/components/providers/workflow/forms/fields";
 import { ProviderCredentialFields } from "@/lib/provider-credentials/provider-credential-fields";
 import { IacCredentials } from "@/types";
@@ -20,16 +22,21 @@ export const IacCredentialsForm = ({
         </div>
         <div className="text-text-neutral-tertiary text-sm">
           Supports {IAC_SUPPORTED_GIT_HOSTS}. Public repositories need no
-          credentials. For private repositories provide an access token, or a
-          username with an app password.
+          credentials. For private repositories provide a read-only access
+          token, plus a username where the host needs one. Adding a whole
+          Bitbucket workspace?{" "}
+          <Link href={BITBUCKET_IMPORT_ROUTE} className="underline">
+            Import its repositories
+          </Link>
+          .
         </div>
       </div>
       <WizardInputField
         control={control}
         name={ProviderCredentialFields.ACCESS_TOKEN}
-        label="Access token / app password (optional for public repos)"
+        label="Access token (optional for public repos)"
         labelPlacement="inside"
-        placeholder="Personal access token or app password"
+        placeholder="Access token, personal access token or API token"
         variant="bordered"
         type="password"
         isRequired={false}
@@ -37,9 +44,9 @@ export const IacCredentialsForm = ({
       <WizardInputField
         control={control}
         name={ProviderCredentialFields.IAC_USERNAME}
-        label="Username (Bitbucket app passwords, Azure DevOps, Bitbucket Server)"
+        label="Username (Bitbucket API tokens and personal tokens, Azure DevOps)"
         labelPlacement="inside"
-        placeholder="Leave empty for GitHub and GitLab tokens"
+        placeholder="Leave empty for GitHub, GitLab and Bitbucket access tokens"
         variant="bordered"
         type="text"
         isRequired={false}
