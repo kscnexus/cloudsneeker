@@ -11,7 +11,7 @@ updated, and who owns the update.
 | --- | --- | --- | --- |
 | Cloud posture checks (AWS, Azure, GCP, Kubernetes, M365, GitHub, ...) | Upstream Prowler checks under `prowler/providers/**` | The merged upstream release tag | Merge an upstream release ([Upstream Sync](upstream-sync.md)), then CI rebuilds and deploys |
 | Compliance frameworks and mappings (CIS, NIST, ISO 27001, PCI DSS, ...) | Upstream `prowler/compliance/**` | Same upstream tag | Same as checks |
-| Vulnerability (CVE) database for dependencies, containers, SBOM, Kubernetes | Trivy vulnerability DB (published several times a day) | Not pinned | Downloaded by each Application Security scan into the task's temporary cache. Always fresh, but every scan pays the download and depends on the DB registry being reachable |
+| Vulnerability (CVE) database for dependencies, containers, SBOM, Kubernetes | Trivy vulnerability DB (published several times a day) | Not pinned | A Celery Beat task (`cloudsneeker-refresh-vuln-db`, every 6 hours) downloads a snapshot to EFS (`CLOUDSNEEKER_VULN_DB_CACHE_DIR`). Application Security scans in the dependency, repository, SBOM and Kubernetes modes use it with `--skip-db-update` while it is under 24 hours old, and download their own copy otherwise. Container image and IaC scans still download per scan |
 | Trivy engine | `TRIVY_VERSION` in `api/Dockerfile` | Build argument | Bump the version, CI rebuilds |
 | IaC, secret and misconfiguration rules (Trivy built-in) | Ship with the Trivy version and its checks bundle | `TRIVY_VERSION` | Bump with the engine |
 | SAST rules | GitLab sast-rules, `SAST_RULES_REF` and `SAST_RULES_SHA256` in `cloudsneeker/deploy/docker/api.Dockerfile` | Tag and checksum | Bump both, check the license of new folders (see [Product Redesign Plan](product-redesign-plan.md) Phase 3), CI rebuilds |
@@ -23,7 +23,7 @@ updated, and who owns the update.
 
 | When | Task | Owner |
 | --- | --- | --- |
-| Continuous | CVE data: already fresh on every scan. Watch the Application Security run errors for DB download failures | Platform on-call |
+| Continuous | CVE data: `manage.py cloudsneeker_vuln_db` on a worker shows the snapshot age and fails when it is over 24 hours. Watch the worker log for `cloudsneeker-refresh-vuln-db` failures | Platform on-call |
 | Weekly | Review new upstream Prowler releases and security advisories; bump Trivy if a release fixes detection gaps | Detection engineer |
 | Every upstream minor release (about monthly) | Merge the upstream tag with `cloudsneeker/tools/sync-upstream.ps1`, re-apply hooks per [Upstream Hooks](upstream-hooks.md), run the full CI suite (`cloudsneeker-tests.yml` via `workflow_dispatch`), deploy, and spot-check one scan per provider | Engineering |
 | Quarterly | Bump SAST rules and OpenGrep after a license review; review Custodian starter templates against new cloud services | Detection engineer |
@@ -63,9 +63,6 @@ managed-service team:
 
 ## Gaps tracked in the backlog
 
-- EB-047: shared vulnerability DB cache on EFS with a scheduled refresh, so
-  scans stop downloading the DB each run and keep working if the registry is
-  briefly unreachable.
 - EB-048: an in-app "Content versions" panel showing the posture content
   release, CVE DB age, SAST rules version and engine versions, so customers
   and auditors can see how current detection is.

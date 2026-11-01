@@ -103,3 +103,13 @@ def test_image_workflow_scans_each_image_before_the_push():
     assert "--push" not in IMAGES
     assert "matrix.image == 'neo4j' && 'none' || 'critical'" in IMAGES
     assert "upload-artifact" in IMAGES
+
+
+def test_worker_mounts_the_shared_vulnerability_database():
+    worker = TEMPLATE.split("  WorkerTaskDefinition:", 1)[1].split(
+        "  BeatTaskDefinition:", 1
+    )[0]
+    assert "AccessPointId: !Ref VulnDbAccessPoint" in worker
+    assert "ContainerPath: /var/cache/cloudsneeker/vuln-db" in worker
+    assert "Value: /var/cache/cloudsneeker/vuln-db" in worker
+    assert "Path: /vuln-db" in TEMPLATE

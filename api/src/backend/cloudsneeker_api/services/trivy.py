@@ -38,6 +38,7 @@ from cloudsneeker.git_ssh import GitSshError, is_ssh_url, ssh_secret_args
 from cloudsneeker.git_ssh import clone as git_clone
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
 from cloudsneeker_api.services.brand_text import scrub_engine_text
+from cloudsneeker_api.services.vuln_db import scan_cache_env
 from django.db import transaction
 from django.utils import timezone
 
@@ -617,7 +618,7 @@ def build_trivy_command(
         :func:`command_secrets` lists what to redact from any output.
     """
     binary = _resolve_trivy_bin()
-    env = {**os.environ}
+    env = {**os.environ, **scan_cache_env(work_dir)}
     common = [
         binary,
         "--quiet",
