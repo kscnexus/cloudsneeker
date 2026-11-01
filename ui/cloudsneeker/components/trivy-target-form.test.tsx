@@ -38,6 +38,11 @@ Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
 
 const providers = [
   {
+    id: "33333333-3333-4333-8333-333333333333",
+    label: "aws · 123456789012",
+    providerType: "aws",
+  },
+  {
     id: "11111111-1111-4111-8111-111111111111",
     label: "Code repository · acme/app",
     providerType: "iac",
@@ -72,6 +77,19 @@ describe("TrivyTargetForm", () => {
     expect(
       screen.getByText(/Requires a Code repository source/),
     ).toBeInTheDocument();
+  });
+
+  it("picks a provider the selected mode can use", async () => {
+    const user = userEvent.setup();
+    render(<TrivyTargetForm providers={providers} />);
+
+    expect(screen.getByLabelText("Provider")).toHaveValue(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    await user.selectOptions(screen.getByLabelText("Mode"), "k8s");
+    expect(screen.getByLabelText("Provider")).toHaveValue(
+      "22222222-2222-4222-8222-222222222222",
+    );
   });
 
   it("lists only the scan types the selected mode supports", async () => {

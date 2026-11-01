@@ -80,6 +80,19 @@ interface TrivyTargetFormProps {
   targetId?: string;
 }
 
+/** Providers a mode can attach to; every provider when the mode has no limit. */
+const providersForMode = (
+  providers: ProviderOption[],
+  mode: TrivyMode,
+): ProviderOption[] => {
+  const requiredTypes = providerTypesForMode(mode);
+  return requiredTypes.length === 0
+    ? providers
+    : providers.filter((provider) =>
+        requiredTypes.includes(provider.providerType ?? ""),
+      );
+};
+
 export const TrivyTargetForm = ({
   providers,
   initialValues,
@@ -95,7 +108,7 @@ export const TrivyTargetForm = ({
       name: "",
       description: "",
       mode: TRIVY_MODE.REPO,
-      providerId: providers[0]?.id ?? "",
+      providerId: providersForMode(providers, TRIVY_MODE.REPO)[0]?.id ?? "",
       scanners: defaultScannersForMode(TRIVY_MODE.REPO),
       images: "",
       repositoryUrl: "",
@@ -135,12 +148,7 @@ export const TrivyTargetForm = ({
       shouldValidate: true,
     });
   const requiredTypes = providerTypesForMode(mode);
-  const filteredProviders =
-    requiredTypes.length === 0
-      ? providers
-      : providers.filter((provider) =>
-          requiredTypes.includes(provider.providerType ?? ""),
-        );
+  const filteredProviders = providersForMode(providers, mode);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
@@ -240,12 +248,21 @@ export const TrivyTargetForm = ({
             className={FORM_SELECT_CLASS}
             {...form.register("mode", {
               // Each mode supports its own scan types; start from its default.
-              onChange: (event: ChangeEvent<HTMLSelectElement>) =>
-                form.setValue(
-                  "scanners",
-                  defaultScannersForMode(event.target.value as TrivyMode),
-                  { shouldValidate: true },
-                ),
+              onChange: (event: ChangeEvent<HTMLSelectElement>) => {
+                const nextMode = event.target.value as TrivyMode;
+                form.setValue("scanners", defaultScannersForMode(nextMode), {
+                  shouldValidate: true,
+                });
+                // Keep the provider only when the new mode can use it.
+                const allowed = providersForMode(providers, nextMode);
+                if (
+                  !allowed.some(
+                    (provider) => provider.id === form.getValues("providerId"),
+                  )
+                ) {
+                  form.setValue("providerId", allowed[0]?.id ?? "");
+                }
+              },
             })}
           >
             {TRIVY_MODE_OPTIONS.map((option) => (

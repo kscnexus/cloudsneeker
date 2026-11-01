@@ -94,6 +94,8 @@ payload = {
 }
 saml_key, saml_cert = key_path + ".saml", pub_path + ".saml"
 subprocess.check_call([openssl, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", saml_key, "-out", saml_cert, "-days", "3650", "-subj", "/CN=cloudsneeker-saml-sp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+payload["djangoApiKeyFernetSecret"] = payload["djangoSecretsEncryptionKey"]
+payload["djangoSecretsEncryptionKeyPrevious"] = "unconfigured"
 payload["samlSpCert"] = open(saml_cert, encoding="ascii").read().strip()
 payload["samlSpKey"] = open(saml_key, encoding="ascii").read().strip()
 os.remove(saml_key)
@@ -130,6 +132,14 @@ for key in ("slackClientId", "slackClientSecret"):
     if key not in payload:
         payload[key] = "unconfigured"
         changed = True
+# EB-016: pin API keys to the key they were issued with, before any data
+# key rotation, and keep a slot for previous data keys.
+if "djangoApiKeyFernetSecret" not in payload:
+    payload["djangoApiKeyFernetSecret"] = payload["djangoSecretsEncryptionKey"]
+    changed = True
+if "djangoSecretsEncryptionKeyPrevious" not in payload:
+    payload["djangoSecretsEncryptionKeyPrevious"] = "unconfigured"
+    changed = True
 if "samlSpCert" not in payload or "samlSpKey" not in payload:
     work = tempfile.mkdtemp()
     key_path, cert_path = os.path.join(work, "saml.key"), os.path.join(work, "saml.crt")
@@ -146,7 +156,7 @@ sys.exit(0 if changed else 2)
     & python $mergePy $mergeIn $mergeOut $openssl
     if ($LASTEXITCODE -eq 0) {
         Invoke-Aws @("secretsmanager", "put-secret-value", "--secret-id", $SecretName, "--secret-string", "file://$mergeOut") | Out-Null
-        Write-Host "Added missing keys (Slack OAuth, SAML SP key pair) to application secret"
+        Write-Host "Added missing keys (Slack OAuth, SAML SP key pair, key rotation slots) to application secret"
     } elseif ($LASTEXITCODE -ne 2) {
         throw "application secret merge failed"
     }

@@ -1300,6 +1300,12 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
             - Name: DJANGO_SECRETS_ENCRYPTION_KEY
               ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+            # EB-016: old data keys still accepted during a key rotation.
+            - Name: DJANGO_SECRETS_ENCRYPTION_KEY_PREVIOUS
+              ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKeyPrevious::"
+            # EB-016: API keys keep their own key across data key rotations.
+            - Name: DJANGO_API_KEY_FERNET_SECRET
+              ValueFrom: !Sub "${AppSecretArn}:djangoApiKeyFernetSecret::"
             - Name: DJANGO_SLACK_CLIENT_ID
               ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
             - Name: DJANGO_SLACK_CLIENT_SECRET
@@ -1411,6 +1417,9 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
             - Name: DJANGO_SECRETS_ENCRYPTION_KEY
               ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+            # EB-016: old data keys still accepted during a key rotation.
+            - Name: DJANGO_SECRETS_ENCRYPTION_KEY_PREVIOUS
+              ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKeyPrevious::"
             - Name: DJANGO_SLACK_CLIENT_ID
               ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
             - Name: DJANGO_SLACK_CLIENT_SECRET
@@ -1494,6 +1503,9 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:djangoTokenVerifyingKey::"
             - Name: DJANGO_SECRETS_ENCRYPTION_KEY
               ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKey::"
+            # EB-016: old data keys still accepted during a key rotation.
+            - Name: DJANGO_SECRETS_ENCRYPTION_KEY_PREVIOUS
+              ValueFrom: !Sub "${AppSecretArn}:djangoSecretsEncryptionKeyPrevious::"
             - Name: DJANGO_SLACK_CLIENT_ID
               ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
             - Name: DJANGO_SLACK_CLIENT_SECRET
