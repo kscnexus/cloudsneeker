@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { OPERATOR_ROUTE, operatorCustomerHref } from "@/cloudsneeker/routes";
 import type {
+  CustomerCreate,
   PlanWrite,
   SubscriptionUpdate,
 } from "@/cloudsneeker/types/operator";
@@ -17,6 +18,7 @@ import { handleApiError, handleApiResponse } from "@/lib/server-actions-helper";
 const OPERATOR_PATH = "/operator";
 const SUBSCRIPTION_TYPE = "cloudsneeker-subscriptions";
 const PLAN_TYPE = "cloudsneeker-plans";
+const TENANT_TYPE = "cloudsneeker-operator-tenants";
 
 type SearchParams = Record<string, string | undefined>;
 
@@ -69,6 +71,30 @@ export const listOperatorTenants = async (searchParams?: SearchParams) =>
 
 export const getOperatorTenant = async (tenantId: string) =>
   read(`/tenants/${encodeURIComponent(tenantId)}`);
+
+/** New organization, admin role, subscription and owner invitation. */
+export const createCustomer = async (attributes: CustomerCreate) => {
+  const result = await write("POST", "/tenants", {
+    data: { type: TENANT_TYPE, attributes },
+  });
+  revalidatePath(OPERATOR_ROUTE.CUSTOMERS);
+  revalidatePath(OPERATOR_ROUTE.OVERVIEW);
+  return result;
+};
+
+/** Revoke pending invitations and invite the administrator again. */
+export const resendAdminInvitation = async (
+  tenantId: string,
+  adminEmail = "",
+) => {
+  const result = await write(
+    "POST",
+    `/tenants/${encodeURIComponent(tenantId)}/invitations`,
+    { data: { type: TENANT_TYPE, attributes: { admin_email: adminEmail } } },
+  );
+  revalidatePath(operatorCustomerHref(tenantId));
+  return result;
+};
 
 export const listTenantUsageSnapshots = async (tenantId: string, days = 30) =>
   read(`/tenants/${encodeURIComponent(tenantId)}/usage-snapshots`, {

@@ -12,6 +12,7 @@ const PAGES = {
   overview: "page.tsx",
   customers: "customers/page.tsx",
   customer: "customers/[tenantId]/page.tsx",
+  newCustomer: "customers/new/page.tsx",
   plans: "plans/page.tsx",
   audit: "audit/page.tsx",
 } as const;
@@ -54,6 +55,15 @@ describe("operator console", () => {
     expect(read(PAGES.customer)).toContain("MANAGE_SUBSCRIPTIONS");
     expect(read(PAGES.customer)).toContain("SUSPEND_TENANTS");
     expect(read(PAGES.plans)).toContain("MANAGE_PLANS");
+    expect(read(PAGES.customers)).toContain("MANAGE_SUBSCRIPTIONS");
+    expect(read(PAGES.newCustomer)).toContain("MANAGE_SUBSCRIPTIONS");
+  });
+
+  it("creates customers and shows the owner invitation until someone joins", () => {
+    expect(read(PAGES.customers)).toContain("OPERATOR_ROUTE.NEW_CUSTOMER");
+    expect(read(PAGES.newCustomer)).toContain("CustomerCreateForm");
+    expect(read(PAGES.customer)).toContain("AdminInvitationCard");
+    expect(read(PAGES.customer)).toContain("members.length === 0");
   });
 
   it("never names an upstream product or engine", () => {

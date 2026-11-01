@@ -15,3 +15,8 @@ class CloudsneekerApiConfig(AppConfig):
     name = "cloudsneeker_api"
     label = "cloudsneeker_api"
     verbose_name = brand.name
+
+    def ready(self):
+        from cloudsneeker_api import signals
+
+        signals.connect()

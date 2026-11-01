@@ -41,6 +41,7 @@ from cloudsneeker_api.views_operator import (  # Operator console (Phase 1)
     OperatorPlanListView,
     OperatorSubscriptionView,
     OperatorTenantDetailView,
+    OperatorTenantInvitationView,
     OperatorTenantListView,
     OperatorTenantUsageView,
 )
@@ -146,6 +147,11 @@ operator_urlpatterns = [
         "operator/tenants/<uuid:tenant_id>/usage-snapshots",
         OperatorTenantUsageView.as_view(),
         name="operator-tenant-usage",
+    ),
+    path(
+        "operator/tenants/<uuid:tenant_id>/invitations",
+        OperatorTenantInvitationView.as_view(),
+        name="operator-tenant-invitation",
     ),
     path(
         "operator/subscriptions/<uuid:tenant_id>",

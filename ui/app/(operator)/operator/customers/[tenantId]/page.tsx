@@ -6,6 +6,7 @@ import {
   listPlans,
   listTenantUsageSnapshots,
 } from "@/cloudsneeker/actions/operator";
+import { AdminInvitationCard } from "@/cloudsneeker/components/admin-invitation-card";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { OperatorLoadError } from "@/cloudsneeker/components/operator-shell";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
@@ -128,6 +129,16 @@ export default async function OperatorCustomerPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+          {attributes.members.length === 0 ? (
+            <AdminInvitationCard
+              tenantId={tenant.id}
+              invitations={attributes.pending_invitations ?? []}
+              canResend={operatorCan(
+                me,
+                OPERATOR_CAPABILITY.MANAGE_SUBSCRIPTIONS,
+              )}
+            />
+          ) : null}
           {canEdit ? (
             <SubscriptionEditor
               tenantId={tenant.id}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import {
+  getOperatorMe,
   listOperatorTenants,
   listPlans,
 } from "@/cloudsneeker/actions/operator";
@@ -19,13 +20,17 @@ import {
   customerListParams,
   customerPageHref,
   OPERATOR_PAGE_SIZE,
+  operatorCan,
   parseCustomerFilters,
   responseError,
+  responseResource,
 } from "@/cloudsneeker/lib/operator";
 import { OPERATOR_ROUTE } from "@/cloudsneeker/routes";
-import type {
-  OperatorTenantResource,
-  PlanResource,
+import {
+  OPERATOR_CAPABILITY,
+  type OperatorMeAttributes,
+  type OperatorTenantResource,
+  type PlanResource,
 } from "@/cloudsneeker/types/operator";
 import { Button } from "@/components/shadcn";
 
@@ -37,20 +42,31 @@ export default async function OperatorCustomersPage({
   searchParams,
 }: CustomersPageProps) {
   const filters = parseCustomerFilters(await searchParams);
-  const [response, plansResponse] = await Promise.all([
+  const [response, plansResponse, meResponse] = await Promise.all([
     listOperatorTenants(customerListParams(filters)),
     listPlans(),
+    getOperatorMe(),
   ]);
   const plans = responseList<PlanResource>(plansResponse).map((plan) => ({
     code: plan.attributes.code,
     name: plan.attributes.name,
   }));
+  const me =
+    responseResource<{ attributes: OperatorMeAttributes }>(meResponse)
+      ?.attributes ?? null;
 
   return (
     <>
       <PageHeader
         title="Customers"
         description="Every organization with its plan, subscription status, end date, members, provider usage and last activity."
+        actions={
+          operatorCan(me, OPERATOR_CAPABILITY.MANAGE_SUBSCRIPTIONS) ? (
+            <Button asChild size="sm">
+              <Link href={OPERATOR_ROUTE.NEW_CUSTOMER}>New customer</Link>
+            </Button>
+          ) : undefined
+        }
       />
       <SectionCard title="Customers">
         <CustomerFilters filters={filters} plans={plans} />

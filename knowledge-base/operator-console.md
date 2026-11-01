@@ -140,13 +140,39 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   (field names only) and `operator.subscription_update` in the customer's own
   audit log. Operator requests are not written to the operator's own tenant
   audit log.
+* Customer onboarding (`services/customers.py`): `POST operator/tenants`
+  (`owner` or `billing`) creates, in one transaction, the tenant, an `admin`
+  role with every permission, a pending invitation for `admin_email` linked
+  to that role, and the subscription (plan, `trial` or `active`, dates,
+  external id, notes; default plan when none is given). The operator does not
+  become a member. The response carries `meta.invitation.token`; the UI turns
+  it into the accept link (`/invitation/accept?invitation_token=...`) for the
+  operator to send, because nothing is emailed. Self sign-up being closed
+  does not block it: sign-up with an invitation token stays open.
+  `POST operator/tenants/{id}/invitations` revokes pending invitations and
+  invites the admin again (same or another email), only while the tenant has
+  no members (409 after). `operator/tenants/{id}` lists
+  `pending_invitations`, with the token only while nobody has joined. Both
+  write an `OperatorAuditEvent` (`tenant.create`, `tenant.invitation_resend`;
+  no email in the metadata) and creation writes `operator.tenant_create` in
+  the customer's audit log.
+* First owner: invited users join upstream as members. A `post_save`
+  receiver on `Invitation` (`signals.py`, connected in
+  `CloudsneekerApiConfig.ready`, no upstream edit) makes the accepting user
+  the owner when they are the tenant's only member and their email matches
+  the invitation. Only console-created tenants have no member when an
+  invitation is accepted, so invitations into existing organizations still
+  give the member role.
 * Daily task `cloudsneeker-operator-daily` (Celery beat, registered by the
   migration): expires subscriptions whose `ends_at` (or trial end) passed and
   writes one `UsageSnapshot` per tenant and day.
-* UI: `/operator` overview, `/operator/customers` (filters in the URL),
-  `/operator/customers/[tenantId]` (subscription editor with feature toggles
-  and limit overrides, usage bars, daily usage, members, recent scans,
-  history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
+* UI: `/operator` overview, `/operator/customers` (filters in the URL; New
+  customer button for `owner` and `billing`), `/operator/customers/new`
+  (organization, admin email, plan, status, dates; shows the invitation link
+  on success), `/operator/customers/[tenantId]` (administrator invitation
+  card with a new-link form while nobody has joined, subscription editor
+  with feature toggles and limit overrides, usage bars, daily usage, members,
+  recent scans, history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
   features outside the plan, a banner for read-only subscriptions and plans
   ending within 7 days, and a plan card on the profile page.
 
@@ -158,7 +184,8 @@ MFA or IP allow-list on the operator routes yet (WAF rule and EB-008 below);
 scheduled jobs (scan, report and application security schedules run by
 Celery beat) are not paused for read-only tenants, only API writes are
 refused; operators are granted only from the command line (no console page
-to grant roles).
+to grant roles); invitation links are not emailed (the operator sends them)
+and expire after 7 days (send a new one from the customer page).
 
 ### Design
 

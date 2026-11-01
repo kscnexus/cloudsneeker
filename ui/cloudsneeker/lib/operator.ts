@@ -1,5 +1,5 @@
 // Pure helpers for the operator console pages: response guards, customer
-// list filters, and the subscription and plan editor payloads.
+// list filters, and the subscription, plan and new-customer payloads.
 
 import type { StatTileTone } from "@/cloudsneeker/components/stat-tile";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/cloudsneeker/lib/entitlements";
 import {
   type BillingSource,
+  type CustomerCreate,
   type OperatorCapability,
   type OperatorMeAttributes,
   type OperatorTenantSummary,
@@ -19,6 +20,7 @@ import {
   type SubscriptionAttributes,
   type SubscriptionStatus,
   type SubscriptionUpdate,
+  type TenantInvitation,
 } from "@/cloudsneeker/types/operator";
 
 export const OPERATOR_PAGE_SIZE = 25;
@@ -325,4 +327,81 @@ export const planPayload = (
   };
   if (includeCode) payload.code = code;
   return { payload, error: null };
+};
+
+// --- New customer ------------------------------------------------------------------
+
+export const CUSTOMER_NAME_MAX = 100;
+
+/** Statuses a new customer can start in. */
+export const INITIAL_STATUSES = [
+  SUBSCRIPTION_STATUS.TRIAL,
+  SUBSCRIPTION_STATUS.ACTIVE,
+] as const;
+
+export type InitialStatus = (typeof INITIAL_STATUSES)[number];
+
+export interface CustomerFormValues {
+  name: string;
+  adminEmail: string;
+  plan: string;
+  status: InitialStatus;
+  /** `YYYY-MM-DD`; blank = none. */
+  endsAt: string;
+  trialEndsAt: string;
+  externalCustomerId: string;
+  notes: string;
+}
+
+export const emptyCustomerForm = (plan = ""): CustomerFormValues => ({
+  name: "",
+  adminEmail: "",
+  plan,
+  status: SUBSCRIPTION_STATUS.ACTIVE,
+  endsAt: "",
+  trialEndsAt: "",
+  externalCustomerId: "",
+  notes: "",
+});
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Form values -> `POST /operator/tenants` body. */
+export const customerPayload = (
+  values: CustomerFormValues,
+): PayloadResult<CustomerCreate> => {
+  const name = values.name.trim();
+  if (!name) return { payload: null, error: "Organization name is required." };
+  if (name.length > CUSTOMER_NAME_MAX) {
+    return {
+      payload: null,
+      error: `Organization name: up to ${CUSTOMER_NAME_MAX} characters.`,
+    };
+  }
+  const adminEmail = values.adminEmail.trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(adminEmail)) {
+    return { payload: null, error: "Enter the administrator's email." };
+  }
+  const payload: CustomerCreate = {
+    name,
+    admin_email: adminEmail,
+    status: values.status,
+    ends_at: values.endsAt || null,
+    external_customer_id: values.externalCustomerId.trim(),
+    notes: values.notes.trim(),
+  };
+  if (values.plan) payload.plan = values.plan;
+  if (values.status === SUBSCRIPTION_STATUS.TRIAL) {
+    payload.trial_ends_at = values.trialEndsAt || null;
+  }
+  return { payload, error: null };
+};
+
+/** `meta.invitation` of a create or resend response. */
+export const invitationFromMeta = (
+  response: unknown,
+): TenantInvitation | null => {
+  const invitation = asRecord(asRecord(asRecord(response)?.meta)?.invitation);
+  if (!invitation || typeof invitation.token !== "string") return null;
+  return invitation as unknown as TenantInvitation;
 };

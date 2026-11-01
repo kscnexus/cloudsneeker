@@ -39,6 +39,48 @@ class SubscriptionUpdateSerializer(BaseSerializerV1):
         resource_name = f"{JSON_API_TYPE_PREFIX}subscriptions"
 
 
+class CustomerCreateSerializer(BaseSerializerV1):
+    """``POST /operator/tenants``: a new organization and its first admin."""
+
+    name = serializers.CharField(max_length=100, help_text="Organization name.")
+    admin_email = serializers.EmailField(
+        max_length=254, help_text="Receives the owner invitation."
+    )
+    plan = serializers.CharField(
+        required=False, allow_blank=True, help_text="Plan code (default plan)."
+    )
+    status = serializers.ChoiceField(
+        choices=[catalog.STATUS_TRIAL, catalog.STATUS_ACTIVE], required=False
+    )
+    # ISO date or datetime; parsed with the subscription rules.
+    starts_at = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    ends_at = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    trial_ends_at = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    external_customer_id = serializers.CharField(
+        required=False, allow_blank=True, max_length=255
+    )
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}operator-tenants"
+
+
+class AdminInvitationSerializer(BaseSerializerV1):
+    """``POST /operator/tenants/{id}/invitations``: invite the admin again."""
+
+    admin_email = serializers.EmailField(
+        max_length=254,
+        required=False,
+        allow_blank=True,
+        help_text="Defaults to the email of the last invitation.",
+    )
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}operator-tenants"
+
+
 class PlanWriteSerializer(BaseSerializerV1):
     """``POST /operator/plans`` and ``PATCH /operator/plans/{code}``."""
 

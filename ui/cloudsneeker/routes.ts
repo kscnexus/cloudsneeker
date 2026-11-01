@@ -21,6 +21,7 @@ export const PRODUCT_ROUTE = {
 export const OPERATOR_ROUTE = {
   OVERVIEW: "/operator",
   CUSTOMERS: "/operator/customers",
+  NEW_CUSTOMER: "/operator/customers/new",
   PLANS: "/operator/plans",
   AUDIT: "/operator/audit",
 } as const;

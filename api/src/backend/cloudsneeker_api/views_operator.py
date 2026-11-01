@@ -29,9 +29,12 @@ from api.authentication import CombinedJWTOrAPIKeyAuthentication
 from cloudsneeker_api.models import JSON_API_TYPE_PREFIX
 from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.serializers_operator import (
+    AdminInvitationSerializer,
+    CustomerCreateSerializer,
     PlanWriteSerializer,
     SubscriptionUpdateSerializer,
 )
+from cloudsneeker_api.services import customers
 from cloudsneeker_api.services import entitlements as service
 from cloudsneeker_api.services import plan_catalog as catalog
 from cloudsneeker_api.views import JSONAPIDocumentRenderer
@@ -240,6 +243,18 @@ def event_attributes(event) -> dict:
         "actor_id": str(event.actor_id) if event.actor_id else None,
         "actor_email": event.actor_email,
         "inserted_at": _iso(event.inserted_at),
+    }
+
+
+def invitation_attributes(invitation, include_token: bool) -> dict:
+    """A pending invitation; the token only while nobody has joined yet."""
+    return {
+        "id": str(invitation.id),
+        "email": invitation.email,
+        "state": invitation.state,
+        "expires_at": _iso(invitation.expires_at),
+        "inserted_at": _iso(invitation.inserted_at),
+        "token": invitation.token if include_token else None,
     }
 
 
@@ -600,6 +615,135 @@ class OperatorTenantListView(OperatorAPIView):
             }
         )
 
+    @extend_schema(
+        tags=[OPERATOR_TAG],
+        summary="Create a customer tenant",
+        description=(
+            "Creates the organization with an `admin` role, a subscription "
+            "and a pending invitation for `admin_email`. The operator does "
+            "not become a member. The administrator becomes the owner when "
+            "they accept; `meta.invitation.token` builds the accept link. "
+            "Needs the owner or billing role."
+        ),
+        request=CustomerCreateSerializer,
+        responses={
+            201: OpenApiResponse(description="Created tenant and invitation"),
+            400: OpenApiResponse(description="Invalid request"),
+            403: OpenApiResponse(description="Role not allowed"),
+        },
+    )
+    def post(self, request):
+        serializer = CustomerCreateSerializer(data=self.body(request))
+        serializer.is_valid(raise_exception=True)
+        values = dict(serializer.validated_data)
+        name = values.pop("name")
+        admin_email = values.pop("admin_email")
+        try:
+            created = customers.create_customer(
+                name=name,
+                admin_email=admin_email,
+                inviter=request.user,
+                subscription=values,
+            )
+        except customers.CustomerError as error:
+            raise ValidationError(str(error)) from None
+        tenant = created.tenant
+        record_operator_event(
+            request,
+            "tenant.create",
+            tenant_id=tenant.id,
+            target_type="tenant",
+            target_id=str(tenant.id),
+            changed_fields=sorted(["name", "admin_email", *values]),
+            metadata={
+                "tenant_name": tenant.name,
+                "plan": created.subscription.plan.code,
+            },
+        )
+        from cloudsneeker_api.audit import record_event
+
+        record_event(
+            str(tenant.id),
+            "operator.tenant_create",
+            request=request,
+            target_type="tenant",
+            target_id=str(tenant.id),
+            status_code=201,
+            metadata={"operator": True},
+        )
+        entitlements = service.build_entitlements(
+            str(tenant.id), created.subscription, created.subscription.plan
+        )
+        row = {
+            "tenant": tenant,
+            "subscription": created.subscription,
+            "entitlements": entitlements,
+            "usage": {},
+            "over_limit": [],
+            "member_count": 0,
+            "last_activity": None,
+        }
+        return Response(
+            {
+                "data": resource(TYPE_TENANT, tenant.id, tenant_attributes(row)),
+                "meta": {
+                    "invitation": invitation_attributes(
+                        created.invitation, include_token=True
+                    )
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    tags=[OPERATOR_TAG],
+    summary="Invite a new customer's administrator again",
+    description=(
+        "Revokes pending invitations and creates a new owner invitation, for "
+        "an organization nobody has joined yet (409 otherwise). "
+        "`admin_email` defaults to the last invitation's email. Needs the "
+        "owner or billing role."
+    ),
+    request=AdminInvitationSerializer,
+    responses={
+        201: OpenApiResponse(description="New invitation in `meta.invitation`"),
+        409: OpenApiResponse(description="The organization already has members"),
+    },
+)
+class OperatorTenantInvitationView(OperatorAPIView):
+    def post(self, request, tenant_id):
+        tenant = _tenant_or_404(tenant_id)
+        serializer = AdminInvitationSerializer(data=self.body(request))
+        serializer.is_valid(raise_exception=True)
+        try:
+            invitation = customers.resend_admin_invitation(
+                tenant.id,
+                inviter=request.user,
+                admin_email=serializer.validated_data.get("admin_email", ""),
+            )
+        except customers.CustomerConflict as error:
+            raise Conflict(str(error)) from None
+        except customers.CustomerError as error:
+            raise ValidationError(str(error)) from None
+        record_operator_event(
+            request,
+            "tenant.invitation_resend",
+            tenant_id=tenant.id,
+            target_type="invitation",
+            target_id=str(invitation.id),
+            metadata={"tenant_name": tenant.name},
+        )
+        return Response(
+            {
+                "data": resource(TYPE_TENANT, tenant.id, {"name": tenant.name}),
+                "meta": {
+                    "invitation": invitation_attributes(invitation, include_token=True)
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
 
 @extend_schema(
     tags=[OPERATOR_TAG],
@@ -676,6 +820,10 @@ class OperatorTenantDetailView(OperatorAPIView):
                 "members": members,
                 "recent_scans": scans,
                 "history": history,
+                "pending_invitations": [
+                    invitation_attributes(invitation, include_token=not members)
+                    for invitation in customers.pending_invitations(tenant.id)
+                ],
             }
         )
         return Response({"data": resource(TYPE_TENANT, tenant.id, attributes)})

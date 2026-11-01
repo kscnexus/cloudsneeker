@@ -208,12 +208,23 @@ export interface TenantScan {
   completed_at: string | null;
 }
 
+/** Pending invitation; `token` is set only while nobody has joined yet. */
+export interface TenantInvitation {
+  id: string;
+  email: string;
+  state: string;
+  expires_at: string | null;
+  inserted_at: string | null;
+  token: string | null;
+}
+
 export interface OperatorTenantDetailAttributes
   extends OperatorTenantAttributes {
   subscription: SubscriptionAttributes;
   members: TenantMember[];
   recent_scans: TenantScan[];
   history: SubscriptionEventResource[];
+  pending_invitations: TenantInvitation[];
 }
 
 export interface PlanAttributes {
@@ -272,6 +283,18 @@ export interface SubscriptionUpdate {
   feature_overrides?: Partial<Record<PlanFeature, boolean>>;
   limit_overrides?: PlanLimits;
   billing_source?: BillingSource;
+  external_customer_id?: string;
+  notes?: string;
+}
+
+/** Body of `POST /operator/tenants`: a new organization and its admin. */
+export interface CustomerCreate {
+  name: string;
+  admin_email: string;
+  plan?: string;
+  status?: typeof SUBSCRIPTION_STATUS.TRIAL | typeof SUBSCRIPTION_STATUS.ACTIVE;
+  ends_at?: string | null;
+  trial_ends_at?: string | null;
   external_customer_id?: string;
   notes?: string;
 }
