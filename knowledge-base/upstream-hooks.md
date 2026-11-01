@@ -216,6 +216,18 @@ CI: `.github/workflows/cloudsneeker-release.yml` and `.github/workflows/cloudsne
 * `docs-gate`: `gen_check_docs.py` then `brand_audit.py --tree cloudsneeker/docs`.
 * `build-gate`: export the transformed tree, `brand_audit.py --tree build/tree`, generate samples with `cloudsneeker/tools/sample_outputs.py`, `brand_audit.py --artifacts build/artifacts`.
 * `images`: build the component images from the transformed tree and audit a real CLI run's output directory.
+* Image vulnerability gate (EB-017): `cloudsneeker-images.yml` scans each image with `.github/actions/trivy-scan` before the push and fails on fixable critical CVEs. Accepted findings live in `cloudsneeker/deploy/trivy/accepted-vulnerabilities.yaml` and are appended to `.trivyignore.yaml` on the runner only.
+
+### Security version bumps
+
+The gate fixes a CVE in an upstream dependency the way upstream would: by moving the pin. After a merge, keep whichever version is newer and relock with the uv version in `.github/actions/setup-python-uv` so the lock revision does not change.
+
+| File | Bump | Reason |
+| --- | --- | --- |
+| `api/pyproject.toml`, `api/uv.lock` | `pillow==13.0.0` (constraint); `certifi==2026.10.23` (override, constraint line removed) | Critical CVEs in Pillow 12.3.0 and GHSA-6q48-6c7w-9gw2 in certifi. |
+| `api/Dockerfile` | `uv==0.13.4` | GHSA-hq85-5cpj-mr62 in uv 0.12.0. |
+| `mcp_server/uv.lock` | Authlib 1.9.1, certifi 2026.10.23 | CVE-2026-96760, GHSA-6q48-6c7w-9gw2. |
+| `ui/package.json`, `ui/pnpm-lock.yaml` | `next` 16.4.1 | GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr in 16.3.6. |
 
 ## Adding a Hook
 

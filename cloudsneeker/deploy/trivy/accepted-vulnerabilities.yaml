@@ -1,0 +1,16 @@
+# Accepted findings for the Cloudsneeker image gate (EB-017).
+#
+# `cloudsneeker-images.yml` appends the entries below to the upstream
+# `.trivyignore.yaml` before each scan, so the upstream file stays untouched.
+# Each entry is scoped to one package by purl and expires to force review.
+# Fix the package instead whenever a fix can reach the image.
+
+vulnerabilities:
+  # proxy-addr is listed in a PowerShell module's bundled manifest in the API
+  # image. The image ships no Node.js runtime, so nothing loads it. The module
+  # is published by Microsoft and updates with the M365 PowerShell modules.
+  # Reviewed 2026-11-02.
+  - id: CVE-2026-90711
+    purls:
+      - "pkg:npm/proxy-addr"
+    expired_at: 2027-01-31

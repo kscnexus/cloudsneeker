@@ -145,6 +145,12 @@ jobs:
       # .trivyignore.yaml with a reason. The pinned third-party graph
       # database image is reported but does not gate: it is only updated
       # by bumping NEO4J_IMAGE.
+      - name: Add Cloudsneeker accepted findings
+        run: |
+          set -euo pipefail
+          printf '\n' >> .trivyignore.yaml
+          sed '1,/^vulnerabilities:/d' cloudsneeker/deploy/trivy/accepted-vulnerabilities.yaml >> .trivyignore.yaml
+
       - name: Scan ${{ matrix.image }} for vulnerabilities
         uses: ./.github/actions/trivy-scan
         with:

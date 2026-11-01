@@ -127,7 +127,7 @@ RUN mkdir -p /tmp/prowler_api_output
 COPY --chown=prowler:prowler pyproject.toml uv.lock ./
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir uv==0.12.0
+    pip install --no-cache-dir uv==0.13.4
 
 ENV PATH="/home/prowler/.local/bin:$PATH"
 

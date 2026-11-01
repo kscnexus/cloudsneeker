@@ -88,7 +88,18 @@ def test_image_workflow_publishes_each_image_and_keeps_platform_mode():
     assert 'services="mcp"' in IMAGES
     assert 'services="neo4j"' in IMAGES
     assert "--builder default" in IMAGES
-    assert 'docker push "$image"' in IMAGES
+    assert 'docker push "$IMAGE_URI"' in IMAGES
     assert "workflow_dispatch:" in IMAGES
     assert "codebuild" not in DEPLOY.lower()
     assert "GitHub Actions" in DEPLOY
+
+
+def test_image_workflow_scans_each_image_before_the_push():
+    build = IMAGES.index("- name: Build ${{ matrix.image }}")
+    scan = IMAGES.index("uses: ./.github/actions/trivy-scan")
+    sbom = IMAGES.index("format: cyclonedx")
+    push = IMAGES.index('docker push "$IMAGE_URI"')
+    assert build < scan < sbom < push
+    assert "--push" not in IMAGES
+    assert "matrix.image == 'neo4j' && 'none' || 'critical'" in IMAGES
+    assert "upload-artifact" in IMAGES
