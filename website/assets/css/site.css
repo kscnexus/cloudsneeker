@@ -2939,6 +2939,18 @@ main:focus {
   margin: 0;
 }
 
+.footer-bottom .maker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-bottom .maker svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
 /* ---------- Reveal (progressive enhancement) ----------
    Content is visible by default. site.js adds .is-pending only to items
    below the fold once IntersectionObserver is running, and removes it as
