@@ -247,5 +247,5 @@ export const parseManualRepositories = (
     if (repository) repositories.set(repository.repository_url, repository);
     else invalid.push(entry);
   }
-  return { repositories: [...repositories.values()], invalid };
+  return { repositories: Array.from(repositories.values()), invalid };
 };
