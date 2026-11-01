@@ -63,3 +63,18 @@ describe("FindingTriageTable", () => {
     expect(screen.queryByText(/notes$/)).not.toBeInTheDocument();
   });
 });
+
+describe("FindingTriageTable in another area", () => {
+  it("links to the area's findings by UID", () => {
+    render(
+      <FindingTriageTable
+        triages={[triage({ finding_uid: "custodian-p1-vol-1" })]}
+        area="governance"
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Open in Cloud Governance findings/ }),
+    ).toHaveAttribute("href", "/governance/findings?q=custodian-p1-vol-1");
+  });
+});

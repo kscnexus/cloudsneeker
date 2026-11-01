@@ -51,6 +51,7 @@ class FindingTriageSerializer(RLSSerializer):
             "updated_at",
             "finding_uid",
             "finding_id",
+            "area",
             "status",
             "stored_status",
             "status_changed_at",

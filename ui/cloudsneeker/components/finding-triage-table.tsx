@@ -1,8 +1,12 @@
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 
-import { triageFindingsHref } from "@/cloudsneeker/lib/finding-triage";
+import { AREA_CONFIG, areaFindingHref } from "@/cloudsneeker/lib/area-findings";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
+import {
+  FINDING_AREA,
+  type FindingArea,
+} from "@/cloudsneeker/types/area-findings";
 import type { FindingTriageResource } from "@/cloudsneeker/types/finding-triage";
 import { Button } from "@/components/shadcn";
 
@@ -10,12 +14,17 @@ import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
 
 interface FindingTriageTableProps {
   triages: FindingTriageResource[];
+  /** Product area; links go to that area's findings. */
+  area?: FindingArea;
 }
 
 const HEADERS = ["Status", "Finding", "Latest note", "Updated", ""] as const;
 
-/** Triaged findings with a link back to the finding on the Findings page. */
-export const FindingTriageTable = ({ triages }: FindingTriageTableProps) => (
+/** Triaged findings with a link back to the finding in its area. */
+export const FindingTriageTable = ({
+  triages,
+  area = FINDING_AREA.CLOUD,
+}: FindingTriageTableProps) => (
   <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
     <table className="w-full text-left text-sm">
       <thead className="bg-bg-neutral-tertiary">
@@ -71,9 +80,16 @@ export const FindingTriageTable = ({ triages }: FindingTriageTableProps) => (
               </td>
               <td className="px-3 py-2">
                 <Button asChild variant="outline" size="xs">
-                  <Link href={triageFindingsHref(attributes.check_id)}>
+                  <Link
+                    href={areaFindingHref(area, {
+                      uid: attributes.finding_uid,
+                      checkId: attributes.check_id,
+                    })}
+                  >
                     <ExternalLink aria-hidden="true" />
-                    Open in Findings
+                    {area === FINDING_AREA.CLOUD
+                      ? "Open in Findings"
+                      : `Open in ${AREA_CONFIG[area].name} findings`}
                   </Link>
                 </Button>
               </td>

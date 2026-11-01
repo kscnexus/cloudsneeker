@@ -11,6 +11,8 @@ Upstream `Finding` rows belong to one scan. `Finding.uid` stays the same across 
 | `cloudsneeker_finding_triages` | `FindingTriage` | `finding_uid` (unique per tenant), `status`, `status_changed_at`, `source`, `check_id`, `provider`, `assignee`, `updated_by`, timestamps |
 | `cloudsneeker_finding_triage_notes` | `FindingTriageNote` | `triage`, `author`, `body` (plain text, at most 4000 characters), `status` the triage moved to with this note, timestamps |
 
+`FindingTriage.area` (`cloud`, `application_security`, `governance`, migration `0017_finding_triage_area`) scopes triage to a product area. Governance UIDs (`custodian-...`) have no `Finding` row and resolve against the latest run of their policy. See [Area Findings and Triage](area-findings.md).
+
 Both tables use tenant row-level security (`RowLevelSecurityConstraint`, migration `cloudsneeker_api/migrations/0013_finding_triage.py`). `check_id` and `provider` are copied from the latest finding with the UID on every write. Provider visibility and the `check_id` and `provider` filters read them without joining the partitioned findings table.
 
 ### Statuses
@@ -43,7 +45,7 @@ All routes are under `/api/v1/` (`cloudsneeker_api/urls.py`, views in `cloudsnee
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET finding-triages` | List triage. Filters: `status`, `status__in`, `assignee`, `check_id`, `check_id__in`, `provider`, `provider__in`, `finding_uid`, `finding_uid__in`. Sort: `updated_at`, `inserted_at`, `status_changed_at`, `status`. Paginated |
+| `GET finding-triages` | List triage. Filters: `area`, `status`, `status__in`, `assignee`, `check_id`, `check_id__in`, `provider`, `provider__in`, `finding_uid`, `finding_uid__in`. Sort: `updated_at`, `inserted_at`, `status_changed_at`, `status`. Paginated |
 | `GET` / `PATCH finding-triages/{id}` | Read or change one triage. `{id}` may also be a UID without `/` or `.` |
 | `POST finding-triages/bulk` | `finding_uids` (at most 500), `status`, optional `note`. Returns `created`, `updated`, `unchanged`, `skipped_uids` (UIDs with no visible finding) |
 | `GET finding-triages/lookup` | `filter[finding_id__in]` and/or `filter[finding_uid__in]` (at most 200). One entry per triaged finding row, used to show triage in the findings table |
@@ -71,7 +73,7 @@ The inherited findings UI already has a triage column, a status selector, a deta
 * `actions/findings/findings-triage.options.ts` makes triage editable when `CLOUDSNEEKER_FEATURES.findingTriage` is on.
 * Five server-action call sites wrap their response in `withCloudsneekerTriage` (`ui/cloudsneeker/lib/finding-triage-server.ts`). It looks up `finding-triages/lookup` for rows that carry no triage fields, then merges `triage_status`, `triage_id`, and note counts into each row. If the lookup fails, the findings still render and every row reads as open.
 
-The upstream findings API cannot filter by a Cloudsneeker table. The "Triage status" filter is therefore its own page instead of a findings query: `/triage` (`ui/app/(cloudsneeker)/triage/page.tsx`, sidebar entry under Cloud Security). It lists triaged findings by status, shows the latest note, and links each finding back to its check on the Findings page. A failed request shows a load error instead of an empty list.
+The upstream findings API cannot filter by a Cloudsneeker table. The "Triage status" filter is therefore its own page instead of a findings query: `/triage` (`ui/app/(cloudsneeker)/triage/page.tsx`, sidebar entry under Cloud Security). It renders the shared `AreaTriageView` scoped to the cloud area; Application Security and Governance have their own triage pages. It lists triaged findings by status, shows the latest note, and links each finding back to its check on the Findings page. A failed request shows a load error instead of an empty list.
 
 When a status changes to `risk_accepted` or `false_positive`, the inherited UI also creates an upstream mute rule for the finding. That behavior is unchanged.
 
@@ -89,4 +91,4 @@ The open-issue counts and the score are unchanged. A false positive still counts
 * The UI caps notes at 500 characters (`FINDING_TRIAGE_NOTE_MAX_LENGTH` in the inherited types). The API accepts 4000.
 * The inherited UI edits the latest note in place. If someone else wrote that note, the API returns `403`.
 * The UI does not hide the selector from roles without `manage_scans`. They get a `403` error when they save.
-* The bulk endpoint has no UI yet. The inherited floating selection bar mutes and sends to Jira only.
+* The bulk endpoint has no UI on the cloud Findings page. The inherited floating selection bar mutes and sends to Jira only. The Application Security and Governance findings pages have bulk triage.

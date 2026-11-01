@@ -2,8 +2,8 @@
 
 Routes (under ``/api/v1/``):
 
-* ``finding-triages`` list (filters: status, status__in, assignee, check_id,
-  check_id__in, provider, provider__in, finding_uid, finding_uid__in)
+* ``finding-triages`` list (filters: area, status, status__in, assignee,
+  check_id, check_id__in, provider, provider__in, finding_uid, finding_uid__in)
 * ``finding-triages/{id}`` GET / PATCH (``id`` may also be a finding UID
   without ``/`` or ``.``)
 * ``finding-triages/bulk`` POST (``finding_uids``, ``status``, ``note``; max 500)
@@ -83,10 +83,12 @@ class FindingTriageFilter(filters.FilterSet):
     provider__in = UUIDInFilter(field_name="provider_id", lookup_expr="in")
     finding_uid = filters.CharFilter()
     finding_uid__in = CharInFilter(field_name="finding_uid", lookup_expr="in")
+    area = filters.ChoiceFilter(choices=FindingTriage.Area.choices)
 
     class Meta:
         model = FindingTriage
         fields = [
+            "area",
             "status",
             "assignee",
             "check_id",
@@ -395,6 +397,7 @@ class FindingTriageViewSet(BaseRLSViewSet):
                     "attributes": {
                         "finding_uid": finding.uid,
                         "finding_id": finding.id,
+                        "area": finding.area,
                         "status": FindingTriage.Status.OPEN,
                         "stored_status": None,
                         "check_id": finding.check_id,

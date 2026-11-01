@@ -1,6 +1,7 @@
 // Finding triage resources served by `cloudsneeker_api` (EB-010). Status
 // values and labels come from the inherited `@/types/findings-triage`.
 
+import type { FindingArea } from "@/cloudsneeker/types/area-findings";
 import type { FindingTriageStatus } from "@/types/findings-triage";
 
 export const FINDING_TRIAGE_RESOURCE_TYPE = {
@@ -11,6 +12,8 @@ export const FINDING_TRIAGE_RESOURCE_TYPE = {
 export interface FindingTriageAttributes {
   finding_uid: string;
   finding_id: string | null;
+  /** Product area (sent by the API since area findings). */
+  area?: FindingArea;
   status: FindingTriageStatus;
   stored_status: FindingTriageStatus | null;
   status_changed_at: string | null;

@@ -10,14 +10,20 @@ A ``resolved`` triage whose finding fails again in a scan newer than the
 status change reads as ``reopened`` (``effective_status``). The stored status
 is not rewritten on read; rescan automation that persists the transition is a
 follow-up (see ``knowledge-base/finding-triage.md``).
+
+Each triage row records its product area (``FindingTriage.Area``). Findings
+from ``trivy_hub`` scans are Application Security; ``custodian-`` UIDs are
+Cloud Governance matches with no ``Finding`` row
+(``services/governance_findings.py``); everything else is Cloud Security.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 
 from api.models import Finding, Membership, Role, StatusChoices
 from cloudsneeker_api.models import (
@@ -26,12 +32,20 @@ from cloudsneeker_api.models import (
     FindingTriageNote,
 )
 from cloudsneeker_api.reports.access import visible_provider_ids
+from cloudsneeker_api.services.governance_findings import (
+    governance_findings,
+    is_governance_uid,
+)
 from django.db.models import Count, OuterRef, QuerySet, Subquery
+from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 
 BULK_MAX_FINDINGS = 500
 LOOKUP_MAX_FINDINGS = 200
 STATUS_VALUES = frozenset(FindingTriage.Status.values)
+AREA_VALUES = frozenset(FindingTriage.Area.values)
+# ``Scan.scanner_args["source"]`` of Application Security imports.
+APP_SECURITY_SCAN_SOURCE = "trivy_hub"
 
 # Control characters other than tab and newline; notes are plain text.
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
@@ -60,6 +74,7 @@ class FindingSnapshot:
     status: str
     muted: bool
     inserted_at: datetime | None
+    area: str = FindingTriage.Area.CLOUD
 
 
 @dataclass
@@ -183,6 +198,13 @@ def with_note_summary(queryset: QuerySet) -> QuerySet:
     )
 
 
+def area_for_scan_source(source: str | None) -> str:
+    """Product area of a finding from its scan's ``scanner_args["source"]``."""
+    if source == APP_SECURITY_SCAN_SOURCE:
+        return FindingTriage.Area.APPLICATION_SECURITY
+    return FindingTriage.Area.CLOUD
+
+
 def _snapshot(row: dict[str, Any]) -> FindingSnapshot:
     return FindingSnapshot(
         id=str(row["id"]),
@@ -192,6 +214,7 @@ def _snapshot(row: dict[str, Any]) -> FindingSnapshot:
         status=row["status"],
         muted=bool(row["muted"]),
         inserted_at=row["inserted_at"],
+        area=area_for_scan_source(row.get("scan_source")),
     )
 
 
@@ -203,24 +226,60 @@ _SNAPSHOT_FIELDS = (
     "status",
     "muted",
     "inserted_at",
+    "scan_source",
 )
+
+
+def _with_scan_source(queryset: QuerySet) -> QuerySet:
+    return queryset.annotate(
+        scan_source=KeyTextTransform("source", "scan__scanner_args")
+    )
+
+
+def governance_snapshots(
+    tenant_id: str, role: Role, uids: Iterable[str]
+) -> dict[str, FindingSnapshot]:
+    """Snapshots of visible governance matches (``custodian-`` UIDs)."""
+    wanted = {uid for uid in uids if uid and is_governance_uid(uid)}
+    if not wanted:
+        return {}
+    return {
+        finding.uid: FindingSnapshot(
+            id=finding.uid,
+            uid=finding.uid,
+            check_id=finding.rule_name[:100],
+            provider_id=finding.provider_id,
+            status=StatusChoices.FAIL,
+            muted=False,
+            inserted_at=finding.last_seen_at,
+            area=FindingTriage.Area.GOVERNANCE,
+        )
+        for finding in governance_findings(tenant_id, role)
+        if finding.uid in wanted
+    }
 
 
 def latest_findings(
     tenant_id: str, role: Role, uids: Iterable[str]
 ) -> dict[str, FindingSnapshot]:
-    """Latest visible finding per UID (one query, ``DISTINCT ON uid``)."""
-    uid_list = sorted({uid for uid in uids if uid})
+    """Latest visible finding per UID (one query, ``DISTINCT ON uid``).
+
+    Governance UIDs resolve against the latest run of their policy instead.
+    """
+    uid_set = {uid for uid in uids if uid}
+    snapshots = governance_snapshots(tenant_id, role, uid_set)
+    uid_list = sorted(uid for uid in uid_set if not is_governance_uid(uid))
     if not uid_list:
-        return {}
+        return snapshots
     rows = (
-        visible_findings(tenant_id, role)
+        _with_scan_source(visible_findings(tenant_id, role))
         .filter(uid__in=uid_list)
         .order_by("uid", "-inserted_at")
         .distinct("uid")
         .values(*_SNAPSHOT_FIELDS)
     )
-    return {row["uid"]: _snapshot(row) for row in rows}
+    snapshots.update({row["uid"]: _snapshot(row) for row in rows})
+    return snapshots
 
 
 def findings_by_id(
@@ -230,7 +289,11 @@ def findings_by_id(
     ids = sorted({str(value) for value in finding_ids if value})
     if not ids:
         return {}
-    rows = visible_findings(tenant_id, role).filter(id__in=ids).values(*_SNAPSHOT_FIELDS)
+    rows = (
+        _with_scan_source(visible_findings(tenant_id, role))
+        .filter(id__in=ids)
+        .values(*_SNAPSHOT_FIELDS)
+    )
     return {str(row["id"]): _snapshot(row) for row in rows}
 
 
@@ -320,6 +383,7 @@ def upsert_triage(
         status_changed = _apply_status(triage, status, now)
     triage.check_id = snapshot.check_id
     triage.provider_id = snapshot.provider_id
+    triage.area = snapshot.area
     triage.updated_by_id = user_id
     triage.source = source
     if assignee is not ...:
@@ -400,6 +464,7 @@ def bulk_update_status(
                 result.unchanged += 1
         triage.check_id = snapshot.check_id
         triage.provider_id = snapshot.provider_id
+        triage.area = snapshot.area
         triage.updated_by_id = user_id
         triage.source = FindingTriage.Source.BULK
         triage.save()
@@ -473,7 +538,7 @@ def triage_counts(tenant_id: str, finding_uids: QuerySet | Iterable[str]) -> dic
     Returns:
         Status to count, every status present (zero when unused).
     """
-    counts = {value: 0 for value in FindingTriage.Status.values}
+    counts = dict.fromkeys(FindingTriage.Status.values, 0)
     rows = (
         FindingTriage.objects.filter(tenant_id=tenant_id, finding_uid__in=finding_uids)
         .values("status")

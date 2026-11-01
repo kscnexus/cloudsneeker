@@ -1,15 +1,20 @@
 import Link from "next/link";
 
+import { areaTriagePageHref } from "@/cloudsneeker/lib/area-findings";
 import {
   TRIAGE_STATUS_FILTERS,
-  triagePageHref,
   triageStatusLabel,
 } from "@/cloudsneeker/lib/finding-triage";
+import {
+  FINDING_AREA,
+  type FindingArea,
+} from "@/cloudsneeker/types/area-findings";
 import { cn } from "@/lib/utils";
 import type { FindingTriageStatus } from "@/types/findings-triage";
 
 interface FindingTriageStatusFilterProps {
   active: FindingTriageStatus | null;
+  area?: FindingArea;
 }
 
 const OPTIONS: { status: FindingTriageStatus | null; label: string }[] = [
@@ -23,6 +28,7 @@ const OPTIONS: { status: FindingTriageStatus | null; label: string }[] = [
 /** "Triage status" filter: one link per status, server rendered. */
 export const FindingTriageStatusFilter = ({
   active,
+  area = FINDING_AREA.CLOUD,
 }: FindingTriageStatusFilterProps) => (
   <nav aria-label="Triage status" className="flex flex-wrap gap-2">
     {OPTIONS.map(({ status, label }) => {
@@ -30,7 +36,7 @@ export const FindingTriageStatusFilter = ({
       return (
         <Link
           key={label}
-          href={triagePageHref(status)}
+          href={areaTriagePageHref(area, status)}
           aria-current={isActive ? "page" : undefined}
           className={cn(
             "rounded-full border px-3 py-1 text-xs font-medium transition-colors",

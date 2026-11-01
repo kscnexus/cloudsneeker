@@ -10,6 +10,7 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 """
 
 from cloudsneeker_api.views import BrandView
+from cloudsneeker_api.views_area_findings import AreaFindingViewSet  # Area findings
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
@@ -101,6 +102,7 @@ router.register(r"audit-events", AuditEventViewSet, basename="audit-events")
 
 # --- Finding triage (EB-010) ---
 router.register(r"finding-triages", FindingTriageViewSet, basename="finding-triages")
+router.register(r"area-findings", AreaFindingViewSet, basename="area-findings")
 
 # Paths keyed by the finding UID that the inherited findings UI calls. ``path``
 # accepts UIDs with ``/`` (the UI URL-encodes them; Django decodes before

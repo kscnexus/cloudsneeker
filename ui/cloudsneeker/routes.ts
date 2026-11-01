@@ -71,6 +71,12 @@ export const findingTriageHref = (...segments: string[]): string =>
   joinRoute(PRODUCT_ROUTE.FINDING_TRIAGE, segments);
 // --- End finding triage (EB-010) ---
 
+/** Area findings and triage pages under Application Security and Governance. */
+export const AREA_PAGE_SEGMENT = {
+  FINDINGS: "findings",
+  TRIAGE: "triage",
+} as const;
+
 /** Same-origin download proxy (`app/api/cloudsneeker/reports/...`). */
 export const REPORT_DOWNLOAD_API_BASE = "/api/cloudsneeker/reports";
 

@@ -10,6 +10,7 @@ import {
   Boxes,
   ClipboardCheck,
   FileBarChart,
+  ListChecks,
   type LucideIcon,
   Scale,
   SlidersHorizontal,
@@ -30,7 +31,12 @@ import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 import { BRAND } from "./brand";
 import { isCloudsneekerFeatureEnabled } from "./features";
 import { isHrefInPlan } from "./lib/entitlements";
-import { PRODUCT_ROUTE } from "./routes";
+import {
+  AREA_PAGE_SEGMENT,
+  appSecurityHref,
+  governanceHref,
+  PRODUCT_ROUTE,
+} from "./routes";
 
 export const NAVIGATION_SECTION_LABEL = {
   CLOUD_SECURITY: BRAND.cloudSecurityName.toUpperCase(),
@@ -204,6 +210,36 @@ const productLink = (
   active: isRouteActive(pathname, href),
 });
 
+/**
+ * Area hub link plus its Findings and Triage pages. The hub stays active on
+ * its target and policy pages but not on the area findings or triage page.
+ */
+const areaLinks = (
+  hubHref: string,
+  hubLabel: string,
+  hubIcon: LucideIcon,
+  hrefFor: (segment: string) => string,
+  pathname: string,
+): NavigationLink[] => {
+  const findings = productLink(
+    hrefFor(AREA_PAGE_SEGMENT.FINDINGS),
+    "Findings",
+    ListChecks,
+    pathname,
+  );
+  const triage = isCloudsneekerFeatureEnabled("findingTriage")
+    ? productLink(
+        hrefFor(AREA_PAGE_SEGMENT.TRIAGE),
+        "Triage",
+        ClipboardCheck,
+        pathname,
+      )
+    : undefined;
+  const hub = productLink(hubHref, hubLabel, hubIcon, pathname);
+  hub.active = hub.active && !findings.active && !triage?.active;
+  return [hub, findings, ...(triage ? [triage] : [])];
+};
+
 const sectionOrNull = (
   label: string | undefined,
   items: (NavigationItem | undefined)[],
@@ -348,25 +384,29 @@ const regroupNavigation = (
   ];
 
   const applicationSecurity = isCloudsneekerFeatureEnabled("trivy")
-    ? sectionOrNull(NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY, [
-        productLink(
+    ? sectionOrNull(
+        NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
+        areaLinks(
           PRODUCT_ROUTE.APPLICATION_SECURITY,
           BRAND.appSecurityName,
           Boxes,
+          appSecurityHref,
           pathname,
         ),
-      ])
+      )
     : null;
 
   const governance = isCloudsneekerFeatureEnabled("custodian")
-    ? sectionOrNull(NAVIGATION_SECTION_LABEL.GOVERNANCE, [
-        productLink(
+    ? sectionOrNull(
+        NAVIGATION_SECTION_LABEL.GOVERNANCE,
+        areaLinks(
           PRODUCT_ROUTE.GOVERNANCE,
           BRAND.governanceName,
           Scale,
+          governanceHref,
           pathname,
         ),
-      ])
+      )
     : null;
 
   const reports = isCloudsneekerFeatureEnabled("reports")

@@ -160,11 +160,11 @@ describe("withCloudsneekerNavigation", () => {
       },
       {
         label: NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
-        items: [BRAND.appSecurityName],
+        items: [BRAND.appSecurityName, "Findings", "Triage"],
       },
       {
         label: NAVIGATION_SECTION_LABEL.GOVERNANCE,
-        items: [BRAND.governanceName],
+        items: [BRAND.governanceName, "Findings", "Triage"],
       },
       {
         label: NAVIGATION_SECTION_LABEL.REPORTS,
@@ -453,6 +453,48 @@ describe("withCloudsneekerNavigation finding triage", () => {
   });
 });
 // --- End finding triage (EB-010) ---
+
+describe("withCloudsneekerNavigation area findings", () => {
+  const sectionItems = (sections: NavigationSection[], label: string) =>
+    sections.find((section) => section.label === label)?.items ?? [];
+
+  it("gives Application Security and Governance their own Findings and Triage", () => {
+    const sections = withCloudsneekerNavigation(upstreamSections(), "/");
+    const hrefs = (label: string) =>
+      sectionItems(sections, label).map((item) =>
+        item.kind === NAVIGATION_ITEM_KIND.LINK ? item.href : item.label,
+      );
+
+    expect(hrefs(NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY)).toEqual([
+      "/application-security",
+      "/application-security/findings",
+      "/application-security/triage",
+    ]);
+    expect(hrefs(NAVIGATION_SECTION_LABEL.GOVERNANCE)).toEqual([
+      "/governance",
+      "/governance/findings",
+      "/governance/triage",
+    ]);
+  });
+
+  it("keeps one active link per area page", () => {
+    const active = (pathname: string) =>
+      sectionItems(
+        withCloudsneekerNavigation(upstreamSections(), pathname),
+        NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
+      )
+        .filter(
+          (item) => item.kind === NAVIGATION_ITEM_KIND.LINK && item.active,
+        )
+        .map((item) => item.label);
+
+    expect(active("/application-security/findings")).toEqual(["Findings"]);
+    expect(active("/application-security/triage")).toEqual(["Triage"]);
+    expect(active("/application-security/abc/runs/1")).toEqual([
+      BRAND.appSecurityName,
+    ]);
+  });
+});
 
 // --- Operator console (Phase 1): plan features and operator link ---
 describe("withCloudsneekerNavigation plan filtering", () => {

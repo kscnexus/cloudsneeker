@@ -83,6 +83,15 @@ export const NAVIGATION_FEATURE_PATHS: readonly {
 }[] = [
   { path: "/attack-paths", feature: PLAN_FEATURE.ATTACK_PATHS },
   { path: "/compliance", feature: PLAN_FEATURE.COMPLIANCE },
+  // Area triage pages need triage; first match wins, so they come first.
+  {
+    path: `${PRODUCT_ROUTE.APPLICATION_SECURITY}/triage`,
+    feature: PLAN_FEATURE.FINDING_TRIAGE,
+  },
+  {
+    path: `${PRODUCT_ROUTE.GOVERNANCE}/triage`,
+    feature: PLAN_FEATURE.FINDING_TRIAGE,
+  },
   {
     path: PRODUCT_ROUTE.APPLICATION_SECURITY,
     feature: PLAN_FEATURE.APPLICATION_SECURITY,

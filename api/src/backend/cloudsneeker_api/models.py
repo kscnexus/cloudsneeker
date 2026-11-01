@@ -852,10 +852,18 @@ class FindingTriage(CloudsneekerRLSModel):
         INTEGRATION = "integration", "Integration"
         AUTOMATION = "automation", "Automation"
 
+    class Area(models.TextChoices):
+        """Product area the finding belongs to (``area-findings.md``)."""
+
+        CLOUD = "cloud", "Cloud Security"
+        APPLICATION_SECURITY = "application_security", "Application Security"
+        GOVERNANCE = "governance", "Cloud Governance"
+
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True, editable=False)
     finding_uid = models.CharField(max_length=300)
+    area = models.CharField(max_length=32, choices=Area.choices, default=Area.CLOUD)
     status = models.CharField(
         max_length=32, choices=Status.choices, default=Status.OPEN
     )
@@ -916,6 +924,10 @@ class FindingTriage(CloudsneekerRLSModel):
             models.Index(
                 fields=["tenant_id", "-updated_at"],
                 name="cs_triage_tenant_updated_idx",
+            ),
+            models.Index(
+                fields=["tenant_id", "area", "status"],
+                name="cs_triage_tenant_area_idx",
             ),
         ]
 
