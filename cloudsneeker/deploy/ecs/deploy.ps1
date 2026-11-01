@@ -92,6 +92,12 @@ payload = {
     "slackClientId": "unconfigured",
     "slackClientSecret": "unconfigured",
 }
+saml_key, saml_cert = key_path + ".saml", pub_path + ".saml"
+subprocess.check_call([openssl, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", saml_key, "-out", saml_cert, "-days", "3650", "-subj", "/CN=cloudsneeker-saml-sp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+payload["samlSpCert"] = open(saml_cert, encoding="ascii").read().strip()
+payload["samlSpKey"] = open(saml_key, encoding="ascii").read().strip()
+os.remove(saml_key)
+os.remove(saml_cert)
 with open(out_path, "w", encoding="ascii") as handle:
     json.dump(payload, handle)
 '@ | Set-Content -Path $generator -Encoding ascii
@@ -104,7 +110,10 @@ with open(out_path, "w", encoding="ascii") as handle:
     Remove-Item -Force $secretFile, $keyFile, $pubFile, $generator
     $secretArn = Invoke-AwsText @("secretsmanager", "describe-secret", "--secret-id", $SecretName, "--query", "ARN")
 } else {
-    # Ensure Slack OAuth keys exist on older secrets (empty until an app is configured).
+    # Ensure Slack OAuth keys (empty until an app is configured) and the SAML
+    # SP key pair (EB-009) exist on older secrets.
+    $openssl = (Get-Command openssl -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    if (-not $openssl) { $openssl = "C:\Program Files\Git\usr\bin\openssl.exe" }
     $current = Invoke-AwsText @("secretsmanager", "get-secret-value", "--secret-id", $SecretName, "--query", "SecretString")
     $mergeWork = Join-Path $env:TEMP "cloudsneeker-secret-merge"
     New-Item -ItemType Directory -Force -Path $mergeWork | Out-Null
@@ -113,21 +122,33 @@ with open(out_path, "w", encoding="ascii") as handle:
     $mergeOut = Join-Path $mergeWork "out.json"
     Set-Content -Path $mergeIn -Value $current -Encoding ascii
     @'
-import json, sys
-src, dst = sys.argv[1:3]
+import json, os, subprocess, sys, tempfile
+src, dst, openssl = sys.argv[1:4]
 payload = json.load(open(src, encoding="utf-8"))
 changed = False
 for key in ("slackClientId", "slackClientSecret"):
     if key not in payload:
         payload[key] = "unconfigured"
         changed = True
+if "samlSpCert" not in payload or "samlSpKey" not in payload:
+    work = tempfile.mkdtemp()
+    key_path, cert_path = os.path.join(work, "saml.key"), os.path.join(work, "saml.crt")
+    subprocess.check_call([openssl, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key_path, "-out", cert_path, "-days", "3650", "-subj", "/CN=cloudsneeker-saml-sp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    payload["samlSpCert"] = open(cert_path, encoding="ascii").read().strip()
+    payload["samlSpKey"] = open(key_path, encoding="ascii").read().strip()
+    os.remove(key_path)
+    os.remove(cert_path)
+    os.rmdir(work)
+    changed = True
 json.dump(payload, open(dst, "w", encoding="ascii"))
 sys.exit(0 if changed else 2)
 '@ | Set-Content -Path $mergePy -Encoding ascii
-    & python $mergePy $mergeIn $mergeOut
+    & python $mergePy $mergeIn $mergeOut $openssl
     if ($LASTEXITCODE -eq 0) {
         Invoke-Aws @("secretsmanager", "put-secret-value", "--secret-id", $SecretName, "--secret-string", "file://$mergeOut") | Out-Null
-        Write-Host "Added Slack OAuth keys to application secret"
+        Write-Host "Added missing keys (Slack OAuth, SAML SP key pair) to application secret"
+    } elseif ($LASTEXITCODE -ne 2) {
+        throw "application secret merge failed"
     }
     Remove-Item -Force -ErrorAction SilentlyContinue $mergePy, $mergeIn, $mergeOut
 }

@@ -25,7 +25,7 @@ REST_AUTH = {
 # verifies both the provider email and the existing account email before linking.
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = False
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = False
-SOCIALACCOUNT_ADAPTER = "api.adapters.ProwlerSocialAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "cloudsneeker_api.saml.CloudsneekerSocialAccountAdapter"  # cloudsneeker-hook: SAML hardening (EB-009), subclasses the upstream adapter
 
 
 # def inline(pem: str) -> str:

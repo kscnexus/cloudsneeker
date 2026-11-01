@@ -26,3 +26,17 @@ export interface MfaEnrolmentAttributes {
 export interface MfaRecoveryCodesAttributes {
   codes: string[];
 }
+
+/** `GET /sso/policy` (EB-009). */
+export interface SsoPolicyAttributes {
+  reject_idp_initiated_sso: boolean;
+  /** AuthnRequests are signed with the platform's SP key. */
+  signed_requests: boolean;
+  signed_assertions_required: boolean;
+}
+
+export interface SsoPolicyResource {
+  type: "cloudsneeker-sso-policies";
+  id: string;
+  attributes: SsoPolicyAttributes;
+}

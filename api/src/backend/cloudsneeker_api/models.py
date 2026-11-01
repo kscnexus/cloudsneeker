@@ -1222,4 +1222,23 @@ class TenantMfaPolicy(models.Model):
         db_table = f"{TABLE_PREFIX}tenant_mfa_policies"
 
 
+class TenantSsoPolicy(models.Model):
+    """Per-organization SAML options (EB-009)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    tenant = models.OneToOneField(
+        "api.Tenant",
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_sso_policy",
+    )
+    # Refuse SAML responses that do not answer a sign-in started on this site.
+    reject_idp_initiated_sso = models.BooleanField(default=False)
+    updated_by = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}tenant_sso_policies"
+
+
 # --- End multi-factor authentication ------------------------------------------

@@ -1301,6 +1301,11 @@ Resources:
               ValueFrom: !Sub "${AppSecretArn}:slackClientId::"
             - Name: DJANGO_SLACK_CLIENT_SECRET
               ValueFrom: !Sub "${AppSecretArn}:slackClientSecret::"
+            # EB-009: SAML SP key pair (signed AuthnRequests, SP metadata certificate).
+            - Name: SAML_PUBLIC_CERT
+              ValueFrom: !Sub "${AppSecretArn}:samlSpCert::"
+            - Name: SAML_PRIVATE_KEY
+              ValueFrom: !Sub "${AppSecretArn}:samlSpKey::"
 
   WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition

@@ -57,6 +57,7 @@ from cloudsneeker_api.views_slack import (
     SlackOAuthExchangeView,
 )
 from cloudsneeker_api.views_slack_app import SlackAppConfigViewSet
+from cloudsneeker_api.views_sso import SsoPolicyView  # SAML hardening (EB-009)
 from cloudsneeker_api.views_triage import (
     FindingTriageViewSet,  # Finding triage (EB-010)
 )
@@ -182,6 +183,7 @@ mfa_urlpatterns = [
     ),
     path("mfa/disable", MfaDisableView.as_view(), name="mfa-disable"),
     path("mfa/policy", MfaPolicyView.as_view(), name="mfa-policy"),
+    path("sso/policy", SsoPolicyView.as_view(), name="sso-policy"),
 ]
 # --- End multi-factor authentication ---
 
