@@ -315,10 +315,14 @@ def _finding_queryset(
     return queryset.annotate(severity_rank=_severity_rank()).order_by(expression, "id")
 
 
-def app_security_location(raw: dict[str, Any]) -> str:
-    """Package and version, or file and line, from an imported raw result."""
+def app_security_location(raw: dict[str, Any], file: str = "") -> str:
+    """Package and version, or file and line, from an imported raw result.
+
+    Misconfiguration and secret results carry only a line; ``file`` is the
+    scanned file (the finding's resource) to put in front of it.
+    """
     if not isinstance(raw, dict):
-        return ""
+        return file
     package = raw.get("PkgName")
     if package:
         version = raw.get("InstalledVersion") or ""
@@ -328,9 +332,12 @@ def app_security_location(raw: dict[str, Any]) -> str:
     if path and isinstance(start, dict) and start.get("line"):
         return f"{path}:{start['line']}"
     cause = raw.get("CauseMetadata")
-    if isinstance(cause, dict) and cause.get("StartLine"):
-        return f"line {cause['StartLine']}"
-    return str(path or "")
+    line = (cause.get("StartLine") if isinstance(cause, dict) else None) or raw.get(
+        "StartLine"
+    )
+    if line:
+        return f"{file}:{line}" if file else f"line {line}"
+    return str(path or file)
 
 
 def _remediation(metadata: dict[str, Any]) -> str:
@@ -401,7 +408,9 @@ def _finding_rows(
                 "resource_name": resource.get("resource__name") or "",
                 "resource_type": resource.get("resource__type")
                 or next(iter(finding["resource_types"] or []), ""),
-                "location": app_security_location(raw)
+                "location": app_security_location(
+                    raw, resource.get("resource__name") or ""
+                )
                 if area == AREA.APPLICATION_SECURITY
                 else "",
                 "region": resource.get("resource__region")

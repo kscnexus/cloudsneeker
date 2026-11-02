@@ -155,6 +155,12 @@ class TestParseQuery:
             == "app.py:12"
         )
         assert app_security_location({"CauseMetadata": {"StartLine": 3}}) == "line 3"
+        assert (
+            app_security_location({"CauseMetadata": {"StartLine": 3}}, "main.tf")
+            == "main.tf:3"
+        )
+        assert app_security_location({"StartLine": 7}, ".env") == ".env:7"
+        assert app_security_location({}, "main.tf") == "main.tf"
         assert app_security_location({}) == ""
 
 
