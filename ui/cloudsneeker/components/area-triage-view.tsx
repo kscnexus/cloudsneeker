@@ -128,7 +128,7 @@ const SSRAreaTriageList = async ({
           title={
             status ? "No findings with this status" : "Nothing triaged yet"
           }
-          description={`Set a triage status on a ${config.name} finding to track it here.`}
+          description={`Set a triage status on any ${config.name} finding to track it here.`}
           action={
             <Button asChild size="sm" variant="outline">
               <Link href={config.findingsHref}>Go to findings</Link>
