@@ -14,6 +14,7 @@ from cloudsneeker_api.views_area_findings import AreaFindingViewSet  # Area find
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
 from cloudsneeker_api.views_content_versions import ContentVersionsView  # EB-048
+from cloudsneeker_api.views_custodian_library import CustodianLibraryViewSet
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_features import (
     AlertRecipientConfirmView,
@@ -87,6 +88,9 @@ router.register(
     r"custodian-policies", CustodianPolicyViewSet, basename="custodian-policies"
 )
 router.register(r"custodian-runs", CustodianRunViewSet, basename="custodian-runs")
+router.register(
+    r"custodian-library", CustodianLibraryViewSet, basename="custodian-library"
+)
 router.register(r"trivy-targets", TrivyTargetViewSet, basename="trivy-targets")
 router.register(r"trivy-runs", TrivyRunViewSet, basename="trivy-runs")
 router.register(r"report-types", ReportTypeViewSet, basename="report-types")

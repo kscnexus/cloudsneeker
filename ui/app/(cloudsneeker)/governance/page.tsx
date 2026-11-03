@@ -1,4 +1,4 @@
-import { Plus, Shield } from "lucide-react";
+import { LibraryBig, Plus, Shield, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -21,6 +21,10 @@ import {
   getCustodianTab,
   type CustodianFindingSuggestion,
 } from "@/cloudsneeker/lib/custodian-dashboard";
+import {
+  generateHref,
+  libraryHref,
+} from "@/cloudsneeker/lib/custodian-library";
 import {
   allMappedProwlerCheckIds,
   findingsHrefForChecks,
@@ -143,12 +147,26 @@ const SSRCustodianWorkspace = async ({
     <CustodianPageTabs
       activeTab={activeTab}
       actions={
-        <Button asChild size="sm">
-          <Link href={governanceHref("new")}>
-            <Plus aria-hidden="true" />
-            Create policy
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={libraryHref()}>
+              <LibraryBig aria-hidden="true" />
+              Policy library
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={generateHref()}>
+              <Sparkles aria-hidden="true" />
+              Generate with AI
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href={governanceHref("new")}>
+              <Plus aria-hidden="true" />
+              Create policy
+            </Link>
+          </Button>
+        </div>
       }
       dashboardContent={<CustodianDashboardPanel metrics={metrics} />}
       policiesContent={<CustodianPolicyList policies={policies} />}

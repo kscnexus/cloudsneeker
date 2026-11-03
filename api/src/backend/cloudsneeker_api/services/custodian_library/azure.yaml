@@ -1,0 +1,1016 @@
+# Cloudsneeker governance library: Azure.
+# Each entry renders one dry-run policy named after its id. Entries never declare actions.
+policies:
+  # Identity & access
+  - id: azure-owner-role-assignments
+    name: Owner role assignments
+    category: identity
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: azure.roleassignment
+    description: Principals holding the Owner role; review that each still needs it.
+    filters:
+      - type: role
+        key: properties.roleName
+        value: Owner
+  - id: azure-subscription-scope-user-roles
+    name: Users with subscription-wide roles
+    category: identity
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.roleassignment
+    description: Role assignments to individual users at subscription scope rather than through groups.
+    filters:
+      - type: scope
+        value: subscription
+      - type: value
+        key: properties.principalType
+        value: User
+  - id: azure-custom-role-wildcard
+    name: Custom roles granting all actions
+    category: identity
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.roledefinition
+    description: Custom role definitions whose permissions include every action.
+    filters:
+      - type: value
+        key: properties.type
+        value: CustomRole
+      - type: value
+        key: properties.permissions[].actions[]
+        op: contains
+        value: "*"
+  - id: azure-storage-shared-key-access
+    name: Storage accounts allowing shared key access
+    category: identity
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.storage
+    description: Storage accounts that still accept account keys instead of requiring Entra ID.
+    filters:
+      - type: value
+        key: properties.allowSharedKeyAccess
+        value: false
+        op: ne
+  - id: azure-aks-rbac-disabled
+    name: AKS clusters without Kubernetes RBAC
+    category: identity
+    severity: high
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.aks
+    description: AKS clusters created with Kubernetes RBAC turned off.
+    filters:
+      - type: value
+        key: properties.enableRBAC
+        value: false
+  - id: azure-aks-local-accounts
+    name: AKS clusters with local accounts
+    category: identity
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.aks
+    description: AKS clusters that keep the static local admin account enabled.
+    filters:
+      - type: value
+        key: properties.disableLocalAccounts
+        value: true
+        op: ne
+  - id: azure-acr-admin-user
+    name: Container registries with admin user
+    category: identity
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.container-registry
+    description: Registries with the shared admin user enabled.
+    filters:
+      - type: value
+        key: properties.adminUserEnabled
+        value: true
+  - id: azure-sql-no-entra-admin
+    name: SQL servers without an Entra ID admin
+    category: identity
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.sql-server
+    description: SQL servers with no Entra ID administrator, so only SQL logins are possible.
+    filters:
+      - type: azure-ad-administrators
+        key: login
+        value: absent
+  - id: azure-keyvault-access-policies
+    name: Key vaults using access policies
+    category: identity
+    severity: low
+    frameworks: [CIS]
+    resource: azure.keyvault
+    description: Key vaults that use legacy access policies instead of Azure RBAC.
+    filters:
+      - type: value
+        key: properties.enableRbacAuthorization
+        value: true
+        op: ne
+  - id: azure-webapp-no-managed-identity
+    name: App Services without managed identity
+    category: identity
+    severity: low
+    frameworks: [CIS]
+    resource: azure.webapp
+    description: Web apps with no managed identity, which usually means stored secrets.
+    filters:
+      - identity: absent
+  - id: azure-cosmosdb-local-auth
+    name: Cosmos DB accounts with key auth
+    category: identity
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: azure.cosmosdb
+    description: Cosmos DB accounts that accept primary keys instead of only Entra ID.
+    filters:
+      - type: value
+        key: properties.disableLocalAuth
+        value: true
+        op: ne
+
+  # Network
+  - id: azure-nsg-ssh-open
+    name: SSH open to the internet
+    category: network
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.networksecuritygroup
+    description: Network security groups allowing port 22 from any source.
+    filters:
+      - type: ingress
+        ports: "22"
+        access: Allow
+        source: "*"
+  - id: azure-nsg-rdp-open
+    name: RDP open to the internet
+    category: network
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.networksecuritygroup
+    description: Network security groups allowing port 3389 from any source.
+    filters:
+      - type: ingress
+        ports: "3389"
+        access: Allow
+        source: "*"
+  - id: azure-nsg-database-ports-open
+    name: Database ports open to the internet
+    category: network
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: azure.networksecuritygroup
+    description: Network security groups exposing SQL Server, MySQL, PostgreSQL or Redis ports to any source.
+    filters:
+      - type: ingress
+        ports: "1433,3306,5432,6379"
+        match: any
+        access: Allow
+        source: "*"
+  - id: azure-nsg-all-ports-open
+    name: All ports open to the internet
+    category: network
+    severity: critical
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.networksecuritygroup
+    description: Network security groups allowing every port from any source.
+    filters:
+      - type: ingress
+        ports: "0-65535"
+        access: Allow
+        source: "*"
+  - id: azure-storage-public-network
+    name: Storage accounts open to all networks
+    category: network
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.storage
+    description: Storage accounts whose firewall allows traffic from any network by default.
+    filters:
+      - type: value
+        key: properties.networkAcls.defaultAction
+        value: Allow
+  - id: azure-keyvault-public-network
+    name: Key vaults open to all networks
+    category: network
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.keyvault
+    description: Key vaults that accept traffic from any network.
+    filters:
+      - or:
+          - type: value
+            key: properties.networkAcls
+            value: absent
+          - type: value
+            key: properties.networkAcls.defaultAction
+            value: Allow
+  - id: azure-sql-public-network
+    name: SQL servers with public network access
+    category: network
+    severity: medium
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.sql-server
+    description: SQL servers that accept connections over the public endpoint.
+    filters:
+      - type: value
+        key: properties.publicNetworkAccess
+        value: Enabled
+  - id: azure-sql-firewall-allow-all
+    name: SQL firewall allowing any IP
+    category: network
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.sql-server
+    description: SQL servers with a firewall rule covering the whole IPv4 range.
+    filters:
+      - type: firewall-rules
+        include: [0.0.0.0-255.255.255.255]
+  - id: azure-aks-public-api
+    name: AKS clusters with public API server
+    category: network
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.aks
+    description: AKS clusters whose API server is not private.
+    filters:
+      - type: value
+        key: properties.apiServerAccessProfile.enablePrivateCluster
+        value: true
+        op: ne
+  - id: azure-aks-no-network-policy
+    name: AKS clusters without network policy
+    category: network
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.aks
+    description: AKS clusters with no network policy engine, so pods can talk to any pod.
+    filters:
+      - type: value
+        key: properties.networkProfile.networkPolicy
+        value: absent
+  - id: azure-appgw-no-waf
+    name: Application gateways without WAF
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: azure.application-gateway
+    description: Application gateways not on a WAF tier and with no firewall policy.
+    filters:
+      - type: value
+        key: properties.sku.tier
+        op: not-in
+        value: [WAF, WAF_v2]
+      - type: value
+        key: properties.firewallPolicy
+        value: absent
+  - id: azure-cosmosdb-public-network
+    name: Cosmos DB open to all networks
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: azure.cosmosdb
+    description: Cosmos DB accounts with public access and no virtual network filter.
+    filters:
+      - type: value
+        key: properties.publicNetworkAccess
+        value: Enabled
+      - type: value
+        key: properties.isVirtualNetworkFilterEnabled
+        value: false
+  - id: azure-acr-public-network
+    name: Container registries with public access
+    category: network
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: azure.container-registry
+    description: Registries reachable from any network.
+    filters:
+      - type: value
+        key: properties.publicNetworkAccess
+        value: Enabled
+
+  # Encryption & data protection
+  - id: azure-storage-https-only-off
+    name: Storage accounts allowing HTTP
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.storage
+    description: Storage accounts that accept unencrypted HTTP requests.
+    filters:
+      - type: value
+        key: properties.supportsHttpsTrafficOnly
+        value: false
+  - id: azure-storage-old-tls
+    name: Storage accounts allowing old TLS
+    category: encryption
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: azure.storage
+    description: Storage accounts whose minimum TLS version is below 1.2.
+    filters:
+      - type: value
+        key: properties.minimumTlsVersion
+        op: in
+        value: [TLS1_0, TLS1_1]
+  - id: azure-sql-db-tde-off
+    name: SQL databases without TDE
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: azure.sql-database
+    description: SQL databases with transparent data encryption disabled.
+    filters:
+      - type: transparent-data-encryption
+        enabled: false
+  - id: azure-sql-tde-service-managed
+    name: SQL servers using service-managed TDE keys
+    category: encryption
+    severity: low
+    frameworks: [CIS]
+    resource: azure.sql-server
+    description: SQL servers whose TDE protector is a Microsoft-managed key instead of a customer key.
+    filters:
+      - type: transparent-data-encryption
+        key_type: ServiceManaged
+  - id: azure-sql-old-tls
+    name: SQL servers allowing old TLS
+    category: encryption
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: azure.sql-server
+    description: SQL servers whose minimum TLS version is below 1.2.
+    filters:
+      - type: value
+        key: properties.minimalTlsVersion
+        op: in
+        value: ["1.0", "1.1"]
+  - id: azure-webapp-https-only-off
+    name: App Services allowing HTTP
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.webapp
+    description: Web apps that do not redirect HTTP to HTTPS.
+    filters:
+      - type: value
+        key: properties.httpsOnly
+        value: false
+  - id: azure-webapp-old-tls
+    name: App Services allowing old TLS
+    category: encryption
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: azure.webapp
+    description: Web apps whose minimum TLS version is below 1.2.
+    filters:
+      - type: configuration
+        key: minTlsVersion
+        op: in
+        value: ["1.0", "1.1"]
+  - id: azure-webapp-ftp-allowed
+    name: App Services allowing plain FTP
+    category: encryption
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.webapp
+    description: Web apps that accept unencrypted FTP deployments.
+    filters:
+      - type: configuration
+        key: ftpsState
+        value: AllAllowed
+  - id: azure-redis-non-ssl-port
+    name: Redis caches with non-TLS port
+    category: encryption
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: azure.redis
+    description: Azure Cache for Redis instances with the unencrypted port 6379 enabled.
+    filters:
+      - type: value
+        key: properties.enableNonSslPort
+        value: true
+  - id: azure-mysql-insecure-transport
+    name: MySQL servers not requiring TLS
+    category: encryption
+    severity: high
+    frameworks: [CIS, PCI DSS]
+    resource: azure.mysql-flexibleserver
+    description: MySQL flexible servers with require_secure_transport turned off.
+    filters:
+      - type: server-parameter
+        name: require_secure_transport
+        key: value
+        op: eq
+        value: "OFF"
+  - id: azure-disk-platform-keys
+    name: Disks encrypted with platform keys only
+    category: encryption
+    severity: low
+    frameworks: [CIS]
+    resource: azure.disk
+    description: Managed disks using Microsoft-managed keys rather than customer-managed keys.
+    filters:
+      - type: value
+        key: properties.encryption.type
+        value: EncryptionAtRestWithPlatformKey
+  - id: azure-storage-platform-keys
+    name: Storage accounts using Microsoft-managed keys
+    category: encryption
+    severity: low
+    frameworks: [CIS]
+    resource: azure.storage
+    description: Storage accounts encrypted with Microsoft-managed rather than customer-managed keys.
+    filters:
+      - type: value
+        key: properties.encryption.keySource
+        value: Microsoft.Storage
+  - id: azure-keyvault-key-no-rotation
+    name: Key Vault keys without rotation policy
+    category: encryption
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.keyvault-key
+    description: Keys whose automatic rotation policy is not enabled.
+    filters:
+      - type: rotation-policy
+        state: Disabled
+
+  # Logging & monitoring
+  - id: azure-defender-free-tier
+    name: Defender plans on the free tier
+    category: logging
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.defender-pricing
+    description: Microsoft Defender for Cloud plans left on the free tier.
+    filters:
+      - type: value
+        key: properties.pricingTier
+        value: Free
+  - id: azure-defender-servers-off
+    name: Defender for Servers off
+    category: logging
+    severity: high
+    frameworks: [CIS]
+    resource: azure.defender-pricing
+    description: Defender for Servers is not enabled for the subscription.
+    filters:
+      - name: VirtualMachines
+      - type: value
+        key: properties.pricingTier
+        value: Free
+  - id: azure-defender-no-contact
+    name: No security contact email
+    category: logging
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.defender-contact
+    description: Defender for Cloud security contacts without an email address.
+    filters:
+      - type: value
+        key: properties.emails
+        value: empty
+  - id: azure-activity-log-not-exported
+    name: Activity log not exported
+    category: logging
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: azure.subscription
+    description: The subscription has no diagnostic setting that exports the activity log.
+    filters:
+      - type: diagnostic-settings
+        key: "logs[?enabled]"
+        value: empty
+  - id: azure-nsg-flow-logs-off
+    name: NSGs without flow logs
+    category: logging
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.networksecuritygroup
+    description: Network security groups with no enabled flow log.
+    filters:
+      - type: flow-logs
+        key: logs
+        value: empty
+  - id: azure-keyvault-no-diagnostics
+    name: Key vaults without audit logging
+    category: logging
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.keyvault
+    description: Key vaults that do not export audit events through diagnostic settings.
+    filters:
+      - type: diagnostic-settings
+        key: "logs[?enabled]"
+        value: empty
+  - id: azure-sql-auditing-off
+    name: SQL servers without auditing
+    category: logging
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.sql-server
+    description: SQL servers with server-level auditing disabled.
+    filters:
+      - type: auditing
+        enabled: false
+  - id: azure-sql-vuln-assessment-off
+    name: SQL servers without vulnerability assessment
+    category: logging
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.sql-server
+    description: SQL servers with no vulnerability assessment configured.
+    filters:
+      - type: vulnerability-assessment
+        enabled: false
+  - id: azure-sql-threat-detection-off
+    name: SQL servers without threat detection
+    category: logging
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.sql-server
+    description: SQL servers whose security alert policy is disabled.
+    filters:
+      - type: security-alert-policies
+        attrs:
+          - type: value
+            key: properties.state
+            value: Disabled
+  - id: azure-aks-no-diagnostics
+    name: AKS clusters without diagnostic logs
+    category: logging
+    severity: low
+    frameworks: [CIS]
+    resource: azure.aks
+    description: AKS clusters that do not export control plane logs.
+    filters:
+      - type: diagnostic-settings
+        key: "logs[?enabled]"
+        value: empty
+  - id: azure-vm-boot-diagnostics-off
+    name: VMs without boot diagnostics
+    category: logging
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: azure.vm
+    description: Virtual machines with boot diagnostics turned off.
+    filters:
+      - type: value
+        key: properties.diagnosticsProfile.bootDiagnostics.enabled
+        value: true
+        op: ne
+
+  # Compute
+  - id: azure-vm-unmanaged-disks
+    name: VMs on unmanaged disks
+    category: compute
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.vm
+    description: Virtual machines whose OS disk is a VHD blob rather than a managed disk.
+    filters:
+      - type: value
+        key: properties.storageProfile.osDisk.managedDisk
+        value: absent
+  - id: azure-vm-linux-password-auth
+    name: Linux VMs allowing password sign-in
+    category: compute
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.vm
+    description: Linux virtual machines that allow SSH password authentication.
+    filters:
+      - type: value
+        key: properties.osProfile.linuxConfiguration.disablePasswordAuthentication
+        value: false
+  - id: azure-vm-windows-auto-updates-off
+    name: Windows VMs without automatic updates
+    category: compute
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: azure.vm
+    description: Windows virtual machines with automatic updates disabled.
+    filters:
+      - type: value
+        key: properties.osProfile.windowsConfiguration.enableAutomaticUpdates
+        value: false
+  - id: azure-vm-no-trusted-launch
+    name: VMs without Trusted Launch
+    category: compute
+    severity: low
+    frameworks: [CIS]
+    resource: azure.vm
+    description: Virtual machines without Trusted Launch or confidential VM security.
+    filters:
+      - type: value
+        key: properties.securityProfile.securityType
+        value: absent
+  - id: azure-vmss-no-auto-os-upgrade
+    name: Scale sets without automatic OS upgrades
+    category: compute
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: azure.vmss
+    description: Virtual machine scale sets that do not roll out OS image upgrades automatically.
+    filters:
+      - type: value
+        key: properties.upgradePolicy.automaticOSUpgradePolicy.enableAutomaticOSUpgrade
+        value: true
+        op: ne
+  - id: azure-aks-old-version
+    name: AKS clusters on old Kubernetes
+    category: compute
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.aks
+    description: AKS clusters running a Kubernetes version older than 1.29.
+    filters:
+      - type: value
+        key: properties.kubernetesVersion
+        value_type: version
+        op: lt
+        value: "1.29"
+  - id: azure-webapp-remote-debugging
+    name: App Services with remote debugging
+    category: compute
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.webapp
+    description: Web apps with remote debugging switched on.
+    filters:
+      - type: configuration
+        key: remoteDebuggingEnabled
+        value: true
+  - id: azure-webapp-client-certs-off
+    name: App Services not requesting client certificates
+    category: compute
+    severity: low
+    frameworks: [CIS]
+    resource: azure.webapp
+    description: Web apps that do not require incoming client certificates.
+    filters:
+      - type: value
+        key: properties.clientCertEnabled
+        value: false
+
+  # Storage
+  - id: azure-storage-blob-public-access
+    name: Storage accounts allowing public blobs
+    category: storage
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.storage
+    description: Storage accounts that let containers be made anonymously readable.
+    filters:
+      - type: value
+        key: properties.allowBlobPublicAccess
+        value: true
+  - id: azure-storage-container-public
+    name: Public blob containers
+    category: storage
+    severity: critical
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: azure.storage-container
+    description: Blob containers readable without authentication.
+    filters:
+      - type: value
+        key: properties.publicAccess
+        op: in
+        value: [Blob, Container]
+  - id: azure-storage-cross-tenant-replication
+    name: Storage accounts allowing cross-tenant replication
+    category: storage
+    severity: low
+    frameworks: [CIS]
+    resource: azure.storage
+    description: Storage accounts that can replicate objects to other Entra tenants.
+    filters:
+      - type: value
+        key: properties.allowCrossTenantReplication
+        value: true
+
+  # Databases
+  - id: azure-postgres-public-network
+    name: PostgreSQL servers with public access
+    category: database
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.postgresql-flexibleserver
+    description: PostgreSQL flexible servers reachable over the public endpoint.
+    filters:
+      - type: value
+        key: properties.network.publicNetworkAccess
+        value: Enabled
+  - id: azure-mysql-public-network
+    name: MySQL servers with public access
+    category: database
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.mysql-flexibleserver
+    description: MySQL flexible servers reachable over the public endpoint.
+    filters:
+      - type: value
+        key: properties.network.publicNetworkAccess
+        value: Enabled
+  - id: azure-redis-public-network
+    name: Redis caches with public access
+    category: database
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: azure.redis
+    description: Azure Cache for Redis instances reachable over the public endpoint.
+    filters:
+      - type: value
+        key: properties.publicNetworkAccess
+        value: Enabled
+  - id: azure-sql-firewall-azure-services
+    name: SQL servers allowing all Azure services
+    category: database
+    severity: medium
+    frameworks: [CIS]
+    resource: azure.sql-server
+    description: SQL servers whose firewall lets any Azure service, including other tenants', connect.
+    filters:
+      - type: firewall-rules
+        include: [0.0.0.0-0.0.0.0]
+
+  # Backup & resilience
+  - id: azure-vm-not-backed-up
+    name: VMs without Azure Backup
+    category: backup
+    severity: medium
+    starter: true
+    frameworks: [NIST 800-53, SOC 2]
+    resource: azure.vm
+    description: Virtual machines not protected by a Recovery Services vault.
+    filters:
+      - type: backup-status
+        key: protectionStatus
+        value: NotProtected
+  - id: azure-keyvault-no-purge-protection
+    name: Key vaults without purge protection
+    category: backup
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: azure.keyvault
+    description: Key vaults whose deleted keys and secrets can be purged before retention ends.
+    filters:
+      - type: value
+        key: properties.enablePurgeProtection
+        value: true
+        op: ne
+  - id: azure-storage-blob-soft-delete-off
+    name: Storage accounts without blob soft delete
+    category: backup
+    severity: medium
+    frameworks: [CIS, SOC 2]
+    resource: azure.storage
+    description: Storage accounts that do not keep deleted blobs for recovery.
+    filters:
+      - type: blob-services
+        key: deleteRetentionPolicy.enabled
+        value: false
+  - id: azure-storage-locally-redundant
+    name: Storage accounts without geo-redundancy
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: azure.storage
+    description: Storage accounts replicated only within one datacenter.
+    filters:
+      - type: value
+        key: sku.name
+        op: in
+        value: [Standard_LRS, Premium_LRS]
+  - id: azure-sql-db-short-retention
+    name: SQL databases with short backup retention
+    category: backup
+    severity: medium
+    frameworks: [NIST 800-53, SOC 2]
+    resource: azure.sql-database
+    description: SQL databases keeping point-in-time backups for fewer than 7 days.
+    filters:
+      - type: short-term-backup-retention-policy
+        op: lt
+        retention-period-days: 7
+  - id: azure-postgres-no-geo-backup
+    name: PostgreSQL without geo-redundant backups
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: azure.postgresql-flexibleserver
+    description: PostgreSQL flexible servers whose backups stay in one region.
+    filters:
+      - type: value
+        key: properties.backup.geoRedundantBackup
+        value: Disabled
+  - id: azure-postgres-no-ha
+    name: PostgreSQL without high availability
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: azure.postgresql-flexibleserver
+    description: PostgreSQL flexible servers with zone or same-zone high availability off.
+    filters:
+      - type: value
+        key: properties.highAvailability.mode
+        value: Disabled
+  - id: azure-mysql-no-geo-backup
+    name: MySQL without geo-redundant backups
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: azure.mysql-flexibleserver
+    description: MySQL flexible servers whose backups stay in one region.
+    filters:
+      - type: value
+        key: properties.backup.geoRedundantBackup
+        value: Disabled
+  - id: azure-rg-no-delete-lock
+    name: Resource groups without a delete lock
+    category: backup
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: azure.resourcegroup
+    description: Resource groups with no lock to stop accidental deletion.
+    filters:
+      - type: resource-lock
+        lock-type: Absent
+
+  # Cost optimization
+  - id: azure-disk-unattached
+    name: Unattached managed disks
+    category: cost
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: azure.disk
+    description: Managed disks not attached to any virtual machine.
+    filters:
+      - type: value
+        key: properties.diskState
+        value: Unattached
+  - id: azure-publicip-unassociated
+    name: Unassociated public IPs
+    category: cost
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: azure.publicip
+    description: Public IP addresses not attached to any resource.
+    filters:
+      - type: value
+        key: properties.ipConfiguration
+        value: absent
+  - id: azure-vm-stopped-not-deallocated
+    name: VMs stopped but still billed
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.vm
+    description: Virtual machines stopped from inside the OS, so compute is still billed.
+    filters:
+      - type: instance-view
+        key: statuses[].code
+        op: in
+        value_type: swap
+        value: PowerState/stopped
+  - id: azure-vm-low-cpu
+    name: Idle virtual machines
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.vm
+    description: Virtual machines averaging under 5% CPU over the last 7 days.
+    filters:
+      - type: metric
+        metric: Percentage CPU
+        aggregation: average
+        op: lt
+        threshold: 5
+        timeframe: 168
+  - id: azure-snapshot-old
+    name: Disk snapshots older than 90 days
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.snapshot
+    description: Managed disk snapshots created more than 90 days ago.
+    filters:
+      - type: value
+        key: properties.timeCreated
+        value_type: age
+        value: 90
+        op: gt
+  - id: azure-appserviceplan-empty
+    name: App Service plans with no apps
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.appserviceplan
+    description: App Service plans that host no apps but are still billed.
+    filters:
+      - type: value
+        key: properties.numberOfSites
+        value: 0
+  - id: azure-nic-unattached
+    name: Unattached network interfaces
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.networkinterface
+    description: Network interfaces not attached to a virtual machine.
+    filters:
+      - type: value
+        key: properties.virtualMachine
+        value: absent
+  - id: azure-loadbalancer-empty
+    name: Load balancers with no backends
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.loadbalancer
+    description: Load balancers with no backend pool configured.
+    filters:
+      - type: value
+        key: properties.backendAddressPools
+        value: empty
+
+  # Tagging & hygiene
+  - id: azure-rg-missing-owner-tag
+    name: Resource groups without an Owner tag
+    category: tagging
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: azure.resourcegroup
+    description: Resource groups that do not say who owns them.
+    filters:
+      - "tag:Owner": absent
+  - id: azure-rg-missing-environment-tag
+    name: Resource groups without an Environment tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.resourcegroup
+    description: Resource groups that do not say which environment they belong to.
+    filters:
+      - "tag:Environment": absent
+  - id: azure-vm-missing-owner-tag
+    name: VMs without an Owner tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.vm
+    description: Virtual machines that do not say who owns them.
+    filters:
+      - "tag:Owner": absent
+  - id: azure-storage-missing-owner-tag
+    name: Storage accounts without an Owner tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.storage
+    description: Storage accounts that do not say who owns them.
+    filters:
+      - "tag:Owner": absent
+  - id: azure-disk-missing-cost-center-tag
+    name: Disks without a CostCenter tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.disk
+    description: Managed disks that cannot be charged back to a cost center.
+    filters:
+      - "tag:CostCenter": absent
+  - id: azure-rg-empty
+    name: Empty resource groups
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: azure.resourcegroup
+    description: Resource groups that contain no resources.
+    filters:
+      - type: empty-group

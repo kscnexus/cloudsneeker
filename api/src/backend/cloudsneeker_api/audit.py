@@ -102,6 +102,7 @@ RESOURCE_NAMESPACES = {
     "slack-app-config": "slack_app_config",
     "custodian-policies": "custodian_policy",
     "custodian-runs": "custodian_run",
+    "custodian-library": "custodian_library",
     "trivy-targets": "trivy_target",
     "trivy-runs": "trivy_run",
     "report-runs": "report",

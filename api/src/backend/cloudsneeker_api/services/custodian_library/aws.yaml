@@ -1,0 +1,1163 @@
+# Cloudsneeker governance library: AWS.
+# Each entry renders one dry-run policy named after its id. Entries never declare actions.
+policies:
+  # Identity & access
+  - id: aws-root-mfa-disabled
+    name: Root account without MFA
+    category: identity
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, SOC 2]
+    resource: aws.account
+    description: The account root user has no MFA device enabled.
+    filters:
+      - type: iam-summary
+        key: AccountMFAEnabled
+        value: 0
+  - id: aws-root-access-keys
+    name: Root account access keys present
+    category: identity
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.account
+    description: The account root user has active access keys.
+    filters:
+      - type: iam-summary
+        key: AccountAccessKeysPresent
+        value: 0
+        op: gt
+  - id: aws-iam-user-console-no-mfa
+    name: Console users without MFA
+    category: identity
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, SOC 2]
+    resource: aws.iam-user
+    description: IAM users with a console password and no MFA device.
+    filters:
+      - type: credential
+        key: password_enabled
+        value: true
+      - type: mfa-device
+        value: empty
+  - id: aws-iam-access-key-90-days
+    name: Access keys older than 90 days
+    category: identity
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.iam-user
+    description: Active IAM access keys that were last rotated more than 90 days ago.
+    filters:
+      - type: credential
+        key: access_keys.active
+        value: true
+      - type: credential
+        key: access_keys.last_rotated
+        value_type: age
+        value: 90
+        op: gt
+  - id: aws-iam-password-unused-90-days
+    name: Console passwords unused for 90 days
+    category: identity
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.iam-user
+    description: IAM users whose console password has not been used for 90 days.
+    filters:
+      - type: credential
+        key: password_enabled
+        value: true
+      - type: credential
+        key: password_last_used
+        value_type: age
+        value: 90
+        op: gt
+  - id: aws-iam-policy-admin-allow-all
+    name: Attached policies granting full admin
+    category: identity
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: aws.iam-policy
+    description: Customer managed policies that allow every action on every resource and are attached.
+    filters:
+      - type: has-allow-all
+      - type: value
+        key: AttachmentCount
+        value: 0
+        op: gt
+  - id: aws-iam-role-unused-90-days
+    name: IAM roles unused for 90 days
+    category: identity
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: aws.iam-role
+    description: IAM roles that have not been assumed for 90 days.
+    filters:
+      - type: value
+        key: RoleLastUsed.LastUsedDate
+        value_type: age
+        value: 90
+        op: gt
+  - id: aws-iam-role-cross-account
+    name: IAM roles trusting other accounts
+    category: identity
+    severity: medium
+    frameworks: [NIST 800-53, SOC 2]
+    resource: aws.iam-role
+    description: IAM roles whose trust policy lets principals outside this account assume them.
+    filters:
+      - type: cross-account
+  - id: aws-password-policy-length
+    name: Weak password length policy
+    category: identity
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: aws.account
+    description: The IAM password policy requires fewer than 14 characters.
+    filters:
+      - type: password-policy
+        key: MinimumPasswordLength
+        value: 14
+        op: lt
+  - id: aws-access-analyzer-missing
+    name: IAM Access Analyzer not enabled
+    category: identity
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.account
+    description: The account has no active IAM Access Analyzer in the scanned region.
+    filters:
+      - not:
+          - type: access-analyzer
+            key: status
+            value: ACTIVE
+
+  # Network
+  - id: aws-sg-ssh-open
+    name: SSH open to the internet
+    category: network
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.security-group
+    description: Security groups allowing port 22 from 0.0.0.0/0.
+    filters:
+      - type: ingress
+        Ports: [22]
+        Cidr:
+          value: 0.0.0.0/0
+  - id: aws-sg-rdp-open
+    name: RDP open to the internet
+    category: network
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.security-group
+    description: Security groups allowing port 3389 from 0.0.0.0/0.
+    filters:
+      - type: ingress
+        Ports: [3389]
+        Cidr:
+          value: 0.0.0.0/0
+  - id: aws-sg-all-traffic-open
+    name: All traffic open to the internet
+    category: network
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.security-group
+    description: Security groups allowing every protocol and port from 0.0.0.0/0.
+    filters:
+      - type: ingress
+        IpProtocol: "-1"
+        Cidr:
+          value: 0.0.0.0/0
+  - id: aws-sg-database-ports-open
+    name: Database ports open to the internet
+    category: network
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.security-group
+    description: Security groups exposing common database ports (MySQL, PostgreSQL, SQL Server, Oracle, MongoDB, Redis) to 0.0.0.0/0.
+    filters:
+      - type: ingress
+        Ports: [1433, 1521, 3306, 5432, 6379, 27017]
+        Cidr:
+          value: 0.0.0.0/0
+  - id: aws-sg-ipv6-admin-open
+    name: Admin ports open to all IPv6
+    category: network
+    severity: high
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.security-group
+    description: Security groups allowing SSH or RDP from ::/0.
+    filters:
+      - type: ingress
+        Ports: [22, 3389]
+        CidrV6:
+          value: "::/0"
+  - id: aws-default-sg-has-rules
+    name: Default security groups with rules
+    category: network
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.security-group
+    description: Default VPC security groups that still allow inbound or outbound traffic.
+    filters:
+      - GroupName: default
+      - or:
+          - type: value
+            key: length(IpPermissions)
+            value: 0
+            op: gt
+          - type: value
+            key: length(IpPermissionsEgress)
+            value: 0
+            op: gt
+  - id: aws-ec2-public-ip
+    name: EC2 instances with public IPs
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: aws.ec2
+    description: Running instances that have a public IPv4 address.
+    filters:
+      - type: value
+        key: PublicIpAddress
+        value: present
+      - type: value
+        key: State.Name
+        value: running
+  - id: aws-alb-http-listener
+    name: Load balancers serving plain HTTP
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.app-elb
+    description: Application load balancers with an HTTP listener that does not redirect to HTTPS.
+    filters:
+      - type: listener
+        key: Protocol
+        value: HTTP
+      - type: listener
+        key: DefaultActions[0].Type
+        value: redirect
+        op: ne
+        matched: true
+  - id: aws-alb-no-waf
+    name: Internet-facing load balancers without WAF
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.app-elb
+    description: Internet-facing application load balancers with no WAFv2 web ACL.
+    filters:
+      - Scheme: internet-facing
+      - type: wafv2-enabled
+        state: false
+  - id: aws-elb-classic-no-ssl
+    name: Classic load balancers without TLS
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.elb
+    description: Classic load balancers with no HTTPS or SSL listener.
+    filters:
+      - not:
+          - type: is-ssl
+  - id: aws-cloudfront-http-allowed
+    name: CloudFront allowing plain HTTP
+    category: network
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.distribution
+    description: Distributions whose default behaviour accepts HTTP without redirecting.
+    filters:
+      - type: value
+        key: DefaultCacheBehavior.ViewerProtocolPolicy
+        value: allow-all
+  - id: aws-cloudfront-no-waf
+    name: CloudFront without WAF
+    category: network
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: aws.distribution
+    description: Distributions without an attached web ACL.
+    filters:
+      - type: value
+        key: WebACLId
+        value: empty
+  - id: aws-cloudfront-old-tls
+    name: CloudFront allowing old TLS
+    category: network
+    severity: medium
+    frameworks: [PCI DSS, NIST 800-53]
+    resource: aws.distribution
+    description: Distributions whose viewer certificate allows protocols older than TLS 1.2.
+    filters:
+      - type: value
+        key: ViewerCertificate.MinimumProtocolVersion
+        op: in
+        value: [SSLv3, TLSv1, TLSv1_2016, TLSv1.1_2016]
+  - id: aws-eks-public-endpoint
+    name: EKS clusters with public API endpoint
+    category: network
+    severity: high
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.eks
+    description: EKS clusters whose Kubernetes API endpoint is reachable from the internet.
+    filters:
+      - type: value
+        key: resourcesVpcConfig.endpointPublicAccess
+        value: true
+
+  # Encryption & data protection
+  - id: aws-ebs-unencrypted
+    name: Unencrypted EBS volumes
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.ebs
+    description: EBS volumes that are not encrypted at rest.
+    filters:
+      - Encrypted: false
+  - id: aws-ebs-default-encryption-off
+    name: EBS encryption by default disabled
+    category: encryption
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.account
+    description: The region does not encrypt new EBS volumes by default.
+    filters:
+      - type: default-ebs-encryption
+        state: false
+  - id: aws-s3-no-default-encryption
+    name: S3 buckets without default encryption
+    category: encryption
+    severity: medium
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.s3
+    description: Buckets with no default server-side encryption configuration.
+    filters:
+      - type: bucket-encryption
+        state: false
+  - id: aws-s3-no-tls-enforcement
+    name: S3 buckets not enforcing TLS
+    category: encryption
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: aws.s3
+    description: Bucket policies that do not deny requests made without TLS.
+    filters:
+      - not:
+          - type: has-statement
+            statements:
+              - Effect: Deny
+                Action: s3:*
+                Condition:
+                  Bool:
+                    aws:SecureTransport: "false"
+  - id: aws-rds-unencrypted
+    name: Unencrypted RDS instances
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.rds
+    description: RDS instances whose storage is not encrypted.
+    filters:
+      - StorageEncrypted: false
+  - id: aws-rds-cluster-unencrypted
+    name: Unencrypted Aurora clusters
+    category: encryption
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.rds-cluster
+    description: Aurora and DocumentDB clusters whose storage is not encrypted.
+    filters:
+      - StorageEncrypted: false
+  - id: aws-rds-snapshot-unencrypted
+    name: Unencrypted RDS snapshots
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.rds-snapshot
+    description: RDS snapshots that are not encrypted.
+    filters:
+      - Encrypted: false
+  - id: aws-ebs-snapshot-unencrypted
+    name: Unencrypted EBS snapshots
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: aws.ebs-snapshot
+    description: EBS snapshots that are not encrypted.
+    filters:
+      - Encrypted: false
+  - id: aws-kms-rotation-disabled
+    name: KMS keys without rotation
+    category: encryption
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.kms-key
+    description: Customer managed symmetric KMS keys with automatic rotation disabled.
+    filters:
+      - KeyManager: CUSTOMER
+      - KeyState: Enabled
+      - KeySpec: SYMMETRIC_DEFAULT
+      - type: key-rotation-status
+        key: KeyRotationEnabled
+        value: false
+  - id: aws-sqs-unencrypted
+    name: Unencrypted SQS queues
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53, HIPAA]
+    resource: aws.sqs
+    description: SQS queues with neither KMS nor SQS-managed server-side encryption.
+    filters:
+      - KmsMasterKeyId: absent
+      - type: value
+        key: SqsManagedSseEnabled
+        value: true
+        op: ne
+  - id: aws-efs-unencrypted
+    name: Unencrypted EFS file systems
+    category: encryption
+    severity: high
+    frameworks: [CIS, NIST 800-53, HIPAA]
+    resource: aws.efs
+    description: EFS file systems that are not encrypted at rest.
+    filters:
+      - Encrypted: false
+  - id: aws-elasticache-no-transit-encryption
+    name: ElastiCache without in-transit encryption
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.elasticache-group
+    description: Redis replication groups that do not encrypt traffic in transit.
+    filters:
+      - TransitEncryptionEnabled: false
+  - id: aws-elasticache-no-rest-encryption
+    name: ElastiCache without at-rest encryption
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.elasticache-group
+    description: Redis replication groups that do not encrypt data at rest.
+    filters:
+      - AtRestEncryptionEnabled: false
+  - id: aws-redshift-unencrypted
+    name: Unencrypted Redshift clusters
+    category: encryption
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.redshift
+    description: Redshift clusters that are not encrypted.
+    filters:
+      - Encrypted: false
+  - id: aws-opensearch-unencrypted
+    name: OpenSearch domains without encryption
+    category: encryption
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.elasticsearch
+    description: OpenSearch domains missing encryption at rest or node-to-node encryption.
+    filters:
+      - or:
+          - type: value
+            key: EncryptionAtRestOptions.Enabled
+            value: false
+          - type: value
+            key: NodeToNodeEncryptionOptions.Enabled
+            value: false
+  - id: aws-secrets-no-rotation
+    name: Secrets without rotation
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.secrets-manager
+    description: Secrets Manager secrets with automatic rotation disabled.
+    filters:
+      - type: value
+        key: RotationEnabled
+        value: true
+        op: ne
+  - id: aws-acm-expiring
+    name: ACM certificates expiring within 30 days
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.acm-certificate
+    description: Issued ACM certificates that expire in the next 30 days.
+    filters:
+      - Status: ISSUED
+      - type: value
+        key: NotAfter
+        value_type: expiration
+        value: 30
+        op: lt
+  - id: aws-iam-server-cert-expired
+    name: Expired IAM server certificates
+    category: encryption
+    severity: medium
+    frameworks: [CIS]
+    resource: aws.iam-certificate
+    description: IAM server certificates past their expiration date.
+    filters:
+      - type: value
+        key: Expiration
+        value_type: expiration
+        value: 0
+        op: lt
+
+  # Logging & monitoring
+  - id: aws-cloudtrail-not-configured
+    name: No multi-region CloudTrail
+    category: logging
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, SOC 2]
+    resource: aws.account
+    description: The account has no running multi-region trail that records global events.
+    filters:
+      - type: check-cloudtrail
+        global-events: true
+        multi-region: true
+        running: true
+  - id: aws-cloudtrail-log-validation-off
+    name: CloudTrail log file validation off
+    category: logging
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: aws.cloudtrail
+    description: Trails that do not validate log file integrity.
+    filters:
+      - LogFileValidationEnabled: false
+  - id: aws-cloudtrail-not-kms-encrypted
+    name: CloudTrail logs without KMS
+    category: logging
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.cloudtrail
+    description: Trails whose log files are not encrypted with a KMS key.
+    filters:
+      - KmsKeyId: absent
+  - id: aws-cloudtrail-stopped
+    name: CloudTrail trails not logging
+    category: logging
+    severity: high
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.cloudtrail
+    description: Trails that exist but have logging turned off.
+    filters:
+      - type: status
+        key: IsLogging
+        value: false
+  - id: aws-config-not-recording
+    name: AWS Config not recording
+    category: logging
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: aws.account
+    description: The region has no running Config recorder covering all resources.
+    filters:
+      - type: check-config
+        all-resources: true
+        global-resources: true
+        running: true
+  - id: aws-guardduty-disabled
+    name: GuardDuty not enabled
+    category: logging
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: aws.account
+    description: The region has no GuardDuty detector.
+    filters:
+      - not:
+          - type: guard-duty
+  - id: aws-securityhub-disabled
+    name: Security Hub not enabled
+    category: logging
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.account
+    description: The region is not subscribed to Security Hub.
+    filters:
+      - type: securityhub
+        enabled: false
+  - id: aws-vpc-flow-logs-off
+    name: VPCs without flow logs
+    category: logging
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: aws.vpc
+    description: VPCs with no flow log capturing traffic.
+    filters:
+      - type: flow-logs
+        enabled: false
+  - id: aws-s3-access-logging-off
+    name: S3 buckets without access logging
+    category: logging
+    severity: low
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.s3
+    description: Buckets that do not write server access logs.
+    filters:
+      - type: bucket-logging
+        op: disabled
+  - id: aws-alb-access-logging-off
+    name: Load balancers without access logs
+    category: logging
+    severity: low
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.app-elb
+    description: Application load balancers that do not write access logs.
+    filters:
+      - type: is-not-logging
+  - id: aws-log-group-no-retention
+    name: Log groups that never expire
+    category: logging
+    severity: low
+    frameworks: [NIST 800-53, FinOps]
+    resource: aws.log-group
+    description: CloudWatch log groups with no retention period set.
+    filters:
+      - retentionInDays: absent
+  - id: aws-eks-control-plane-logging-off
+    name: EKS clusters without audit logging
+    category: logging
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.eks
+    description: EKS clusters that do not send control plane audit logs to CloudWatch.
+    filters:
+      - type: value
+        key: "logging.clusterLogging[?enabled==`true`].types[] | contains(@, 'audit')"
+        value: false
+  - id: aws-cloudfront-logging-off
+    name: CloudFront without access logs
+    category: logging
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: aws.distribution
+    description: Distributions that do not write standard access logs.
+    filters:
+      - type: distribution-config
+        key: Logging.Enabled
+        value: false
+
+  # Compute
+  - id: aws-ec2-imdsv1
+    name: EC2 instances allowing IMDSv1
+    category: compute
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.ec2
+    description: Instances that do not require session tokens for the metadata service.
+    filters:
+      - type: value
+        key: MetadataOptions.HttpTokens
+        value: optional
+  - id: aws-ec2-not-ssm-managed
+    name: EC2 instances not managed by SSM
+    category: compute
+    severity: medium
+    frameworks: [NIST 800-53, SOC 2]
+    resource: aws.ec2
+    description: Running instances that are not online in Systems Manager, so patching is not automated.
+    filters:
+      - type: value
+        key: State.Name
+        value: running
+      - not:
+          - type: ssm
+            key: PingStatus
+            value: Online
+  - id: aws-lambda-deprecated-runtime
+    name: Lambda functions on deprecated runtimes
+    category: compute
+    severity: high
+    starter: true
+    frameworks: [NIST 800-53]
+    resource: aws.lambda
+    description: Functions running a runtime that no longer receives security patches.
+    filters:
+      - type: value
+        key: Runtime
+        op: in
+        value: [python2.7, python3.6, python3.7, python3.8, nodejs10.x, nodejs12.x, nodejs14.x, nodejs16.x, ruby2.5, ruby2.7, dotnetcore2.1, dotnetcore3.1, dotnet6, go1.x, java8]
+  - id: aws-lambda-public
+    name: Publicly invokable Lambda functions
+    category: compute
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.lambda
+    description: Functions whose resource policy allows other accounts or everyone to invoke them.
+    filters:
+      - type: cross-account
+  - id: aws-lambda-public-url
+    name: Lambda function URLs without auth
+    category: compute
+    severity: high
+    frameworks: [NIST 800-53]
+    resource: aws.lambda
+    description: Functions with a function URL that requires no authentication.
+    filters:
+      - type: url-config
+        key: AuthType
+        value: NONE
+  - id: aws-ami-public
+    name: Public AMIs
+    category: compute
+    severity: high
+    frameworks: [NIST 800-53]
+    resource: aws.ami
+    description: Machine images shared publicly or with other accounts.
+    filters:
+      - type: cross-account
+  - id: aws-ecs-privileged-containers
+    name: ECS task definitions with privileged containers
+    category: compute
+    severity: high
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.ecs-task-definition
+    description: Task definitions that run any container in privileged mode.
+    filters:
+      - type: value
+        key: containerDefinitions[].privileged
+        op: contains
+        value: true
+  - id: aws-ecr-scan-on-push-off
+    name: ECR repositories without scan on push
+    category: compute
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: aws.ecr
+    description: Repositories that do not scan images for vulnerabilities on push.
+    filters:
+      - type: value
+        key: imageScanningConfiguration.scanOnPush
+        value: false
+  - id: aws-ecr-mutable-tags
+    name: ECR repositories with mutable tags
+    category: compute
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: aws.ecr
+    description: Repositories whose image tags can be overwritten.
+    filters:
+      - imageTagMutability: MUTABLE
+
+  # Storage
+  - id: aws-s3-public
+    name: Public S3 buckets
+    category: storage
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.s3
+    description: Buckets with public ACL grants or a public access block that is not fully on.
+    filters:
+      - or:
+          - type: global-grants
+          - type: check-public-block
+            BlockPublicAcls: false
+          - type: check-public-block
+            BlockPublicPolicy: false
+          - type: check-public-block
+            IgnorePublicAcls: false
+          - type: check-public-block
+            RestrictPublicBuckets: false
+  - id: aws-s3-account-public-block-off
+    name: Account-level S3 public access block off
+    category: storage
+    severity: high
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.account
+    description: The account does not block public bucket policies at the account level.
+    filters:
+      - type: s3-public-block
+        key: BlockPublicPolicy
+        value: false
+  - id: aws-s3-cross-account
+    name: S3 buckets shared with other accounts
+    category: storage
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: aws.s3
+    description: Buckets whose policy grants access to principals outside the account.
+    filters:
+      - type: cross-account
+  - id: aws-ebs-snapshot-public
+    name: Public or shared EBS snapshots
+    category: storage
+    severity: critical
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.ebs-snapshot
+    description: EBS snapshots shared publicly or with other accounts.
+    filters:
+      - type: cross-account
+  - id: aws-ebs-gp2-volumes
+    name: gp2 volumes that could be gp3
+    category: storage
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ebs
+    description: General purpose gp2 volumes; gp3 gives the same baseline for less.
+    filters:
+      - VolumeType: gp2
+
+  # Databases
+  - id: aws-rds-public
+    name: Publicly accessible RDS instances
+    category: database
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: aws.rds
+    description: RDS instances reachable from the internet.
+    filters:
+      - PubliclyAccessible: true
+  - id: aws-rds-snapshot-public
+    name: Public or shared RDS snapshots
+    category: database
+    severity: critical
+    frameworks: [CIS, NIST 800-53]
+    resource: aws.rds-snapshot
+    description: RDS snapshots shared publicly or with other accounts.
+    filters:
+      - type: cross-account
+  - id: aws-rds-no-deletion-protection
+    name: RDS instances without deletion protection
+    category: database
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: aws.rds
+    description: RDS instances that can be deleted without first disabling protection.
+    filters:
+      - DeletionProtection: false
+  - id: aws-rds-minor-upgrades-off
+    name: RDS automatic minor upgrades off
+    category: database
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: aws.rds
+    description: RDS instances that do not apply minor engine upgrades automatically.
+    filters:
+      - AutoMinorVersionUpgrade: false
+  - id: aws-rds-iam-auth-off
+    name: RDS without IAM authentication
+    category: database
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: aws.rds
+    description: MySQL and PostgreSQL RDS instances that do not allow IAM database authentication.
+    filters:
+      - IAMDatabaseAuthenticationEnabled: false
+      - type: value
+        key: Engine
+        op: in
+        value: [mysql, postgres, mariadb]
+  - id: aws-redshift-public
+    name: Publicly accessible Redshift clusters
+    category: database
+    severity: critical
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.redshift
+    description: Redshift clusters reachable from the internet.
+    filters:
+      - PubliclyAccessible: true
+  - id: aws-opensearch-public
+    name: OpenSearch domains outside a VPC
+    category: database
+    severity: high
+    frameworks: [NIST 800-53]
+    resource: aws.elasticsearch
+    description: OpenSearch domains with a public endpoint instead of VPC access.
+    filters:
+      - VPCOptions: absent
+  - id: aws-opensearch-no-https
+    name: OpenSearch domains not enforcing HTTPS
+    category: database
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: aws.elasticsearch
+    description: OpenSearch domains that accept plain HTTP requests.
+    filters:
+      - type: value
+        key: DomainEndpointOptions.EnforceHTTPS
+        value: false
+
+  # Backup & resilience
+  - id: aws-rds-backup-retention-short
+    name: RDS backups kept under 7 days
+    category: backup
+    severity: medium
+    starter: true
+    frameworks: [NIST 800-53, SOC 2]
+    resource: aws.rds
+    description: RDS instances whose automated backups are kept for fewer than 7 days.
+    filters:
+      - type: value
+        key: BackupRetentionPeriod
+        value: 7
+        op: lt
+  - id: aws-rds-single-az
+    name: RDS instances without Multi-AZ
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: aws.rds
+    description: RDS instances running in a single Availability Zone.
+    filters:
+      - MultiAZ: false
+  - id: aws-rds-cluster-no-deletion-protection
+    name: Aurora clusters without deletion protection
+    category: backup
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: aws.rds-cluster
+    description: Aurora clusters that can be deleted without first disabling protection.
+    filters:
+      - DeletionProtection: false
+  - id: aws-dynamodb-pitr-off
+    name: DynamoDB tables without point-in-time recovery
+    category: backup
+    severity: medium
+    starter: true
+    frameworks: [NIST 800-53, SOC 2]
+    resource: aws.dynamodb-table
+    description: Tables that cannot be restored to an earlier point in time.
+    filters:
+      - type: continuous-backup
+        key: PointInTimeRecoveryDescription.PointInTimeRecoveryStatus
+        value: DISABLED
+  - id: aws-s3-versioning-off
+    name: S3 buckets without versioning
+    category: backup
+    severity: low
+    frameworks: [NIST 800-53, SOC 2]
+    resource: aws.s3
+    description: Buckets that do not keep previous object versions.
+    filters:
+      - type: value
+        key: Versioning.Status
+        value: Enabled
+        op: ne
+  - id: aws-elasticache-no-backups
+    name: ElastiCache without automatic backups
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: aws.elasticache-group
+    description: Redis replication groups with automatic snapshots turned off.
+    filters:
+      - SnapshotRetentionLimit: 0
+  - id: aws-asg-ec2-health-check
+    name: Auto Scaling groups using only EC2 health checks
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: aws.asg
+    description: Groups behind a load balancer that do not use its health checks to replace instances.
+    filters:
+      - HealthCheckType: EC2
+      - type: value
+        key: length(TargetGroupARNs)
+        value: 0
+        op: gt
+
+  # Cost optimization
+  - id: aws-ebs-unattached
+    name: Unattached EBS volumes
+    category: cost
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: aws.ebs
+    description: EBS volumes not attached to any instance.
+    filters:
+      - Attachments: []
+  - id: aws-eip-unattached
+    name: Unattached Elastic IPs
+    category: cost
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: aws.elastic-ip
+    description: Elastic IPs not associated with an instance or network interface.
+    filters:
+      - AssociationId: absent
+  - id: aws-ec2-stopped-30-days
+    name: EC2 instances stopped for 30 days
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ec2
+    description: Instances stopped for more than 30 days that still carry EBS costs.
+    filters:
+      - type: value
+        key: State.Name
+        value: stopped
+      - type: state-age
+        days: 30
+  - id: aws-ec2-low-cpu
+    name: Idle EC2 instances
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ec2
+    description: Running instances averaging under 5% CPU over the last 14 days.
+    filters:
+      - type: value
+        key: State.Name
+        value: running
+      - type: metrics
+        name: CPUUtilization
+        days: 14
+        period: 86400
+        statistics: Average
+        value: 5
+        op: lt
+  - id: aws-ec2-previous-generation
+    name: Previous-generation instance types
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ec2
+    description: Instances on older families that cost more than current equivalents.
+    filters:
+      - type: value
+        key: InstanceType
+        op: regex
+        value: "^(t1|m1|m2|m3|m4|c1|c3|c4|r3|r4|i2|g2|cr1|hs1)\\..*"
+  - id: aws-ebs-snapshot-old
+    name: EBS snapshots older than one year
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ebs-snapshot
+    description: Snapshots created more than 365 days ago.
+    filters:
+      - type: age
+        days: 365
+        op: ge
+  - id: aws-rds-snapshot-manual-old
+    name: Manual RDS snapshots older than 90 days
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.rds-snapshot
+    description: Manual RDS snapshots kept for more than 90 days.
+    filters:
+      - SnapshotType: manual
+      - type: age
+        days: 90
+        op: ge
+  - id: aws-ami-unused
+    name: Unused AMIs
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ami
+    description: Images owned by the account that no instance or launch configuration uses.
+    filters:
+      - type: unused
+        value: true
+  - id: aws-eni-unattached
+    name: Unattached network interfaces
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.eni
+    description: Network interfaces in the available state with nothing attached.
+    filters:
+      - Status: available
+
+  # Tagging & hygiene
+  - id: aws-ec2-missing-owner-tag
+    name: EC2 instances without an Owner tag
+    category: tagging
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: aws.ec2
+    description: Instances that do not say who owns them.
+    filters:
+      - "tag:Owner": absent
+  - id: aws-ec2-missing-environment-tag
+    name: EC2 instances without an Environment tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.ec2
+    description: Instances that do not say which environment they belong to.
+    filters:
+      - "tag:Environment": absent
+  - id: aws-s3-missing-owner-tag
+    name: S3 buckets without an Owner tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.s3
+    description: Buckets that do not say who owns them.
+    filters:
+      - "tag:Owner": absent
+  - id: aws-rds-missing-owner-tag
+    name: RDS instances without an Owner tag
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: aws.rds
+    description: Databases that do not say who owns them.
+    filters:
+      - "tag:Owner": absent
+  - id: aws-default-vpc-present
+    name: Default VPCs still present
+    category: tagging
+    severity: low
+    frameworks: [CIS]
+    resource: aws.vpc
+    description: Default VPCs that are usually left over and easy to deploy into by mistake.
+    filters:
+      - IsDefault: true
+  - id: aws-sg-unused
+    name: Unused security groups
+    category: tagging
+    severity: low
+    frameworks: [CIS]
+    resource: aws.security-group
+    description: Security groups not attached to any network interface.
+    filters:
+      - type: unused
+  - id: aws-iam-user-no-activity
+    name: IAM users with no activity
+    category: tagging
+    severity: low
+    frameworks: [CIS]
+    resource: aws.iam-user
+    description: IAM users created over 90 days ago that have never signed in or used a key.
+    filters:
+      - type: credential
+        key: user_creation_time
+        value_type: age
+        value: 90
+        op: gt
+      - type: credential
+        key: password_last_used
+        value: absent
+      - type: credential
+        key: access_keys.last_used_date
+        value: absent

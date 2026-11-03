@@ -17,5 +17,6 @@ Read these pages in order when you are new to the repository:
 11. [Finding Triage](finding-triage.md) — triage status and notes per finding UID, the API, the UI hooks, and known gaps
 12. [Keeping Security Content Current](security-content-updates.md) — where checks, CVE data, SAST rules and governance policies come from, update cadence, per-customer tuning
 13. [Area Findings and Triage](area-findings.md) — gap analysis and the shared findings and triage design for Cloud Security, Application Security and Governance
+14. [Governance Policy Library and AI Drafting](governance-policy-library.md) — built-in AWS, Azure and GCP policy library, coverage, and Seeker AI policy drafts
 
 Agent rules for day-to-day coding stay in the root [`AGENTS.md`](../AGENTS.md) and in each component `AGENTS.md`. Cursor rules in [`.cursor/rules/`](../.cursor/rules/) enforce the upstream split on every session. Skills under [`skills/`](../skills/) hold the patterns those rules point to. Use this knowledge base for orientation, then open the matching skill before changing code.

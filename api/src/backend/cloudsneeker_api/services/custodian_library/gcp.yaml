@@ -1,0 +1,1070 @@
+# Cloudsneeker governance library: Google Cloud.
+# Each entry renders one dry-run policy named after its id. Entries never declare actions.
+policies:
+  # Identity & access
+  - id: gcp-project-user-owners
+    name: Users with the Owner role
+    category: identity
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: gcp.project
+    description: Projects where individual user accounts hold roles/owner.
+    filters:
+      - type: iam-policy
+        doc:
+          key: "bindings[?role=='roles/owner'].members[] | [?starts_with(@, 'user:')]"
+          value_type: size
+          value: 0
+          op: gt
+  - id: gcp-default-sa-editor
+    name: Default compute service account is Editor
+    category: identity
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.project
+    description: The default Compute Engine service account still holds the broad Editor role.
+    filters:
+      - type: iam-policy
+        doc:
+          key: "bindings[?role=='roles/editor'].members[] | [?ends_with(@, '-compute@developer.gserviceaccount.com')]"
+          value_type: size
+          value: 0
+          op: gt
+  - id: gcp-project-sa-impersonation
+    name: Project-wide service account impersonation
+    category: identity
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.project
+    description: Principals granted Service Account User or Token Creator for every service account in the project.
+    filters:
+      - type: iam-policy
+        doc:
+          key: "bindings[?role=='roles/iam.serviceAccountUser' || role=='roles/iam.serviceAccountTokenCreator'].members[]"
+          value_type: size
+          value: 0
+          op: gt
+  - id: gcp-sa-key-90-days
+    name: Service account keys older than 90 days
+    category: identity
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.service-account-key
+    description: User-managed service account keys created more than 90 days ago.
+    filters:
+      - keyType: USER_MANAGED
+      - type: value
+        key: validAfterTime
+        value_type: age
+        value: 90
+        op: gt
+  - id: gcp-sa-user-managed-keys
+    name: User-managed service account keys
+    category: identity
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.service-account-key
+    description: Downloadable service account keys; prefer workload identity or short-lived tokens.
+    filters:
+      - keyType: USER_MANAGED
+  - id: gcp-api-key-unrestricted
+    name: Unrestricted API keys
+    category: identity
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.api-key
+    description: API keys with no API, application or address restrictions.
+    filters:
+      - restrictions: absent
+  - id: gcp-oslogin-disabled
+    name: OS Login not enforced project-wide
+    category: identity
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.compute-project
+    description: Projects that do not set enable-oslogin in common instance metadata.
+    filters:
+      - type: value
+        key: "commonInstanceMetadata.items[?key=='enable-oslogin'].value | [0]"
+        op: not-in
+        value: ["true", "TRUE", "True"]
+  - id: gcp-instance-default-sa-full-scope
+    name: VMs using default service account with full API access
+    category: identity
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.instance
+    description: Instances running as the default compute service account with the cloud-platform scope.
+    filters:
+      - type: value
+        key: "serviceAccounts[?ends_with(email, '-compute@developer.gserviceaccount.com')].scopes[]"
+        op: contains
+        value: https://www.googleapis.com/auth/cloud-platform
+  - id: gcp-gke-legacy-abac
+    name: GKE clusters with legacy ABAC
+    category: identity
+    severity: high
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters that still authorize with legacy ABAC instead of RBAC.
+    filters:
+      - type: value
+        key: legacyAbac.enabled
+        value: true
+  - id: gcp-gke-no-workload-identity
+    name: GKE clusters without Workload Identity
+    category: identity
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters where pods use node service account credentials.
+    filters:
+      - workloadIdentityConfig: absent
+  - id: gcp-kms-key-public
+    name: Publicly accessible KMS keys
+    category: identity
+    severity: critical
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.kms-cryptokey
+    description: KMS keys whose IAM policy grants access to allUsers or allAuthenticatedUsers.
+    filters:
+      - type: iam-policy
+        doc:
+          key: bindings[*].members[]
+          op: intersect
+          value: [allUsers, allAuthenticatedUsers]
+  - id: gcp-function-public
+    name: Publicly invokable Cloud Functions
+    category: identity
+    severity: high
+    frameworks: [NIST 800-53]
+    resource: gcp.function
+    description: Functions that allUsers or allAuthenticatedUsers can invoke.
+    filters:
+      - type: iam-policy
+        doc:
+          key: bindings[*].members[]
+          op: intersect
+          value: [allUsers, allAuthenticatedUsers]
+  - id: gcp-pubsub-topic-public
+    name: Public Pub/Sub topics
+    category: identity
+    severity: high
+    frameworks: [NIST 800-53]
+    resource: gcp.pubsub-topic
+    description: Topics whose IAM policy grants access to allUsers or allAuthenticatedUsers.
+    filters:
+      - type: iam-policy
+        doc:
+          key: bindings[*].members[]
+          op: intersect
+          value: [allUsers, allAuthenticatedUsers]
+
+  # Network
+  - id: gcp-firewall-ssh-open
+    name: SSH open to the internet
+    category: network
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.firewall
+    description: Enabled ingress firewall rules allowing port 22 from 0.0.0.0/0.
+    filters:
+      - direction: INGRESS
+      - disabled: false
+      - type: value
+        key: sourceRanges
+        op: contains
+        value: 0.0.0.0/0
+      - type: value
+        key: allowed[].ports[]
+        op: contains
+        value: "22"
+  - id: gcp-firewall-rdp-open
+    name: RDP open to the internet
+    category: network
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.firewall
+    description: Enabled ingress firewall rules allowing port 3389 from 0.0.0.0/0.
+    filters:
+      - direction: INGRESS
+      - disabled: false
+      - type: value
+        key: sourceRanges
+        op: contains
+        value: 0.0.0.0/0
+      - type: value
+        key: allowed[].ports[]
+        op: contains
+        value: "3389"
+  - id: gcp-firewall-all-open
+    name: All protocols open to the internet
+    category: network
+    severity: critical
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.firewall
+    description: Enabled ingress firewall rules allowing every protocol from 0.0.0.0/0.
+    filters:
+      - direction: INGRESS
+      - disabled: false
+      - type: value
+        key: sourceRanges
+        op: contains
+        value: 0.0.0.0/0
+      - type: value
+        key: allowed[].IPProtocol
+        op: contains
+        value: all
+  - id: gcp-firewall-database-ports-open
+    name: Database ports open to the internet
+    category: network
+    severity: high
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: gcp.firewall
+    description: Enabled ingress firewall rules exposing common database ports to 0.0.0.0/0.
+    filters:
+      - direction: INGRESS
+      - disabled: false
+      - type: value
+        key: sourceRanges
+        op: contains
+        value: 0.0.0.0/0
+      - type: value
+        key: allowed[].ports[]
+        op: intersect
+        value: ["1433", "1521", "3306", "5432", "6379", "27017"]
+  - id: gcp-instance-public-ip
+    name: VMs with external IPs
+    category: network
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.instance
+    description: Instances with an external IPv4 address on any network interface.
+    filters:
+      - type: value
+        key: networkInterfaces[].accessConfigs[].natIP
+        value_type: size
+        value: 0
+        op: gt
+  - id: gcp-instance-ip-forwarding
+    name: VMs with IP forwarding
+    category: network
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.instance
+    description: Instances allowed to forward packets they did not originate.
+    filters:
+      - canIpForward: true
+  - id: gcp-gke-public-nodes
+    name: GKE clusters with public nodes
+    category: network
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.gke-cluster
+    description: GKE clusters whose nodes have external IP addresses.
+    filters:
+      - type: value
+        key: privateClusterConfig.enablePrivateNodes
+        value: true
+        op: ne
+  - id: gcp-gke-no-authorized-networks
+    name: GKE control plane open to any IP
+    category: network
+    severity: medium
+    starter: true
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters without master authorized networks restricting API access.
+    filters:
+      - type: value
+        key: masterAuthorizedNetworksConfig.enabled
+        value: true
+        op: ne
+  - id: gcp-gke-no-network-policy
+    name: GKE clusters without network policy
+    category: network
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters with neither network policy enforcement nor Dataplane V2.
+    filters:
+      - type: value
+        key: networkPolicy.enabled
+        value: true
+        op: ne
+      - type: value
+        key: networkConfig.datapathProvider
+        value: ADVANCED_DATAPATH
+        op: ne
+  - id: gcp-dns-dnssec-off
+    name: Public DNS zones without DNSSEC
+    category: network
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.dns-managed-zone
+    description: Public managed zones that are not signed with DNSSEC.
+    filters:
+      - visibility: public
+      - type: value
+        key: dnssecConfig.state
+        value: "on"
+        op: ne
+  - id: gcp-backend-no-cloud-armor
+    name: External backends without Cloud Armor
+    category: network
+    severity: low
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: gcp.loadbalancer-backend-service
+    description: Externally load-balanced backend services with no security policy.
+    filters:
+      - securityPolicy: absent
+      - type: value
+        key: loadBalancingScheme
+        op: in
+        value: [EXTERNAL, EXTERNAL_MANAGED]
+  - id: gcp-function-ingress-all
+    name: Cloud Functions accepting all traffic
+    category: network
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: gcp.function
+    description: Functions whose ingress setting allows traffic from the internet.
+    filters:
+      - ingressSettings: ALLOW_ALL
+  - id: gcp-subnet-no-private-google-access
+    name: Subnets without Private Google Access
+    category: network
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: gcp.subnet
+    description: Subnets whose private VMs cannot reach Google APIs without an external IP.
+    filters:
+      - type: value
+        key: privateIpGoogleAccess
+        value: true
+        op: ne
+
+  # Encryption & data protection
+  - id: gcp-sql-ssl-not-required
+    name: Cloud SQL not requiring TLS
+    category: encryption
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances that accept unencrypted connections.
+    filters:
+      - type: value
+        key: settings.ipConfiguration.sslMode
+        op: not-in
+        value: [ENCRYPTED_ONLY, TRUSTED_CLIENT_CERTIFICATE_REQUIRED]
+      - type: value
+        key: settings.ipConfiguration.requireSsl
+        value: true
+        op: ne
+  - id: gcp-ssl-policy-weak
+    name: Load balancer SSL policies allowing old TLS
+    category: encryption
+    severity: medium
+    frameworks: [CIS, PCI DSS]
+    resource: gcp.loadbalancer-ssl-policy
+    description: SSL policies whose minimum TLS version is below 1.2.
+    filters:
+      - type: value
+        key: minTlsVersion
+        op: in
+        value: [TLS_1_0, TLS_1_1]
+  - id: gcp-https-proxy-no-ssl-policy
+    name: HTTPS proxies using the default SSL policy
+    category: encryption
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.loadbalancer-target-https-proxy
+    description: HTTPS proxies with no SSL policy, so they fall back to permissive defaults.
+    filters:
+      - sslPolicy: absent
+  - id: gcp-kms-no-rotation
+    name: KMS keys without rotation
+    category: encryption
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.kms-cryptokey
+    description: Symmetric encryption keys with no automatic rotation period.
+    filters:
+      - purpose: ENCRYPT_DECRYPT
+      - rotationPeriod: absent
+  - id: gcp-gke-secrets-not-encrypted
+    name: GKE secrets without application-layer encryption
+    category: encryption
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters that do not encrypt Kubernetes secrets with a KMS key.
+    filters:
+      - type: value
+        key: databaseEncryption.state
+        value: ENCRYPTED
+        op: ne
+  - id: gcp-disk-no-cmek
+    name: Disks without customer-managed keys
+    category: encryption
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.disk
+    description: Persistent disks encrypted with Google-managed rather than customer-managed keys.
+    filters:
+      - diskEncryptionKey: absent
+  - id: gcp-bucket-no-cmek
+    name: Buckets without customer-managed keys
+    category: encryption
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: gcp.bucket
+    description: Buckets with no default customer-managed encryption key.
+    filters:
+      - encryption.defaultKmsKeyName: absent
+  - id: gcp-bq-dataset-no-cmek
+    name: BigQuery datasets without customer-managed keys
+    category: encryption
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.bq-dataset
+    description: Datasets with no default customer-managed encryption key.
+    filters:
+      - defaultEncryptionConfiguration: absent
+  - id: gcp-sql-no-cmek
+    name: Cloud SQL without customer-managed keys
+    category: encryption
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances encrypted with Google-managed keys.
+    filters:
+      - diskEncryptionConfiguration: absent
+  - id: gcp-redis-no-transit-encryption
+    name: Memorystore without in-transit encryption
+    category: encryption
+    severity: medium
+    frameworks: [NIST 800-53, PCI DSS]
+    resource: gcp.redis
+    description: Redis instances that do not encrypt client traffic.
+    filters:
+      - type: value
+        key: transitEncryptionMode
+        value: SERVER_AUTHENTICATION
+        op: ne
+  - id: gcp-secret-no-rotation
+    name: Secrets without rotation
+    category: encryption
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: gcp.secret
+    description: Secret Manager secrets with no rotation schedule.
+    filters:
+      - rotation: absent
+
+  # Logging & monitoring
+  - id: gcp-audit-logs-not-all-services
+    name: Data access audit logs not enabled
+    category: logging
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: gcp.project
+    description: Projects without an audit log configuration covering all services.
+    filters:
+      - type: iam-policy
+        doc:
+          key: "auditConfigs[?service=='allServices']"
+          value: empty
+  - id: gcp-no-log-sink
+    name: No log sink exporting all logs
+    category: logging
+    severity: medium
+    frameworks: [CIS, SOC 2]
+    resource: gcp.project
+    description: Projects without a sink that exports every log entry.
+    filters:
+      - type: missing
+        policy:
+          resource: gcp.log-project-sink
+          filters:
+            - filter: absent
+  - id: gcp-no-iam-change-alert
+    name: No log metric for IAM policy changes
+    category: logging
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.project
+    description: Projects with no log-based metric that tracks IAM policy changes.
+    filters:
+      - type: missing
+        policy:
+          resource: gcp.log-project-metric
+          filters:
+            - type: value
+              key: filter
+              op: contains
+              value: SetIamPolicy
+  - id: gcp-no-firewall-change-alert
+    name: No log metric for firewall changes
+    category: logging
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.project
+    description: Projects with no log-based metric that tracks VPC firewall rule changes.
+    filters:
+      - type: missing
+        policy:
+          resource: gcp.log-project-metric
+          filters:
+            - type: value
+              key: filter
+              op: contains
+              value: compute.firewalls
+  - id: gcp-subnet-flow-logs-off
+    name: Subnets without flow logs
+    category: logging
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.subnet
+    description: Subnets that do not record VPC flow logs.
+    filters:
+      - type: value
+        key: logConfig.enable
+        value: true
+        op: ne
+  - id: gcp-bucket-access-logging-off
+    name: Buckets without usage logs
+    category: logging
+    severity: low
+    frameworks: [NIST 800-53]
+    resource: gcp.bucket
+    description: Buckets that do not write usage and storage logs.
+    filters:
+      - logging: absent
+  - id: gcp-backend-logging-off
+    name: Load balancer backends without request logs
+    category: logging
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.loadbalancer-backend-service
+    description: Backend services that do not log HTTP(S) requests.
+    filters:
+      - type: value
+        key: logConfig.enable
+        value: true
+        op: ne
+  - id: gcp-dns-policy-logging-off
+    name: DNS policies without query logging
+    category: logging
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.dns-policy
+    description: Cloud DNS server policies that do not log queries.
+    filters:
+      - type: value
+        key: enableLogging
+        value: true
+        op: ne
+  - id: gcp-gke-logging-off
+    name: GKE clusters without Cloud Logging
+    category: logging
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters with logging turned off.
+    filters:
+      - loggingService: none
+  - id: gcp-sql-postgres-log-connections-off
+    name: PostgreSQL not logging connections
+    category: logging
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.sql-instance
+    description: Cloud SQL for PostgreSQL instances without the log_connections flag on.
+    filters:
+      - type: value
+        key: databaseVersion
+        op: regex
+        value: "^POSTGRES.*"
+      - type: value
+        key: "settings.databaseFlags[?name=='log_connections'].value | [0]"
+        value: "on"
+        op: ne
+
+  # Compute
+  - id: gcp-instance-no-secure-boot
+    name: VMs without Secure Boot
+    category: compute
+    severity: medium
+    starter: true
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.instance
+    description: Instances with Shielded VM Secure Boot turned off.
+    filters:
+      - type: value
+        key: shieldedInstanceConfig.enableSecureBoot
+        value: true
+        op: ne
+  - id: gcp-instance-no-integrity-monitoring
+    name: VMs without integrity monitoring
+    category: compute
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.instance
+    description: Instances with Shielded VM integrity monitoring turned off.
+    filters:
+      - type: value
+        key: shieldedInstanceConfig.enableIntegrityMonitoring
+        value: true
+        op: ne
+  - id: gcp-instance-serial-port
+    name: VMs with serial port access
+    category: compute
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.instance
+    description: Instances that allow interactive serial console connections.
+    filters:
+      - type: value
+        key: "metadata.items[?key=='serial-port-enable'].value | [0]"
+        op: in
+        value: ["true", "TRUE", "1"]
+  - id: gcp-instance-project-ssh-keys
+    name: VMs accepting project-wide SSH keys
+    category: compute
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.instance
+    description: Instances that do not block project-wide SSH keys.
+    filters:
+      - type: value
+        key: "metadata.items[?key=='block-project-ssh-keys'].value | [0]"
+        op: not-in
+        value: ["true", "TRUE"]
+  - id: gcp-gke-auto-upgrade-off
+    name: GKE node pools without auto-upgrade
+    category: compute
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters with a node pool that does not upgrade automatically.
+    filters:
+      - type: value
+        key: nodePools[].management.autoUpgrade
+        op: contains
+        value: false
+  - id: gcp-gke-auto-repair-off
+    name: GKE node pools without auto-repair
+    category: compute
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters with a node pool that does not repair unhealthy nodes.
+    filters:
+      - type: value
+        key: nodePools[].management.autoRepair
+        op: contains
+        value: false
+  - id: gcp-gke-shielded-nodes-off
+    name: GKE clusters without Shielded Nodes
+    category: compute
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters whose nodes are not Shielded GKE nodes.
+    filters:
+      - type: value
+        key: shieldedNodes.enabled
+        value: true
+        op: ne
+  - id: gcp-gke-no-release-channel
+    name: GKE clusters without a release channel
+    category: compute
+    severity: low
+    frameworks: [CIS]
+    resource: gcp.gke-cluster
+    description: GKE clusters not enrolled in a release channel for managed upgrades.
+    filters:
+      - releaseChannel.channel: absent
+  - id: gcp-function-deprecated-runtime
+    name: Cloud Functions on deprecated runtimes
+    category: compute
+    severity: high
+    starter: true
+    frameworks: [NIST 800-53]
+    resource: gcp.function
+    description: Functions running a runtime that no longer receives security patches.
+    filters:
+      - type: value
+        key: runtime
+        op: in
+        value: [python37, python38, nodejs10, nodejs12, nodejs14, nodejs16, go111, go113, ruby26, ruby27, dotnet3, php74]
+
+  # Storage
+  - id: gcp-bucket-public
+    name: Public Cloud Storage buckets
+    category: storage
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS, HIPAA]
+    resource: gcp.bucket
+    description: Buckets whose IAM policy grants access to allUsers or allAuthenticatedUsers.
+    filters:
+      - type: iam-policy
+        doc:
+          key: bindings[*].members[]
+          op: intersect
+          value: [allUsers, allAuthenticatedUsers]
+  - id: gcp-bucket-no-uniform-access
+    name: Buckets without uniform bucket-level access
+    category: storage
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.bucket
+    description: Buckets that still allow per-object ACLs.
+    filters:
+      - type: value
+        key: iamConfiguration.uniformBucketLevelAccess.enabled
+        value: true
+        op: ne
+  - id: gcp-bucket-public-access-not-prevented
+    name: Buckets without public access prevention
+    category: storage
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.bucket
+    description: Buckets that do not enforce public access prevention.
+    filters:
+      - type: value
+        key: iamConfiguration.publicAccessPrevention
+        value: enforced
+        op: ne
+  - id: gcp-bq-dataset-public
+    name: Public BigQuery datasets
+    category: storage
+    severity: critical
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.bq-dataset
+    description: Datasets shared with allUsers or allAuthenticatedUsers.
+    filters:
+      - or:
+          - type: value
+            key: access[].iamMember
+            op: contains
+            value: allUsers
+          - type: value
+            key: access[].specialGroup
+            op: contains
+            value: allAuthenticatedUsers
+
+  # Databases
+  - id: gcp-sql-open-to-internet
+    name: Cloud SQL open to any IP
+    category: database
+    severity: critical
+    starter: true
+    frameworks: [CIS, NIST 800-53, PCI DSS]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances with an authorized network of 0.0.0.0/0.
+    filters:
+      - type: value
+        key: settings.ipConfiguration.authorizedNetworks[].value
+        op: contains
+        value: 0.0.0.0/0
+  - id: gcp-sql-public-ip
+    name: Cloud SQL with public IP
+    category: database
+    severity: medium
+    frameworks: [CIS, NIST 800-53]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances with a public IPv4 address.
+    filters:
+      - type: value
+        key: settings.ipConfiguration.ipv4Enabled
+        value: true
+  - id: gcp-sql-mysql-local-infile
+    name: MySQL with local_infile on
+    category: database
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.sql-instance
+    description: Cloud SQL for MySQL instances that allow loading local files.
+    filters:
+      - type: value
+        key: databaseVersion
+        op: regex
+        value: "^MYSQL.*"
+      - type: value
+        key: "settings.databaseFlags[?name=='local_infile'].value | [0]"
+        value: "on"
+  - id: gcp-sql-sqlserver-cross-db-chaining
+    name: SQL Server with cross-database ownership chaining
+    category: database
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.sql-instance
+    description: Cloud SQL for SQL Server instances with cross db ownership chaining on.
+    filters:
+      - type: value
+        key: databaseVersion
+        op: regex
+        value: "^SQLSERVER.*"
+      - type: value
+        key: "settings.databaseFlags[?name=='cross db ownership chaining'].value | [0]"
+        value: "on"
+  - id: gcp-redis-auth-disabled
+    name: Memorystore without AUTH
+    category: database
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: gcp.redis
+    description: Redis instances that accept connections without an AUTH string.
+    filters:
+      - type: value
+        key: authEnabled
+        value: true
+        op: ne
+
+  # Backup & resilience
+  - id: gcp-sql-backups-off
+    name: Cloud SQL without automated backups
+    category: backup
+    severity: high
+    starter: true
+    frameworks: [CIS, NIST 800-53, SOC 2]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances with automated backups disabled.
+    filters:
+      - type: value
+        key: settings.backupConfiguration.enabled
+        value: true
+        op: ne
+  - id: gcp-sql-postgres-no-pitr
+    name: PostgreSQL without point-in-time recovery
+    category: backup
+    severity: medium
+    frameworks: [NIST 800-53, SOC 2]
+    resource: gcp.sql-instance
+    description: Cloud SQL for PostgreSQL instances that cannot restore to a point in time.
+    filters:
+      - type: value
+        key: databaseVersion
+        op: regex
+        value: "^POSTGRES.*"
+      - type: value
+        key: settings.backupConfiguration.pointInTimeRecoveryEnabled
+        value: true
+        op: ne
+  - id: gcp-sql-zonal
+    name: Cloud SQL without high availability
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances running in a single zone.
+    filters:
+      - type: value
+        key: settings.availabilityType
+        value: ZONAL
+  - id: gcp-sql-no-deletion-protection
+    name: Cloud SQL without deletion protection
+    category: backup
+    severity: medium
+    frameworks: [NIST 800-53]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances that can be deleted without first disabling protection.
+    filters:
+      - type: value
+        key: settings.deletionProtectionEnabled
+        value: true
+        op: ne
+  - id: gcp-bucket-versioning-off
+    name: Buckets without object versioning
+    category: backup
+    severity: low
+    frameworks: [NIST 800-53, SOC 2]
+    resource: gcp.bucket
+    description: Buckets that do not keep noncurrent object versions.
+    filters:
+      - type: value
+        key: versioning.enabled
+        value: true
+        op: ne
+  - id: gcp-disk-no-snapshots
+    name: Disks with no snapshots
+    category: backup
+    severity: low
+    frameworks: [SOC 2]
+    resource: gcp.disk
+    description: Persistent disks attached to a VM that have never been snapshotted.
+    filters:
+      - type: value
+        key: users
+        value: present
+      - type: snapshots
+        count: 0
+        count_op: eq
+
+  # Cost optimization
+  - id: gcp-disk-unattached
+    name: Unattached persistent disks
+    category: cost
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: gcp.disk
+    description: Persistent disks not attached to any instance.
+    filters:
+      - users: absent
+  - id: gcp-address-unused
+    name: Reserved but unused regional IPs
+    category: cost
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: gcp.loadbalancer-address
+    description: Static regional IP addresses reserved but not in use.
+    filters:
+      - status: RESERVED
+  - id: gcp-global-address-unused
+    name: Reserved but unused global IPs
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.loadbalancer-global-address
+    description: Static global IP addresses reserved but not in use.
+    filters:
+      - status: RESERVED
+  - id: gcp-instance-terminated
+    name: Stopped VMs
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.instance
+    description: Instances in the TERMINATED state that still keep disks and reserved IPs.
+    filters:
+      - status: TERMINATED
+  - id: gcp-instance-idle
+    name: Idle VMs
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.instance
+    description: Instances the idle VM recommender suggests stopping.
+    filters:
+      - type: recommend
+        id: google.compute.instance.IdleResourceRecommender
+  - id: gcp-snapshot-old
+    name: Snapshots older than one year
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.snapshot
+    description: Disk snapshots created more than 365 days ago.
+    filters:
+      - type: value
+        key: creationTimestamp
+        value_type: age
+        value: 365
+        op: gt
+  - id: gcp-image-old
+    name: Custom images older than one year
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.image
+    description: Custom images created more than 365 days ago.
+    filters:
+      - type: value
+        key: creationTimestamp
+        value_type: age
+        value: 365
+        op: gt
+  - id: gcp-instance-n1-family
+    name: VMs on the N1 machine family
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.instance
+    description: Instances on first-generation N1 machine types; E2 or N2 usually cost less.
+    filters:
+      - type: value
+        key: machineType
+        op: regex
+        value: ".*/n1-.*"
+  - id: gcp-bucket-no-lifecycle
+    name: Buckets without lifecycle rules
+    category: cost
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.bucket
+    description: Buckets with no lifecycle rule to delete or archive old objects.
+    filters:
+      - lifecycle: absent
+
+  # Tagging & hygiene
+  - id: gcp-instance-missing-owner-label
+    name: VMs without an owner label
+    category: tagging
+    severity: low
+    starter: true
+    frameworks: [FinOps]
+    resource: gcp.instance
+    description: Instances that do not say who owns them.
+    filters:
+      - labels.owner: absent
+  - id: gcp-bucket-missing-owner-label
+    name: Buckets without an owner label
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.bucket
+    description: Buckets that do not say who owns them.
+    filters:
+      - labels.owner: absent
+  - id: gcp-disk-missing-cost-center-label
+    name: Disks without a cost-center label
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.disk
+    description: Persistent disks that cannot be charged back to a cost center.
+    filters:
+      - labels.cost-center: absent
+  - id: gcp-sql-missing-owner-label
+    name: Cloud SQL without an owner label
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.sql-instance
+    description: Cloud SQL instances that do not say who owns them.
+    filters:
+      - settings.userLabels.owner: absent
+  - id: gcp-gke-missing-owner-label
+    name: GKE clusters without an owner label
+    category: tagging
+    severity: low
+    frameworks: [FinOps]
+    resource: gcp.gke-cluster
+    description: GKE clusters that do not say who owns them.
+    filters:
+      - resourceLabels.owner: absent
+  - id: gcp-default-network
+    name: Default VPC network present
+    category: tagging
+    severity: medium
+    frameworks: [CIS]
+    resource: gcp.vpc
+    description: Projects that still have the auto-created default network and its permissive rules.
+    filters:
+      - name: default

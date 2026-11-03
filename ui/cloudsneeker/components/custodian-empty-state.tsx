@@ -1,6 +1,7 @@
 import { Shield } from "lucide-react";
 import Link from "next/link";
 
+import { libraryHref } from "@/cloudsneeker/lib/custodian-library";
 import { governanceHref } from "@/cloudsneeker/routes";
 import { Button } from "@/components/shadcn";
 
@@ -12,9 +13,14 @@ export const CustodianEmptyState = () => (
     title="No governance policies yet"
     description="Create a YAML governance policy and dry-run it against a connected AWS, Azure, GCP, or Kubernetes provider. Apply mode is not available."
     action={
-      <Button asChild size="sm">
-        <Link href={governanceHref("new")}>Create policy</Link>
-      </Button>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href={libraryHref()}>Browse policy library</Link>
+        </Button>
+        <Button asChild size="sm">
+          <Link href={governanceHref("new")}>Create policy</Link>
+        </Button>
+      </div>
     }
   />
 );

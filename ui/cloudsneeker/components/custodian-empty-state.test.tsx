@@ -18,5 +18,8 @@ describe("CustodianEmptyState", () => {
       "href",
       "/governance/new",
     );
+    expect(
+      screen.getByRole("link", { name: /Browse policy library/i }),
+    ).toHaveAttribute("href", "/governance/library");
   });
 });

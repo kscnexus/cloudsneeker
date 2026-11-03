@@ -16,7 +16,7 @@ updated, and who owns the update.
 | IaC, secret and misconfiguration rules (Trivy built-in) | Ship with the Trivy version and its checks bundle | `TRIVY_VERSION` | Bump with the engine |
 | SAST rules | GitLab sast-rules, `SAST_RULES_REF` and `SAST_RULES_SHA256` in `cloudsneeker/deploy/docker/api.Dockerfile` | Tag and checksum | Bump both, check the license of new folders (see [Product Redesign Plan](product-redesign-plan.md) Phase 3), CI rebuilds |
 | SAST engine | `OPENGREP_VERSION` and its checksum in the same Dockerfile | Build argument | Bump, CI rebuilds |
-| Governance policies (dry-run) | Cloud Custodian (`C7N_*` versions) plus Cloudsneeker starter templates in `api/src/backend/cloudsneeker_api/services/custodian_templates.py` | Build arguments and repository code | Bump versions; add or edit templates in code |
+| Governance policies (dry-run) | Cloud Custodian (`C7N_*` versions) plus the Cloudsneeker policy library in `api/src/backend/cloudsneeker_api/services/custodian_library/*.yaml` and starter templates in `services/custodian_templates.py` | Build arguments and repository code | Bump versions; add or edit library entries and validate them against the pinned engine ([Governance Policy Library](governance-policy-library.md)) |
 | Attack Paths graph | Cartography version in `api/pyproject.toml` | Lockfile | Dependency bump |
 
 ## Checking what is live
@@ -38,7 +38,7 @@ shows up after the next deploy without other changes.
 | Continuous | CVE data: `manage.py cloudsneeker_vuln_db` on a worker (on the VM: `docker compose ... exec cloudsneeker-worker uv run python manage.py cloudsneeker_vuln_db`, see the VM README; add `--refresh` to download now) shows the snapshot age and fails when it is over 24 hours. Watch the worker log for `cloudsneeker-refresh-vuln-db` failures | Platform on-call |
 | Weekly | Review new upstream Prowler releases and security advisories; bump Trivy if a release fixes detection gaps | Detection engineer |
 | Every upstream minor release (about monthly) | Merge the upstream tag with `cloudsneeker/tools/sync-upstream.ps1`, re-apply hooks per [Upstream Hooks](upstream-hooks.md), run the full CI suite (`cloudsneeker-tests.yml` via `workflow_dispatch`), deploy, and spot-check one scan per provider | Engineering |
-| Quarterly | Bump SAST rules and OpenGrep after a license review; review Custodian starter templates against new cloud services | Detection engineer |
+| Quarterly | Bump SAST rules and OpenGrep after a license review; review the governance policy library against new cloud services and runtime deprecations | Detection engineer |
 | Each release | Write customer-facing release notes: new checks, changed frameworks, removed checks (these change scores) | Product |
 
 Score changes: new checks and framework revisions move customer scores and
@@ -60,8 +60,8 @@ managed-service team:
   contract (for example a monthly executive report).
 - **Application Security targets**: rule packs and exclude globs per
   repository for SAST; scanners per target for the other modes.
-- **Governance policies**: per-customer policies created from the starter
-  templates; dry-run only.
+- **Governance policies**: per-customer policies added from the policy
+  library, drafted with Seeker AI, or written by hand; dry-run only.
 
 ## Custom content
 

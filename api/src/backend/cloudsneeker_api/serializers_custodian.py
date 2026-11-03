@@ -4,6 +4,11 @@ from api.models import Provider
 from api.v1.serializers import BaseWriteSerializer, RLSSerializer
 from cloudsneeker_api.models import CustodianPolicy, CustodianRun, JSON_API_TYPE_PREFIX
 from cloudsneeker_api.services.brand_text import scrub_engine_text
+from cloudsneeker_api.services.custodian_ai import (
+    GENERATE_PROVIDERS,
+    MAX_PROMPT_LENGTH,
+    is_valid_resource_type,
+)
 from cloudsneeker_api.services.custodian import (
     CustodianDryRunError,
     assert_policy_matches_provider,
@@ -282,3 +287,45 @@ class CustodianInstallPackSerializer(serializers.Serializer):
     provider_id = serializers.UUIDField()
 
 
+
+
+class CustodianLibraryInstallSerializer(serializers.Serializer):
+    """Add library policies to one provider."""
+
+    policy_ids = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        allow_empty=False,
+        max_length=100,
+    )
+    provider_id = serializers.UUIDField()
+
+
+class CustodianGenerateSerializer(serializers.Serializer):
+    """Plain-language request for a Seeker AI policy draft."""
+
+    provider_type = serializers.ChoiceField(choices=GENERATE_PROVIDERS)
+    prompt = serializers.CharField(min_length=10, max_length=MAX_PROMPT_LENGTH)
+    resource_type = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=100
+    )
+
+    def validate(self, attrs):
+        resource_type = attrs.get("resource_type", "").strip().lower()
+        if not is_valid_resource_type(resource_type, attrs["provider_type"]):
+            raise ValidationError(
+                {
+                    "resource_type": (
+                        f"Use a {attrs['provider_type']} resource type such as "
+                        f"{attrs['provider_type']}.vm or leave it empty."
+                    )
+                }
+            )
+        attrs["resource_type"] = resource_type
+        return attrs
+
+
+class CustodianValidateSerializer(serializers.Serializer):
+    """Policy YAML to check before it is saved."""
+
+    provider_type = serializers.ChoiceField(choices=GENERATE_PROVIDERS)
+    policy_yaml = serializers.CharField(max_length=100_000, trim_whitespace=False)
