@@ -31,4 +31,6 @@ rm -rf "$ROOT/.github"
 echo "==> Building"
 cd "$ROOT/ui"
 export NEXT_PUBLIC_PROWLER_RELEASE_VERSION="${NEXT_PUBLIC_PROWLER_RELEASE_VERSION:-${VERCEL_GIT_COMMIT_SHA:0:12}}"
-pnpm run build
+# Vercel's own pnpm is too old for this project, and the install command's
+# pnpm is not on PATH here, so call next directly (same as `pnpm run build`).
+node_modules/.bin/next build

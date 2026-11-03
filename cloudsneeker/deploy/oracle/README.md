@@ -115,13 +115,15 @@ The account owner signs in to Vercel and imports `kscnexus/cloudsneeker`:
 |---------|-------|
 | Root Directory | `ui` (keep "Include files outside the root directory" on) |
 | Framework | Next.js |
-| Install Command | `npm install -g pnpm@11.1.3 && pnpm install --frozen-lockfile` |
+| Install Command | `npx -y pnpm@11.1.3 install --frozen-lockfile` |
 | Build Command | `bash ../cloudsneeker/deploy/vercel/build.sh` |
 | Node.js Version | 22.x or later |
 
 Vercel's corepack does not pick up `packageManager` with a Root Directory
-set and falls back to pnpm 6, which `engineStrict` rejects; the install
-command installs the pinned pnpm first.
+set and falls back to its bundled pnpm 6, which `engineStrict` rejects, and a
+global `npm install -g pnpm` does not take precedence on its PATH. The install
+command runs the pinned pnpm through npx, and `build.sh` calls `next`
+directly.
 
 `build.sh` runs the same rebrand and brand audit as the container build, so
 the deployed app shows no upstream branding.
