@@ -73,33 +73,34 @@ def test_registry_trusts_github_actions_instead_of_codebuild():
     assert "repo:${GitHubRepository}:*" not in REGISTRY
     assert "repo:${Owner}@${GitHubOrgId}/${Name}@${GitHubRepoId}:ref:refs/heads/main" in REGISTRY
     assert "iam:GetRole" in REGISTRY
-
-
-def test_image_workflow_publishes_each_image_and_keeps_platform_mode():
-    assert "id-token: write" in IMAGES
-    assert "amazon-ecr-login" in IMAGES
-    assert "UsePreviousValue" in IMAGES
-    assert "PlatformMode=running" not in IMAGES
-    assert "pull_request:" not in IMAGES
-    assert "build.sh" not in IMAGES
-    assert 'images=["api","ui","mcp","neo4j"]' in IMAGES
-    assert 'services="api worker beat"' in IMAGES
-    assert 'services="ui"' in IMAGES
-    assert 'services="mcp"' in IMAGES
-    assert 'services="neo4j"' in IMAGES
-    assert "--builder default" in IMAGES
-    assert 'docker push "$IMAGE_URI"' in IMAGES
-    assert "workflow_dispatch:" in IMAGES
     assert "codebuild" not in DEPLOY.lower()
     assert "GitHub Actions" in DEPLOY
 
 
-def test_image_workflow_scans_each_image_before_the_push():
+def test_image_workflow_deploys_to_the_azure_vm_after_tests():
+    assert "aws" not in IMAGES.lower()
+    assert "ecr" not in IMAGES.lower()
+    assert "workflows: ['Cloudsneeker: Tests']" in IMAGES
+    assert "github.event.workflow_run.conclusion == 'success'" in IMAGES
+    assert "github.event.workflow_run.head_repository.full_name == github.repository" in IMAGES
+    assert "pull_request:" not in IMAGES
+    assert "workflow_dispatch:" in IMAGES
+    assert "id-token: write" in IMAGES
+    assert "--federated-token" in IMAGES
+    assert "az vm run-command invoke" in IMAGES
+    assert "cloudsneeker-deploy.service" in IMAGES
+    assert "needs: scan" in IMAGES
+    assert "docker push" not in IMAGES
+    assert "image: [api, mcp, neo4j]" in IMAGES
+    assert "--builder default" in IMAGES
+
+
+def test_image_workflow_scans_each_image_before_the_deploy():
     build = IMAGES.index("- name: Build ${{ matrix.image }}")
     scan = IMAGES.index("uses: ./.github/actions/trivy-scan")
     sbom = IMAGES.index("format: cyclonedx")
-    push = IMAGES.index('docker push "$IMAGE_URI"')
-    assert build < scan < sbom < push
+    deploy = IMAGES.index("az vm run-command invoke")
+    assert build < scan < sbom < deploy
     assert "--push" not in IMAGES
     assert "matrix.image == 'neo4j' && 'none' || 'critical'" in IMAGES
     assert "upload-artifact" in IMAGES

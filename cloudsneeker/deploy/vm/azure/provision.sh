@@ -126,11 +126,17 @@ log "GitHub deploy identity"
 # and may only run commands on this VM.
 exists az identity show -g "$RG" -n cloudsneeker-github-deploy || az identity create \
   -g "$RG" -n cloudsneeker-github-deploy -l "$LOCATION" --tags "${TAGS[@]}" -o none
+# The organization's tokens name the repository by owner and repository id
+# (repo:owner@<id>/name@<id>:...), so a renamed or re-created repo is not trusted.
+GITHUB_IDS="$(curl -fsS "https://api.github.com/repos/$GITHUB_REPO" |
+  python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["owner"]["id"], r["id"])')"
+read -r GITHUB_OWNER_ID GITHUB_REPO_ID <<<"$GITHUB_IDS"
+GITHUB_SUBJECT="repo:${GITHUB_REPO%%/*}@$GITHUB_OWNER_ID/${GITHUB_REPO#*/}@$GITHUB_REPO_ID:ref:refs/heads/main"
 exists az identity federated-credential show -g "$RG" --identity-name cloudsneeker-github-deploy \
   -n github-main || az identity federated-credential create -g "$RG" \
   --identity-name cloudsneeker-github-deploy -n github-main \
   --issuer https://token.actions.githubusercontent.com \
-  --subject "repo:$GITHUB_REPO:ref:refs/heads/main" --audiences api://AzureADTokenExchange -o none
+  --subject "$GITHUB_SUBJECT" --audiences api://AzureADTokenExchange -o none
 DEPLOY_PRINCIPAL="$(az identity show -g "$RG" -n cloudsneeker-github-deploy --query principalId -o tsv)"
 DEPLOY_CLIENT="$(az identity show -g "$RG" -n cloudsneeker-github-deploy --query clientId -o tsv)"
 az role assignment create --assignee-object-id "$DEPLOY_PRINCIPAL" --assignee-principal-type ServicePrincipal \
