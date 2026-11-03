@@ -1,75 +1,50 @@
-name: 'Cloudsneeker: Publish images'
-# Builds each service image in its own job, scans it with Trivy, uploads
-# its SBOM, and rolls only the services that use that image. An image with
-# a fixable critical CVE is never pushed. A push of main builds every image. A manual run
-# can build one image. The stack keeps its current PlatformMode.
+name: 'Cloudsneeker: Deploy to Azure'
+# After the tests pass on a push to main, scans the backend images and then
+# rebuilds and restarts the backend on the Azure VM (cloudsneeker/deploy/vm).
+# The VM builds its own images, so no registry is involved. GitHub signs in
+# to Azure with OIDC as a managed identity that may only run commands on that
+# VM, and starts cloudsneeker-deploy.service there. The web app deploys from
+# Vercel. Settings are repository variables printed by vm/azure/provision.sh;
+# the deploy job is skipped until AZURE_CLIENT_ID is set.
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ['Cloudsneeker: Tests']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      image:
-        description: Docker image to build and deploy
-        required: true
-        type: choice
-        default: all
-        options:
-          - all
-          - api
-          - ui
-          - mcp
-          - neo4j
 
 concurrency:
-  group: cloudsneeker-images-${{ github.ref }}-${{ inputs.image || 'all' }}
+  group: cloudsneeker-deploy
   cancel-in-progress: false
 
 permissions: {}
 
 env:
-  AWS_REGION: us-east-1
   NEO4J_IMAGE: graphstack/dozerdb:5.26.27.0@sha256:9b54d6b3a98a76c00bd23e8e78d8c82081ff168162aebd47b25c234e092cb0a0
 
 jobs:
-  select:
-    name: Choose images
-    runs-on: ubuntu-latest
-    outputs:
-      images: ${{ steps.set.outputs.images }}
-      roll_stack: ${{ steps.set.outputs.roll_stack }}
-    steps:
-      - name: Select the images for this run
-        id: set
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          IMAGE: ${{ inputs.image }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$IMAGE" ] && [ "$IMAGE" != "all" ]; then
-            echo "images=[\"${IMAGE}\"]" >> "$GITHUB_OUTPUT"
-            echo "roll_stack=false" >> "$GITHUB_OUTPUT"
-          else
-            echo 'images=["api","ui","mcp","neo4j"]' >> "$GITHUB_OUTPUT"
-            echo "roll_stack=true" >> "$GITHUB_OUTPUT"
-          fi
-
-  build:
-    name: Build ${{ matrix.image }}
-    needs: select
+  # Builds each image the VM runs from the same commit and scans it with
+  # Trivy. A fixable critical CVE stops the deploy (EB-017).
+  scan:
+    name: Scan ${{ matrix.image }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
-        image: ${{ fromJSON(needs.select.outputs.images) }}
+        image: [api, mcp, neo4j]
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
 
       - name: Setup Python with uv
@@ -82,8 +57,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
-      # Export per job instead of uploading a shared artifact. Free-tier
-      # Actions artifact storage was full and blocked every publish.
       - name: Export rebranded tree
         if: matrix.image != 'neo4j'
         run: |
@@ -93,39 +66,21 @@ jobs:
           docker build -f cloudsneeker/deploy/docker/source.Dockerfile \
             --target wheel --output type=local,dest=build/wheels .
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN || 'arn:aws:iam::352285844868:role/cloudsneeker-github-actions' }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
-
-      # Build into the local image store so the image is scanned before
-      # anything reaches the registry.
       - name: Build ${{ matrix.image }}
         id: image
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}/cloudsneeker
           IMAGE_NAME: ${{ matrix.image }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
-          tag="$(printf '%s' "$GITHUB_SHA" | cut -c1-12)"
-          image="${REGISTRY}/${IMAGE_NAME}:${tag}"
+          tag="$(printf '%s' "$HEAD_SHA" | cut -c1-12)"
+          image="cloudsneeker-${IMAGE_NAME}:${tag}"
           case "$IMAGE_NAME" in
             api)
-              # The default builder shares the local image store. The
-              # container builder would try to pull the base image from a registry.
               docker buildx build --builder default --load -t "cloudsneeker/api-base:${tag}" build/tree/api
               docker buildx build --builder default --load -t "$image" \
                 --build-arg "BASE_IMAGE=cloudsneeker/api-base:${tag}" \
                 -f cloudsneeker/deploy/docker/api.Dockerfile build
-              ;;
-            ui)
-              docker buildx build --load -t "$image" --target prod \
-                --build-arg "NEXT_PUBLIC_PROWLER_RELEASE_VERSION=${tag}" build/tree/ui
               ;;
             mcp)
               docker buildx build --load -t "$image" build/tree/mcp_server
@@ -135,16 +90,12 @@ jobs:
               docker tag "$NEO4J_IMAGE" "$image"
               ;;
           esac
-          # A short local name keeps the scan report artifact name valid.
-          docker tag "$image" "cloudsneeker-${IMAGE_NAME}:${tag}"
           echo "scan_name=cloudsneeker-${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "uri=${image}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-      # Fails on critical CVEs that have a fix. Accepted findings go in
-      # .trivyignore.yaml with a reason. The pinned third-party graph
-      # database image is reported but does not gate: it is only updated
-      # by bumping NEO4J_IMAGE.
+      # Accepted findings go in .trivyignore.yaml with a reason. The pinned
+      # third-party graph database image is reported but does not gate: it is
+      # only updated by bumping NEO4J_IMAGE.
       - name: Add Cloudsneeker accepted findings
         run: |
           set -euo pipefail
@@ -164,7 +115,7 @@ jobs:
       - name: Generate SBOM for ${{ matrix.image }}
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.uri }}
+          image-ref: ${{ steps.image.outputs.scan_name }}:${{ steps.image.outputs.tag }}
           format: cyclonedx
           output: sbom-${{ matrix.image }}.cdx.json
           scan-type: image
@@ -177,96 +128,54 @@ jobs:
           path: sbom-${{ matrix.image }}.cdx.json
           retention-days: 7
 
-      - name: Push ${{ matrix.image }}
-        env:
-          IMAGE_URI: ${{ steps.image.outputs.uri }}
-        run: docker push "$IMAGE_URI"
-
-      - name: Deploy ${{ matrix.image }}
-        env:
-          IMAGE_NAME: ${{ matrix.image }}
-          IMAGE_URI: ${{ steps.image.outputs.uri }}
-        run: |
-          set -euo pipefail
-          case "$IMAGE_NAME" in
-            api) services="api worker beat" ;;
-            ui) services="ui" ;;
-            mcp) services="mcp" ;;
-            neo4j) services="neo4j" ;;
-          esac
-          for service in $services; do
-            if ! active="$(aws ecs describe-services --cluster cloudsneeker --services "$service" --query "length(services[?status=='ACTIVE'])" --output text 2>/tmp/ecs-error)"; then
-              echo "Compute is parked. Published ${IMAGE_URI}."
-              exit 0
-            fi
-            if [ "$active" != "1" ]; then
-              echo "Service ${service} is not running. Published ${IMAGE_URI}."
-              continue
-            fi
-            aws ecs describe-task-definition \
-              --task-definition "$(aws ecs describe-services --cluster cloudsneeker --services "$service" --query "services[0].taskDefinition" --output text)" \
-              --query taskDefinition > task.json
-            IMAGE_URI="$IMAGE_URI" python3 -c "import json,os; task=json.load(open('task.json')); image=os.environ['IMAGE_URI'];
-          [task.pop(key, None) for key in ('taskDefinitionArn','revision','status','requiresAttributes','compatibilities','registeredAt','registeredBy','deregisteredAt')];
-          [container.update(image=image) for container in task['containerDefinitions'] if '/cloudsneeker/' in container.get('image','')];
-          json.dump(task, open('task-next.json','w'))"
-            arn="$(aws ecs register-task-definition --cli-input-json file://task-next.json --query taskDefinition.taskDefinitionArn --output text)"
-            aws ecs update-service --cluster cloudsneeker --service "$service" --task-definition "$arn" >/dev/null
-            echo "Updated ${service} to ${IMAGE_URI}"
-          done
-
-  record:
-    name: Record the image tag
-    needs: [select, build]
-    if: needs.select.outputs.roll_stack == 'true' && needs.build.result == 'success'
+  deploy:
+    name: Deploy backend
+    needs: scan
+    if: vars.AZURE_CLIENT_ID != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     permissions:
-      contents: read
       id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_VM: ${{ vars.AZURE_VM }}
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN || 'arn:aws:iam::352285844868:role/cloudsneeker-github-actions' }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Keep the published tag on the current platform
+      - name: Build and restart on the VM
         run: |
           set -euo pipefail
-          tag="$(printf '%s' "$GITHUB_SHA" | cut -c1-12)"
-          if ! aws cloudformation describe-stacks --stack-name cloudsneeker --query "Stacks[0].StackStatus" --output text > /tmp/stack-status 2>/tmp/stack-error; then
-            echo "Platform stack is not deployed. Images are in the registry as ${tag}."
-            exit 0
-          fi
-          echo "Stack status: $(cat /tmp/stack-status)"
-          aws cloudformation describe-stacks --stack-name cloudsneeker --query "Stacks[0].Parameters" --output json > parameters.json
-          IMAGE_TAG="$tag" python3 -c "import json,os; tag=os.environ['IMAGE_TAG']; current=json.load(open('parameters.json')); updated=[{'ParameterKey': item['ParameterKey'], **({'ParameterValue': tag} if item['ParameterKey']=='ImageTag' else {'UsePreviousValue': True})} for item in current]; json.dump(updated, open('parameters-next.json','w'))"
-          # Retry briefly when deploy.ps1 (or another updater) holds the stack.
-          attempt=1
-          max_attempts=6
-          while true; do
-            set +e
-            update_output="$(aws cloudformation update-stack --stack-name cloudsneeker --use-previous-template --capabilities CAPABILITY_NAMED_IAM --parameters file://parameters-next.json 2>&1)"
-            update_status=$?
-            set -e
-            if [ "$update_status" -eq 0 ]; then
-              break
-            fi
-            if printf '%s' "$update_output" | grep -q "No updates are to be performed"; then
-              echo "Services already use ${tag}."
-              exit 0
-            fi
-            if printf '%s' "$update_output" | grep -Eqi "UPDATE_IN_PROGRESS|Another update|ResourceConflict|Concurrent"; then
-              if [ "$attempt" -ge "$max_attempts" ]; then
-                printf '%s\n' "$update_output"
-                exit "$update_status"
-              fi
-              echo "Stack busy (attempt ${attempt}/${max_attempts}); waiting before retry…"
-              sleep 30
-              attempt=$((attempt + 1))
-              continue
-            fi
-            printf '%s\n' "$update_output"
-            exit "$update_status"
+          # The federated sign-in cannot refresh itself, so each command signs
+          # in again with a fresh GitHub token.
+          vm() {
+            token="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)"
+            az login --service-principal -u "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
+              --federated-token "$token" --allow-no-subscriptions -o none
+            az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+            az vm run-command invoke -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" \
+              --command-id RunShellScript --scripts "$1" --query "value[0].message" -o tsv
+          }
+          unit=cloudsneeker-deploy.service
+          show="echo STATE=\$(systemctl show -p ActiveState --value $unit) RESULT=\$(systemctl show -p Result --value $unit) RUN=\$(systemctl show -p InvocationID --value $unit)"
+
+          before="$(vm "$show" | grep -o 'RUN=[0-9a-f]*' || true)"
+          vm "systemctl start --no-block $unit" >/dev/null
+          echo "Deploy started on $AZURE_VM"
+          for _ in $(seq 1 100); do
+            sleep 60
+            status="$(vm "$show" | grep -o 'STATE=.*' || true)"
+            echo "$status"
+            case "$status" in
+              *STATE=activating*|*STATE=reloading*) continue ;;
+            esac
+            # Still the previous run: the new one has not started yet.
+            [[ "$status" == *"$before"* && "$before" != "RUN=" ]] && continue
+            vm "journalctl -u $unit --no-pager -o cat -n 40"
+            [[ "$status" == *RESULT=success* ]] && exit 0
+            echo "::error::The deploy on $AZURE_VM failed. Full log: journalctl -u $unit"
+            exit 1
           done
-          aws cloudformation wait stack-update-complete --stack-name cloudsneeker
+          echo "::error::The deploy on $AZURE_VM did not finish in time"
+          exit 1

@@ -14,6 +14,8 @@
 #   - Backup storage account: TLS 1.2, no public or shared-key access, reachable
 #     from the VM subnet and ADMIN_IP only, 30-day lifecycle deletion; the VM
 #     identity can write blobs
+#   - Managed identity that GitHub Actions on GITHUB_REPO main uses (OIDC) to
+#     run the deploy on this VM; it has Virtual Machine Contributor on the VM only
 #   - Monthly budget with email alerts, VM-availability alert, CanNotDelete lock
 #
 # Safe to re-run: existing resources are left as they are.
@@ -30,6 +32,7 @@ SIZE="${SIZE:-Standard_B4ms}"
 DNS_LABEL="${DNS_LABEL:-cloudsneeker-api}"
 BUDGET="${BUDGET:-150}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/cloudsneeker_azure}"
+GITHUB_REPO="${GITHUB_REPO:-kscnexus/cloudsneeker}"
 ADMIN_IP="${ADMIN_IP:-$(curl -fsS https://api.ipify.org)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TAGS=(app=cloudsneeker env=prod managed-by=provision.sh)
@@ -118,6 +121,21 @@ az rest --method put \
       \"forecast100\":{\"enabled\":true,\"operator\":\"GreaterThan\",\"threshold\":100,\"thresholdType\":\"Forecasted\",\"contactEmails\":[\"$ALERT_EMAIL\"]}}}}" \
   -o none || echo "Budget not created (some offers don't support budgets); add one in Cost Management" >&2
 
+log "GitHub deploy identity"
+# GitHub Actions on $GITHUB_REPO main signs in with OIDC (no stored secret)
+# and may only run commands on this VM.
+exists az identity show -g "$RG" -n cloudsneeker-github-deploy || az identity create \
+  -g "$RG" -n cloudsneeker-github-deploy -l "$LOCATION" --tags "${TAGS[@]}" -o none
+exists az identity federated-credential show -g "$RG" --identity-name cloudsneeker-github-deploy \
+  -n github-main || az identity federated-credential create -g "$RG" \
+  --identity-name cloudsneeker-github-deploy -n github-main \
+  --issuer https://token.actions.githubusercontent.com \
+  --subject "repo:$GITHUB_REPO:ref:refs/heads/main" --audiences api://AzureADTokenExchange -o none
+DEPLOY_PRINCIPAL="$(az identity show -g "$RG" -n cloudsneeker-github-deploy --query principalId -o tsv)"
+DEPLOY_CLIENT="$(az identity show -g "$RG" -n cloudsneeker-github-deploy --query clientId -o tsv)"
+az role assignment create --assignee-object-id "$DEPLOY_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+  --role "Virtual Machine Contributor" --scope "$VM_ID" -o none 2>/dev/null || true
+
 log "Delete lock"
 az lock create -g "$RG" -n cloudsneeker-no-delete --lock-type CanNotDelete \
   --notes "Remove before deleting the deployment" -o none
@@ -128,3 +146,10 @@ log "Done"
 echo "host:    $FQDN ($IP)"
 echo "ssh:     ssh -i $SSH_KEY azureuser@$FQDN"
 echo "storage: $STORAGE"
+echo
+echo "GitHub repository variables for the deploy workflow:"
+echo "  AZURE_CLIENT_ID=$DEPLOY_CLIENT"
+echo "  AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)"
+echo "  AZURE_SUBSCRIPTION_ID=$SUB_ID"
+echo "  AZURE_RESOURCE_GROUP=$RG"
+echo "  AZURE_VM=$VM"

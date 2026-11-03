@@ -75,10 +75,11 @@ in `values.yaml`. Passing secrets through `--set` is for development only.
 `ecs/` is the hosted stack. `deploy.ps1` creates the image registry and a
 Fargate platform in a dedicated VPC: private tasks, a public load balancer,
 encrypted PostgreSQL and Valkey, Neo4j on encrypted shared storage, and
-Secrets Manager for credentials. GitHub Actions builds the API, UI, MCP, and Neo4j images as separate jobs
-and deploys each image to the services that use it. A push to `main` builds
-every image. Run the "Cloudsneeker: Publish images" workflow by hand to
-build one image. The workflow leaves `PlatformMode` as it is.
+Secrets Manager for credentials. The hosted stack was retired when the AWS
+account closed on 2026-11-03; the hosted backend now runs on one Azure VM
+(`vm/README.md`), which **Cloudsneeker: Deploy to Azure** updates after the
+tests pass on `main`. To use this stack again, add back a workflow that
+pushes to its registry and rolls the services.
 
 ```powershell
 pwsh cloudsneeker/deploy/ecs/deploy.ps1 -GitHubRepository owner/cloudsneeker

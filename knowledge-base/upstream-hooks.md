@@ -216,7 +216,7 @@ CI: `.github/workflows/cloudsneeker-release.yml` and `.github/workflows/cloudsne
 * `docs-gate`: `gen_check_docs.py` then `brand_audit.py --tree cloudsneeker/docs`.
 * `build-gate`: export the transformed tree, `brand_audit.py --tree build/tree`, generate samples with `cloudsneeker/tools/sample_outputs.py`, `brand_audit.py --artifacts build/artifacts`.
 * `images`: build the component images from the transformed tree and audit a real CLI run's output directory.
-* Image vulnerability gate (EB-017): `cloudsneeker-images.yml` scans each image with `.github/actions/trivy-scan` before the push and fails on fixable critical CVEs. Accepted findings live in `cloudsneeker/deploy/trivy/accepted-vulnerabilities.yaml` and are appended to `.trivyignore.yaml` on the runner only.
+* Image vulnerability gate (EB-017): `cloudsneeker-images.yml` scans each image with `.github/actions/trivy-scan` before the Azure VM deploy and fails on fixable critical CVEs. Accepted findings live in `cloudsneeker/deploy/trivy/accepted-vulnerabilities.yaml` and are appended to `.trivyignore.yaml` on the runner only.
 
 ### Security version bumps
 

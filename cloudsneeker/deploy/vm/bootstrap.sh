@@ -13,6 +13,8 @@
 # never printed), starts the stack, and installs a nightly PostgreSQL dump
 # that is uploaded to Blob Storage with the VM's managed identity.
 # Re-running rebuilds and restarts with the current commit and keeps .env.
+# It also installs cloudsneeker-deploy.service, which the deploy workflow
+# starts to do the same after tests pass on main.
 set -euo pipefail
 
 : "${API_HOST:?set API_HOST to the public API hostname}"
@@ -185,5 +187,47 @@ UNIT
   sudo systemctl daemon-reload
   sudo systemctl enable --now cloudsneeker-backup.timer
 fi
+
+log "Installing the deploy service"
+# GitHub Actions starts cloudsneeker-deploy.service through Azure Run Command
+# after the tests pass on main. It re-runs this script with the settings
+# saved here, from a copy, because the script resets its own checkout.
+sudo install -d -m 755 /etc/cloudsneeker
+sudo tee /etc/cloudsneeker/deploy.env >/dev/null <<ENV
+API_HOST=$API_HOST
+UI_URL=$UI_URL
+REPO_URL=$REPO_URL
+BRANCH=$BRANCH
+BACKUP_ACCOUNT=${BACKUP_ACCOUNT:-}
+OPERATOR_EMAILS=${OPERATOR_EMAILS:-}
+ENV
+sudo tee /usr/local/bin/cloudsneeker-deploy >/dev/null <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+checkout="$HOME/cloudsneeker"
+git -C "$checkout" fetch --quiet origin "$BRANCH"
+git -C "$checkout" reset --quiet --hard "origin/$BRANCH"
+script="$(mktemp)"
+trap 'rm -f "$script"' EXIT
+cp "$checkout/cloudsneeker/deploy/vm/bootstrap.sh" "$script"
+bash "$script"
+SH
+sudo chmod 755 /usr/local/bin/cloudsneeker-deploy
+sudo tee /etc/systemd/system/cloudsneeker-deploy.service >/dev/null <<UNIT
+[Unit]
+Description=Cloudsneeker build and deploy of the current $BRANCH
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$USER
+SupplementaryGroups=docker
+Environment=HOME=$HOME
+EnvironmentFile=/etc/cloudsneeker/deploy.env
+ExecStart=/usr/local/bin/cloudsneeker-deploy
+TimeoutStartSec=2h
+UNIT
+sudo systemctl daemon-reload
 
 log "Done: https://$API_HOST/health/live"

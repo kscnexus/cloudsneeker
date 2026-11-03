@@ -217,14 +217,27 @@ behind a Vercel login.
 
 ## Updating
 
-```bash
-git pull
-SKIP_CLI=1 cloudsneeker/deploy/scripts/build.sh "$(git rev-parse --short=12 HEAD)"
-# set the new tag in .env, then
-docker compose -f docker-compose.yml -f vm/compose.yml up -d
-```
+Every push to `main` deploys itself once **Cloudsneeker: Tests** passes:
 
-Vercel redeploys the web app on every push to `main`.
+- Vercel rebuilds the web app.
+- **Cloudsneeker: Deploy to Azure** (`.github/workflows/cloudsneeker-images.yml`)
+  signs in to Azure with OIDC and starts `cloudsneeker-deploy.service` on the
+  VM. That service pulls `main` and re-runs `bootstrap.sh` with the settings
+  it saved in `/etc/cloudsneeker/deploy.env`.
+
+GitHub stores no Azure secret. The managed identity `cloudsneeker-github-deploy`
+trusts only `main` of this repository and can only manage this VM. The workflow
+reads these repository variables, which `provision.sh` prints:
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`,
+`AZURE_RESOURCE_GROUP`, `AZURE_VM`. Until `AZURE_CLIENT_ID` is set the workflow
+does nothing.
+
+To deploy by hand on the VM:
+
+```bash
+sudo systemctl start cloudsneeker-deploy
+journalctl -u cloudsneeker-deploy -f
+```
 
 ## Backups
 
