@@ -1,0 +1,11 @@
+# Public entry point on the Oracle host. Caddy gets the certificates from
+# Let's Encrypt. CLOUDSNEEKER_API_HOST and CLOUDSNEEKER_MCP_HOST come from .env.
+
+{$CLOUDSNEEKER_API_HOST} {
+	encode zstd gzip
+	reverse_proxy cloudsneeker-api:8080
+}
+
+{$CLOUDSNEEKER_MCP_HOST} {
+	reverse_proxy cloudsneeker-mcp:8000
+}

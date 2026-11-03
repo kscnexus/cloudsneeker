@@ -1,0 +1,51 @@
+# Oracle Cloud overlay for ../docker-compose.yml.
+#
+# The web app runs on Vercel, so this host runs the API, workers, beat, MCP,
+# PostgreSQL, Valkey, and Neo4j. Only Caddy listens publicly; every other port
+# is bound to loopback.
+#
+#   cd cloudsneeker/deploy
+#   docker compose -f docker-compose.yml -f oracle/compose.yml up -d
+#
+# Needs Docker Compose 2.24+ for !override.
+
+services:
+  # Never started here: no command activates the profile.
+  cloudsneeker-ui:
+    profiles: ["vercel"]
+
+  cloudsneeker-api:
+    ports: !override
+      - "127.0.0.1:${DJANGO_PORT:-8080}:${DJANGO_PORT:-8080}"
+
+  cloudsneeker-mcp:
+    ports: !override
+      - "127.0.0.1:8000:8000"
+
+  postgres:
+    ports: !override
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"
+
+  valkey:
+    ports: !override
+      - "127.0.0.1:${VALKEY_PORT:-6379}:6379"
+
+  neo4j:
+    ports: !override
+      - "127.0.0.1:${NEO4J_PORT:-7687}:7687"
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./oracle/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./_data/caddy:/data
+    depends_on:
+      cloudsneeker-api:
+        condition: service_healthy
