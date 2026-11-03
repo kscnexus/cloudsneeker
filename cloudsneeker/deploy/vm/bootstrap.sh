@@ -45,7 +45,7 @@ fi
 TAG="$(git -C "$CHECKOUT" rev-parse --short=12 HEAD)"
 
 log "Building images $TAG"
-SKIP_CLI=1 SKIP_UI=1 "$CHECKOUT/cloudsneeker/deploy/scripts/build.sh" "$TAG"
+SKIP_CLI=1 SKIP_UI=1 bash "$CHECKOUT/cloudsneeker/deploy/scripts/build.sh" "$TAG"
 
 if [[ ! -f "$DEPLOY/.env" ]]; then
   log "Writing .env with new secrets"
