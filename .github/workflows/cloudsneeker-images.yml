@@ -148,16 +148,30 @@ jobs:
           set -euo pipefail
           # The federated sign-in cannot refresh itself, so each command signs
           # in again with a fresh GitHub token.
-          vm() {
+          login() {
             token="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)"
             az login --service-principal -u "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
               --federated-token "$token" --allow-no-subscriptions -o none
             az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+          }
+          vm() {
+            login
             az vm run-command invoke -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" \
               --command-id RunShellScript --scripts "$1" --query "value[0].message" -o tsv
           }
           unit=cloudsneeker-deploy.service
+
+          # A push during the nightly pause (cloudsneeker-vm-schedule.yml)
+          # starts the VM for the deploy and pauses it again afterwards.
+          login
+          power="$(az vm get-instance-view -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" \
+            --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code" -o tsv)"
+          if [ "$power" != "PowerState/running" ]; then
+            echo "VM is ${power#PowerState/}; starting it for the deploy"
+            az vm start -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none
+            trap 'login && az vm deallocate -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none && echo "VM paused again"' EXIT
+          fi
           show="echo STATE=\$(systemctl show -p ActiveState --value $unit) RESULT=\$(systemctl show -p Result --value $unit) RUN=\$(systemctl show -p InvocationID --value $unit)"
 
           before="$(vm "$show" | grep -o 'RUN=[0-9a-f]*' || true)"

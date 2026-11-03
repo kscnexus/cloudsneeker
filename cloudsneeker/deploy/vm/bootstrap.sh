@@ -178,7 +178,7 @@ UNIT
 Description=Nightly Cloudsneeker PostgreSQL backup
 
 [Timer]
-OnCalendar=*-*-* 03:15:00 UTC
+OnCalendar=*-*-* 20:00:00 UTC
 Persistent=true
 
 [Install]

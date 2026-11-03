@@ -239,10 +239,23 @@ sudo systemctl start cloudsneeker-deploy
 journalctl -u cloudsneeker-deploy -f
 ```
 
+## Nightly pause
+
+**Cloudsneeker: VM schedule** (`.github/workflows/cloudsneeker-vm-schedule.yml`)
+deallocates the VM at 02:00 and starts it at 12:00 India Standard Time. While
+it is off, Azure bills only the disk and the static IP, and the web app shows
+the API as unreachable. The containers restart on boot. Scheduled scans and
+reports set for that window do not run. A push to `main` during the pause
+starts the VM for the deploy and pauses it again. Run the workflow by hand
+with `start` or `stop` to change the state outside the schedule. The workflow
+reads the repository variable `CLOUDSNEEKER_API_HOST` to wait for the API
+after a start.
+
 ## Backups
 
-PostgreSQL is the only data that cannot be rebuilt. A nightly dump to the
-boot volume:
+PostgreSQL is the only data that cannot be rebuilt. `bootstrap.sh` installs
+`cloudsneeker-backup.timer`, which dumps it at 20:00 UTC (01:30 IST, before
+the nightly pause) and uploads the dump to Blob Storage. By hand:
 
 ```bash
 docker compose -f docker-compose.yml -f vm/compose.yml exec -T postgres \

@@ -1,0 +1,79 @@
+name: 'Cloudsneeker: VM schedule'
+# Pauses the Azure backend VM overnight to save cost: deallocates it at
+# 02:00 and starts it at 12:00 India Standard Time (20:30 and 06:30 UTC).
+# A deallocated VM bills only its disk and static IP. The web app on Vercel
+# stays up and shows the API as unreachable while the VM is off. Scheduled
+# scans and reports that fall in that window do not run. GitHub may start
+# a scheduled run some minutes late. Signs in like the deploy workflow.
+
+on:
+  schedule:
+    - cron: '30 20 * * *'
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Start or stop the VM
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+
+# Shares the deploy group so a stop never cuts a deploy short.
+concurrency:
+  group: cloudsneeker-deploy
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  power:
+    name: ${{ inputs.action || (github.event.schedule == '30 6 * * *' && 'start' || 'stop') }} VM
+    if: vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+    env:
+      ACTION: ${{ inputs.action || (github.event.schedule == '30 6 * * *' && 'start' || 'stop') }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_VM: ${{ vars.AZURE_VM }}
+      API_HOST: ${{ vars.CLOUDSNEEKER_API_HOST }}
+    steps:
+      - name: Sign in to Azure
+        run: |
+          set -euo pipefail
+          token="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)"
+          az login --service-principal -u "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
+            --federated-token "$token" --allow-no-subscriptions -o none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+
+      - name: Start or stop the VM
+        run: |
+          set -euo pipefail
+          if [ "$ACTION" = start ]; then
+            az vm start -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none
+          else
+            az vm deallocate -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none
+          fi
+          az vm get-instance-view -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" \
+            --query "instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus" -o tsv
+
+      - name: Wait for the API
+        if: env.ACTION == 'start' && env.API_HOST != ''
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null "https://$API_HOST/health/live"; then
+              echo "API is up at https://$API_HOST"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::The VM started but https://$API_HOST/health/live did not answer in 10 minutes"
+          exit 1
