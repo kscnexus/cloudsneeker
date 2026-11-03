@@ -17,12 +17,13 @@ x86-64 and arm64 both work: the API Dockerfile picks the matching Trivy,
 PowerShell, and zizmor downloads, and the pinned DozerDB, PostgreSQL, Valkey,
 and Caddy images are multi-arch.
 
-The current host is Google Compute Engine on free-trial credit ($300 for 90
-days). An `e2-standard-4` costs about $100/mo, so the credit lasts about the
-whole trial. Take a database backup (see Backups) before the credit or the
-trial ends, because the project is suspended then. A Hetzner VPS (about
-€10–17/mo) is the cheapest paid follow-on; the steps after section 1 are the
-same on any host.
+The current host is an Azure VM on free-account credit ($200, valid for 30
+days). A `Standard_B4ms` (4 vCPU, 16 GB) costs about $120/mo, so the credit
+covers the 30 days. The free account allows 4 vCPUs per region, which this
+size uses. Take a database backup (see Backups) before day 30: after that the
+VM is stopped unless the subscription is upgraded to pay-as-you-go. A Hetzner
+VPS (about €10–17/mo) is the cheapest paid follow-on; the steps after
+section 1 are the same on any host.
 
 ## Hostnames
 
@@ -39,24 +40,28 @@ hostnames in `.env` and the Vercel variables.
 
 ## 1. VM
 
-The account owner does these in the Google Cloud console
-(console.cloud.google.com, "Start free"):
+The account owner does these in the Azure portal (azure.microsoft.com/free,
+then portal.azure.com):
 
-1. Compute Engine, VM instances, Create instance (enable the Compute Engine
-   API when asked):
-   - Name `cloudsneeker`, region `us-central1`, any zone.
-   - Machine type `e2-standard-4` (4 vCPU, 16 GB).
-   - Boot disk: Ubuntu 24.04 LTS (x86/64), Balanced persistent disk, 100 GB.
-   - Firewall: tick "Allow HTTP traffic" and "Allow HTTPS traffic". That
-     opens only 80 and 443; leave 5432, 6379, 7687, 8000, and 8080 closed.
-   - Networking, the network interface, External IPv4 address: Reserve a
-     static address, so the sslip.io hostnames survive a VM restart.
-2. Create, wait for the green tick, and note the External IP.
-3. Connect with the SSH button in the console (no key needed).
+1. Virtual machines, Create, Azure virtual machine:
+   - Resource group: new, `cloudsneeker`. Name `cloudsneeker`. Region
+     `East US` (or the closest one that offers the size).
+   - Image: Ubuntu Server 24.04 LTS, x64. Size: `Standard_B4ms`.
+   - Authentication: SSH public key, user `azureuser`, generate a new key
+     pair (download the `.pem` when asked).
+   - Inbound ports: allow HTTP (80), HTTPS (443), and SSH (22).
+   - Disks: OS disk 128 GiB, Standard SSD.
+   - Networking: keep the new public IP (Standard SKU, which is static).
+2. Review + create, Create, download the private key, and note the public IP
+   address on the VM's Overview page.
+3. Networking, Network settings: change the SSH (22) rule's source from Any
+   to "My IP address". Leave 5432, 6379, 7687, 8000, and 8080 closed.
+4. Connect from the PC: `ssh -i <downloaded>.pem azureuser@<public ip>`.
 
-Elsewhere: Hetzner and most VPS hosts need only the firewall rule for 80
-and 443. Oracle Cloud images also block those ports in iptables, so run
-`sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT`
+Elsewhere: Google Compute Engine needs "Allow HTTP/HTTPS traffic" ticked and
+a reserved static IP; Hetzner and most VPS hosts need only the firewall rule
+for 80 and 443. Oracle Cloud images also block those ports in iptables, so
+run `sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT`
 and `sudo netfilter-persistent save` there.
 
 On the VM:
