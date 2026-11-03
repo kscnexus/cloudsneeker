@@ -1,11 +1,11 @@
-# Oracle Cloud overlay for ../docker-compose.yml.
+# Single-VM overlay for ../docker-compose.yml.
 #
 # The web app runs on Vercel, so this host runs the API, workers, beat, MCP,
 # PostgreSQL, Valkey, and Neo4j. Only Caddy listens publicly; every other port
 # is bound to loopback.
 #
 #   cd cloudsneeker/deploy
-#   docker compose -f docker-compose.yml -f oracle/compose.yml up -d
+#   docker compose -f docker-compose.yml -f vm/compose.yml up -d
 #
 # Needs Docker Compose 2.24+ for !override.
 
@@ -44,7 +44,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./oracle/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./vm/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./_data/caddy:/data
     depends_on:
       cloudsneeker-api:

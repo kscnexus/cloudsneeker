@@ -1,20 +1,28 @@
-# Vercel + Oracle Cloud deployment
+# Vercel + single VM deployment
 
 Low-cost layout used after the AWS stack in `../ecs/` was retired:
 
 | Piece | Where | Cost |
 |-------|-------|------|
 | Web app (`ui/`) | Vercel, Root Directory `ui` | Hobby $0 (non-commercial; Pro $20/mo before selling) |
-| API, worker, beat, MCP | Oracle Cloud Always Free Ampere A1 VM, `../docker-compose.yml` + `compose.yml` here | $0 |
-| PostgreSQL 16, Valkey 8, Neo4j (DozerDB) | Same VM, same compose project | $0 |
+| API, worker, beat, MCP | One Linux VM, `../docker-compose.yml` + `compose.yml` here | see below |
+| PostgreSQL 16, Valkey 8, Neo4j (DozerDB) | Same VM, same compose project | included |
 | HTTPS for the API | Caddy on the VM, Let's Encrypt | $0 |
 
 Neo4j stays self-hosted because attack paths create one database per scan
 (`NEO4J_DBMS_MAX__DATABASES=1000`), which managed free tiers do not allow.
 
-The VM is arm64. Every image builds natively there: the API Dockerfile picks
-the arm64 Trivy, PowerShell, and zizmor downloads, and the pinned DozerDB,
-PostgreSQL, Valkey, and Caddy images are multi-arch.
+The VM needs 4 vCPU and 16 GB or more, Ubuntu 24.04, and 100 GB of disk.
+x86-64 and arm64 both work: the API Dockerfile picks the matching Trivy,
+PowerShell, and zizmor downloads, and the pinned DozerDB, PostgreSQL, Valkey,
+and Caddy images are multi-arch.
+
+The current host is Google Compute Engine on free-trial credit ($300 for 90
+days). An `e2-standard-4` costs about $100/mo, so the credit lasts about the
+whole trial. Take a database backup (see Backups) before the credit or the
+trial ends, because the project is suspended then. A Hetzner VPS (about
+€10–17/mo) is the cheapest paid follow-on; the steps after section 1 are the
+same on any host.
 
 ## Hostnames
 
@@ -29,25 +37,31 @@ When the domain has a DNS host again, add `cloudsneeker.<domain>` to the
 Vercel project, point `api.` and `mcp.` A records at the VM, then update the
 hostnames in `.env` and the Vercel variables.
 
-## 1. Oracle VM
+## 1. VM
 
-The account owner does these in the Oracle Cloud console:
+The account owner does these in the Google Cloud console
+(console.cloud.google.com, "Start free"):
 
-1. Create the account in a home region with A1 capacity. The home region
-   cannot be changed later.
-2. Compute, Instances, Create: image Ubuntu 24.04, shape `VM.Standard.A1.Flex`
-   with 4 OCPU and 24 GB, boot volume 100 GB or more (200 GB is free). Add
-   an SSH public key.
-3. Networking, the instance's subnet, Security List: add ingress TCP 80 and
-   443 from `0.0.0.0/0`. Do not open 5432, 6379, 7687, 8000, or 8080.
-4. Upgrade the account to Pay As You Go, which keeps Always Free resources
-   free but stops idle A1 instances from being reclaimed. Optional.
+1. Compute Engine, VM instances, Create instance (enable the Compute Engine
+   API when asked):
+   - Name `cloudsneeker`, region `us-central1`, any zone.
+   - Machine type `e2-standard-4` (4 vCPU, 16 GB).
+   - Boot disk: Ubuntu 24.04 LTS (x86/64), Balanced persistent disk, 100 GB.
+   - Firewall: tick "Allow HTTP traffic" and "Allow HTTPS traffic". That
+     opens only 80 and 443; leave 5432, 6379, 7687, 8000, and 8080 closed.
+   - Networking, the network interface, External IPv4 address: Reserve a
+     static address, so the sslip.io hostnames survive a VM restart.
+2. Create, wait for the green tick, and note the External IP.
+3. Connect with the SSH button in the console (no key needed).
+
+Elsewhere: Hetzner and most VPS hosts need only the firewall rule for 80
+and 443. Oracle Cloud images also block those ports in iptables, so run
+`sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT`
+and `sudo netfilter-persistent save` there.
 
 On the VM:
 
 ```bash
-sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT
-sudo netfilter-persistent save
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker "$USER"   # log out and back in
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -99,8 +113,8 @@ rm /tmp/jwt.pem /tmp/jwt.pub
 ## 4. Start
 
 ```bash
-docker compose -f docker-compose.yml -f oracle/compose.yml up -d
-docker compose -f docker-compose.yml -f oracle/compose.yml ps
+docker compose -f docker-compose.yml -f vm/compose.yml up -d
+docker compose -f docker-compose.yml -f vm/compose.yml ps
 curl -fsS https://<api host>/health/live
 ```
 
@@ -151,7 +165,7 @@ behind a Vercel login.
 2. Grant the operator role:
 
    ```bash
-   docker compose -f docker-compose.yml -f oracle/compose.yml exec cloudsneeker-api \
+   docker compose -f docker-compose.yml -f vm/compose.yml exec cloudsneeker-api \
      uv run python manage.py cloudsneeker_operator grant you@company.com --role owner
    ```
 
@@ -165,7 +179,7 @@ behind a Vercel login.
 git pull
 SKIP_CLI=1 cloudsneeker/deploy/scripts/build.sh "$(git rev-parse --short=12 HEAD)"
 # set the new tag in .env, then
-docker compose -f docker-compose.yml -f oracle/compose.yml up -d
+docker compose -f docker-compose.yml -f vm/compose.yml up -d
 ```
 
 Vercel redeploys the web app on every push to `main`.
@@ -176,8 +190,8 @@ PostgreSQL is the only data that cannot be rebuilt. A nightly dump to the
 boot volume:
 
 ```bash
-docker compose -f docker-compose.yml -f oracle/compose.yml exec -T postgres \
+docker compose -f docker-compose.yml -f vm/compose.yml exec -T postgres \
   pg_dump -U "$POSTGRES_ADMIN_USER" -Fc "$POSTGRES_DB" > ~/backups/cloudsneeker-$(date +%F).dump
 ```
 
-Copy the dumps off the VM too (Oracle Object Storage has 20 GB free).
+Copy the dumps off the VM too, for example to a Cloud Storage bucket or your PC with `scp`.
