@@ -30,8 +30,10 @@ section 1 are the same on any host.
 Without a working DNS zone, use the free names both services hand out:
 
 - Web app: `https://<project>.vercel.app`, the `AUTH_URL` below.
-- API: `api.<ip-with-dashes>.sslip.io`, for example `api.140-238-1-2.sslip.io`.
-  sslip.io resolves it to the VM's IP, so Caddy can get a certificate for it.
+- API: the VM's own DNS name. On Azure that is the public IP's DNS label,
+  for example `cloudsneeker-api.southindia.cloudapp.azure.com`. Without one,
+  `api.<ip-with-dashes>.sslip.io` resolves to the VM's IP. Either way Caddy
+  can get a certificate for it.
 - MCP: the same host under `/mcp` (Caddy routes it to the MCP server).
 
 When the domain has a DNS host again, add `cloudsneeker.<domain>` to the
@@ -132,7 +134,7 @@ never commit it.
 | Variable | Value |
 |----------|-------|
 | `CLOUDSNEEKER_API_VERSION`, `CLOUDSNEEKER_MCP_VERSION` | the build tag |
-| `CLOUDSNEEKER_API_HOST` | `api.<ip-with-dashes>.sslip.io` |
+| `CLOUDSNEEKER_API_HOST` | the API hostname above |
 | `AUTH_URL` | `https://<project>.vercel.app` |
 | `DJANGO_ALLOWED_HOSTS` | `<api host>,localhost,127.0.0.1,cloudsneeker-api` |
 | `DJANGO_CORS_ALLOWED_ORIGINS` | `https://<project>.vercel.app` |
