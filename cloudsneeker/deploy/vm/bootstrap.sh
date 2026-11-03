@@ -45,7 +45,16 @@ fi
 TAG="$(git -C "$CHECKOUT" rev-parse --short=12 HEAD)"
 
 log "Building images $TAG"
-SKIP_CLI=1 SKIP_UI=1 bash "$CHECKOUT/cloudsneeker/deploy/scripts/build.sh" "$TAG"
+# Package downloads inside docker build sometimes time out; finished layers are
+# cached, so a retry resumes where the last attempt stopped.
+for attempt in 1 2 3; do
+  if SKIP_CLI=1 SKIP_UI=1 bash "$CHECKOUT/cloudsneeker/deploy/scripts/build.sh" "$TAG"; then
+    break
+  fi
+  [[ $attempt -eq 3 ]] && exit 1
+  log "Build attempt $attempt failed; retrying"
+  sleep 30
+done
 
 if [[ ! -f "$DEPLOY/.env" ]]; then
   log "Writing .env with new secrets"
