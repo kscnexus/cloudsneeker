@@ -329,6 +329,11 @@ describe("withCloudsneekerNavigation", () => {
       expect.objectContaining({ label: "Invitations", href: "/invitations" }),
       expect.objectContaining({ label: "Roles", href: "/roles" }),
       expect.objectContaining({
+        label: "Content versions",
+        href: "/settings/content-versions",
+        active: false,
+      }),
+      expect.objectContaining({
         label: "Audit log",
         href: "/settings/audit-log",
         active: false,

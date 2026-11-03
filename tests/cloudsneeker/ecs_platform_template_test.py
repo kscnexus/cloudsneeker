@@ -114,3 +114,14 @@ def test_worker_mounts_the_shared_vulnerability_database():
     assert "ContainerPath: /var/cache/cloudsneeker/vuln-db" in worker
     assert "Value: /var/cache/cloudsneeker/vuln-db" in worker
     assert "Path: /vuln-db" in TEMPLATE
+
+
+def test_api_reads_the_vulnerability_database_read_only():
+    api = TEMPLATE.split("  ApiTaskDefinition:", 1)[1].split(
+        "  WorkerTaskDefinition:", 1
+    )[0]
+    assert "AccessPointId: !Ref VulnDbAccessPoint" in api
+    mount = api.split("SourceVolume: vuln-db", 1)[1].split("HealthCheck:", 1)[0]
+    assert "ReadOnly: true" in mount
+    assert "Value: /var/cache/cloudsneeker/vuln-db" in api
+    assert "Name: CLOUDSNEEKER_RELEASE_VERSION" in api

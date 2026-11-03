@@ -1193,6 +1193,14 @@ Resources:
             AuthorizationConfig:
               AccessPointId: !Ref OutputAccessPoint
               IAM: ENABLED
+        # EB-048: Settings reads the CVE database age; the worker writes it.
+        - Name: vuln-db
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystem
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref VulnDbAccessPoint
+              IAM: ENABLED
       ContainerDefinitions:
         - Name: api
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cloudsneeker/api:${ImageTag}
@@ -1206,6 +1214,9 @@ Resources:
             - SourceVolume: output
               ContainerPath: /tmp/prowler_api_output
               ReadOnly: false
+            - SourceVolume: vuln-db
+              ContainerPath: /var/cache/cloudsneeker/vuln-db
+              ReadOnly: true
           HealthCheck:
             Command:
               - CMD-SHELL
@@ -1221,6 +1232,10 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: api
           Environment:
+            - Name: CLOUDSNEEKER_VULN_DB_CACHE_DIR
+              Value: /var/cache/cloudsneeker/vuln-db
+            - Name: CLOUDSNEEKER_RELEASE_VERSION
+              Value: !Ref ImageTag
             - Name: DJANGO_SETTINGS_MODULE
               Value: config.django.production
             - Name: DJANGO_BIND_ADDRESS

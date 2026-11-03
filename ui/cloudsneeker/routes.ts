@@ -14,6 +14,8 @@ export const PRODUCT_ROUTE = {
   SECURITY: "/settings/security",
   /** Tenant audit log (Settings, admins only). */
   AUDIT_LOG: "/settings/audit-log",
+  /** Detection content and engine versions (EB-048). */
+  CONTENT_VERSIONS: "/settings/content-versions",
   /** Operator console (platform operators only, own route group). */
   OPERATOR_CONSOLE: "/operator",
 } as const;

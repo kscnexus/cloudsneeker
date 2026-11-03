@@ -140,6 +140,13 @@ const AUDIT_LOG_CHILD: NavigationChildLink = {
   label: "Audit log",
 };
 
+/** Detection content and engine versions; any signed-in user. */
+const CONTENT_VERSIONS_CHILD: NavigationChildLink = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: PRODUCT_ROUTE.CONTENT_VERSIONS,
+  label: "Content versions",
+};
+
 /** Operator console; only shown to platform operators (`/operator/me`). */
 const OPERATOR_CONSOLE_CHILD: NavigationChildLink = {
   kind: NAVIGATION_ITEM_KIND.LINK,
@@ -479,12 +486,16 @@ const regroupNavigation = (
         children: withProductChild(
           withProductChild(
             withProductChild(
-              upstream.organization.children,
-              SECURITY_CHILD,
+              withProductChild(
+                upstream.organization.children,
+                SECURITY_CHILD,
+                "start",
+              ),
+              PROFILE_CHILD,
               "start",
             ),
-            PROFILE_CHILD,
-            "start",
+            CONTENT_VERSIONS_CHILD,
+            "end",
           ),
           AUDIT_LOG_CHILD,
           "end",

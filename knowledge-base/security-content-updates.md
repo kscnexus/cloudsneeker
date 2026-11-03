@@ -19,6 +19,18 @@ updated, and who owns the update.
 | Governance policies (dry-run) | Cloud Custodian (`C7N_*` versions) plus Cloudsneeker starter templates in `api/src/backend/cloudsneeker_api/services/custodian_templates.py` | Build arguments and repository code | Bump versions; add or edit templates in code |
 | Attack Paths graph | Cartography version in `api/pyproject.toml` | Lockfile | Dependency bump |
 
+## Checking what is live
+
+Organization → Content versions (`/settings/content-versions`, API
+`GET /content-versions`) shows, for any signed-in user, the posture content
+release with its check and framework counts, the CVE database refresh and
+publish times, the code analysis rules release and the engine versions. It
+warns when the CVE database is over 24 hours old or was never downloaded.
+Engine versions come from `ENV` lines in `api/Dockerfile` and
+`cloudsneeker/deploy/docker/api.Dockerfile` (`CLOUDSNEEKER_OPENGREP_VERSION`,
+`CLOUDSNEEKER_SAST_RULES_REF`, `CLOUDSNEEKER_C7N_VERSION`), so a version bump
+shows up after the next deploy without other changes.
+
 ## Recommended cadence
 
 | When | Task | Owner |
@@ -63,8 +75,5 @@ managed-service team:
 
 ## Gaps tracked in the backlog
 
-- EB-048: an in-app "Content versions" panel showing the posture content
-  release, CVE DB age, SAST rules version and engine versions, so customers
-  and auditors can see how current detection is.
 - EB-049: release-notes feed in the app that lists new and changed checks per
   release.

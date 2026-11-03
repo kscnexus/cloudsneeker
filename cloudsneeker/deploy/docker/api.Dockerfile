@@ -133,6 +133,10 @@ RUN /opt/opengrep/opengrep --version \
     && chmod -R a+rX,go-w /opt/opengrep
 ENV OPENGREP_BIN=/opt/opengrep/opengrep
 ENV OPENGREP_RULES_DIR=/opt/opengrep/rules
+# Shown in Settings -> Content versions (EB-048).
+ENV CLOUDSNEEKER_OPENGREP_VERSION=${OPENGREP_VERSION} \
+    CLOUDSNEEKER_SAST_RULES_REF=${SAST_RULES_REF} \
+    CLOUDSNEEKER_C7N_VERSION=${C7N_VERSION}
 
 USER prowler
 WORKDIR /home/prowler

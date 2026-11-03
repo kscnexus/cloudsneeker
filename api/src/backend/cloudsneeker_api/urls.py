@@ -13,6 +13,7 @@ from cloudsneeker_api.views import BrandView
 from cloudsneeker_api.views_area_findings import AreaFindingViewSet  # Area findings
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
+from cloudsneeker_api.views_content_versions import ContentVersionsView  # EB-048
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_features import (
     AlertRecipientConfirmView,
@@ -232,6 +233,7 @@ urlpatterns = [
         BitbucketRepositoriesView.as_view(),
         name="bitbucket-repositories",
     ),
+    path("content-versions", ContentVersionsView.as_view(), name="content-versions"),
     path(
         "shared-reports/<str:token>",
         SharedReportView.as_view(),
