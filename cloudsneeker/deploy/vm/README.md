@@ -32,13 +32,41 @@ Without a working DNS zone, use the free names both services hand out:
 - Web app: `https://<project>.vercel.app`, the `AUTH_URL` below.
 - API: `api.<ip-with-dashes>.sslip.io`, for example `api.140-238-1-2.sslip.io`.
   sslip.io resolves it to the VM's IP, so Caddy can get a certificate for it.
-- MCP: `mcp.<ip-with-dashes>.sslip.io`.
+- MCP: the same host under `/mcp` (Caddy routes it to the MCP server).
 
 When the domain has a DNS host again, add `cloudsneeker.<domain>` to the
-Vercel project, point `api.` and `mcp.` A records at the VM, then update the
+Vercel project, point an `api.` record at the VM, then update the
 hostnames in `.env` and the Vercel variables.
 
 ## 1. VM
+
+### Scripted (Azure, preferred)
+
+`azure/provision.sh` builds the whole hardened setup: NSG with SSH limited
+to the admin IP, Trusted Launch VM with key-only SSH and a managed identity,
+an Azure DNS name (`cloudsneeker-api.<region>.cloudapp.azure.com`), a locked
+down backup storage account, a budget, a VM-availability alert, and a delete
+lock. `azure/cloud-init.yaml` hardens the OS on first boot (ufw, fail2ban,
+sshd, unattended upgrades, Docker log rotation, swap). Use a separate CLI
+profile so no other Azure login is touched:
+
+```bash
+export AZURE_CONFIG_DIR="$HOME/.azure-cloudsneeker"
+az login --use-device-code
+SUBSCRIPTION=<id> ALERT_EMAIL=<owner email> cloudsneeker/deploy/vm/azure/provision.sh
+scp -i ~/.ssh/cloudsneeker_azure cloudsneeker/deploy/vm/bootstrap.sh azureuser@<host>:
+ssh -i ~/.ssh/cloudsneeker_azure azureuser@<host> \
+  "API_HOST=<host> UI_URL=https://cloudsneeker.vercel.app BACKUP_ACCOUNT=<storage> bash bootstrap.sh"
+```
+
+`bootstrap.sh` replaces sections 2–4 below: it builds the images, writes
+`.env` with generated secrets, starts the stack, and installs the nightly
+backup timer. Then continue with section 5.
+
+The account owner also turns on MFA for the Azure sign-in (Microsoft
+Authenticator; new tenants have security defaults that require it).
+
+### By hand (Azure portal)
 
 The account owner does these in the Azure portal (azure.microsoft.com/free,
 then portal.azure.com):
@@ -97,7 +125,6 @@ never commit it.
 |----------|-------|
 | `CLOUDSNEEKER_API_VERSION`, `CLOUDSNEEKER_MCP_VERSION` | the build tag |
 | `CLOUDSNEEKER_API_HOST` | `api.<ip-with-dashes>.sslip.io` |
-| `CLOUDSNEEKER_MCP_HOST` | `mcp.<ip-with-dashes>.sslip.io` |
 | `AUTH_URL` | `https://<project>.vercel.app` |
 | `DJANGO_ALLOWED_HOSTS` | `<api host>,localhost,127.0.0.1,cloudsneeker-api` |
 | `DJANGO_CORS_ALLOWED_ORIGINS` | `https://<project>.vercel.app` |
@@ -159,7 +186,7 @@ Environment variables (Production):
 | `UI_CLOUD_ENABLED` | `false` |
 | `CLOUDSNEEKER_SELF_REGISTRATION_ENABLED` | same as the API |
 | `CLOUDSNEEKER_HSTS_SECONDS` | `31536000` |
-| `PROWLER_MCP_SERVER_URL` | `https://<mcp host>/mcp` |
+| `PROWLER_MCP_SERVER_URL` | `https://<api host>/mcp` |
 
 Disable Vercel Deployment Protection for Production, or the sign-in page is
 behind a Vercel login.

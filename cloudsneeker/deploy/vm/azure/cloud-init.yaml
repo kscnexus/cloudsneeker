@@ -1,0 +1,71 @@
+#cloud-config
+# First-boot hardening for the Cloudsneeker VM. provision.sh passes this as
+# custom data. Key-only SSH for azureuser, host firewall, brute-force bans,
+# unattended security updates with a nightly reboot window, Docker with log
+# rotation, and swap so image builds don't hit the OOM killer.
+
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - fail2ban
+  - git
+  - jq
+  - python3
+  - ufw
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/90-cloudsneeker.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      X11Forwarding no
+      AllowAgentForwarding no
+      MaxAuthTries 3
+      LoginGraceTime 30
+      AllowUsers azureuser
+  - path: /etc/fail2ban/jail.d/sshd.local
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      bantime = 1h
+  - path: /etc/apt/apt.conf.d/52cloudsneeker-unattended
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {"max-size": "50m", "max-file": "3"},
+        "live-restore": true
+      }
+  - path: /etc/sysctl.d/90-cloudsneeker.conf
+    content: |
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.all.rp_filter = 1
+      net.ipv4.tcp_syncookies = 1
+      kernel.kptr_restrict = 2
+      vm.swappiness = 10
+
+runcmd:
+  - [sysctl, --system]
+  - fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - systemctl enable --now fail2ban
+  - systemctl restart ssh
+  - curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sh /tmp/get-docker.sh && rm /tmp/get-docker.sh
+  - usermod -aG docker azureuser
+  - systemctl enable --now docker
+  - touch /var/lib/cloud/instance/cloudsneeker-ready

@@ -60,15 +60,21 @@ docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/api:$TAG" \
   --build-arg "BASE_IMAGE=$REGISTRY/api-base:$TAG" \
   -f "$ROOT/cloudsneeker/deploy/docker/api.Dockerfile" "$BUILD_DIR"
 
-log "Building $REGISTRY/ui:$TAG"
-docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/ui:$TAG" --target prod \
-  --build-arg "NEXT_PUBLIC_PROWLER_RELEASE_VERSION=$TAG" "$TREE/ui"
+# The Vercel deployment builds the web app itself, so a backend-only host can skip it.
+if [[ "${SKIP_UI:-0}" != "1" ]]; then
+  log "Building $REGISTRY/ui:$TAG"
+  docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/ui:$TAG" --target prod \
+    --build-arg "NEXT_PUBLIC_PROWLER_RELEASE_VERSION=$TAG" "$TREE/ui"
+fi
 
 log "Building $REGISTRY/mcp:$TAG"
 docker build "${PLATFORM_ARGS[@]}" -t "$REGISTRY/mcp:$TAG" "$TREE/mcp_server"
 
 if [[ "${PUSH:-0}" == "1" ]]; then
-  images=(api ui mcp)
+  images=(api mcp)
+  if [[ "${SKIP_UI:-0}" != "1" ]]; then
+    images+=(ui)
+  fi
   if [[ "${SKIP_CLI:-0}" != "1" ]]; then
     images=(cli "${images[@]}")
   fi

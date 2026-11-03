@@ -1,11 +1,22 @@
-# Public entry point on the Oracle host. Caddy gets the certificates from
-# Let's Encrypt. CLOUDSNEEKER_API_HOST and CLOUDSNEEKER_MCP_HOST come from .env.
+# Public entry point on the VM. Caddy gets the certificate from Let's Encrypt.
+# CLOUDSNEEKER_API_HOST comes from .env. The MCP server lives under /mcp on
+# the same host, so one DNS name covers both.
 
 {$CLOUDSNEEKER_API_HOST} {
 	encode zstd gzip
-	reverse_proxy cloudsneeker-api:8080
-}
 
-{$CLOUDSNEEKER_MCP_HOST} {
-	reverse_proxy cloudsneeker-mcp:8000
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	handle /mcp* {
+		reverse_proxy cloudsneeker-mcp:8000
+	}
+
+	handle {
+		reverse_proxy cloudsneeker-api:8080
+	}
 }
