@@ -22,7 +22,8 @@ services:
     image: busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
     volumes:
       - ./_data/api:/data
-    command: ["sh", "-c", "chown -R 1000:1000 /data"]
+      - ./_data/vuln-db:/vuln-db
+    command: ["sh", "-c", "chown -R 1000:1000 /data /vuln-db"]
     restart: "no"
 
   cloudsneeker-api:
@@ -34,6 +35,11 @@ services:
     volumes:
       - ./_data/api:/home/prowler/.config/prowler-api
       - output:/tmp/prowler_api_output
+      # Settings > Content versions reads the CVE database age (EB-048).
+      - ./_data/vuln-db:/var/cache/cloudsneeker/vuln-db:ro
+    environment:
+      CLOUDSNEEKER_VULN_DB_CACHE_DIR: /var/cache/cloudsneeker/vuln-db
+      CLOUDSNEEKER_RELEASE_VERSION: ${CLOUDSNEEKER_API_VERSION:-stable}
     depends_on:
       api-init:
         condition: service_completed_successfully
@@ -59,6 +65,10 @@ services:
     stop_grace_period: 120s
     volumes:
       - "output:/tmp/prowler_api_output"
+      # Shared CVE database, refreshed every 6 hours (EB-047).
+      - ./_data/vuln-db:/var/cache/cloudsneeker/vuln-db
+    environment:
+      CLOUDSNEEKER_VULN_DB_CACHE_DIR: /var/cache/cloudsneeker/vuln-db
     depends_on:
       cloudsneeker-api:
         condition: service_healthy

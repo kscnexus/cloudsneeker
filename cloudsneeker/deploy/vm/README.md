@@ -251,6 +251,20 @@ with `start` or `stop` to change the state outside the schedule. The workflow
 reads the repository variable `CLOUDSNEEKER_API_HOST` to wait for the API
 after a start.
 
+## Vulnerability database cache
+
+The worker keeps the shared CVE database in `cloudsneeker/deploy/_data/vuln-db`
+(about 1 GB). The beat task refreshes it every 6 hours; until the first
+refresh, scans download their own copy. The API mounts it read-only for
+Settings → Content versions. To refresh now:
+
+```bash
+docker compose -f docker-compose.yml -f vm/compose.yml exec cloudsneeker-worker \
+  uv run python manage.py cloudsneeker_vuln_db --refresh
+```
+
+It can be rebuilt at any time, so it needs no backup.
+
 ## Backups
 
 PostgreSQL is the only data that cannot be rebuilt. `bootstrap.sh` installs
