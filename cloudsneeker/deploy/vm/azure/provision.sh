@@ -18,6 +18,8 @@
 #
 # Safe to re-run: existing resources are left as they are.
 set -euo pipefail
+# Git Bash on Windows rewrites /subscriptions/... arguments into file paths.
+export MSYS2_ARG_CONV_EXCL="/subscriptions"
 
 : "${SUBSCRIPTION:?set SUBSCRIPTION to the subscription id}"
 : "${ALERT_EMAIL:?set ALERT_EMAIL for budget and health alerts}"
