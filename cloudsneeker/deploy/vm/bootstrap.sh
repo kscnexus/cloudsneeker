@@ -7,7 +7,8 @@
 #   OPERATOR_EMAILS=<first operator owner email> \
 #     bash bootstrap.sh
 #
-# Clones or updates ~/cloudsneeker, builds the images natively, writes
+# Clones or updates ~/cloudsneeker (deploy) and ~/cloudsneeker-src (build),
+# builds the images natively, writes
 # cloudsneeker/deploy/.env once with freshly generated secrets (mode 600,
 # never printed), starts the stack, and installs a nightly PostgreSQL dump
 # that is uploaded to Blob Storage with the VM's managed identity.
@@ -19,6 +20,9 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/kscnexus/cloudsneeker.git}"
 BRANCH="${BRANCH:-main}"
 CHECKOUT="$HOME/cloudsneeker"
+# Images build from a separate clean clone: the deploy checkout holds live,
+# container-owned data under deploy/_data that docker build cannot read.
+SOURCE="$HOME/cloudsneeker-src"
 DEPLOY="$CHECKOUT/cloudsneeker/deploy"
 COMPOSE=(docker compose -f docker-compose.yml -f vm/compose.yml)
 
@@ -35,21 +39,27 @@ if ! command -v uv >/dev/null && [[ ! -x "$HOME/.local/bin/uv" ]]; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
+sync_checkout() {
+  if [[ -d "$1/.git" ]]; then
+    git -C "$1" fetch --quiet origin "$BRANCH"
+    git -C "$1" checkout --quiet "$BRANCH"
+    git -C "$1" reset --quiet --hard "origin/$BRANCH"
+  else
+    git clone --quiet --branch "$BRANCH" "$REPO_URL" "$1"
+  fi
+}
+
 log "Fetching $BRANCH"
-if [[ -d "$CHECKOUT/.git" ]]; then
-  git -C "$CHECKOUT" fetch --quiet origin "$BRANCH"
-  git -C "$CHECKOUT" checkout --quiet "$BRANCH"
-  git -C "$CHECKOUT" reset --quiet --hard "origin/$BRANCH"
-else
-  git clone --quiet --branch "$BRANCH" "$REPO_URL" "$CHECKOUT"
-fi
+sync_checkout "$CHECKOUT"
+sync_checkout "$SOURCE"
+git -C "$SOURCE" checkout --quiet "$(git -C "$CHECKOUT" rev-parse HEAD)"
 TAG="$(git -C "$CHECKOUT" rev-parse --short=12 HEAD)"
 
 log "Building images $TAG"
 # Package downloads inside docker build sometimes time out; finished layers are
 # cached, so a retry resumes where the last attempt stopped.
 for attempt in 1 2 3; do
-  if SKIP_CLI=1 SKIP_UI=1 bash "$CHECKOUT/cloudsneeker/deploy/scripts/build.sh" "$TAG"; then
+  if SKIP_CLI=1 SKIP_UI=1 bash "$SOURCE/cloudsneeker/deploy/scripts/build.sh" "$TAG"; then
     break
   fi
   [[ $attempt -eq 3 ]] && exit 1
