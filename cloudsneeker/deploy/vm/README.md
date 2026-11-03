@@ -59,6 +59,14 @@ ssh -i ~/.ssh/cloudsneeker_azure azureuser@<host> \
   "API_HOST=<host> UI_URL=https://cloudsneeker.vercel.app BACKUP_ACCOUNT=<storage> bash bootstrap.sh"
 ```
 
+Pass `RG`, `LOCATION`, and `SIZE` to change the defaults. The live
+deployment uses `RG=cloudsneeker-in-rg LOCATION=southindia
+SIZE=Standard_B4as_v2`. On the free account in November 2026, East US had no
+capacity for any B- or v5/v6 D-series 4 vCPU size, and Central India offered
+only confidential (DC) sizes. Check before provisioning with
+`az vm list-skus -l <region> --resource-type virtualMachines` (empty
+`restrictions` means available) and `az vm list-usage -l <region>`.
+
 `bootstrap.sh` replaces sections 2–4 below: it builds the images, writes
 `.env` with generated secrets, starts the stack, and installs the nightly
 backup timer. Then continue with section 5.
