@@ -4,6 +4,7 @@
 #   API_HOST=cloudsneeker-api.eastus.cloudapp.azure.com \
 #   UI_URL=https://cloudsneeker.vercel.app \
 #   BACKUP_ACCOUNT=<storage account> \
+#   OPERATOR_EMAILS=<first operator owner email> \
 #     bash bootstrap.sh
 #
 # Clones or updates ~/cloudsneeker, builds the images natively, writes
@@ -111,6 +112,12 @@ PY
 else
   log "Keeping existing .env; updating image tags"
   sed -i "s/^CLOUDSNEEKER_API_VERSION=.*/CLOUDSNEEKER_API_VERSION=$TAG/; s/^CLOUDSNEEKER_MCP_VERSION=.*/CLOUDSNEEKER_MCP_VERSION=$TAG/" "$DEPLOY/.env"
+fi
+
+if [[ -n "${OPERATOR_EMAILS:-}" ]]; then
+  # First operator owner on sign-up; inert once an owner exists.
+  sed -i '/^CLOUDSNEEKER_BOOTSTRAP_OPERATOR_EMAILS=/d' "$DEPLOY/.env"
+  echo "CLOUDSNEEKER_BOOTSTRAP_OPERATOR_EMAILS=$OPERATOR_EMAILS" >> "$DEPLOY/.env"
 fi
 
 log "Starting the stack"

@@ -221,6 +221,7 @@ def operator_daily_task():
     and the usage counts are read through the admin connection, so no tenant
     is set.
     """
+    from cloudsneeker_api.services import bootstrap_operators
     from cloudsneeker_api.services.entitlements import (
         expire_subscriptions,
         snapshot_usage,
@@ -228,7 +229,12 @@ def operator_daily_task():
 
     expired = expire_subscriptions()
     snapshots = snapshot_usage()
-    return {"expired": expired, "snapshots": snapshots}
+    bootstrapped = bootstrap_operators.reconcile()
+    return {
+        "expired": expired,
+        "snapshots": snapshots,
+        "bootstrap_operators": bootstrapped,
+    }
 
 
 # --- Shared vulnerability database (EB-047) -----------------------------------

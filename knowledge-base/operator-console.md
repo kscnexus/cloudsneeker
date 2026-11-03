@@ -39,9 +39,19 @@ in [Upstream Hooks](upstream-hooks.md).
 
 ### Bootstrap the first operator
 
-There are no default operator accounts. The user must already exist (sign up
-or accept an invitation first), then an owner is granted from the API
-container:
+There are no default operator accounts or passwords. Two ways to get the
+first owner:
+
+- **Environment.** Set `CLOUDSNEEKER_BOOTSTRAP_OPERATOR_EMAILS` (comma
+  separated) on the API, worker, and beat. While no active `owner` operator
+  exists, a listed user becomes `owner` when they sign up
+  (`cloudsneeker_api/signals.py`), or on the next `cloudsneeker-operator-daily`
+  run if they already exist. Once an owner exists the variable does nothing,
+  and a revoked operator is never reactivated
+  (`services/bootstrap_operators.py`). Sign-up does not verify email
+  ownership, so the listed user signs up right after the variable is set.
+- **CLI.** The user must already exist (sign up or accept an invitation
+  first), then an owner is granted from the API container:
 
 ```bash
 python manage.py cloudsneeker_operator grant you@company.com --role owner
