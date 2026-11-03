@@ -390,6 +390,7 @@ class TestLibraryAPI:
             content_type=JSONAPI,
         )
         assert response.status_code == 400
+        assert "is for AZURE" in response.json()["errors"][0]["detail"]
 
     def test_install_rejects_unknown_id(self, authenticated_client, aws_provider):
         response = authenticated_client.post(
@@ -406,7 +407,7 @@ class TestLibraryAPI:
             content_type=JSONAPI,
         )
         assert response.status_code == 400
-        assert response.json()["errors"][0]["code"] == "llm_not_configured"
+        assert "Seeker AI is not set up" in response.json()["errors"][0]["detail"]
 
     def test_generate_returns_validated_draft(self, authenticated_client):
         draft = {
@@ -457,7 +458,7 @@ class TestLibraryAPI:
                 content_type=JSONAPI,
             )
         assert response.status_code == 424
-        assert response.json()["errors"][0]["code"] == "llm_error"
+        assert response.json()["errors"][0]["detail"] == "quota exceeded"
 
     def test_validate_reports_errors(self, authenticated_client):
         url = reverse("custodian-library-validate")

@@ -25,10 +25,10 @@ from cloudsneeker_api.services.custodian_library import (
     library_policy_ids_in_yaml,
     list_library_policies,
 )
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 
@@ -45,13 +45,16 @@ def _attributes(request) -> dict:
     return payload
 
 
-@extend_schema_view(
-    list=extend_schema(
-        tags=["Custodian"],
-        summary="List governance library policies",
-        responses=OpenApiTypes.OBJECT,
-    ),
-)
+class LibraryDependencyError(APIException):
+    """Seeker AI is missing or failed; carries its own status and code."""
+
+    def __init__(self, detail: str, *, code: str, status_code: int) -> None:
+        super().__init__(detail, code)
+        self.status_code = status_code
+
+
+# Hand-built documents have no JSON:API serializer for the schema plugin.
+@extend_schema(exclude=True)
 class CustodianLibraryViewSet(BaseRLSViewSet):
     """Browse the built-in policy library, add policies, and draft with Seeker AI."""
 
@@ -106,12 +109,6 @@ class CustodianLibraryViewSet(BaseRLSViewSet):
             }
         )
 
-    @extend_schema(
-        tags=["Custodian"],
-        summary="Add library policies to a provider",
-        request=CustodianLibraryInstallSerializer,
-        responses=OpenApiTypes.OBJECT,
-    )
     @action(
         detail=False,
         methods=["post"],
@@ -126,15 +123,15 @@ class CustodianLibraryViewSet(BaseRLSViewSet):
             tenant_id=request.tenant_id, id=serializer.validated_data["provider_id"]
         ).first()
         if provider is None:
-            return _error("Unknown provider ID for this tenant.")
+            raise ValidationError("Unknown provider ID for this tenant.")
 
         entries = []
         for policy_id in dict.fromkeys(serializer.validated_data["policy_ids"]):
             entry = get_library_policy(policy_id)
             if entry is None:
-                return _error(f"Unknown library policy {policy_id!r}.")
+                raise ValidationError(f"Unknown library policy {policy_id!r}.")
             if entry["provider_type"] != provider.provider:
-                return _error(
+                raise ValidationError(
                     f"Library policy {policy_id!r} is for "
                     f"{entry['provider_type'].upper()}, not this provider."
                 )
@@ -191,12 +188,6 @@ class CustodianLibraryViewSet(BaseRLSViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @extend_schema(
-        tags=["Custodian"],
-        summary="Draft a policy with Seeker AI",
-        request=CustodianGenerateSerializer,
-        responses=OpenApiTypes.OBJECT,
-    )
     @action(
         detail=False,
         methods=["post"],
@@ -217,26 +208,22 @@ class CustodianLibraryViewSet(BaseRLSViewSet):
             )
         except PolicyGenerationError as exc:
             # 424, not 5xx: the UI shows a 4xx detail but masks 5xx errors.
-            return Response(
-                {"errors": [{"detail": str(exc), "code": exc.code}]},
-                status=(
+            raise LibraryDependencyError(
+                str(exc),
+                code=exc.code,
+                status_code=(
                     status.HTTP_400_BAD_REQUEST
                     if exc.code == "llm_not_configured"
                     else status.HTTP_424_FAILED_DEPENDENCY
                 ),
-            )
+            ) from exc
         return Response({"data": {"type": DRAFT_TYPE, "id": "draft", "attributes": draft}})
 
-    @extend_schema(
-        tags=["Custodian"],
-        summary="Validate governance policy YAML",
-        request=CustodianValidateSerializer,
-        responses=OpenApiTypes.OBJECT,
-    )
     @action(
         detail=False,
         methods=["post"],
         url_path="validate",
+        url_name="validate",
         parser_classes=[LenientJSONAPIParser, JSONParser],
     )
     def validate_policy(self, request):
@@ -257,8 +244,3 @@ class CustodianLibraryViewSet(BaseRLSViewSet):
             }
         )
 
-
-def _error(detail: str) -> Response:
-    return Response(
-        {"errors": [{"detail": detail}]}, status=status.HTTP_400_BAD_REQUEST
-    )
