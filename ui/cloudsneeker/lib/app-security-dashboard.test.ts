@@ -18,6 +18,8 @@ import {
   filterTargetsByCategory,
   getAppSecurityCategory,
   latestCompletedRunByTarget,
+  newTargetHref,
+  repositorySourcesWithoutTarget,
   targetMatchesCategory,
 } from "./app-security-dashboard";
 
@@ -209,5 +211,47 @@ describe("buildAppSecurityDashboard", () => {
     expect(
       buildAppSecurityDashboard({ targets: [], runs: [], runTotal: null }),
     ).toMatchObject({ runCount: 0, lastRun: null, latestFindingCount: null });
+  });
+});
+
+describe("newTargetHref", () => {
+  it("links to the new-target page", () => {
+    expect(newTargetHref()).toBe("/application-security/new");
+  });
+
+  it("preselects the given source", () => {
+    expect(newTargetHref("p 1")).toBe(
+      "/application-security/new?provider=p%201",
+    );
+  });
+});
+
+describe("repositorySourcesWithoutTarget", () => {
+  const source = (id: string, providerType = "iac") => ({
+    id,
+    providerType,
+    label: `Code repository � ${id}`,
+  });
+
+  it("offers connected repositories that no target scans", () => {
+    const sources = [source("provider-1"), source("provider-2")];
+    expect(
+      repositorySourcesWithoutTarget(sources, [target("a", TRIVY_MODE.REPO)]),
+    ).toEqual([source("provider-2")]);
+  });
+
+  it("offers every repository when there are no targets", () => {
+    expect(repositorySourcesWithoutTarget([source("provider-1")], [])).toEqual([
+      source("provider-1"),
+    ]);
+  });
+
+  it("leaves out other source types", () => {
+    expect(
+      repositorySourcesWithoutTarget(
+        [source("registry", "image"), source("aws", "aws")],
+        [],
+      ),
+    ).toEqual([]);
   });
 });

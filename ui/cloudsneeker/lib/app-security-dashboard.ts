@@ -280,3 +280,41 @@ export const buildAppSecurityDashboard = ({
     categories,
   };
 };
+
+/** Query parameter that preselects a source on the new-target page. */
+export const APP_SECURITY_PROVIDER_PARAM = "provider";
+
+/** Provider type of a connected code repository source. */
+const REPOSITORY_PROVIDER_TYPE = "iac";
+
+export interface AppSecuritySource {
+  id: string;
+  providerType: string;
+  label: string;
+}
+
+/** New-target page, with `providerId` preselected when given. */
+export const newTargetHref = (providerId?: string): string => {
+  const base = appSecurityHref("new");
+  return providerId
+    ? `${base}?${APP_SECURITY_PROVIDER_PARAM}=${encodeURIComponent(providerId)}`
+    : base;
+};
+
+/**
+ * Connected code repositories that no target scans yet. Adding a repository
+ * only connects it; the hub offers these so it is clear a target is next.
+ */
+export const repositorySourcesWithoutTarget = (
+  sources: AppSecuritySource[],
+  targets: TrivyTargetResource[],
+): AppSecuritySource[] => {
+  const scanned = new Set(
+    targets.map((target) => target.attributes.provider_id),
+  );
+  return sources.filter(
+    (source) =>
+      source.providerType === REPOSITORY_PROVIDER_TYPE &&
+      !scanned.has(source.id),
+  );
+};

@@ -38,6 +38,13 @@ describe("Application Security page workspace", () => {
     expect(source).toContain("REPORT_SEVERITY_ORDER");
   });
 
+  it("offers connected repositories that no target scans yet", () => {
+    expect(source).toContain("getProviders");
+    expect(source).toContain("repositorySourcesWithoutTarget");
+    expect(source).toContain("Connected repositories");
+    expect(source).toContain("newTargetHref(source.id)");
+  });
+
   it("uses the shared page components", () => {
     expect(source).toContain("<PageHeader");
     expect(source).toContain("<SectionCard");
@@ -48,6 +55,8 @@ describe("Application Security page workspace", () => {
     expect(source).toContain("appSecurityHref(");
     expect(source).not.toMatch(/"\/trivy|`\/trivy/);
     // Engine names only appear inside identifiers, never as words.
-    expect(source).not.toMatch(/\b(Trivy|Custodian|OpenGrep|Semgrep|Prowler)\b/);
+    expect(source).not.toMatch(
+      /\b(Trivy|Custodian|OpenGrep|Semgrep|Prowler)\b/,
+    );
   });
 });

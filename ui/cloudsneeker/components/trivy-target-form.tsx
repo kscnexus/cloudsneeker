@@ -79,6 +79,8 @@ interface TrivyTargetFormProps {
   providers: ProviderOption[];
   initialValues?: TrivyTargetFormInput;
   targetId?: string;
+  /** Source to preselect on a new target when it fits the default mode. */
+  defaultProviderId?: string;
 }
 
 /** Providers a mode can attach to; every provider when the mode has no limit. */
@@ -98,7 +100,9 @@ export const TrivyTargetForm = ({
   providers,
   initialValues,
   targetId,
+  defaultProviderId,
 }: TrivyTargetFormProps) => {
+  const repositoryProviders = providersForMode(providers, TRIVY_MODE.REPO);
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -109,7 +113,12 @@ export const TrivyTargetForm = ({
       name: "",
       description: "",
       mode: TRIVY_MODE.REPO,
-      providerId: providersForMode(providers, TRIVY_MODE.REPO)[0]?.id ?? "",
+      providerId:
+        repositoryProviders.find(
+          (provider) => provider.id === defaultProviderId,
+        )?.id ??
+        repositoryProviders[0]?.id ??
+        "",
       scanners: defaultScannersForMode(TRIVY_MODE.REPO),
       images: "",
       repositoryUrl: "",

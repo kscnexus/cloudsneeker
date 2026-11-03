@@ -3,10 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { getFindings } from "@/actions/findings/findings";
-import {
-  listTrivyRuns,
-  listTrivyTargets,
-} from "@/cloudsneeker/actions/trivy";
+import { getProviders } from "@/actions/providers/providers";
+import { listTrivyRuns, listTrivyTargets } from "@/cloudsneeker/actions/trivy";
 import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-security-dashboard-panel";
 import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-list";
@@ -18,11 +16,14 @@ import { TrivyTargetList } from "@/cloudsneeker/components/trivy-target-list";
 import {
   APP_SECURITY_CATEGORY_PARAM,
   type AppSecurityCategory,
+  type AppSecuritySource,
   appSecurityCategoryHref,
   buildAppSecurityDashboard,
   categoryDefinition,
   filterTargetsByCategory,
   getAppSecurityCategory,
+  newTargetHref,
+  repositorySourcesWithoutTarget,
 } from "@/cloudsneeker/lib/app-security-dashboard";
 import {
   isListResponse,
@@ -30,6 +31,7 @@ import {
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
+import { labelForProviderType } from "@/cloudsneeker/lib/trivy-modes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import {
   REPORT_SEVERITY_ORDER,
@@ -66,7 +68,7 @@ export default async function ApplicationSecurityPage({
         description="Scan dependencies, source code, container images, Infrastructure as Code, secrets, SBOMs and Kubernetes clusters. Results land in Findings next to your cloud security results."
         actions={
           <Button asChild size="sm">
-            <Link href={appSecurityHref("new")}>
+            <Link href={newTargetHref()}>
               <Plus aria-hidden="true" />
               New target
             </Link>
@@ -114,14 +116,28 @@ const loadSeverityTotals = async (
   }));
 };
 
+/** Connected sources, labelled like the new-target form lists them. */
+const loadSources = async (): Promise<AppSecuritySource[]> => {
+  const response = await getProviders({ pageSize: 100 });
+  return (response?.data ?? []).map((provider) => ({
+    id: provider.id,
+    providerType: provider.attributes.provider,
+    label: provider.attributes.alias || provider.attributes.uid || provider.id,
+  }));
+};
+
 const SSRAppSecurityWorkspace = async ({
   activeCategory,
 }: {
   activeCategory: AppSecurityCategory | null;
 }) => {
-  const [targetsResponse, runsResponse] = await Promise.all([
+  const [targetsResponse, runsResponse, sources] = await Promise.all([
     listTrivyTargets({ "page[size]": "100", sort: "-inserted_at" }),
-    listTrivyRuns({ "page[size]": DASHBOARD_RUN_PAGE_SIZE, sort: "-inserted_at" }),
+    listTrivyRuns({
+      "page[size]": DASHBOARD_RUN_PAGE_SIZE,
+      sort: "-inserted_at",
+    }),
+    loadSources(),
   ]);
   if (!isListResponse(targetsResponse)) {
     // A failed request must not read as "no targets yet".
@@ -147,6 +163,10 @@ const SSRAppSecurityWorkspace = async ({
     runTotal: responseCount(runsResponse),
   });
   const severityTotals = await loadSeverityTotals(dashboard.latestScanIds);
+  const unscannedRepositories = repositorySourcesWithoutTarget(
+    sources,
+    targets,
+  );
 
   const visibleTargets = filterTargetsByCategory(targets, activeCategory);
   const activeDefinition = activeCategory
@@ -163,8 +183,36 @@ const SSRAppSecurityWorkspace = async ({
         />
       ) : null}
 
+      {unscannedRepositories.length > 0 ? (
+        <SectionCard
+          title="Connected repositories"
+          description="These repositories are connected but not scanned here yet. Create a target to scan their dependencies, secrets and code."
+        >
+          <ul className="divide-border-neutral-secondary flex flex-col divide-y">
+            {unscannedRepositories.map((source) => (
+              <li
+                key={source.id}
+                className="flex items-center justify-between gap-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{source.label}</p>
+                  <p className="text-text-neutral-secondary text-xs">
+                    {labelForProviderType(source.providerType)}
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={newTargetHref(source.id)}>Create target</Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
       <SectionCard
-        title={activeDefinition ? `Targets · ${activeDefinition.label}` : "Targets"}
+        title={
+          activeDefinition ? `Targets · ${activeDefinition.label}` : "Targets"
+        }
         description={
           activeDefinition
             ? `${visibleTargets.length} of ${targets.length} targets. ${activeDefinition.description}`

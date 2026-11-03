@@ -4,10 +4,19 @@ import { getProviders } from "@/actions/providers/providers";
 import { BRAND } from "@/cloudsneeker/brand";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
+import { APP_SECURITY_PROVIDER_PARAM } from "@/cloudsneeker/lib/app-security-dashboard";
 import { labelForProviderType } from "@/cloudsneeker/lib/trivy-modes";
 import { ContentLayout } from "@/components/shadcn/content-layout";
+import type { SearchParamsProps } from "@/types";
 
-export default async function NewTrivyTargetPage() {
+interface NewTrivyTargetPageProps {
+  searchParams: Promise<SearchParamsProps>;
+}
+
+export default async function NewTrivyTargetPage({
+  searchParams,
+}: NewTrivyTargetPageProps) {
+  const requestedProvider = (await searchParams)[APP_SECURITY_PROVIDER_PARAM];
   const providersResponse = await getProviders({ pageSize: 100 });
   const providers = (providersResponse?.data ?? []).map((provider) => ({
     id: provider.id,
@@ -26,7 +35,12 @@ export default async function NewTrivyTargetPage() {
       icon={<ScanSearch />}
     >
       <PageHeader description="Pick what to scan and the connected source it reads. Findings land in Findings with the rest of your results." />
-      <TrivyTargetForm providers={providers} />
+      <TrivyTargetForm
+        providers={providers}
+        defaultProviderId={
+          typeof requestedProvider === "string" ? requestedProvider : undefined
+        }
+      />
     </ContentLayout>
   );
 }
