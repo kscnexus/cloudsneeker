@@ -1,8 +1,10 @@
 import { TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { BRAND } from "@/cloudsneeker/brand";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import {
   type ContentVersionsAttributes,
   VULN_DB_STATUS,
@@ -89,6 +91,14 @@ export const ContentVersionsPanel = ({
       <SectionCard
         title="Detection content"
         description="The checks, rules and vulnerability data scans use right now."
+        actions={
+          <Link
+            className="text-text-neutral-secondary text-sm underline underline-offset-2"
+            href={PRODUCT_ROUTE.RELEASE_NOTES}
+          >
+            Release notes
+          </Link>
+        }
       >
         <dl className="flex flex-col gap-3">
           <VersionRow

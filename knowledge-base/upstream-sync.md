@@ -69,6 +69,7 @@ A bugfix that belongs in Prowler can edit the upstream file directly. Match upst
 4. Commit and run the script again. It then runs:
    * `python cloudsneeker/tools/rebrand.py --check` — fails when a rule no longer matches anything (upstream moved or reworded the text). Fix the rule and the fixture in `tests/cloudsneeker/tools/rebrand_test.py`, or retire it.
    * `python cloudsneeker/tools/brand_audit.py --source` — Cloudsneeker-owned directories still carry no upstream names.
+   * `python cloudsneeker/tools/content_release_notes.py` — regenerates the in-app release notes (`cloudsneeker/content/releases.json`) from the upstream tags. Commit the file; `tests/cloudsneeker/content_releases_test.py` fails while it is stale. Needs the upstream tags (`git fetch upstream --tags`).
    * The Cloudsneeker suites: `tests/cloudsneeker`, `api/src/backend/cloudsneeker_api`, the UI brand and config tests.
 5. Run the component suites from [Local Development](local-development.md) and [Feature Verification](feature-verification.md). Upstream suites run with the upstream-compatible brand (`cloudsneeker.testing.UPSTREAM_COMPAT_ENV`, `ui/vitest.setup.ts` mock), so they should pass unchanged; a failure there usually means a hook was lost.
 6. Rebuild the docs: `python cloudsneeker/tools/gen_check_docs.py`, then `python cloudsneeker/tools/brand_audit.py --tree cloudsneeker/docs`. New upstream checks and frameworks get pages automatically; new providers need a label in `PROVIDER_LABELS`.

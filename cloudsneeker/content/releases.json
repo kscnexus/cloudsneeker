@@ -1,0 +1,1346 @@
+{
+ "since": "5.38.0",
+ "catalog_digest": "efaa387f2e948d649ae1451dfb121f9ca0d1d1c087e9332d21296813f258cb87",
+ "releases": [
+  {
+   "version": "5.45.0",
+   "current": true,
+   "previous_version": "5.44.0",
+   "released_at": null,
+   "summary": {
+    "checks_added": 0,
+    "checks_changed": 0,
+    "checks_removed": 0,
+    "frameworks_added": 0,
+    "frameworks_changed": 0,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.44.0",
+   "current": false,
+   "previous_version": "5.43.0",
+   "released_at": "2026-09-29T13:44:54+02:00",
+   "summary": {
+    "checks_added": 0,
+    "checks_changed": 0,
+    "checks_removed": 0,
+    "frameworks_added": 0,
+    "frameworks_changed": 0,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.43.0",
+   "current": false,
+   "previous_version": "5.42.0",
+   "released_at": "2026-09-21T15:41:25+02:00",
+   "summary": {
+    "checks_added": 8,
+    "checks_changed": 0,
+    "checks_removed": 0,
+    "frameworks_added": 2,
+    "frameworks_changed": 0,
+    "frameworks_removed": 3
+   },
+   "checks": {
+    "added": [
+     {
+      "id": "elbv2_listener_fips_tls_enabled",
+      "provider": "aws",
+      "service": "elbv2",
+      "title": "ELBv2 HTTPS/TLS listeners use a FIPS TLS security policy",
+      "severity": "low"
+     },
+     {
+      "id": "inspector2_active_findings_kev_within_due_date",
+      "provider": "aws",
+      "service": "inspector2",
+      "title": "Inspector2 has no active findings for CISA Known Exploited Vulnerabilities past their remediation due date",
+      "severity": "critical"
+     },
+     {
+      "id": "inspector2_active_findings_no_known_exploited_vulnerabilities",
+      "provider": "aws",
+      "service": "inspector2",
+      "title": "Inspector2 has no active findings for CISA Known Exploited Vulnerabilities",
+      "severity": "high"
+     },
+     {
+      "id": "inspector2_active_findings_within_max_age",
+      "provider": "aws",
+      "service": "inspector2",
+      "title": "Inspector2 has no active findings older than the configured maximum age",
+      "severity": "medium"
+     },
+     {
+      "id": "inspector2_coverage_recently_scanned",
+      "provider": "aws",
+      "service": "inspector2",
+      "title": "Inspector2 covered resource was scanned within the configured number of days",
+      "severity": "medium"
+     },
+     {
+      "id": "inspector2_coverage_scan_status_active",
+      "provider": "aws",
+      "service": "inspector2",
+      "title": "Inspector2 covered resource is actively scanned",
+      "severity": "medium"
+     },
+     {
+      "id": "smn_topic_subscriptions",
+      "provider": "huaweicloud",
+      "service": "smn",
+      "title": "SMN topics have at least one confirmed subscription",
+      "severity": "low"
+     },
+     {
+      "id": "transfer_server_fips_security_policy_enabled",
+      "provider": "aws",
+      "service": "transfer",
+      "title": "AWS Transfer Family server uses a FIPS security policy",
+      "severity": "low"
+     }
+    ],
+    "changed": [],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [
+     {
+      "id": "fedramp_20x_frr_class_c_2026",
+      "name": "FedRAMP 20x Class C Rules (FRR) 2026",
+      "provider": "multi-cloud",
+      "version": "2026.09.13.02",
+      "requirements": 158
+     },
+     {
+      "id": "fedramp_20x_ksi_2026",
+      "name": "FedRAMP 20x Key Security Indicators (KSI) 2026",
+      "provider": "multi-cloud",
+      "version": "2026.07.14.01",
+      "requirements": 46
+     }
+    ],
+    "changed": [],
+    "removed": [
+     {
+      "id": "aws/fedramp_20x_ksi_low_aws",
+      "name": "FedRAMP 20x Key Security Indicators (KSIs) - Low Impact Level v25.05C",
+      "provider": "aws",
+      "version": "25.05C",
+      "requirements": 11
+     },
+     {
+      "id": "azure/fedramp_20x_ksi_low_azure",
+      "name": "FedRAMP 20x Key Security Indicators (KSIs) - Low Impact Level v25.05C",
+      "provider": "azure",
+      "version": "25.05C",
+      "requirements": 11
+     },
+     {
+      "id": "gcp/fedramp_20x_ksi_low_gcp",
+      "name": "FedRAMP 20x Key Security Indicators (KSIs) - Low Impact Level v25.05C",
+      "provider": "gcp",
+      "version": "25.05C",
+      "requirements": 11
+     }
+    ]
+   }
+  },
+  {
+   "version": "5.42.0",
+   "current": false,
+   "previous_version": "5.41.0",
+   "released_at": "2026-09-11T10:47:22+02:00",
+   "summary": {
+    "checks_added": 0,
+    "checks_changed": 0,
+    "checks_removed": 0,
+    "frameworks_added": 0,
+    "frameworks_changed": 19,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [],
+    "changed": [
+     {
+      "id": "aws/aws_account_security_onboarding_aws",
+      "name": "AWS Account Security Onboarding",
+      "provider": "aws",
+      "version": "",
+      "requirements": 83,
+      "fields": [],
+      "requirements_added": 6,
+      "requirements_removed": 3,
+      "requirements_remapped": 0
+     },
+     {
+      "id": "aws/cis_5.0_aws",
+      "name": "CIS Amazon Web Services Foundations Benchmark v5.0.0",
+      "provider": "aws",
+      "version": "5.0",
+      "requirements": 63,
+      "fields": [],
+      "requirements_added": 1,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "aws/fedramp_20x_ksi_low_aws",
+      "name": "FedRAMP 20x Key Security Indicators (KSIs) - Low Impact Level v25.05C",
+      "provider": "aws",
+      "version": "25.05C",
+      "requirements": 11,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 9
+     },
+     {
+      "id": "aws/iso27001_2022_aws",
+      "name": "ISO/IEC 27001 Information Security Management Standard 2022",
+      "provider": "aws",
+      "version": "2022",
+      "requirements": 92,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     },
+     {
+      "id": "aws/kisa_isms_p_2023_aws",
+      "name": "KISA ISMS compliance framework 2023",
+      "provider": "aws",
+      "version": "2023",
+      "requirements": 101,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 3
+     },
+     {
+      "id": "aws/kisa_isms_p_2023_korean_aws",
+      "name": "KISA ISMS compliance framework 2023 (Korean)",
+      "provider": "aws",
+      "version": "2023-korean",
+      "requirements": 101,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 3
+     },
+     {
+      "id": "aws/nist_csf_1.1_aws",
+      "name": "National Institute of Standards and Technology (NIST) Cybersecurity Framework (CSF) v1.1",
+      "provider": "aws",
+      "version": "1.1",
+      "requirements": 56,
+      "fields": [],
+      "requirements_added": 1,
+      "requirements_removed": 0,
+      "requirements_remapped": 0
+     },
+     {
+      "id": "aws/pci_3.2.1_aws",
+      "name": "Payment Card Industry Data Security Standard (PCI DSS) v3.2.1",
+      "provider": "aws",
+      "version": "3.2.1",
+      "requirements": 147,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 21
+     },
+     {
+      "id": "azure/c5_azure",
+      "name": "Cloud Computing Compliance Criteria Catalogue C5",
+      "provider": "azure",
+      "version": "2025",
+      "requirements": 610,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     },
+     {
+      "id": "azure/ens_rd2022_azure",
+      "name": "ENS RD 311/2022 - Categoría Alta",
+      "provider": "azure",
+      "version": "RD2022",
+      "requirements": 84,
+      "fields": [],
+      "requirements_added": 1,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     },
+     {
+      "id": "azure/fedramp_20x_ksi_low_azure",
+      "name": "FedRAMP 20x Key Security Indicators (KSIs) - Low Impact Level v25.05C",
+      "provider": "azure",
+      "version": "25.05C",
+      "requirements": 11,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 10
+     },
+     {
+      "id": "azure/iso27001_2022_azure",
+      "name": "ISO/IEC 27001 Information Security Management Standard 2022",
+      "provider": "azure",
+      "version": "2022",
+      "requirements": 92,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     },
+     {
+      "id": "azure/prowler_threatscore_azure",
+      "name": "Cloudsneeker ThreatScore Compliance Framework for Azure",
+      "provider": "azure",
+      "version": "1.0",
+      "requirements": 76,
+      "fields": [],
+      "requirements_added": 1,
+      "requirements_removed": 0,
+      "requirements_remapped": 0
+     },
+     {
+      "id": "gcp/ens_rd2022_gcp",
+      "name": "ENS RD 311/2022 - Categoría Alta",
+      "provider": "gcp",
+      "version": "RD2022",
+      "requirements": 92,
+      "fields": [],
+      "requirements_added": 1,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "gcp/hipaa_gcp",
+      "name": "HIPAA compliance framework for GCP",
+      "provider": "gcp",
+      "version": "",
+      "requirements": 23,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 15
+     },
+     {
+      "id": "gcp/prowler_threatscore_gcp",
+      "name": "Cloudsneeker ThreatScore Compliance Framework for GCP",
+      "provider": "gcp",
+      "version": "1.0",
+      "requirements": 57,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "gcp/soc2_gcp",
+      "name": "System and Organization Controls 2 (SOC2)",
+      "provider": "gcp",
+      "version": "",
+      "requirements": 28,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "m365/cis_4.0_m365",
+      "name": "CIS Microsoft 365 Foundations Benchmark v4.0.0",
+      "provider": "m365",
+      "version": "4.0",
+      "requirements": 126,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     },
+     {
+      "id": "m365/iso27001_2022_m365",
+      "name": "ISO/IEC 27001 Information Security Management Standard 2022",
+      "provider": "m365",
+      "version": "2022",
+      "requirements": 45,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     }
+    ],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.41.0",
+   "current": false,
+   "previous_version": "5.40.0",
+   "released_at": "2026-09-02T11:37:40+02:00",
+   "summary": {
+    "checks_added": 10,
+    "checks_changed": 17,
+    "checks_removed": 0,
+    "frameworks_added": 1,
+    "frameworks_changed": 3,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [
+     {
+      "id": "cloudwatch_log_group_agentcore_data_protection_policy_enabled",
+      "provider": "aws",
+      "service": "cloudwatch",
+      "title": "Bedrock AgentCore log groups have a CloudWatch Logs data protection policy activated",
+      "severity": "medium"
+     },
+     {
+      "id": "ecr_registry_enhanced_scanning_enabled",
+      "provider": "aws",
+      "service": "ecr",
+      "title": "ECR registry has enhanced scanning enabled",
+      "severity": "medium"
+     },
+     {
+      "id": "eks_cluster_vpc_cni_network_policy_enforced",
+      "provider": "aws",
+      "service": "eks",
+      "title": "EKS cluster enforces Kubernetes network policies through the Amazon VPC CNI add-on",
+      "severity": "medium"
+     },
+     {
+      "id": "elasticbeanstalk_environment_no_secrets_in_configuration",
+      "provider": "aws",
+      "service": "elasticbeanstalk",
+      "title": "Elastic Beanstalk environment configuration has no hardcoded secrets",
+      "severity": "high"
+     },
+     {
+      "id": "guardduty_ai_protection_enabled",
+      "provider": "aws",
+      "service": "guardduty",
+      "title": "GuardDuty detector has AI Protection enabled",
+      "severity": "high"
+     },
+     {
+      "id": "guardduty_runtime_monitoring_enabled",
+      "provider": "aws",
+      "service": "guardduty",
+      "title": "GuardDuty detector has Runtime Monitoring enabled",
+      "severity": "high"
+     },
+     {
+      "id": "iam_policy_no_agentcore_workload_access_token_wildcard",
+      "provider": "aws",
+      "service": "iam",
+      "title": "Custom IAM policy scopes Bedrock AgentCore workload access token retrieval to workload identity ARNs",
+      "severity": "high"
+     },
+     {
+      "id": "iam_policy_passrole_to_bedrock_agentcore_restricted",
+      "provider": "aws",
+      "service": "iam",
+      "title": "Custom IAM policy restricts iam:PassRole to Bedrock AgentCore to specific roles",
+      "severity": "high"
+     },
+     {
+      "id": "iam_role_service_trust_restricts_source_to_account",
+      "provider": "aws",
+      "service": "iam",
+      "title": "IAM role trust policy confines AWS service principals to a specific source account",
+      "severity": "medium"
+     },
+     {
+      "id": "memorydb_cluster_in_transit_encryption_enabled",
+      "provider": "aws",
+      "service": "memorydb",
+      "title": "MemoryDB cluster has in-transit encryption enabled",
+      "severity": "medium"
+     }
+    ],
+    "changed": [
+     {
+      "id": "ecr_registry_scan_images_on_push_enabled",
+      "provider": "aws",
+      "service": "ecr",
+      "title": "ECR registry has automated image scanning enabled for all repositories",
+      "severity": "medium",
+      "fields": [
+       "title",
+       "description",
+       "risk"
+      ]
+     },
+     {
+      "id": "gmail_domain_spoofing_protection_enabled",
+      "provider": "googleworkspace",
+      "service": "gmail",
+      "title": "Protection against domain spoofing based on similar domain names is enabled",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "gmail_employee_name_spoofing_protection_enabled",
+      "provider": "googleworkspace",
+      "service": "gmail",
+      "title": "Protection against spoofing of employee names is enabled",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "gmail_groups_spoofing_protection_enabled",
+      "provider": "googleworkspace",
+      "service": "gmail",
+      "title": "Groups are protected from inbound emails spoofing your domain",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "gmail_inbound_domain_spoofing_protection_enabled",
+      "provider": "googleworkspace",
+      "service": "gmail",
+      "title": "Protection against inbound emails spoofing your domain is enabled",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "guardduty_eks_runtime_monitoring_enabled",
+      "provider": "aws",
+      "service": "guardduty",
+      "title": "GuardDuty detector has EKS Runtime Monitoring enabled",
+      "severity": "medium",
+      "fields": [
+       "remediation"
+      ]
+     },
+     {
+      "id": "rules_admin_privilege_granted_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "User granted Admin privilege alert rule is configured",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_gmail_employee_spoofing_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "Gmail potential employee spoofing alert rule is configured",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_government_backed_attacks_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "Government-backed attacks alert rule is configured",
+      "severity": "high",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_leaked_password_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "Leaked password alert rule is configured",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_password_changed_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "User's password changed alert rule is configured",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_suspicious_activity_suspension_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "User suspended due to suspicious activity alert rule is configured",
+      "severity": "high",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_suspicious_login_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "Suspicious login alert rule is configured",
+      "severity": "low",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "rules_suspicious_programmatic_login_alert_configured",
+      "provider": "googleworkspace",
+      "service": "rules",
+      "title": "Suspicious programmatic login alert rule is configured",
+      "severity": "low",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "security_2sv_enforced",
+      "provider": "googleworkspace",
+      "service": "security",
+      "title": "2-Step Verification is enforced for all users",
+      "severity": "high",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "security_2sv_hardware_keys_admins",
+      "provider": "googleworkspace",
+      "service": "security",
+      "title": "Hardware security keys are required for 2-Step Verification",
+      "severity": "high",
+      "fields": [
+       "description"
+      ]
+     },
+     {
+      "id": "security_login_challenges_configured",
+      "provider": "googleworkspace",
+      "service": "security",
+      "title": "Login challenges are configured correctly",
+      "severity": "medium",
+      "fields": [
+       "description"
+      ]
+     }
+    ],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [
+     {
+      "id": "googleworkspace/cis_1.4_googleworkspace",
+      "name": "CIS Google Workspace Foundations Benchmark v1.4.0",
+      "provider": "googleworkspace",
+      "version": "1.4",
+      "requirements": 86
+     }
+    ],
+    "changed": [
+     {
+      "id": "aws/aws_ai_security_framework_aws",
+      "name": "AWS AI Security Framework",
+      "provider": "aws",
+      "version": "1.0",
+      "requirements": 63,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 7
+     },
+     {
+      "id": "googleworkspace/cis_1.3_googleworkspace",
+      "name": "CIS Google Workspace Foundations Benchmark v1.3.0",
+      "provider": "googleworkspace",
+      "version": "1.3",
+      "requirements": 89,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "googleworkspace/cisa_scuba_0.6_googleworkspace",
+      "name": "CISA Secure Cloud Business Applications (SCuBA) Google Workspace Baselines",
+      "provider": "googleworkspace",
+      "version": "0.6",
+      "requirements": 133,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     }
+    ],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.40.0",
+   "current": false,
+   "previous_version": "5.39.1",
+   "released_at": "2026-08-28T12:01:55+02:00",
+   "summary": {
+    "checks_added": 15,
+    "checks_changed": 1,
+    "checks_removed": 0,
+    "frameworks_added": 1,
+    "frameworks_changed": 5,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [
+     {
+      "id": "bedrock_agent_role_not_shared_across_agents",
+      "provider": "aws",
+      "service": "bedrock",
+      "title": "Bedrock Agent has a dedicated execution role",
+      "severity": "high"
+     },
+     {
+      "id": "bedrock_custom_model_encrypted_with_cmk",
+      "provider": "aws",
+      "service": "bedrock",
+      "title": "Bedrock custom model is encrypted with a customer-managed KMS key",
+      "severity": "critical"
+     },
+     {
+      "id": "bedrock_guardrail_contextual_grounding_filter_enabled",
+      "provider": "aws",
+      "service": "bedrock",
+      "title": "Bedrock guardrail blocks ungrounded and irrelevant model responses",
+      "severity": "high"
+     },
+     {
+      "id": "bedrock_knowledge_base_encrypted_with_cmk",
+      "provider": "aws",
+      "service": "bedrock",
+      "title": "Bedrock knowledge base data source is encrypted with a customer-managed KMS key",
+      "severity": "high"
+     },
+     {
+      "id": "defender_domain_dmarc_records_published",
+      "provider": "m365",
+      "service": "defender",
+      "title": "Exchange Online domain has a DMARC record published with an enforcement policy",
+      "severity": "medium"
+     },
+     {
+      "id": "ecr_repository_image_no_secrets",
+      "provider": "aws",
+      "service": "ecr",
+      "title": "ECR repository image contains no hardcoded secrets",
+      "severity": "high"
+     },
+     {
+      "id": "iam_workload_identity_pool_provider_attribute_condition",
+      "provider": "gcp",
+      "service": "iam",
+      "title": "Workload Identity Federation providers trusting a multi-tenant issuer enforce an attribute condition",
+      "severity": "high"
+     },
+     {
+      "id": "organization_actions_pull_request_approval_disabled",
+      "provider": "github",
+      "service": "organization",
+      "title": "Organization prevents GitHub Actions from approving pull requests",
+      "severity": "medium"
+     },
+     {
+      "id": "organization_default_workflow_permissions_read_only",
+      "provider": "github",
+      "service": "organization",
+      "title": "Organization grants workflows a read-only default GITHUB_TOKEN",
+      "severity": "high"
+     },
+     {
+      "id": "oss_bucket_server_side_encryption_enabled",
+      "provider": "alibabacloud",
+      "service": "oss",
+      "title": "Server-side encryption is enabled for OSS buckets",
+      "severity": "medium"
+     },
+     {
+      "id": "oss_bucket_versioning_enabled",
+      "provider": "alibabacloud",
+      "service": "oss",
+      "title": "Versioning is enabled for OSS buckets",
+      "severity": "medium"
+     },
+     {
+      "id": "repository_default_workflow_permissions_read_only",
+      "provider": "github",
+      "service": "repository",
+      "title": "Repository grants workflows a read-only default GITHUB_TOKEN",
+      "severity": "high"
+     },
+     {
+      "id": "rolesanywhere_profile_restricts_session_permissions",
+      "provider": "aws",
+      "service": "rolesanywhere",
+      "title": "IAM Roles Anywhere profiles scope down the vended session permissions",
+      "severity": "medium"
+     },
+     {
+      "id": "ske_cluster_no_public_endpoint",
+      "provider": "stackit",
+      "service": "ske",
+      "title": "SKE clusters do not expose their Kubernetes API endpoint to the internet",
+      "severity": "high"
+     },
+     {
+      "id": "vpc_security_group_open_egress",
+      "provider": "huaweicloud",
+      "service": "vpc",
+      "title": "VPC security groups do not allow open egress to the internet",
+      "severity": "medium"
+     }
+    ],
+    "changed": [
+     {
+      "id": "ec2_securitygroup_not_used",
+      "provider": "aws",
+      "service": "ec2",
+      "title": "Non-default EC2 security group is in use",
+      "severity": "low",
+      "fields": [
+       "description"
+      ]
+     }
+    ],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [
+     {
+      "id": "cyber_essentials_3.3",
+      "name": "NCSC Cyber Essentials: Requirements for IT Infrastructure",
+      "provider": "multi-cloud",
+      "version": "3.3",
+      "requirements": 28
+     }
+    ],
+    "changed": [
+     {
+      "id": "aws/aws_ai_security_framework_aws",
+      "name": "AWS AI Security Framework",
+      "provider": "aws",
+      "version": "1.0",
+      "requirements": 63,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 4
+     },
+     {
+      "id": "aws/aws_foundational_security_best_practices_aws",
+      "name": "AWS Foundational Security Best Practices",
+      "provider": "aws",
+      "version": "",
+      "requirements": 286,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 2
+     },
+     {
+      "id": "m365/cis_4.0_m365",
+      "name": "CIS Microsoft 365 Foundations Benchmark v4.0.0",
+      "provider": "m365",
+      "version": "4.0",
+      "requirements": 126,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "m365/cis_6.0_m365",
+      "name": "CIS Microsoft 365 Foundations Benchmark v6.0.0",
+      "provider": "m365",
+      "version": "6.0",
+      "requirements": 140,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     },
+     {
+      "id": "m365/cis_7.0_m365",
+      "name": "CIS Microsoft 365 Foundations Benchmark v7.0.0",
+      "provider": "m365",
+      "version": "7.0",
+      "requirements": 160,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 1
+     }
+    ],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.39.1",
+   "current": false,
+   "previous_version": "5.39.0",
+   "released_at": "2026-08-18T11:32:24+02:00",
+   "summary": {
+    "checks_added": 0,
+    "checks_changed": 0,
+    "checks_removed": 0,
+    "frameworks_added": 0,
+    "frameworks_changed": 0,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [],
+    "changed": [],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.39.0",
+   "current": false,
+   "previous_version": "5.38.0",
+   "released_at": "2026-08-13T09:18:08+02:00",
+   "summary": {
+    "checks_added": 22,
+    "checks_changed": 0,
+    "checks_removed": 0,
+    "frameworks_added": 1,
+    "frameworks_changed": 1,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [
+     {
+      "id": "awslambda_layer_no_secrets_in_content",
+      "provider": "aws",
+      "service": "awslambda",
+      "title": "Lambda layer content contains no hardcoded secrets",
+      "severity": "high"
+     },
+     {
+      "id": "batch_job_definition_no_secrets",
+      "provider": "aws",
+      "service": "batch",
+      "title": "AWS Batch job definitions have no secrets in environment variables or command parameters",
+      "severity": "high"
+     },
+     {
+      "id": "entra_access_review_guest_users_configured",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Access review for guest users is configured",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_access_review_privileged_roles_configured",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Access review for privileged roles is configured",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_authentication_method_authenticator_show_context",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Microsoft Authenticator shows application name and geographic location",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_authentication_method_email_otp_disabled",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Email One-Time Passcode authentication method is disabled in the tenant",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_conditional_access_policy_authentication_transfer_blocked",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policy blocks authentication transfer",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_conditional_access_policy_block_high_medium_sign_in_risk",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policy blocks high and medium sign-in risk",
+      "severity": "high"
+     },
+     {
+      "id": "entra_conditional_access_policy_sign_in_frequency_all_users",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policy enforces sign-in frequency for all users",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_conditional_access_policy_token_protection_enforced",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policy enforces Token Protection",
+      "severity": "high"
+     },
+     {
+      "id": "entra_conditional_access_policy_untrusted_locations_blocked",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policy blocks access from untrusted locations",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_conditional_access_trusted_named_location_exists",
+      "provider": "m365",
+      "service": "entra",
+      "title": "A trusted IP-range named location is defined",
+      "severity": "low"
+     },
+     {
+      "id": "entra_idle_session_timeout_configured",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Idle session timeout of 3 hours or less is configured",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_password_protection_custom_banned_list_enforced",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Entra custom banned password list is enforced",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_password_protection_lockout_duration_configured",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Smart lockout duration is set to 60 seconds or more",
+      "severity": "low"
+     },
+     {
+      "id": "entra_password_protection_lockout_threshold_limited",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Smart lockout threshold is set to 10 or less",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_password_protection_on_premises_enforced",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Entra password protection is enforced on on-premises Active Directory",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_pim_global_administrator_approval_required",
+      "provider": "m365",
+      "service": "entra",
+      "title": "PIM requires approval to activate the Global Administrator role",
+      "severity": "high"
+     },
+     {
+      "id": "entra_pim_privileged_role_administrator_approval_required",
+      "provider": "m365",
+      "service": "entra",
+      "title": "PIM requires approval to activate the Privileged Role Administrator role",
+      "severity": "high"
+     },
+     {
+      "id": "entra_policy_default_user_cannot_create_m365_groups",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Non-admin users cannot create Microsoft 365 groups",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_policy_default_user_cannot_create_security_groups",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Non-admin users cannot create security groups",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_policy_guest_invitations_restricted_to_allowed_domains",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Guest invitations are restricted to an allow-list of domains",
+      "severity": "medium"
+     }
+    ],
+    "changed": [],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [
+     {
+      "id": "cmmc_2.0",
+      "name": "Cybersecurity Maturity Model Certification (CMMC) 2.0",
+      "provider": "multi-cloud",
+      "version": "2.0",
+      "requirements": 149
+     }
+    ],
+    "changed": [
+     {
+      "id": "m365/cis_7.0_m365",
+      "name": "CIS Microsoft 365 Foundations Benchmark v7.0.0",
+      "provider": "m365",
+      "version": "7.0",
+      "requirements": 160,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 20
+     }
+    ],
+    "removed": []
+   }
+  },
+  {
+   "version": "5.38.0",
+   "current": false,
+   "previous_version": "5.37.1",
+   "released_at": "2026-08-06T13:36:54+02:00",
+   "summary": {
+    "checks_added": 12,
+    "checks_changed": 8,
+    "checks_removed": 0,
+    "frameworks_added": 0,
+    "frameworks_changed": 1,
+    "frameworks_removed": 0
+   },
+   "checks": {
+    "added": [
+     {
+      "id": "admincenter_shared_bookings_disabled",
+      "provider": "m365",
+      "service": "admincenter",
+      "title": "Microsoft Shared Bookings is disabled",
+      "severity": "medium"
+     },
+     {
+      "id": "defender_priority_account_protection_enabled",
+      "provider": "m365",
+      "service": "defender",
+      "title": "Priority account protection is enabled",
+      "severity": "medium"
+     },
+     {
+      "id": "defender_strict_preset_security_policy_enabled",
+      "provider": "m365",
+      "service": "defender",
+      "title": "Strict Preset Security Policy is enabled",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_device_registration_global_admins_not_local_admins",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Global Administrators are not added as local administrators during Entra join",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_device_registration_join_restricted",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Users allowed to join devices to Microsoft Entra are restricted",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_device_registration_laps_enabled",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Microsoft Entra Local Administrator Password Solution (LAPS) is enabled",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_device_registration_max_devices_per_user_limited",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Maximum number of devices per user is limited",
+      "severity": "low"
+     },
+     {
+      "id": "entra_device_registration_registering_user_not_local_admin",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Registering user is not added as local administrator during Entra join",
+      "severity": "medium"
+     },
+     {
+      "id": "entra_policy_default_user_cannot_read_bitlocker_keys",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Non-admin users cannot read BitLocker keys for their owned devices",
+      "severity": "medium"
+     },
+     {
+      "id": "exchange_organization_reject_direct_send_enabled",
+      "provider": "m365",
+      "service": "exchange",
+      "title": "Direct Send is rejected for the Exchange Online organization",
+      "severity": "medium"
+     },
+     {
+      "id": "exchange_owa_mailbox_policy_personal_accounts_disabled",
+      "provider": "m365",
+      "service": "exchange",
+      "title": "Default OWA mailbox policy disables personal account integration",
+      "severity": "medium"
+     },
+     {
+      "id": "teams_external_access_trial_tenants_blocked",
+      "provider": "m365",
+      "service": "teams",
+      "title": "External access with Teams trial-only tenants is blocked",
+      "severity": "high"
+     }
+    ],
+    "changed": [
+     {
+      "id": "defender_antispam_connection_filter_policy_safe_list_off",
+      "provider": "m365",
+      "service": "defender",
+      "title": "Defender Antispam Connection Filter Policy has Safe List disabled",
+      "severity": "medium",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "entra_conditional_access_policy_device_registration_mfa_required",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policies enforce MFA for device registration",
+      "severity": "high",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "entra_conditional_access_policy_directory_sync_account_excluded",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policy excludes Directory Synchronization Accounts to protect Entra Connect sync",
+      "severity": "medium",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "entra_conditional_access_policy_explicitly_targets_azure_devops",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access Policy explicitly targets Azure DevOps",
+      "severity": "medium",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "entra_conditional_access_policy_no_deleted_object_references",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Conditional Access policies must not reference deleted users, groups, or roles",
+      "severity": "medium",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "entra_directory_sync_object_takeover_blocked",
+      "provider": "m365",
+      "service": "entra",
+      "title": "Microsoft Entra directory sync must block object takeover (soft- and hard-matching)",
+      "severity": "medium",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "intune_device_compliance_policy_unassigned_devices_not_compliant_by_default",
+      "provider": "m365",
+      "service": "intune",
+      "title": "Built-in Device Compliance Policy marks devices without an assigned compliance policy as Not compliant by default",
+      "severity": "high",
+      "fields": [
+       "risk"
+      ]
+     },
+     {
+      "id": "teams_meeting_presenters_restricted",
+      "provider": "m365",
+      "service": "teams",
+      "title": "Meetings org-wide default policy allows only organizers and co-organizers to present",
+      "severity": "medium",
+      "fields": [
+       "risk"
+      ]
+     }
+    ],
+    "removed": []
+   },
+   "frameworks": {
+    "added": [],
+    "changed": [
+     {
+      "id": "m365/cis_7.0_m365",
+      "name": "CIS Microsoft 365 Foundations Benchmark v7.0.0",
+      "provider": "m365",
+      "version": "7.0",
+      "requirements": 160,
+      "fields": [],
+      "requirements_added": 0,
+      "requirements_removed": 0,
+      "requirements_remapped": 12
+     }
+    ],
+    "removed": []
+   }
+  }
+ ]
+}

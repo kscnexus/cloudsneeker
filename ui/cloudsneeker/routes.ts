@@ -16,6 +16,7 @@ export const PRODUCT_ROUTE = {
   AUDIT_LOG: "/settings/audit-log",
   /** Detection content and engine versions (EB-048). */
   CONTENT_VERSIONS: "/settings/content-versions",
+  RELEASE_NOTES: "/settings/release-notes",
   /** Operator console (platform operators only, own route group). */
   OPERATOR_CONSOLE: "/operator",
 } as const;

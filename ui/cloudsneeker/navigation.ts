@@ -147,6 +147,13 @@ const CONTENT_VERSIONS_CHILD: NavigationChildLink = {
   label: "Content versions",
 };
 
+/** What each detection content release added, changed or removed. */
+const RELEASE_NOTES_CHILD: NavigationChildLink = {
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href: PRODUCT_ROUTE.RELEASE_NOTES,
+  label: "Release notes",
+};
+
 /** Operator console; only shown to platform operators (`/operator/me`). */
 const OPERATOR_CONSOLE_CHILD: NavigationChildLink = {
   kind: NAVIGATION_ITEM_KIND.LINK,
@@ -487,14 +494,18 @@ const regroupNavigation = (
           withProductChild(
             withProductChild(
               withProductChild(
-                upstream.organization.children,
-                SECURITY_CHILD,
+                withProductChild(
+                  upstream.organization.children,
+                  SECURITY_CHILD,
+                  "start",
+                ),
+                PROFILE_CHILD,
                 "start",
               ),
-              PROFILE_CHILD,
-              "start",
+              CONTENT_VERSIONS_CHILD,
+              "end",
             ),
-            CONTENT_VERSIONS_CHILD,
+            RELEASE_NOTES_CHILD,
             "end",
           ),
           AUDIT_LOG_CHILD,

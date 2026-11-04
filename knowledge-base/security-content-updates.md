@@ -31,6 +31,17 @@ Engine versions come from `ENV` lines in `api/Dockerfile` and
 `CLOUDSNEEKER_SAST_RULES_REF`, `CLOUDSNEEKER_C7N_VERSION`), so a version bump
 shows up after the next deploy without other changes.
 
+Organization → Release notes (`/settings/release-notes`, API
+`GET /content-releases`) lists, per upstream release, the checks and
+compliance frameworks that were added, changed (title, severity, description,
+risk, remediation or categories; framework requirements and mappings) or
+removed. `cloudsneeker/tools/content_release_notes.py` builds
+`cloudsneeker/content/releases.json` by diffing check metadata and compliance
+JSON between consecutive upstream tags; the newest entry diffs the last tag
+before the tree's version against the tree itself, which is what ships.
+`tests/cloudsneeker/content_releases_test.py` fails until the notes are
+regenerated after an upstream merge.
+
 ## Recommended cadence
 
 | When | Task | Owner |
@@ -75,5 +86,3 @@ managed-service team:
 
 ## Gaps tracked in the backlog
 
-- EB-049: release-notes feed in the app that lists new and changed checks per
-  release.

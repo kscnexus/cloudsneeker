@@ -334,6 +334,11 @@ describe("withCloudsneekerNavigation", () => {
         active: false,
       }),
       expect.objectContaining({
+        label: "Release notes",
+        href: "/settings/release-notes",
+        active: false,
+      }),
+      expect.objectContaining({
         label: "Audit log",
         href: "/settings/audit-log",
         active: false,

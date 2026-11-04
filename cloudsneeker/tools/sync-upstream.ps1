@@ -50,6 +50,8 @@ if ($LASTEXITCODE -ne 0) {
 
 python cloudsneeker/tools/rebrand.py --check
 python cloudsneeker/tools/brand_audit.py --source
+# In-app release notes (EB-049); commit cloudsneeker/content/releases.json.
+python cloudsneeker/tools/content_release_notes.py
 
 if (-not $SkipTests) {
     uv run pytest tests/cloudsneeker -q
