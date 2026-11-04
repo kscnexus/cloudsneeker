@@ -129,7 +129,8 @@ def catalog_from_files(files) -> dict:
             continue
         if check:
             provider, service, check_id = check.groups()
-            checks[check_id] = _check_entry(provider, service, document)
+            # Some check IDs exist under several providers.
+            checks[f"{provider}/{check_id}"] = _check_entry(provider, service, document)
         else:
             key = framework.group(1)
             frameworks[key] = _framework_entry(key, document)
@@ -169,9 +170,9 @@ def catalog_digest(catalog: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _check_summary(check_id: str, entry: dict) -> dict:
+def _check_summary(key: str, entry: dict) -> dict:
     return {
-        "id": check_id,
+        "id": key.split("/", 1)[1],
         "provider": entry["provider"],
         "service": entry["service"],
         "title": entry["title"],

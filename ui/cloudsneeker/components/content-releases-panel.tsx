@@ -116,7 +116,7 @@ interface ChangeGroupProps<T> {
   renderItem: (item: T) => ReactNode;
 }
 
-const ChangeGroup = <T extends { id: string }>({
+const ChangeGroup = <T extends { id: string; provider: string }>({
   title,
   changes,
   renderItem,
@@ -141,7 +141,9 @@ const ChangeGroup = <T extends { id: string }>({
             <ChangeHeading kind={kind} count={changes[kind].length} />
             <ul className="divide-border-neutral-secondary divide-y">
               {changes[kind].map((item) => (
-                <Fragment key={item.id}>{renderItem(item)}</Fragment>
+                <Fragment key={`${item.provider}/${item.id}`}>
+                  {renderItem(item)}
+                </Fragment>
               ))}
             </ul>
           </section>

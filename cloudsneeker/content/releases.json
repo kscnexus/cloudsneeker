@@ -1,6 +1,6 @@
 {
  "since": "5.38.0",
- "catalog_digest": "efaa387f2e948d649ae1451dfb121f9ca0d1d1c087e9332d21296813f258cb87",
+ "catalog_digest": "79dfed0e064eea3b0928790e6a31148fd95dc7992ae9b621c59e26b1e992fd90",
  "releases": [
   {
    "version": "5.45.0",
@@ -108,17 +108,17 @@
       "severity": "medium"
      },
      {
-      "id": "smn_topic_subscriptions",
-      "provider": "huaweicloud",
-      "service": "smn",
-      "title": "SMN topics have at least one confirmed subscription",
-      "severity": "low"
-     },
-     {
       "id": "transfer_server_fips_security_policy_enabled",
       "provider": "aws",
       "service": "transfer",
       "title": "AWS Transfer Family server uses a FIPS security policy",
+      "severity": "low"
+     },
+     {
+      "id": "smn_topic_subscriptions",
+      "provider": "huaweicloud",
+      "service": "smn",
+      "title": "SMN topics have at least one confirmed subscription",
       "severity": "low"
      }
     ],
@@ -502,6 +502,16 @@
       ]
      },
      {
+      "id": "guardduty_eks_runtime_monitoring_enabled",
+      "provider": "aws",
+      "service": "guardduty",
+      "title": "GuardDuty detector has EKS Runtime Monitoring enabled",
+      "severity": "medium",
+      "fields": [
+       "remediation"
+      ]
+     },
+     {
       "id": "gmail_domain_spoofing_protection_enabled",
       "provider": "googleworkspace",
       "service": "gmail",
@@ -539,16 +549,6 @@
       "severity": "medium",
       "fields": [
        "description"
-      ]
-     },
-     {
-      "id": "guardduty_eks_runtime_monitoring_enabled",
-      "provider": "aws",
-      "service": "guardduty",
-      "title": "GuardDuty detector has EKS Runtime Monitoring enabled",
-      "severity": "medium",
-      "fields": [
-       "remediation"
       ]
      },
      {
@@ -728,6 +728,20 @@
    "checks": {
     "added": [
      {
+      "id": "oss_bucket_server_side_encryption_enabled",
+      "provider": "alibabacloud",
+      "service": "oss",
+      "title": "Server-side encryption is enabled for OSS buckets",
+      "severity": "medium"
+     },
+     {
+      "id": "oss_bucket_versioning_enabled",
+      "provider": "alibabacloud",
+      "service": "oss",
+      "title": "Versioning is enabled for OSS buckets",
+      "severity": "medium"
+     },
+     {
       "id": "bedrock_agent_role_not_shared_across_agents",
       "provider": "aws",
       "service": "bedrock",
@@ -756,18 +770,18 @@
       "severity": "high"
      },
      {
-      "id": "defender_domain_dmarc_records_published",
-      "provider": "m365",
-      "service": "defender",
-      "title": "Exchange Online domain has a DMARC record published with an enforcement policy",
-      "severity": "medium"
-     },
-     {
       "id": "ecr_repository_image_no_secrets",
       "provider": "aws",
       "service": "ecr",
       "title": "ECR repository image contains no hardcoded secrets",
       "severity": "high"
+     },
+     {
+      "id": "rolesanywhere_profile_restricts_session_permissions",
+      "provider": "aws",
+      "service": "rolesanywhere",
+      "title": "IAM Roles Anywhere profiles scope down the vended session permissions",
+      "severity": "medium"
      },
      {
       "id": "iam_workload_identity_pool_provider_attribute_condition",
@@ -791,38 +805,10 @@
       "severity": "high"
      },
      {
-      "id": "oss_bucket_server_side_encryption_enabled",
-      "provider": "alibabacloud",
-      "service": "oss",
-      "title": "Server-side encryption is enabled for OSS buckets",
-      "severity": "medium"
-     },
-     {
-      "id": "oss_bucket_versioning_enabled",
-      "provider": "alibabacloud",
-      "service": "oss",
-      "title": "Versioning is enabled for OSS buckets",
-      "severity": "medium"
-     },
-     {
       "id": "repository_default_workflow_permissions_read_only",
       "provider": "github",
       "service": "repository",
       "title": "Repository grants workflows a read-only default GITHUB_TOKEN",
-      "severity": "high"
-     },
-     {
-      "id": "rolesanywhere_profile_restricts_session_permissions",
-      "provider": "aws",
-      "service": "rolesanywhere",
-      "title": "IAM Roles Anywhere profiles scope down the vended session permissions",
-      "severity": "medium"
-     },
-     {
-      "id": "ske_cluster_no_public_endpoint",
-      "provider": "stackit",
-      "service": "ske",
-      "title": "SKE clusters do not expose their Kubernetes API endpoint to the internet",
       "severity": "high"
      },
      {
@@ -831,6 +817,20 @@
       "service": "vpc",
       "title": "VPC security groups do not allow open egress to the internet",
       "severity": "medium"
+     },
+     {
+      "id": "defender_domain_dmarc_records_published",
+      "provider": "m365",
+      "service": "defender",
+      "title": "Exchange Online domain has a DMARC record published with an enforcement policy",
+      "severity": "medium"
+     },
+     {
+      "id": "ske_cluster_no_public_endpoint",
+      "provider": "stackit",
+      "service": "ske",
+      "title": "SKE clusters do not expose their Kubernetes API endpoint to the internet",
+      "severity": "high"
      }
     ],
     "changed": [
