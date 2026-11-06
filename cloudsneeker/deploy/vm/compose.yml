@@ -22,6 +22,13 @@ services:
     ports: !override
       - "127.0.0.1:8000:8000"
 
+  # A scan that runs away (one AWS scan reached 13.7 GB on this 16 GB host) is
+  # killed inside this limit instead of pushing the API and databases into
+  # swap. The orphan sweep then marks the scan failed and starts the next one.
+  cloudsneeker-worker:
+    mem_limit: 10g
+    memswap_limit: 10g
+
   postgres:
     ports: !override
       - "127.0.0.1:${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"

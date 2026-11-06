@@ -1,13 +1,14 @@
 import io
 import json
 import zipfile
-from concurrent.futures import as_completed
 from enum import Enum
 from typing import Any, Optional
 
 import requests
 from botocore.client import ClientError
 from pydantic.v1 import BaseModel
+
+from cloudsneeker.sdk_concurrency import iter_bounded  # cloudsneeker-hook
 
 from prowler.lib.logger import logger
 from prowler.lib.resource_limit import (
@@ -186,16 +187,12 @@ class Lambda(AWSService):
 
     def _get_function_code(self):
         logger.info("Lambda - Getting Function Code...")
-        # Use a thread pool handle the queueing and execution of the _fetch_function_code tasks, up to max_workers tasks concurrently.
-        lambda_functions_to_fetch = {
-            self.thread_pool.submit(
-                self._fetch_function_code, function.name, function.region
-            ): function
-            for function in self.functions.values()
-        }
-
-        for fetched_lambda_code in as_completed(lambda_functions_to_fetch):
-            function = lambda_functions_to_fetch[fetched_lambda_code]
+        # cloudsneeker-hook: a few downloads at a time, so all code is never in memory.
+        for function, fetched_lambda_code in iter_bounded(
+            self.thread_pool,
+            lambda function: self._fetch_function_code(function.name, function.region),
+            self.functions.values(),
+        ):
             try:
                 function_code = fetched_lambda_code.result()
                 if function_code:
@@ -230,17 +227,12 @@ class Lambda(AWSService):
 
     def _get_layers_code(self):
         logger.info("Lambda - Getting Layer Code...")
-        # Use a thread pool to handle the queueing and execution of the
-        # _fetch_layer_code tasks, up to max_workers tasks concurrently.
-        layers_to_fetch = {
-            self.thread_pool.submit(
-                self._fetch_layer_code, layer.arn, layer.region
-            ): layer
-            for layer in self.layers.values()
-        }
-
-        for fetched_layer_code in as_completed(layers_to_fetch):
-            layer = layers_to_fetch[fetched_layer_code]
+        # cloudsneeker-hook: a few downloads at a time, so all code is never in memory.
+        for layer, fetched_layer_code in iter_bounded(
+            self.thread_pool,
+            lambda layer: self._fetch_layer_code(layer.arn, layer.region),
+            self.layers.values(),
+        ):
             try:
                 layer_code = fetched_layer_code.result()
                 if layer_code:

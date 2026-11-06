@@ -1,6 +1,8 @@
 """Fail scans whose Celery worker is gone.
 
-A deploy, OOM kill, or task eviction stops the worker mid-scan. The scan row
+A deploy, OOM kill, or task eviction stops the worker mid-scan. An OOM kill
+of the task process alone leaves the worker answering pings; Celery then marks
+the task failed with ``WorkerLostError``, which this sweep also picks up. The scan row
 stays ``executing`` and every later scan for that provider queues behind it.
 The upstream orphan watchdog skips scan tasks on purpose (re-running the same
 task is not safe), so this sweep marks the scan failed, then either dispatches
@@ -30,6 +32,7 @@ IN_FLIGHT_TASK_STATES = (states.STARTED, states.RECEIVED, "PROGRESS")
 PING_TIMEOUT_SECONDS = 5.0
 PING_ATTEMPTS = 2
 ORPHAN_ERROR = "Scan worker stopped before the scan finished (deploy or restart)."
+WORKER_LOST_ERROR = "WorkerLostError"
 RELAUNCH_MARKER = "cloudsneeker_relaunch_of"
 RELAUNCH_NAME = "Relaunched after restart"
 TRIVY_HUB_SOURCE = "trivy_hub"
@@ -63,7 +66,26 @@ def _orphaned_scans(tenant_id: str, cutoff: datetime) -> list[Scan]:
         worker = scan.task.task_runner_task.worker
         if worker and _worker_gone(worker):
             orphans.append(scan)
-    return orphans
+    return orphans + _lost_worker_scans(tenant_id, cutoff)
+
+
+def _lost_worker_scans(tenant_id: str, cutoff: datetime) -> list[Scan]:
+    """Scans still running whose task process was killed (for example out of memory).
+
+    Celery records the task as failed with ``WorkerLostError``, but the worker
+    itself stays up and answers pings, so the scan row is never updated.
+    """
+    return list(
+        Scan.objects.filter(
+            tenant_id=tenant_id,
+            state=StateChoices.EXECUTING,
+            task__task_runner_task__status=states.FAILURE,
+            task__task_runner_task__result__contains=WORKER_LOST_ERROR,
+            task__task_runner_task__date_done__lt=cutoff,
+        )
+        .select_related("task__task_runner_task")
+        .order_by("inserted_at")
+    )
 
 
 def _fail_scan(scan: Scan, now: datetime) -> None:
@@ -72,6 +94,8 @@ def _fail_scan(scan: Scan, now: datetime) -> None:
     scan.save(update_fields=["state", "completed_at"])
 
     task_result = scan.task.task_runner_task
+    if task_result.status == states.FAILURE:
+        return  # Keep Celery's own error, such as WorkerLostError.
     task_result.status = states.FAILURE
     task_result.date_done = now
     task_result.result = ORPHAN_ERROR
@@ -97,7 +121,10 @@ def _relaunch_scan(tenant_id: str, orphan: Scan) -> Scan:
             name=RELAUNCH_NAME,
             trigger=Scan.TriggerChoices.MANUAL,
             state=StateChoices.AVAILABLE,
-            scanner_args={**(orphan.scanner_args or {}), RELAUNCH_MARKER: str(orphan.id)},
+            scanner_args={
+                **(orphan.scanner_args or {}),
+                RELAUNCH_MARKER: str(orphan.id),
+            },
             task_id=task_id,
         )
         attack_paths_db_utils.create_attack_paths_scan(
@@ -114,7 +141,9 @@ def _relaunch_scan(tenant_id: str, orphan: Scan) -> Scan:
                 "provider_id": str(scan.provider_id),
             },
         )
-        enqueue_scan_execution_on_commit(tenant_id=tenant_id, scan=scan, task_id=task_id)
+        enqueue_scan_execution_on_commit(
+            tenant_id=tenant_id, scan=scan, task_id=task_id
+        )
     return scan
 
 

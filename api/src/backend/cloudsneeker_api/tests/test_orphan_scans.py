@@ -30,12 +30,20 @@ def _scan(
     return scan
 
 
-def _run(candidates, alive=False, queued=None):
+def _queryset(scans):
     queryset = MagicMock()
-    queryset.select_related.return_value.order_by.return_value = candidates
+    queryset.select_related.return_value.order_by.return_value = scans
+    return queryset
+
+
+def _run(candidates, alive=False, queued=None, lost=()):
+    """``candidates``: in-flight tasks; ``lost``: tasks failed with WorkerLostError."""
     with (
         patch(f"{MODULE}.rls_transaction") as mock_rls,
-        patch(f"{MODULE}.Scan.objects.filter", return_value=queryset),
+        patch(
+            f"{MODULE}.Scan.objects.filter",
+            side_effect=[_queryset(candidates), _queryset(list(lost))],
+        ),
         patch(f"{MODULE}.is_worker_alive", return_value=alive) as mock_alive,
         patch(
             "tasks.tasks._dispatch_next_queued_provider_scan", return_value=queued
@@ -100,6 +108,23 @@ class TestFailOrphanedScans:
         mock_dispatch.assert_not_called()
         mock_relaunch.assert_not_called()
 
+    def test_fails_scan_whose_task_process_was_killed(self):
+        scan = _scan(worker="celery@alive")
+        task_result = scan.task.task_runner_task
+        task_result.status = states.FAILURE
+        task_result.result = '{"exc_type": "WorkerLostError"}'
+
+        failed, mock_alive, mock_dispatch, _ = _run([], alive=True, lost=[scan])
+
+        assert failed == ["scan-1"]
+        assert scan.state == StateChoices.FAILED
+        scan.save.assert_called_once()
+        # Celery's own error is kept.
+        assert task_result.result == '{"exc_type": "WorkerLostError"}'
+        task_result.save.assert_not_called()
+        mock_alive.assert_not_called()
+        mock_dispatch.assert_called_once_with(TENANT_ID, "provider-1")
+
     def test_skips_tasks_without_a_recorded_worker(self):
         scan = _scan(worker=None)
 
@@ -111,11 +136,12 @@ class TestFailOrphanedScans:
 
     def test_resume_errors_do_not_hide_failed_scans(self):
         scan = _scan()
-        queryset = MagicMock()
-        queryset.select_related.return_value.order_by.return_value = [scan]
         with (
             patch(f"{MODULE}.rls_transaction") as mock_rls,
-            patch(f"{MODULE}.Scan.objects.filter", return_value=queryset),
+            patch(
+                f"{MODULE}.Scan.objects.filter",
+                side_effect=[_queryset([scan]), _queryset([])],
+            ),
             patch(f"{MODULE}.is_worker_alive", return_value=False),
             patch(
                 "tasks.tasks._dispatch_next_queued_provider_scan",
