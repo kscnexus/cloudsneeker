@@ -1,42 +1,61 @@
 name: 'Cloudsneeker: VM schedule'
-# Pauses the Azure backend VM overnight to save cost: deallocates it at
-# 02:00 and starts it at 12:00 India Standard Time (20:30 and 06:30 UTC).
-# A deallocated VM bills only its disk and static IP. The web app on Vercel
-# stays up and shows the API as unreachable while the VM is off. Scheduled
-# scans and reports that fall in that window do not run. GitHub may start
-# a scheduled run some minutes late. Signs in like the deploy workflow.
+run-name: "VM ${{ inputs.action || 'schedule check' }}"
+# Pauses the Azure backend VM overnight to save cost: it should run from
+# 12:00 to 02:00 India Standard Time (06:30 to 20:30 UTC) and be deallocated
+# otherwise. A deallocated VM bills only its disk and static IP. The web app
+# on Vercel stays up and shows the API as unreachable while the VM is off.
+#
+# GitHub starts scheduled runs late, sometimes by many hours (the old
+# fire-once start ran 7-8 hours late every day in November 2026). So instead
+# of one start and one stop, an hourly check compares the VM with the window
+# and starts or deallocates it when it is in the wrong state. Any one check
+# that runs puts it right.
+#
+# Manual start or stop (workflow_dispatch) wins over the window for
+# HOLD_HOURS, so a VM started for testing at night is not stopped by the next
+# check. A stop is also skipped while a deploy runs: the deploy pauses the VM
+# again itself.
 
 on:
   schedule:
-    - cron: '30 20 * * *'
-    - cron: '30 6 * * *'
+    - cron: '17 * * * *'
+    - cron: '47 * * * *'
   workflow_dispatch:
     inputs:
       action:
-        description: Start or stop the VM
+        description: Start or stop the VM (holds for 4 hours), or check against the window
         required: true
         type: choice
         options:
           - start
           - stop
+          - check
 
-# Shares the deploy group so a stop never cuts a deploy short.
+# Not the deploy group: GitHub keeps one pending run per group, so frequent
+# checks there would cancel a queued deploy.
 concurrency:
-  group: cloudsneeker-deploy
+  group: cloudsneeker-vm-power
   cancel-in-progress: false
 
 permissions: {}
 
 jobs:
   power:
-    name: ${{ inputs.action || (github.event.schedule == '30 6 * * *' && 'start' || 'stop') }} VM
+    name: ${{ inputs.action || 'check' }} VM
     if: vars.AZURE_CLIENT_ID != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       id-token: write
+      actions: read
     env:
-      ACTION: ${{ inputs.action || (github.event.schedule == '30 6 * * *' && 'start' || 'stop') }}
+      ACTION: ${{ inputs.action || 'check' }}
+      # Running window in UTC, HHMM, start inclusive, end exclusive.
+      WINDOW_START: '0630'
+      WINDOW_END: '2030'
+      HOLD_HOURS: '4'
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -44,6 +63,36 @@ jobs:
       AZURE_VM: ${{ vars.AZURE_VM }}
       API_HOST: ${{ vars.CLOUDSNEEKER_API_HOST }}
     steps:
+      - name: Decide the wanted state
+        id: want
+        run: |
+          set -euo pipefail
+          if [ "$ACTION" = start ] || [ "$ACTION" = stop ]; then
+            echo "state=$ACTION" >> "$GITHUB_OUTPUT"
+            echo "Manual $ACTION"
+            exit 0
+          fi
+
+          # A recent manual start or stop holds.
+          since="$(date -u -d "-$HOLD_HOURS hours" +%Y-%m-%dT%H:%M:%SZ)"
+          manual="$(gh run list --workflow cloudsneeker-vm-schedule.yml --event workflow_dispatch \
+            --status success --limit 20 --json displayTitle,createdAt \
+            --jq "[.[] | select(.createdAt >= \"$since\") | select(.displayTitle == \"VM start\" or .displayTitle == \"VM stop\")][0].displayTitle // \"\"")"
+          if [ -n "$manual" ]; then
+            echo "state=${manual#VM }" >> "$GITHUB_OUTPUT"
+            echo "Holding the manual '${manual#VM }' from the last $HOLD_HOURS hours"
+            exit 0
+          fi
+
+          now="$(date -u +%H%M)"
+          if [[ "$now" > "$WINDOW_START" || "$now" == "$WINDOW_START" ]] && [[ "$now" < "$WINDOW_END" ]]; then
+            echo "state=start" >> "$GITHUB_OUTPUT"
+            echo "$now UTC is inside the running window"
+          else
+            echo "state=stop" >> "$GITHUB_OUTPUT"
+            echo "$now UTC is outside the running window"
+          fi
+
       - name: Sign in to Azure
         run: |
           set -euo pipefail
@@ -54,18 +103,36 @@ jobs:
           az account set --subscription "$AZURE_SUBSCRIPTION_ID"
 
       - name: Start or stop the VM
+        id: power
+        env:
+          WANT: ${{ steps.want.outputs.state }}
         run: |
           set -euo pipefail
-          if [ "$ACTION" = start ]; then
-            az vm start -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none
+          power="$(az vm get-instance-view -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" \
+            --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code" -o tsv)"
+          echo "VM is ${power#PowerState/}; wanted: $WANT"
+          if [ "$WANT" = start ]; then
+            if [ "$power" != "PowerState/running" ] && [ "$power" != "PowerState/starting" ]; then
+              az vm start -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none
+              echo "started=true" >> "$GITHUB_OUTPUT"
+            fi
           else
+            if [ "$power" = "PowerState/deallocated" ] || [ "$power" = "PowerState/deallocating" ]; then
+              exit 0
+            fi
+            busy="$(gh run list --workflow cloudsneeker-images.yml --limit 10 --json status \
+              --jq '[.[] | select(.status != "completed")] | length')"
+            if [ "$ACTION" = check ] && [ "$busy" != 0 ]; then
+              echo "A deploy is running; it pauses the VM again when it ends"
+              exit 0
+            fi
             az vm deallocate -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" -o none
           fi
           az vm get-instance-view -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_VM" \
             --query "instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus" -o tsv
 
       - name: Wait for the API
-        if: env.ACTION == 'start' && env.API_HOST != ''
+        if: steps.want.outputs.state == 'start' && env.API_HOST != ''
         run: |
           set -euo pipefail
           for _ in $(seq 1 30); do
@@ -75,5 +142,5 @@ jobs:
             fi
             sleep 20
           done
-          echo "::error::The VM started but https://$API_HOST/health/live did not answer in 10 minutes"
+          echo "::error::The VM is running but https://$API_HOST/health/live did not answer in 10 minutes"
           exit 1

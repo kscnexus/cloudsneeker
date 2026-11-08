@@ -14,7 +14,13 @@ services:
   cloudsneeker-ui:
     profiles: ["vercel"]
 
+  # Four workers (the .env.example value) topped out near 30 requests a second
+  # in the November 2026 load test. Each worker holds about 420 MB, so six
+  # still fit beside the 10 GB scan worker, Neo4j and Postgres on 16 GB.
+  # Set CLOUDSNEEKER_VM_API_WORKERS in .env to change it.
   cloudsneeker-api:
+    environment:
+      DJANGO_WORKERS: ${CLOUDSNEEKER_VM_API_WORKERS:-6}
     ports: !override
       - "127.0.0.1:${DJANGO_PORT:-8080}:${DJANGO_PORT:-8080}"
 
