@@ -400,7 +400,7 @@ def probe_api(c: httpx.Client, api: str, ui: str, rate_attempts: int) -> None:
             now = int(time.time())
             payload = {"sub": "00000000-0000-0000-0000-000000000000", "user_id": "00000000-0000-0000-0000-000000000000",
                        "tenant_id": "00000000-0000-0000-0000-000000000000", "token_type": "access",
-                       "exp": now + 600, "iat": now, "iss": "https://api.prowler.com", "aud": "https://api.prowler.com"}
+                       "exp": now + 600, "iat": now, "iss": "https://issuer.invalid", "aud": "https://issuer.invalid"}
             enc = lambda d: base64.urlsafe_b64encode(json.dumps(d).encode()).rstrip(b"=").decode()  # noqa: E731
             sig = "" if alg_none else base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
             tok = f"{enc(hdr)}.{enc(payload)}.{sig}"
