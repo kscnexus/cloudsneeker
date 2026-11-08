@@ -5,8 +5,9 @@ IP. Sign-in reaches the API from the web app's server, so every user shares
 a handful of hosting IPs and an IP limit would lock everyone out at once.
 This guard counts failed sign-ins per email address instead:
 
-* each 401 from the token endpoint (wrong password, or a wrong MFA code from
-  ``MfaMiddleware``) adds one failure for that email;
+* each failed sign-in adds one failure for that email: upstream's 400
+  "Invalid credentials" (wrong password or unknown email) and the 401s from
+  ``MfaMiddleware`` (wrong MFA code). Other 400s (missing fields) do not count;
 * once an email has ``CLOUDSNEEKER_LOGIN_MAX_FAILURES`` failures inside
   ``CLOUDSNEEKER_LOGIN_LOCKOUT_SECONDS``, every sign-in for it answers 429
   ``sign_in_locked`` until the window ends, even with the right password,
@@ -38,6 +39,8 @@ CACHE_ALIAS = "cloudsneeker-shared"
 CODE_LOCKED = "sign_in_locked"
 JSONAPI_CONTENT_TYPE = "application/vnd.api+json"
 LOGIN_EMAIL_ATTRIBUTE = "cloudsneeker_sign_in_email"
+# Upstream's TokenSerializer message for a wrong password or unknown email.
+INVALID_CREDENTIALS = b"Invalid credentials"
 
 
 def max_failures() -> int:
@@ -120,17 +123,25 @@ def sign_in_email(request, response) -> str:
     return email.strip()
 
 
+def is_failed_sign_in(response) -> bool:
+    status_code = getattr(response, "status_code", 0)
+    if status_code == 401:
+        return True
+    if status_code != 400:
+        return False
+    return INVALID_CREDENTIALS in (getattr(response, "content", b"") or b"")
+
+
 def guard_token_response(request, response):
     email = sign_in_email(request, response)
     if not email:
         return response
     if is_locked(email):
         return locked_response()
-    status_code = getattr(response, "status_code", 0)
-    if status_code == 401:
+    if is_failed_sign_in(response):
         if record_failure(email) >= max_failures():
             logger.warning("Sign-in locked after repeated failures")
-    elif status_code == 200:
+    elif getattr(response, "status_code", 0) == 200:
         clear_failures(email)
     return response
 

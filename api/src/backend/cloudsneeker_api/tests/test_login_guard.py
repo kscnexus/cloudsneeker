@@ -42,12 +42,14 @@ def _sign_in(email=TEST_USER, password=TEST_PASSWORD):
 
 def _fail(times: int, email=TEST_USER):
     for _ in range(times):
-        assert _sign_in(email=email, password="wrong-password").status_code == 401
+        response = _sign_in(email=email, password="wrong-password")
+        assert response.status_code == 400
+        assert "Invalid credentials" in response.content.decode()
 
 
 @pytest.mark.django_db
 class TestLoginGuard:
-    def test_locks_account_after_max_failures(self, create_test_user):
+    def test_locks_account_after_max_failures(self, create_test_user, tenants_fixture):
         _fail(MAX_FAILURES)
 
         response = _sign_in()
@@ -57,12 +59,12 @@ class TestLoginGuard:
         assert response["Retry-After"] == "600"
         assert "access" not in response.content.decode()
 
-    def test_wrong_passwords_below_limit_still_sign_in(self, create_test_user):
+    def test_wrong_passwords_below_limit_still_sign_in(self, create_test_user, tenants_fixture):
         _fail(MAX_FAILURES - 1)
 
         assert _sign_in().status_code == status.HTTP_200_OK
 
-    def test_success_clears_failures(self, create_test_user):
+    def test_success_clears_failures(self, create_test_user, tenants_fixture):
         _fail(MAX_FAILURES - 1)
         assert _sign_in().status_code == status.HTTP_200_OK
 
@@ -70,28 +72,39 @@ class TestLoginGuard:
 
         assert _sign_in().status_code == status.HTTP_200_OK
 
-    def test_email_is_case_insensitive(self, create_test_user):
+    def test_email_is_case_insensitive(self, create_test_user, tenants_fixture):
         _fail(MAX_FAILURES, email=TEST_USER.upper())
 
         assert _sign_in().status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
-    def test_lock_is_per_account(self, create_test_user):
+    def test_lock_is_per_account(self, create_test_user, tenants_fixture):
         _fail(MAX_FAILURES, email="someone-else@example.com")
 
         assert _sign_in().status_code == status.HTTP_200_OK
 
-    def test_unknown_accounts_lock_too(self, create_test_user):
+    def test_unknown_accounts_lock_too(self, create_test_user, tenants_fixture):
         email = "nobody@example.com"
         _fail(MAX_FAILURES, email=email)
 
         assert _sign_in(email=email).status_code == 429
 
-    def test_disabled_guard_never_locks(self, create_test_user):
+    def test_missing_fields_do_not_count(self, create_test_user, tenants_fixture):
+        for _ in range(MAX_FAILURES + 1):
+            response = APIClient().post(
+                reverse("token-obtain"),
+                data={"data": {"type": "tokens", "attributes": {"email": TEST_USER}}},
+                format="vnd.api+json",
+            )
+            assert response.status_code == 400
+
+        assert _sign_in().status_code == status.HTTP_200_OK
+
+    def test_disabled_guard_never_locks(self, create_test_user, tenants_fixture):
         with override_settings(CLOUDSNEEKER_LOGIN_GUARD_ENABLED=False):
             _fail(MAX_FAILURES + 1)
             assert _sign_in().status_code == status.HTTP_200_OK
 
-    def test_cache_outage_fails_open(self, create_test_user):
+    def test_cache_outage_fails_open(self, create_test_user, tenants_fixture):
         with patch.object(login_guard, "failures", side_effect=ConnectionError):
             assert _sign_in().status_code == status.HTTP_200_OK
 
