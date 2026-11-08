@@ -19,7 +19,10 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactElement, ReactNode } from "react";
 
-import { breadcrumbSegmentLabel } from "@/cloudsneeker/breadcrumbs"; // cloudsneeker-hook
+import {
+  breadcrumbSegmentLabel,
+  isBreadcrumbPathLinkable,
+} from "@/cloudsneeker/breadcrumbs"; // cloudsneeker-hook
 import { LighthouseIcon } from "@/components/icons/Icons";
 import { buildPerScanComplianceHref } from "@/lib/compliance/compliance-tab-url";
 import { cn } from "@/lib/utils";
@@ -109,7 +112,7 @@ export function BreadcrumbNavigation({
         path: currentPath,
         icon: segmentIcon,
         isLast,
-        isClickable: !isLast,
+        isClickable: !isLast && isBreadcrumbPathLinkable(currentPath), // cloudsneeker-hook
       });
     });
 

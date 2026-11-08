@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { BRAND } from "./brand";
-import { breadcrumbSegmentLabel, ID_SEGMENT_LABEL } from "./breadcrumbs";
+import {
+  breadcrumbSegmentLabel,
+  ID_SEGMENT_LABEL,
+  isBreadcrumbPathLinkable,
+} from "./breadcrumbs";
 
 describe("breadcrumbSegmentLabel", () => {
   it("labels UUID segments as details", () => {
@@ -27,5 +31,16 @@ describe("breadcrumbSegmentLabel", () => {
     expect(breadcrumbSegmentLabel("governance", "Governance")).toBe(
       BRAND.governanceName,
     );
+  });
+});
+
+describe("isBreadcrumbPathLinkable", () => {
+  it("does not link /settings, which has no page", () => {
+    expect(isBreadcrumbPathLinkable("/settings")).toBe(false);
+  });
+
+  it("links real pages", () => {
+    expect(isBreadcrumbPathLinkable("/settings/security")).toBe(true);
+    expect(isBreadcrumbPathLinkable("/providers")).toBe(true);
   });
 });
