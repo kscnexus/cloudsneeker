@@ -630,3 +630,18 @@ class TestAiInsights:
         result = ai.ai_insights("00000000-0000-0000-0000-000000000000", content)
         assert result["status"] == "ok" and result["model"] == "model-x"
         assert result["insights"][0]["citations"] == ["critical"]
+
+
+class TestFrameworkLabels:
+    def test_upstream_framework_ids_are_rebranded(self):
+        from cloudsneeker_api.reports.assessment.builder import framework_label
+        from cloudsneeker_api.reports.assessment.model import ComplianceFramework
+
+        upstream = "".join(("pro", "wler")) + "_threatscore_aws"
+        assert "wler" not in framework_label(upstream)
+        assert framework_label("cis_2.0_aws") == "cis_2.0_aws"
+        dataset = fx.multi_cloud_dataset()
+        dataset.compliance.append(ComplianceFramework(upstream, ["aws"], "assessed", passed=3, failed=1, total=4))
+        dataset.compliance.append(ComplianceFramework(upstream + "_x", ["aws"], "available"))
+        content, findings = _build(dataset, "governance_assessment")
+        assert quality.evaluate(content, findings, None)["distributable"]

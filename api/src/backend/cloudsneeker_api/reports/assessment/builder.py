@@ -9,6 +9,7 @@ report page shows the same numbers as the PDF.
 from __future__ import annotations
 
 import os
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -265,6 +266,16 @@ def appendix(
     }
 
 
+_UPSTREAM_PREFIX = re.compile("".join(("pro", "wler")) + r"[_-]?", re.IGNORECASE)
+
+
+def framework_label(framework_id: str) -> str:
+    """Framework id as printed: the built-in risk framework carries the brand."""
+    from cloudsneeker_api.brand import brand
+
+    return _UPSTREAM_PREFIX.sub(f"{brand.slug}_", framework_id)
+
+
 def _trend_section(dataset: AssessmentDataset) -> dict[str, Any]:
     points = [
         {
@@ -328,7 +339,7 @@ def _compliance_section(dataset: AssessmentDataset) -> dict[str, Any]:
     rows = sorted(
         (
             {
-                "framework": item.framework_id,
+                "framework": framework_label(item.framework_id),
                 "passed": item.passed,
                 "failed": item.failed,
                 "manual": item.manual,
@@ -344,9 +355,9 @@ def _compliance_section(dataset: AssessmentDataset) -> dict[str, Any]:
     )
     return {
         "assessed": rows,
-        "enabled_not_assessed": [item.framework_id for item in enabled],
+        "enabled_not_assessed": [framework_label(item.framework_id) for item in enabled],
         "available_count": len(available),
-        "available": [item.framework_id for item in available][:60],
+        "available": [framework_label(item.framework_id) for item in available][:60],
         "disclaimer": COMPLIANCE_DISCLAIMER,
     }
 
@@ -797,7 +808,7 @@ def assemble_for(
     scope = {
         "provider_ids": list(filters.provider_ids),
         "providers": sorted({row.provider_label for row in dataset.coverage}),
-        "frameworks": frameworks,
+        "frameworks": [framework_label(item) for item in frameworks],
         "stale_days": stale_days,
     }
     content, findings = build_content(

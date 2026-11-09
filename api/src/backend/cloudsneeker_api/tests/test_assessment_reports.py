@@ -350,7 +350,7 @@ class TestRuns:
             run = ReportRun.objects.get(id=run.id)
         assert set(run.artifacts) == {"pdf", "csv", "json"}
         assert run.summary["engine_version"] == "2.0"
-        assert run.summary["quality"]["status"] in ("pass", "warn")
+        assert run.summary["quality"]["status"] in ("pass", "warn"), run.summary["quality"]
         assert run.summary["quality"]["distributable"] is True
         assert run.summary["period"] == "Last 30 days"
         assert artifact_path(run, "pdf").read_bytes().startswith(b"%PDF")
