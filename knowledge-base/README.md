@@ -18,6 +18,7 @@ Read these pages in order when you are new to the repository:
 12. [Keeping Security Content Current](security-content-updates.md) — where checks, CVE data, SAST rules and governance policies come from, update cadence, per-customer tuning
 13. [Area Findings and Triage](area-findings.md) — gap analysis and the shared findings and triage design for Cloud Security, Application Security and Governance
 14. [Governance Policy Library and AI Drafting](governance-policy-library.md) — built-in AWS, Azure and GCP policy library, coverage, and Seeker AI policy drafts
+15. [Security Assessment Reporting](reporting.md) — the four assessment reports, accuracy rules, recommendations, PDF, quality control, and the audit of the earlier reports
 15. [Design System](design-system.md) — UI tokens, typography, spacing, shared components, page patterns, accessibility and responsive rules
 16. [Product Dashboards](dashboards.md) — Overview, Cloud Security, Application Security and Governance dashboards: structure, data sources, drill-downs and missing APIs
 
