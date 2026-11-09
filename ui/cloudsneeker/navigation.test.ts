@@ -482,6 +482,7 @@ describe("withCloudsneekerNavigation area findings", () => {
     ]);
     expect(hrefs(NAVIGATION_SECTION_LABEL.GOVERNANCE)).toEqual([
       "/governance",
+      "/compliance",
       "/governance/findings",
       "/governance/triage",
     ]);
