@@ -61,7 +61,7 @@ describe("design tokens", () => {
       '@import "../cloudsneeker/styles/design-tokens.css"; /* cloudsneeker-hook',
     );
     expect(globalsCss.indexOf("design-tokens.css")).toBeLessThan(
-      globalsCss.indexOf("@plugin"),
+      globalsCss.indexOf("\n@plugin"),
     );
   });
 
