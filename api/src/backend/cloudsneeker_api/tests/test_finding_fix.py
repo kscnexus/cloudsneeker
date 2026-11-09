@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 from api.models import Finding
 from cloudsneeker_api.services.area_findings import AreaFindingsError, parse_query
-from cloudsneeker_api.services.finding_fix import empty_fix, finding_fix
+from cloudsneeker_api.services.finding_fix import (
+    best_fixed_version,
+    empty_fix,
+    finding_fix,
+)
 from cloudsneeker_api.tests.test_area_findings import (
     _app_security_scan,
     _finding,
@@ -64,6 +68,36 @@ class TestFindingFix:
             "https://avd.aquasec.com/nvd/cve-2026-1",
             "https://github.com/advisories/GHSA-1",
         ]
+
+    def test_package_with_one_fix_per_release_line(self):
+        fix = finding_fix(
+            {},
+            {
+                **VULN_FIXED,
+                "PkgName": "django",
+                "InstalledVersion": "4.2.10",
+                "FixedVersion": "5.2.8, 5.1.14, 4.2.26",
+            },
+        )
+
+        assert fix["fixed_version"] == "4.2.26"
+        assert fix["fix_summary"] == (
+            "Upgrade django from 4.2.10 to 4.2.26 or later. "
+            "Also fixed in 5.2.8, 5.1.14."
+        )
+
+    @pytest.mark.parametrize(
+        ("installed", "fixed", "best"),
+        [
+            ("4.2.10", "5.0.8, 4.2.15", "4.2.15"),
+            ("3.1.0", "5.0.8, 4.2.15", "4.2.15"),
+            ("4.1.0", "5.0.8, 4.2.15", "4.2.15"),
+            ("", "2.0, 1.5", "1.5"),
+            ("1.0", "2.14.0", "2.14.0"),
+        ],
+    )
+    def test_best_fixed_version(self, installed, fixed, best):
+        assert best_fixed_version(installed, fixed)[0] == best
 
     def test_package_without_fixed_version(self):
         fix = finding_fix({}, VULN_UNFIXED)

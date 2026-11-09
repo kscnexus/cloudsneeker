@@ -17,6 +17,7 @@ Read at request time, so findings stored before this existed get fixes too.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 MAX_REFERENCES = 5
@@ -63,18 +64,52 @@ def _recommendation(metadata: Any) -> tuple[str, str]:
     return _text(_value(recommendation, "Text")), _text(_value(recommendation, "Url"))
 
 
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in re.findall(r"\d+", version)[:4])
+
+
+def best_fixed_version(installed: str, fixed: str) -> tuple[str, list[str]]:
+    """The fixed version to upgrade to, and the other fixed releases.
+
+    Advisories often list one fix per release line ("5.2.8, 5.1.14, 4.2.26").
+    Prefer the newer version in the installed line (same major.minor, then
+    same major), so the upgrade is the smallest one that fixes the issue.
+    """
+    candidates = [part.strip() for part in fixed.split(",") if part.strip()]
+    if len(candidates) <= 1:
+        return (candidates[0] if candidates else ""), []
+    current = _version_key(installed)
+    newer = [c for c in candidates if not current or _version_key(c) > current]
+    pool = newer or candidates
+    best = pool[0]
+    for width in (2, 1):
+        same_line = [
+            c for c in pool if current and _version_key(c)[:width] == current[:width]
+        ]
+        if same_line:
+            best = min(same_line, key=_version_key)
+            break
+    else:
+        best = min(pool, key=_version_key)
+    return best, [c for c in candidates if c != best]
+
+
 def _package_fix(raw: dict[str, Any]) -> dict[str, Any] | None:
     package = _text(raw.get("PkgName")) or _text(raw.get("PkgID"))
     if not package or "VulnerabilityID" not in raw and "InstalledVersion" not in raw:
         return None
     installed = _text(raw.get("InstalledVersion"))
-    fixed = _text(raw.get("FixedVersion"))
+    fixed, also_fixed = best_fixed_version(
+        installed, _text(raw.get("FixedVersion"))
+    )
     if fixed:
         summary = (
             f"Upgrade {package} from {installed} to {fixed} or later."
             if installed
             else f"Upgrade {package} to {fixed} or later."
         )
+        if also_fixed:
+            summary += f" Also fixed in {', '.join(also_fixed)}."
     else:
         summary = (
             f"No fixed version of {package} is published yet. Check whether the "
