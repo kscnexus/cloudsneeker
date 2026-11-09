@@ -25,6 +25,10 @@ def get_assembler(report_type: str) -> Assembler:
         ReportParamsError: The report type is unknown.
     """
     catalog.get_report_type(report_type)
+    if report_type in catalog.ASSESSMENT_TYPES:
+        from cloudsneeker_api.reports.assessment.builder import assemble_for
+
+        return lambda tenant_id, filters: assemble_for(report_type, tenant_id, filters)
     from cloudsneeker_api.reports.data import (
         cloud_posture,
         compliance,

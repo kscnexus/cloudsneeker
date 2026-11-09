@@ -54,6 +54,10 @@ class TestCatalog:
             "iac",
             "secrets",
             "governance",
+            "security_assessment",
+            "appsec_assessment",
+            "cloud_assessment",
+            "governance_assessment",
         }
 
     def test_compliance_requires_framework(self):

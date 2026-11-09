@@ -2,7 +2,9 @@ name: 'Cloudsneeker: Tests'
 # Runs the unit suites for main in GitHub Actions. The upstream test
 # workflows only trigger on master and v5.*, and tests never run on the
 # development PC. Each job runs only when its component changed. A manual
-# run tests every component. No job uploads artifacts or coverage.
+# run tests every component. The API job uploads the rendered assessment
+# report samples (PNG pages, kept three days) for visual review; no job
+# uploads coverage.
 
 on:
   push:
@@ -186,6 +188,36 @@ jobs:
         run: >-
           uv run pytest src/backend
           --deselect "api/tests/test_views.py::TestScheduleViewSet::test_schedule_invalid_method_list[get]"
+
+      # Renders the assessment report samples (every report type and the
+      # typical, large, stale/partial, empty, and AI datasets) to PNG pages
+      # plus one contact sheet per report, for visual review
+      # (knowledge-base/reporting.md).
+      - name: Render assessment report samples
+        if: ${{ !cancelled() }}
+        env:
+          UV_NO_SYNC: '1'
+          CS_REPORT_SAMPLES_DIR: ${{ runner.temp }}/report-samples
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends poppler-utils imagemagick >/dev/null
+          uv run pytest src/backend/cloudsneeker_api/tests/test_assessment_render.py -q
+          cd "$CS_REPORT_SAMPLES_DIR"
+          for pdf in *.pdf; do
+            name="${pdf%.pdf}"
+            mkdir -p "$name"
+            pdftoppm -r 72 -png "$pdf" "$name/page"
+            montage "$name"/page-*.png -tile 6x -geometry 300x424+6+6 -background '#cbd5e1' "$name-sheet.png" || true
+          done
+          ls -la
+
+      - name: Upload assessment report samples
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: assessment-report-samples
+          path: ${{ runner.temp }}/report-samples
+          retention-days: 3
 
   ui:
     name: UI tests
