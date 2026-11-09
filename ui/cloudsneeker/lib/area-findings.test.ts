@@ -45,6 +45,7 @@ describe("parseAreaFilters", () => {
         q: "  lodash ",
         sort: "-last_seen_at",
         page: "3",
+        fix: "available",
       }),
     ).toEqual({
       severities: ["high", "critical"],
@@ -53,12 +54,18 @@ describe("parseAreaFilters", () => {
       search: "lodash",
       sort: AREA_FINDING_SORT.NEWEST,
       page: 3,
+      fix: "available",
     });
   });
 
   it("falls back to defaults", () => {
     expect(
-      parseAreaFilters({ triage: "done", sort: "uid", page: "-1" }),
+      parseAreaFilters({
+        triage: "done",
+        sort: "uid",
+        page: "-1",
+        fix: "maybe",
+      }),
     ).toEqual({
       severities: [],
       triage: null,
@@ -66,6 +73,7 @@ describe("parseAreaFilters", () => {
       search: "",
       sort: AREA_FINDING_SORT.SEVERITY,
       page: 1,
+      fix: null,
     });
   });
 });
@@ -80,6 +88,7 @@ describe("areaFindingsSearchParams", () => {
         search: "vol",
         sort: AREA_FINDING_SORT.SEVERITY,
         page: 2,
+        fix: "available",
       }),
     ).toEqual({
       "filter[area]": "governance",
@@ -91,6 +100,26 @@ describe("areaFindingsSearchParams", () => {
       "filter[source__in]": "policy-1",
       "filter[search]": "vol",
     });
+  });
+
+  it("sends the fix filter only for areas with fix data", () => {
+    const filters = {
+      severities: [],
+      triage: null,
+      source: null,
+      search: "",
+      sort: AREA_FINDING_SORT.SEVERITY,
+      page: 1,
+      fix: "unavailable" as const,
+    };
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.APPLICATION_SECURITY, filters)[
+        "filter[fix]"
+      ],
+    ).toBe("unavailable");
+    expect(
+      areaFindingsPageHref(FINDING_AREA.APPLICATION_SECURITY, filters),
+    ).toBe("/application-security/findings?fix=unavailable");
   });
 
   it("scopes the triage list to the area", () => {

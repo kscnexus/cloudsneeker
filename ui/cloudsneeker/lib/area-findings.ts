@@ -18,6 +18,8 @@ import {
   governanceHref,
 } from "@/cloudsneeker/routes";
 import {
+  AREA_FIX_FILTER,
+  type AreaFixFilter,
   FINDING_AREA,
   type FindingArea,
 } from "@/cloudsneeker/types/area-findings";
@@ -60,7 +62,13 @@ export const AREA_PARAM = {
   SEARCH: "q",
   SORT: "sort",
   PAGE: "page",
+  FIX: "fix",
 } as const;
+
+export const AREA_FIX_FILTER_LABEL: Record<AreaFixFilter, string> = {
+  [AREA_FIX_FILTER.AVAILABLE]: "Fix available",
+  [AREA_FIX_FILTER.UNAVAILABLE]: "No fix yet",
+};
 
 export interface AreaConfig {
   area: FindingArea;
@@ -72,6 +80,8 @@ export interface AreaConfig {
   resourceLabel: string;
   sourceLabel: string;
   emptyFindings: string;
+  /** Findings carry fix data (governance dry runs do not). */
+  showFix: boolean;
 }
 
 export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
@@ -84,6 +94,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     resourceLabel: "Resource",
     sourceLabel: "Provider",
     emptyFindings: "Run a scan on a cloud provider to see findings here.",
+    showFix: true,
   },
   [FINDING_AREA.APPLICATION_SECURITY]: {
     area: FINDING_AREA.APPLICATION_SECURITY,
@@ -95,6 +106,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     sourceLabel: "Target",
     emptyFindings:
       "Scan a repository, image or archive target to see its findings here.",
+    showFix: true,
   },
   [FINDING_AREA.GOVERNANCE]: {
     area: FINDING_AREA.GOVERNANCE,
@@ -105,6 +117,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     resourceLabel: "Resource",
     sourceLabel: "Policy",
     emptyFindings: "Run a policy dry run to see the resources it matches here.",
+    showFix: false,
   },
 };
 
@@ -115,6 +128,7 @@ export interface AreaFindingFilters {
   search: string;
   sort: AreaFindingSort;
   page: number;
+  fix: AreaFixFilter | null;
 }
 
 type ParamValue = string | string[] | undefined;
@@ -139,6 +153,7 @@ export const parseAreaFilters = (
     );
   const triage = first(params[AREA_PARAM.TRIAGE]);
   const sort = first(params[AREA_PARAM.SORT]);
+  const fix = first(params[AREA_PARAM.FIX]);
   return {
     severities: Array.from(new Set(severities)),
     triage: TRIAGE_STATUS_FILTERS.find((status) => status === triage) ?? null,
@@ -148,6 +163,7 @@ export const parseAreaFilters = (
       ? (sort as AreaFindingSort)
       : AREA_FINDING_SORT.SEVERITY,
     page: parsePage(params[AREA_PARAM.PAGE]),
+    fix: Object.values(AREA_FIX_FILTER).find((value) => value === fix) ?? null,
   };
 };
 
@@ -166,6 +182,9 @@ export const areaFindingsSearchParams = (
   ...(filters.triage ? { "filter[triage_status__in]": filters.triage } : {}),
   ...(filters.source ? { "filter[source__in]": filters.source } : {}),
   ...(filters.search ? { "filter[search]": filters.search } : {}),
+  ...(filters.fix && AREA_CONFIG[area].showFix
+    ? { "filter[fix]": filters.fix }
+    : {}),
 });
 
 /** Query for `GET /finding-triages` of one area. */
@@ -201,6 +220,7 @@ export const areaFindingsPageHref = (
   if (filters.sort && filters.sort !== AREA_FINDING_SORT.SEVERITY) {
     params.set(AREA_PARAM.SORT, filters.sort);
   }
+  if (filters.fix) params.set(AREA_PARAM.FIX, filters.fix);
   if (filters.page && filters.page > 1) {
     params.set(AREA_PARAM.PAGE, String(filters.page));
   }

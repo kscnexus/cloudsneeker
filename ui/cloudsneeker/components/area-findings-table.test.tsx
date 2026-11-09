@@ -40,6 +40,11 @@ const finding = (
     description: "Prototype pollution",
     status_extended: "",
     remediation: "Upgrade lodash",
+    fix_available: false,
+    fix_summary: "",
+    installed_version: "",
+    fixed_version: "",
+    fix_references: [],
     resource_id: "package.json:lodash",
     resource_name: "lodash",
     resource_type: "npm",
@@ -165,5 +170,57 @@ describe("AreaFindingsTable", () => {
         note: "Bumping in PR 12",
       }),
     );
+  });
+
+  it("shows the fix column and how to fix the finding", async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaFindingsTable
+        config={config}
+        findings={[
+          finding("a", {
+            fix_available: true,
+            fix_summary: "Upgrade lodash from 4.17.0 to 4.17.21 or later.",
+            installed_version: "4.17.0",
+            fixed_version: "4.17.21",
+            fix_references: ["https://github.com/advisories/GHSA-1"],
+          }),
+          finding("b", {
+            fix_summary: "No fixed version of left-pad is published yet.",
+          }),
+        ]}
+        canTriage
+      />,
+    );
+
+    expect(
+      screen.getByRole("columnheader", { name: "Fix" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Upgrade to 4.17.21")).toBeInTheDocument();
+    expect(screen.getByText("No fix yet")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Title a/ }));
+    expect(screen.getByText("How to fix")).toBeInTheDocument();
+    expect(
+      screen.getByText("Upgrade lodash from 4.17.0 to 4.17.21 or later."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /github\.com/ })).toHaveAttribute(
+      "href",
+      "https://github.com/advisories/GHSA-1",
+    );
+  });
+
+  it("has no fix column for governance findings", () => {
+    render(
+      <AreaFindingsTable
+        config={AREA_CONFIG.governance}
+        findings={[finding("a", { area: "governance" })]}
+        canTriage
+      />,
+    );
+
+    expect(
+      screen.queryByRole("columnheader", { name: "Fix" }),
+    ).not.toBeInTheDocument();
   });
 });

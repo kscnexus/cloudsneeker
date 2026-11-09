@@ -21,6 +21,21 @@ describe("Application Security page workspace", () => {
     );
   });
 
+  it("splits the workspace into tabs like the governance page", () => {
+    expect(source).toContain("<ProductPageTabs");
+    expect(source).toContain("APP_SECURITY_TAB.DASHBOARD");
+    expect(source).toContain("APP_SECURITY_TAB.TARGETS");
+    expect(source).toContain("APP_SECURITY_TAB.SCANS");
+    expect(source).toContain("getAppSecurityTab");
+  });
+
+  it("shows fixable findings on the dashboard", () => {
+    expect(source).toContain("<AppSecurityFixesCard");
+    expect(source).toContain('"filter[fix]"');
+    expect(source).toContain("AREA_FIX_FILTER.AVAILABLE");
+    expect(source).toContain("AREA_FIX_FILTER.UNAVAILABLE");
+  });
+
   it("shows a load error instead of an empty list when targets fail", () => {
     expect(source).toContain("isListResponse(targetsResponse)");
     expect(source).toContain("Targets could not be loaded");

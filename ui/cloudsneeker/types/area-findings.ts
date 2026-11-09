@@ -32,6 +32,13 @@ export interface AreaFindingAttributes {
   description: string;
   status_extended: string;
   remediation: string;
+  /** A concrete fix exists: a fixed version, a resolution or a recommendation. */
+  fix_available: boolean;
+  /** What to do, in a sentence or two ("Upgrade PyJWT from 2.8.0 to 2.10.1 or later."). */
+  fix_summary: string;
+  installed_version: string;
+  fixed_version: string;
+  fix_references: string[];
   resource_id: string;
   resource_name: string;
   resource_type: string;
@@ -51,6 +58,14 @@ export interface AreaFindingAttributes {
   triage_latest_note: string;
   assignee_id: string | null;
 }
+
+export const AREA_FIX_FILTER = {
+  AVAILABLE: "available",
+  UNAVAILABLE: "unavailable",
+} as const;
+
+export type AreaFixFilter =
+  (typeof AREA_FIX_FILTER)[keyof typeof AREA_FIX_FILTER];
 
 export interface AreaFindingResource {
   id: string;

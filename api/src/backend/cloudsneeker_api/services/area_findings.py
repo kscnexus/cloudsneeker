@@ -28,6 +28,12 @@ from api.models import (
 )
 from cloudsneeker_api.models import FindingTriage, TrivyRun
 from cloudsneeker_api.reports.access import visible_provider_ids
+from cloudsneeker_api.services.finding_fix import (
+    FIX_AVAILABLE,
+    FIX_FILTER_VALUES,
+    empty_fix,
+    finding_fix,
+)
 from cloudsneeker_api.services.finding_triage import (
     APP_SECURITY_SCAN_SOURCE,
     FindingSnapshot,
@@ -87,6 +93,9 @@ class AreaFindingQuery:
     search: str = ""
     include_muted: bool = False
     include_passed: bool = False
+    # FIX_AVAILABLE, FIX_UNAVAILABLE or "" (any). Cloud and Application
+    # Security only; governance rows carry no fix.
+    fix: str = ""
     sort: str = "severity"
     descending: bool = False
     page: int = 1
@@ -130,6 +139,11 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
     unknown = sorted(set(statuses) - set(FindingTriage.Status.values))
     if unknown:
         raise AreaFindingsError(f"Unknown triage status: {', '.join(unknown)}.")
+    fix = str(params.get("filter[fix]") or "").strip()
+    if fix and fix not in FIX_FILTER_VALUES:
+        raise AreaFindingsError(
+            f"filter[fix] must be one of {', '.join(FIX_FILTER_VALUES)}."
+        )
     sort = str(params.get("sort") or "severity").strip()
     descending = sort.startswith("-")
     sort = sort.lstrip("-")
@@ -143,6 +157,7 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         search=str(params.get("filter[search]") or "").strip()[:SEARCH_MAX_LENGTH],
         include_muted=str(params.get("filter[muted]") or "") == "include",
         include_passed=str(params.get("filter[status]") or "") == "all",
+        fix=fix,
         sort=sort,
         descending=descending,
         page=_positive_int(params.get("page[number]"), 1),
@@ -293,6 +308,11 @@ def _finding_queryset(
             | Q(cs_title__icontains=query.search)
             | Q(uid__icontains=query.search)
         )
+    if query.fix:
+        fixable = _fix_available_q()
+        queryset = queryset.filter(
+            fixable if query.fix == FIX_AVAILABLE else ~fixable
+        )
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
             tenant_id, query.area, query.triage_statuses
@@ -313,6 +333,33 @@ def _finding_queryset(
         else F(order).asc(nulls_last=True)
     )
     return queryset.annotate(severity_rank=_severity_rank()).order_by(expression, "id")
+
+
+def _non_empty(lookup: str) -> Q:
+    return Q(**{f"{lookup}__isnull": False}) & ~Q(**{lookup: ""})
+
+
+def _fix_available_q() -> Q:
+    """Database form of ``finding_fix(...)["fix_available"]``."""
+    return (
+        _non_empty("raw_result__FixedVersion")
+        | _non_empty("raw_result__Resolution")
+        | (Q(raw_result__has_key="RuleID") & Q(raw_result__has_key="Match"))
+        | (
+            Q(raw_result__has_key="Name")
+            & Q(raw_result__has_key="Category")
+            & ~Q(raw_result__has_key="RuleID")
+        )
+        | Q(raw_result__extra__has_key="fix")
+        | Q(raw_result__extra__has_key="message")
+        | (
+            ~Q(raw_result__has_key="VulnerabilityID")
+            & (
+                _non_empty("check_metadata__Remediation__Recommendation__Text")
+                | _non_empty("check_metadata__remediation__recommendation__text")
+            )
+        )
+    )
 
 
 def app_security_location(raw: dict[str, Any], file: str = "") -> str:
@@ -404,6 +451,7 @@ def _finding_rows(
                 ),
                 "status_extended": finding["status_extended"] or "",
                 "remediation": _remediation(metadata),
+                **finding_fix(metadata, raw),
                 "resource_id": resource.get("resource__uid") or "",
                 "resource_name": resource.get("resource__name") or "",
                 "resource_type": resource.get("resource__type")
@@ -517,6 +565,7 @@ def _governance_row(
         "description": finding.description,
         "status_extended": "",
         "remediation": "",
+        **empty_fix(),
         "resource_id": finding.resource_id,
         "resource_name": finding.resource_name,
         "resource_type": finding.resource_type,

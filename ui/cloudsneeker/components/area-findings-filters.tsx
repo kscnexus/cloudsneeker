@@ -1,8 +1,10 @@
 import Link from "next/link";
 
 import {
+  AREA_CONFIG,
   AREA_FINDING_SORT,
   AREA_FINDING_SORT_LABEL,
+  AREA_FIX_FILTER_LABEL,
   AREA_PARAM,
   AREA_SEVERITIES,
   type AreaFindingFilters,
@@ -15,9 +17,10 @@ import {
 } from "@/cloudsneeker/lib/finding-triage";
 import { severityLabel } from "@/cloudsneeker/lib/report-view";
 import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
-import type {
-  AreaFindingSource,
-  FindingArea,
+import {
+  AREA_FIX_FILTER,
+  type AreaFindingSource,
+  type FindingArea,
 } from "@/cloudsneeker/types/area-findings";
 import { Button, Input } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
@@ -77,7 +80,24 @@ export const AreaFindingsFilters = ({
           </Link>
         ))}
       </nav>
+      {AREA_CONFIG[area].showFix ? (
+        <nav aria-label="Fix" className="flex flex-wrap gap-2">
+          {[null, ...Object.values(AREA_FIX_FILTER)].map((fix) => (
+            <Link
+              key={fix ?? "any"}
+              href={areaFindingsPageHref(area, { ...reset, fix })}
+              aria-current={fix === filters.fix ? "page" : undefined}
+              className={chipClass(fix === filters.fix)}
+            >
+              {fix ? AREA_FIX_FILTER_LABEL[fix] : "Any fix state"}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
       <form method="get" className="flex flex-wrap items-end gap-2">
+        {filters.fix ? (
+          <input type="hidden" name={AREA_PARAM.FIX} value={filters.fix} />
+        ) : null}
         {filters.severities.length ? (
           <input
             type="hidden"

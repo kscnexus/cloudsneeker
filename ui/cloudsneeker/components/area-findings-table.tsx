@@ -26,6 +26,7 @@ import {
   type FindingTriageStatus,
 } from "@/types/findings-triage";
 
+import { AreaFindingFixCell, AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
 import { ReportSeverityBadge } from "./report-severity-badge";
 
@@ -108,6 +109,7 @@ export const AreaFindingsTable = ({
     config.resourceLabel,
     config.sourceLabel,
     "Severity",
+    ...(config.showFix ? ["Fix"] : []),
     "Triage",
     "Last seen",
   ];
@@ -243,6 +245,11 @@ export const AreaFindingsTable = ({
                     <td className="px-3 py-2 align-top">
                       <ReportSeverityBadge severity={finding.severity} />
                     </td>
+                    {config.showFix ? (
+                      <td className="px-3 py-2 align-top whitespace-nowrap">
+                        <AreaFindingFixCell finding={finding} />
+                      </td>
+                    ) : null}
                     <td className="px-3 py-2 align-top whitespace-nowrap">
                       {canTriage ? (
                         <select
@@ -288,16 +295,7 @@ export const AreaFindingsTable = ({
                               </dd>
                             </div>
                           ) : null}
-                          {finding.remediation ? (
-                            <div className="sm:col-span-2">
-                              <dt className="text-text-neutral-tertiary font-semibold">
-                                Remediation
-                              </dt>
-                              <dd className="text-text-neutral-primary whitespace-pre-line">
-                                {finding.remediation}
-                              </dd>
-                            </div>
-                          ) : null}
+                          <AreaFindingFixDetails finding={finding} />
                           <div>
                             <dt className="text-text-neutral-tertiary font-semibold">
                               {config.resourceLabel}
