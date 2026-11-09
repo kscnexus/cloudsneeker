@@ -186,3 +186,31 @@ class TestQualityFlow:
         assert {c["id"]: c["status"] for c in result["checks"]}[
             "pdf_rendered"
         ] == "warn"
+
+
+class TestPageBreaks:
+    def _layout(self, filler_lines: int):
+        from reportlab.platypus import Paragraph
+        from reportlab.platypus.flowables import PageBreakIfNotEmpty
+
+        from cloudsneeker_api.reports.assessment.render_pdf import AssessmentDoc, Gap, Heading, PageBreak, styles
+
+        s = styles()
+        doc = AssessmentDoc(
+            io.BytesIO(),
+            {"title": "t", "generated": "g", "period": "p", "engine_version": "2.0"},
+            title="t",
+            author="a",
+            subject="s",
+            keywords="k",
+        )
+        story = [Paragraph("cover", s["body"]), PageBreak(nextTemplate="portrait")]
+        story += [Paragraph(f"line {i}", s["body"]) for i in range(filler_lines)]
+        story += [Gap(1, 40 * 2.83), PageBreakIfNotEmpty(), Heading("Next section", s["h1"], 0, "k1"), Paragraph("x", s["body"])]
+        doc.multiBuild(story)
+        return doc.layout
+
+    @pytest.mark.parametrize("filler_lines", [50, 52, 54, 56, 58])
+    def test_space_at_page_end_never_makes_a_blank_page(self, filler_lines):
+        layout = self._layout(filler_lines)
+        assert layout["blank_pages"] == []

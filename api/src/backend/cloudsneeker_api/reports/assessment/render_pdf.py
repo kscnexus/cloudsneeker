@@ -336,6 +336,20 @@ def priority_markup(priority: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 
+class Gap(Spacer):
+    """Vertical space that shrinks to what is left on the page.
+
+    A plain Spacer that does not fit moves to the next page and can leave a
+    page that holds nothing but space.
+    """
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:  # noqa: N803
+        if not hasattr(self, "_full_height"):
+            self._full_height = self.height
+        self.height = max(0.0, min(self._full_height, availHeight))
+        return availWidth, self.height
+
+
 class Heading(Paragraph):
     """Section heading that becomes a bookmark and a contents entry."""
 
@@ -412,6 +426,18 @@ class AssessmentDoc(BaseDocTemplate):
         self._headings = 0
         self._bookmarks = 0
         self._pages_drawn = 0
+
+    def handle_flowable(self, flowables: list) -> None:
+        # A page that holds only space counts as empty: do not break again.
+        first = flowables[0] if flowables else None
+        if (
+            isinstance(first, PageBreakIfNotEmpty)
+            and not self._content.get(self.page)
+            and (not first.nextTemplate or self._samePT(first.nextTemplate))
+        ):
+            del flowables[0]
+            return
+        super().handle_flowable(flowables)
 
     def afterFlowable(self, flowable: Flowable) -> None:  # noqa: N802 - reportlab API
         if isinstance(flowable, (Spacer, ActionFlowable, PageBreak, CondPageBreak)):
@@ -1051,13 +1077,13 @@ def cover(b: Builder, content: dict[str, Any]) -> list:
     scope = meta.get("scope") or {}
     providers = scope.get("providers") or []
     items = [
-        Spacer(1, 62 * mm),
+        Gap(1, 62 * mm),
         Paragraph("SECURITY ASSESSMENT REPORT", b.s["cover_kicker"]),
-        Spacer(1, 4 * mm),
+        Gap(1, 4 * mm),
         Paragraph(escape(meta["title"]), b.s["cover_title"]),
-        Spacer(1, 5 * mm),
+        Gap(1, 5 * mm),
         Paragraph(escape(" · ".join(meta.get("areas") or [])), b.s["cover_sub"]),
-        Spacer(1, 16 * mm),
+        Gap(1, 16 * mm),
     ]
     grade = summary.get("grade") or "N/A"
     score_text = f"{score:.0f}/100" if score is not None else NOT_ASSESSED
@@ -1124,13 +1150,13 @@ def scope_section(b: Builder, content: dict[str, Any]) -> list:
     items.append(
         b.table([("k", "Item", 1), ("v", "Value", 3)], rows, header_color=BRAND_DARK)
     )
-    items.append(Spacer(1, 4 * mm))
+    items.append(Gap(1, 4 * mm))
     for warning in coverage.get("warnings") or []:
         items += [
             b.callout(
                 f"<b>Coverage warning.</b> {escape(warning)}", SEVERITY_COLORS["medium"]
             ),
-            Spacer(1, 2 * mm),
+            Gap(1, 2 * mm),
         ]
     items += b.table_heading("Assessed sources")
     if coverage.get("rows"):
@@ -1196,7 +1222,7 @@ def summary_section(b: Builder, content: dict[str, Any]) -> list:
             ]
         )
     )
-    items += [head, Spacer(1, 5 * mm)]
+    items += [head, Gap(1, 5 * mm)]
 
     def value(key: str) -> Any:
         return metrics.get(key) if assessed else None
@@ -1260,7 +1286,7 @@ def summary_section(b: Builder, content: dict[str, Any]) -> list:
             },
         )
     )
-    items.append(Spacer(1, 2 * mm))
+    items.append(Gap(1, 2 * mm))
     items.append(
         b.para(
             "Counts are unique findings after deduplication. Unique affected resources are counted separately from findings. "
@@ -1307,7 +1333,7 @@ def distribution_section(b: Builder, content: dict[str, Any]) -> list:
             PORTRAIT_WIDTH,
         )
         items.append(
-            KeepTogether([b.h2(title, bookmark=False), chart, Spacer(1, 3 * mm)])
+            KeepTogether([b.h2(title, bookmark=False), chart, Gap(1, 3 * mm)])
         )
     return items
 
@@ -1371,11 +1397,11 @@ def _risk_card(b: Builder, index: int, risk: dict[str, Any]) -> list:
         CondPageBreak(80 * mm),
         b.h2(f"{index}. {risk['title']}"),
         b.para(head, "body_ink"),
-        Spacer(1, 1.5 * mm),
+        Gap(1, 1.5 * mm),
         b.table(
             [("k", "Item", 1), ("v", "Detail", 3.2)], facts, header_color=BRAND_DARK
         ),
-        Spacer(1, 2 * mm),
+        Gap(1, 2 * mm),
     ]
     if rec.get("issue"):
         block += [b.h3("What the issue is"), b.para(text(rec["issue"]))]
@@ -1393,7 +1419,7 @@ def _risk_card(b: Builder, index: int, risk: dict[str, Any]) -> list:
     ]
     for command in rec.get("commands") or []:
         code = escape(command["code"]).replace("\n", "<br/>")
-        block.append(Spacer(1, 1.5 * mm))
+        block.append(Gap(1, 1.5 * mm))
         block.append(b.para(f"<b>{escape(command['label'])}</b>", "small"))
         snippet = Table([[Paragraph(code, b.s["mono"])]], colWidths=[PORTRAIT_WIDTH])
         snippet.setStyle(
@@ -1421,7 +1447,7 @@ def _risk_card(b: Builder, index: int, risk: dict[str, Any]) -> list:
                 "small",
             )
         )
-    block.append(Spacer(1, 5 * mm))
+    block.append(Gap(1, 5 * mm))
     return block
 
 
@@ -1465,7 +1491,7 @@ def posture_section(b: Builder, content: dict[str, Any]) -> list:
                     MUTED,
                 )
             )
-            items.append(Spacer(1, 4 * mm))
+            items.append(Gap(1, 4 * mm))
             continue
         items += [PageBreakIfNotEmpty(), *b.h1(f"{data['label']} posture", "Posture")]
         ring = score_ring(data.get("score"), data.get("grade") or "N/A", 28 * mm)
@@ -1542,7 +1568,7 @@ def compliance_section(b: Builder, content: dict[str, Any]) -> list:
             f"<b>Not a certification.</b> {escape(compliance['disclaimer'])}", VIOLET
         )
     )
-    items.append(Spacer(1, 3 * mm))
+    items.append(Gap(1, 3 * mm))
     items += b.table_heading("Assessed frameworks")
     if compliance["assessed"]:
         items.append(
@@ -1799,7 +1825,7 @@ def methodology_section(b: Builder, content: dict[str, Any]) -> list:
         }[quality["status"]]
         verdict = "Distributable" if quality["distributable"] else "Not distributable"
         items.append(b.callout(f"<b>{verdict}.</b> {escape(quality['summary'])}", tone))
-        items.append(Spacer(1, 2 * mm))
+        items.append(Gap(1, 2 * mm))
         status_colors = {
             "pass": "#0D9488",
             "warn": "#FB8C00",
