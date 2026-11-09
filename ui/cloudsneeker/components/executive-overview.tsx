@@ -225,8 +225,9 @@ const ExecutiveOverviewSSR = async () => {
     loadAppTargets(),
     loadAppRuns(),
     loadPolicyRuns(),
-    loadCloudScans(ACTIVITY_LIMIT),
-    loadCriticalFindings(FINDING_AREA.CLOUD, CRITICAL_PER_AREA),
+    loadCloudScans(ACTIVITY_LIMIT * 3),
+    // Extra rows: code-repository sources are dropped below.
+    loadCriticalFindings(FINDING_AREA.CLOUD, CRITICAL_PER_AREA * 3),
     loadCriticalFindings(FINDING_AREA.APPLICATION_SECURITY, CRITICAL_PER_AREA),
   ]);
 
@@ -251,9 +252,23 @@ const ExecutiveOverviewSSR = async () => {
       .map((run) => run.attributes.policy_id),
   ).size;
 
+  // Application scans also create a scan record; list them once, as
+  // application scans, and keep their sources out of the cloud lists.
+  const appScanIds = new Set(
+    (appRuns ?? [])
+      .map((run) => run.attributes.scan_id || run.attributes.summary?.scan_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const appProviderIds = new Set(
+    (appTargets ?? []).map((target) => target.attributes.provider_id),
+  );
   const activity = mergeActivity(
     [
-      cloudScans ? cloudScanActivity(cloudScans) : [],
+      cloudScans
+        ? cloudScanActivity(
+            cloudScans.filter((scan) => !appScanIds.has(scan.id)),
+          )
+        : [],
       appRuns ? appScanActivity(appRuns) : [],
       policyRuns ? policyRunActivity(policyRuns) : [],
     ],
@@ -261,7 +276,16 @@ const ExecutiveOverviewSSR = async () => {
   );
   const activityFailed = !cloudScans && !appRuns && !policyRuns;
 
-  const critical = [...(cloudCritical ?? []), ...(appCriticalFindings ?? [])];
+  const critical = [
+    ...(cloudCritical ?? [])
+      .filter(
+        (finding) =>
+          !finding.attributes.provider_id ||
+          !appProviderIds.has(finding.attributes.provider_id),
+      )
+      .slice(0, CRITICAL_PER_AREA),
+    ...(appCriticalFindings ?? []),
+  ];
   const criticalFailed = cloudCritical === null && appCriticalFindings === null;
 
   return (

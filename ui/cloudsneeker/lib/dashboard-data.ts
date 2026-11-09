@@ -99,7 +99,10 @@ export const loadAreaTriageCounts = async (
 export const loadCloudSeverity = async (): Promise<
   SeverityBreakdownItem[] | null
 > => {
-  const response = await getFindingsBySeverity({ filters: {} });
+  // Same filter as the Cloud Security severity chart: failed findings only.
+  const response = await getFindingsBySeverity({
+    filters: { "filter[status]": "FAIL" },
+  });
   const attributes =
     response && "data" in response
       ? (response.data as { attributes?: Record<string, number> } | undefined)
