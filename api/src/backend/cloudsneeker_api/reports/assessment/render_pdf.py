@@ -51,7 +51,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-from reportlab.platypus.flowables import ActionFlowable, PageBreak, PageBreakIfNotEmpty
+from reportlab.platypus.doctemplate import ActionFlowable
+from reportlab.platypus.flowables import PageBreak, PageBreakIfNotEmpty
 from reportlab.platypus.tableofcontents import TableOfContents
 
 logger = logging.getLogger(__name__)

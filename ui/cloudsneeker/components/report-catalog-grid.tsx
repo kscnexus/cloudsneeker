@@ -13,6 +13,7 @@ import {
   Package,
   Presentation,
   Scale,
+  ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -61,6 +62,10 @@ export const REPORT_TYPE_ICON: Record<ReportTypeId, LucideIcon> = {
   [REPORT_TYPE_ID.IAC]: FileCode2,
   [REPORT_TYPE_ID.SECRETS]: KeyRound,
   [REPORT_TYPE_ID.GOVERNANCE]: Scale,
+  [REPORT_TYPE_ID.SECURITY_ASSESSMENT]: ShieldCheck,
+  [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: Code2,
+  [REPORT_TYPE_ID.CLOUD_ASSESSMENT]: Cloud,
+  [REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT]: Scale,
 };
 
 export const reportTypeIcon = (id: string): LucideIcon =>
