@@ -17,6 +17,11 @@ import { formatReportDate } from "@/cloudsneeker/lib/report-view";
 import {
   FORM_CHECK_CLASS,
   FORM_SELECT_CLASS,
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
 } from "@/cloudsneeker/lib/ui-classes";
 import type { AreaFindingResource } from "@/cloudsneeker/types/area-findings";
 import { Button, Textarea } from "@/components/shadcn";
@@ -160,9 +165,9 @@ export const AreaFindingsTable = ({
           {error}
         </p>
       ) : null}
-      <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-bg-neutral-tertiary">
+      <div className={TABLE_FRAME_CLASS}>
+        <table className={TABLE_CLASS}>
+          <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th scope="col" className="w-8 px-3 py-2">
                 {canTriage ? (
@@ -181,14 +186,14 @@ export const AreaFindingsTable = ({
                 <th
                   key={column}
                   scope="col"
-                  className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold"
+                  className={TABLE_HEADER_CELL_CLASS}
                 >
                   {column}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-border-neutral-secondary divide-y">
+          <tbody className={TABLE_BODY_CLASS}>
             {findings.map(({ attributes: finding }) => {
               const isOpen = expanded === finding.uid;
               return (

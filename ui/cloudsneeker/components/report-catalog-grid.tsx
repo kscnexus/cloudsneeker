@@ -44,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/shadcn/dialog";
 
+import { FormAlert } from "./form-layout";
 import {
   asReportParamsForm,
   ReportParamsFields,
@@ -179,8 +180,8 @@ export const ReportCatalogGrid = ({
           <DialogHeader>
             <DialogTitle>Generate {selected?.title}</DialogTitle>
             <DialogDescription>
-              The report is prepared in the background and appears under
-              Recent reports when it is ready.
+              The report is prepared in the background and appears under Recent
+              reports when it is ready.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -190,9 +191,7 @@ export const ReportCatalogGrid = ({
               providers={providers}
               frameworks={frameworks}
             />
-            {error ? (
-              <p className="text-text-error-primary text-sm">{error}</p>
-            ) : null}
+            <FormAlert message={error} />
             <DialogFooter>
               <Button
                 type="button"

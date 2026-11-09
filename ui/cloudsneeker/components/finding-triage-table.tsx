@@ -4,6 +4,13 @@ import Link from "next/link";
 import { AREA_CONFIG, areaFindingHref } from "@/cloudsneeker/lib/area-findings";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
 import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
+import {
   FINDING_AREA,
   type FindingArea,
 } from "@/cloudsneeker/types/area-findings";
@@ -25,22 +32,22 @@ export const FindingTriageTable = ({
   triages,
   area = FINDING_AREA.CLOUD,
 }: FindingTriageTableProps) => (
-  <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-    <table className="w-full text-left text-sm">
-      <thead className="bg-bg-neutral-tertiary">
+  <div className={TABLE_FRAME_CLASS}>
+    <table className={TABLE_CLASS}>
+      <thead className={TABLE_HEAD_CLASS}>
         <tr>
           {HEADERS.map((header) => (
             <th
               key={header || "actions"}
               scope="col"
-              className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold"
+              className={TABLE_HEADER_CELL_CLASS}
             >
               {header}
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-border-neutral-secondary divide-y">
+      <tbody className={TABLE_BODY_CLASS}>
         {triages.map((triage) => {
           const attributes = triage.attributes;
           return (

@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from "@/components/shadcn/dialog";
 
+import { FormAlert } from "./form-layout";
+
 interface ReportShareDialogProps {
   runId: string;
   reportName: string;
@@ -105,8 +107,8 @@ export const ReportShareDialog = ({
           <DialogHeader>
             <DialogTitle>Share {reportName}</DialogTitle>
             <DialogDescription>
-              Anyone with the link can view this report without signing in
-              until it expires or you revoke it.
+              Anyone with the link can view this report without signing in until
+              it expires or you revoke it.
             </DialogDescription>
           </DialogHeader>
 
@@ -121,7 +123,11 @@ export const ReportShareDialog = ({
                   onFocus={(event) => event.currentTarget.select()}
                 />
                 <Button type="button" size="sm" onClick={onCopy}>
-                  {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                  {copied ? (
+                    <Check aria-hidden="true" />
+                  ) : (
+                    <Copy aria-hidden="true" />
+                  )}
                   {copied ? "Copied" : "Copy"}
                 </Button>
               </div>
@@ -148,20 +154,26 @@ export const ReportShareDialog = ({
                   </option>
                 ))}
               </select>
-              {error ? (
-                <p className="text-text-error-primary text-sm">{error}</p>
-              ) : null}
+              <FormAlert message={error} />
             </div>
           )}
 
           <DialogFooter>
             {created ? (
-              <Button type="button" variant="outline" onClick={() => reset(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => reset(false)}
+              >
                 Done
               </Button>
             ) : (
               <>
-                <Button type="button" variant="ghost" onClick={() => reset(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => reset(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="button" disabled={saving} onClick={onCreate}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, FileText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -14,6 +14,13 @@ import {
   reportStatusLabel,
   reportStatusTone,
 } from "@/cloudsneeker/lib/report-view";
+import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { reportsHref } from "@/cloudsneeker/routes";
 import {
   REPORT_RUN_STATUS,
@@ -22,6 +29,8 @@ import {
 import { AutoRefresh } from "@/components/scans/auto-refresh";
 import { Badge, Button } from "@/components/shadcn";
 
+import { EmptyState } from "./empty-state";
+import { FormAlert } from "./form-layout";
 import { ReportDownloadLinks } from "./report-download-links";
 import { ReportShareDialog } from "./report-share-dialog";
 
@@ -60,26 +69,28 @@ export const ReportRunsTable = ({ runs, canShare }: ReportRunsTableProps) => {
 
   if (runs.length === 0) {
     return (
-      <p className="text-text-neutral-secondary border-border-neutral-secondary rounded-xl border border-dashed p-6 text-sm">
-        No reports yet. Pick a report above and select Generate.
-      </p>
+      <EmptyState
+        icon={<FileText />}
+        title="No reports yet"
+        description="Pick a report above and select Generate."
+      />
     );
   }
 
   return (
     <div className="flex flex-col gap-2">
       <AutoRefresh hasExecutingScan={hasActiveRun} />
-      {error ? <p className="text-text-error-primary text-sm">{error}</p> : null}
-      <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-bg-neutral-tertiary">
+      <FormAlert message={error} />
+      <div className={TABLE_FRAME_CLASS}>
+        <table className={TABLE_CLASS}>
+          <thead className={TABLE_HEAD_CLASS}>
             <tr>
               {["Report", "Status", "Created", "Files", "Actions"].map(
                 (header) => (
                   <th
                     key={header}
                     scope="col"
-                    className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold"
+                    className={TABLE_HEADER_CELL_CLASS}
                   >
                     {header}
                   </th>
@@ -87,7 +98,7 @@ export const ReportRunsTable = ({ runs, canShare }: ReportRunsTableProps) => {
               )}
             </tr>
           </thead>
-          <tbody className="divide-border-neutral-secondary divide-y">
+          <tbody className={TABLE_BODY_CLASS}>
             {runs.map((run) => {
               const attributes = run.attributes;
               const name = reportTitle(
@@ -169,7 +180,9 @@ export const ReportRunsTable = ({ runs, canShare }: ReportRunsTableProps) => {
                       ) : null}
                       <Button
                         type="button"
-                        variant={confirming === run.id ? "destructive" : "ghost"}
+                        variant={
+                          confirming === run.id ? "destructive" : "ghost"
+                        }
                         size="xs"
                         disabled={deleting === run.id}
                         onClick={() => onDelete(run.id)}

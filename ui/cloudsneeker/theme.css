@@ -1,5 +1,7 @@
-/* Scoped restyle of the upstream Alerts and Scan profiles tables and
-   dialogs. @import must stay above every rule in this file. */
+/* App-wide surfaces (focus, cards, tables, dialogs, menus), then the
+   Alerts / Scan profiles specifics. @import must stay above every rule in
+   this file. Tokens are named for Tailwind in styles/design-tokens.css. */
+@import "./styles/surfaces.css";
 @import "./styles/ops-surfaces.css";
 
 /* Cloudsneeker presentation layer.
@@ -18,7 +20,7 @@
 
   --text-neutral-primary: #0c1b24;
   --text-neutral-secondary: #243840;
-  --text-neutral-tertiary: #5c7380;
+  --text-neutral-tertiary: #536a76;
 
   --border-neutral-primary: #d5e2e6;
   --border-neutral-secondary: #e1eaed;
@@ -30,7 +32,7 @@
   --border-input-primary: #b7c9d0;
   --border-input-primary-press: #0c1b24;
   --border-input-primary-pressed: #2583ff;
-  --border-input-primary-fill: #5c7380;
+  --border-input-primary-fill: #536a76;
 
   --bg-button-primary: #7eb8ff;
   --bg-button-primary-hover: #a8cfff;
@@ -76,10 +78,25 @@
   --bg-feature-new: #2583ff;
   --gradient-sidebar-halo: radial-gradient(
     circle,
-    rgba(37, 131, 255, 0.14) 0%,
-    rgba(13, 148, 136, 0.05) 42%,
+    rgba(37, 131, 255, 0.1) 0%,
+    rgba(13, 148, 136, 0.04) 42%,
     transparent 72%
   );
+
+  /* Info status, next to pass / warning / fail. */
+  --bg-info-primary: #2583ff;
+  --bg-info-secondary: #e8f1ff;
+  --border-info-primary: #7eb8ff;
+  --text-info-primary: #1557c7;
+
+  /* Design system (see knowledge-base/design-system.md). */
+  --cs-focus-ring: #1a6ae6;
+  --cs-radius-control: 0.5rem;
+  --cs-radius-surface: 0.75rem;
+  --cs-radius-overlay: 1rem;
+  --cs-shadow-surface: 0 1px 2px rgba(12, 27, 36, 0.05);
+  --cs-shadow-overlay:
+    0 1px 2px rgba(12, 27, 36, 0.06), 0 16px 40px rgba(12, 27, 36, 0.14);
 }
 
 .dark {
@@ -131,10 +148,20 @@
   --border-lighthouse: rgba(126, 184, 255, 0.4);
   --gradient-sidebar-halo: radial-gradient(
     circle,
-    rgba(126, 184, 255, 0.12) 0%,
-    rgba(13, 148, 136, 0.05) 42%,
+    rgba(126, 184, 255, 0.09) 0%,
+    rgba(13, 148, 136, 0.04) 42%,
     transparent 72%
   );
+
+  --bg-info-primary: #7eb8ff;
+  --bg-info-secondary: #0f2440;
+  --border-info-primary: #2a5a99;
+  --text-info-primary: #a8cfff;
+
+  --cs-focus-ring: #7eb8ff;
+  --cs-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --cs-shadow-overlay:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 20px 48px rgba(0, 0, 0, 0.45);
 }
 
 html {
@@ -153,26 +180,17 @@ h2 {
   color: #2583ff;
 }
 
-/* Navigation is a floating control surface, separate from the page canvas. */
+/* Navigation sits on its own flat surface, divided from the page canvas by
+   its border; a faint brand glow at the top is the only decoration. */
 aside.fixed.inset-y-0 {
   background:
-    radial-gradient(circle at 8% 0%, rgba(37, 131, 255, 0.12), transparent 30%),
-    color-mix(in srgb, var(--bg-neutral-secondary) 94%, transparent);
-  box-shadow: 18px 0 50px rgba(12, 27, 36, 0.06);
-  backdrop-filter: blur(22px);
+    radial-gradient(circle at 8% 0%, rgba(37, 131, 255, 0.08), transparent 30%),
+    var(--bg-neutral-secondary);
   color: var(--text-neutral-primary);
 }
 
-.dark aside.fixed.inset-y-0 {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(37, 131, 255, 0.12), transparent 30%),
-    rgba(7, 16, 24, 0.94);
-  box-shadow: 18px 0 55px rgba(0, 0, 0, 0.22);
-}
-
 header.sticky.top-0 {
-  background: color-mix(in srgb, var(--bg-neutral-secondary) 88%, transparent);
-  box-shadow: 0 1px 0 rgba(12, 27, 36, 0.03);
+  background: color-mix(in srgb, var(--bg-neutral-primary) 90%, transparent);
 }
 
 [data-slot="button"] {
@@ -191,17 +209,7 @@ header.sticky.top-0 {
   box-shadow: 0 0 0 3px rgba(37, 131, 255, 0.16);
 }
 
-[data-slot="card"] {
-  box-shadow:
-    0 1px 2px rgba(12, 27, 36, 0.04),
-    0 14px 38px rgba(12, 27, 36, 0.05);
-}
-
-.dark [data-slot="card"] {
-  box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.2),
-    0 18px 48px rgba(0, 0, 0, 0.18);
-}
+/* Card shadow: see styles/surfaces.css (one token for light and dark). */
 
 /* Auth is intentionally asymmetric: a product story on the left and a
    focused task surface on the right. The form itself remains unchanged. */

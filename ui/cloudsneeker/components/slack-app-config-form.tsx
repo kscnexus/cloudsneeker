@@ -82,7 +82,8 @@ export const SlackAppConfigForm = ({
       setClientSecret("");
       toast({
         title: "Slack app settings removed",
-        description: "Workspace installs will not work until you save them again.",
+        description:
+          "Workspace installs will not work until you save them again.",
       });
       router.refresh();
     } finally {
@@ -92,7 +93,7 @@ export const SlackAppConfigForm = ({
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <p className="text-sm text-gray-600 dark:text-gray-300">
+      <p className="text-text-neutral-secondary text-sm">
         Create a Slack app at{" "}
         <a
           className="underline"
@@ -103,10 +104,12 @@ export const SlackAppConfigForm = ({
           api.slack.com/apps
         </a>
         , enable OAuth with scopes{" "}
-        <code className="text-xs">channels:read,groups:read,chat:write,channels:join</code>
+        <code className="text-xs">
+          channels:read,groups:read,chat:write,channels:join
+        </code>
         , and set the Redirect URL to:
       </p>
-      <code className="break-all rounded border px-3 py-2 text-xs">
+      <code className="rounded border px-3 py-2 text-xs break-all">
         {redirectUri}
       </code>
 

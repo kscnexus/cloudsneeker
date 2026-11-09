@@ -6,7 +6,14 @@ import {
   formatPlanDate,
   PLAN_LIMIT_LABEL,
 } from "@/cloudsneeker/lib/entitlements";
-import { FOCUS_RING_CLASS } from "@/cloudsneeker/lib/ui-classes";
+import {
+  FOCUS_RING_CLASS,
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { operatorCustomerHref } from "@/cloudsneeker/routes";
 import type { OperatorTenantResource } from "@/cloudsneeker/types/operator";
 import { cn } from "@/lib/utils";
@@ -38,22 +45,18 @@ export const CustomerTable = ({
 }: {
   tenants: OperatorTenantResource[];
 }) => (
-  <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-    <table className="w-full text-left text-sm">
-      <thead className="bg-bg-neutral-tertiary">
+  <div className={TABLE_FRAME_CLASS}>
+    <table className={TABLE_CLASS}>
+      <thead className={TABLE_HEAD_CLASS}>
         <tr>
           {CUSTOMER_TABLE_COLUMNS.map((header) => (
-            <th
-              key={header}
-              scope="col"
-              className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold whitespace-nowrap"
-            >
+            <th key={header} scope="col" className={TABLE_HEADER_CELL_CLASS}>
               {header}
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-border-neutral-secondary divide-y">
+      <tbody className={TABLE_BODY_CLASS}>
         {tenants.map((tenant) => {
           const attributes = tenant.attributes;
           const over = attributes.over_limit.length > 0;

@@ -8,8 +8,16 @@ import {
   pageRows,
   REPORT_DETAIL_PAGE_SIZE,
 } from "@/cloudsneeker/lib/report-view";
+import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import type { ReportTable } from "@/cloudsneeker/types/reports";
 import { Button } from "@/components/shadcn";
+import { cn } from "@/lib/utils";
 
 import { ReportSeverityBadge } from "./report-severity-badge";
 
@@ -28,7 +36,7 @@ export const ReportDetailTable = ({
   const rows = pageRows(table.rows, current, pageSize);
 
   return (
-    <section className="flex flex-col gap-3 break-inside-avoid-page">
+    <section className="flex break-inside-avoid-page flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-text-neutral-primary text-base font-semibold">
           {table.title}
@@ -42,22 +50,22 @@ export const ReportDetailTable = ({
       {table.rows.length === 0 ? (
         <p className="text-text-neutral-secondary text-sm">Nothing to list.</p>
       ) : (
-        <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border print:overflow-visible">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-bg-neutral-tertiary">
+        <div className={cn(TABLE_FRAME_CLASS, "print:overflow-visible")}>
+          <table className={TABLE_CLASS}>
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 {table.columns.map((column) => (
                   <th
                     key={column.field}
                     scope="col"
-                    className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold whitespace-nowrap"
+                    className={TABLE_HEADER_CELL_CLASS}
                   >
                     {column.header}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-border-neutral-secondary divide-y">
+            <tbody className={TABLE_BODY_CLASS}>
               {rows.map((row, index) => (
                 <tr key={`${table.key}-${(current - 1) * pageSize + index}`}>
                   {table.columns.map((column) => (
