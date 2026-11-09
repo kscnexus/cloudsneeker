@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from cloudsneeker_api.reports.assessment.model import (
+    AREA_LABELS,
     NOT_ASSESSED,
     STATUS_FAIL,
     STATUS_MANUAL,
@@ -398,17 +399,23 @@ def coverage_warnings(
         Warnings, one per affected group.
     """
     rows = list(coverage)
+
+    def label(row: SourceCoverage) -> str:
+        area = AREA_LABELS.get(row.area, row.area).lower()
+        stream = f", {row.stream}" if row.stream and row.stream != "cloud_checks" else ""
+        return f"{row.provider_label} ({area}{stream})"
+
     stale = [row for row in rows if row.state == "stale"]
     missing = [row for row in rows if row.state == "not_assessed"]
     warnings: list[str] = []
     if stale:
-        names = ", ".join(sorted({row.provider_label for row in stale})[:6])
+        names = "; ".join(sorted({label(row) for row in stale})[:6])
         warnings.append(
             f"{len(stale)} source(s) were last assessed more than {stale_days} "
             f"days ago ({names}). Their results may not reflect current state."
         )
     if missing:
-        names = ", ".join(sorted({row.provider_label for row in missing})[:6])
+        names = "; ".join(sorted({label(row) for row in missing})[:6])
         warnings.append(
             f"{len(missing)} source(s) in scope have no completed assessment "
             f"({names}). They are shown as {NOT_ASSESSED.lower()}, not as zero findings."

@@ -161,6 +161,10 @@ class TestTotals:
         warnings = accuracy.coverage_warnings(fx.stale_partial_dataset().coverage)
         assert len(warnings) == 2
         assert "not assessed" in warnings[1]
+        # Each source names its area, so an account scanned for cloud but
+        # missing an application security result is not misread.
+        assert "staging-aws (cloud security)" in warnings[1]
+        assert "github.com/acme/repo-1 (application security, repo)" in warnings[0]
 
 
 class TestScoring:
