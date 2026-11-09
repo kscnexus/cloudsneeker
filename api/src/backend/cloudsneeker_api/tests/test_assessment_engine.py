@@ -229,7 +229,7 @@ class TestRecommendations:
             assert rec[key], key
         assert rec["target_date"] == (fx.NOW + timedelta(days=7)).date().isoformat()
         assert "CVSS" not in rec["justification"]
-        assert rec["business_impact"]["confirmed"].startswith("Scanner evidence")
+        assert rec["business_impact"]["confirmed"] == item.status_extended
         assert rec["business_impact"]["potential"]
 
     def test_advisory_cvss_is_attributed_when_recorded(self):

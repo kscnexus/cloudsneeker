@@ -419,7 +419,7 @@ def business_impact(finding: NormalizedFinding) -> dict[str, str]:
     if finding.category == CATEGORY_SECRET:
         confirmed = f"Credential material was found at {finding.location or finding.resource_name}."
     elif evidence:
-        confirmed = f"Scanner evidence: {evidence}"
+        confirmed = evidence
     else:
         confirmed = ""
     potential = clean_text(finding.risk, limit=500) or POTENTIAL_IMPACT.get(

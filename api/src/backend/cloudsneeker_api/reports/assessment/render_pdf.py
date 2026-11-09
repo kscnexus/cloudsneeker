@@ -538,6 +538,7 @@ class AssessmentDoc(BaseDocTemplate):
         canv.line(MARGIN_X, height - 15 * mm, width - MARGIN_X, height - 15 * mm)
         canv.line(MARGIN_X, 13 * mm, width - MARGIN_X, 13 * mm)
         canv.setFont(FONT, 7.6)
+        canv.setFillColor(MUTED)
         canv.drawString(
             MARGIN_X,
             9 * mm,
@@ -1213,7 +1214,7 @@ def summary_section(b: Builder, content: dict[str, Any]) -> list:
                     f"{fix_pct:.0f}%" if fix_pct is not None and assessed else None,
                 ),
                 (
-                    "Median age, critical/high (days)",
+                    "Median age of critical/high (days)",
                     metrics.get("median_age_critical_high_days")
                     if assessed
                     and metrics.get("median_age_critical_high_days") is not None
@@ -1618,16 +1619,16 @@ def ai_section(b: Builder, content: dict[str, Any]) -> list:
 
 
 ROADMAP_COLUMNS = [
-    ("priority", "Pri.", 0.45),
-    ("lead_ref", "Ref", 0.55),
-    ("title", "Issue", 1.6),
+    ("priority", "Pri.", 0.4),
+    ("lead_ref", "Ref", 0.65),
+    ("title", "Issue", 1.5),
     ("resource", "Resource(s)", 1.2),
-    ("justification", "Justification", 1.9),
+    ("justification", "Justification", 1.8),
     ("instructions", "Instructions", 2.2),
     ("suggested_owner", "Suggested owner", 0.9),
-    ("sla_target", "SLA / target", 0.75),
+    ("sla_target", "SLA / target", 1.0),
     ("validation", "Validation", 1.5),
-    ("expected_outcome", "Expected outcome", 1.3),
+    ("expected_outcome", "Expected outcome", 1.25),
 ]
 
 
@@ -1662,7 +1663,7 @@ def roadmap_section(b: Builder, content: dict[str, Any]) -> list:
             {
                 **item,
                 "resource": f"{item['resource']} ({item['resources']} resource(s), {item['findings']} finding(s))",
-                "sla_target": f"{item['sla_days']} d · {item['target_date']}",
+                "sla_target": f"{item['sla_days']} day(s), by {item['target_date']}",
             }
             for item in window["items"]
         ]
@@ -1686,17 +1687,17 @@ def roadmap_section(b: Builder, content: dict[str, Any]) -> list:
 
 
 APPENDIX_PDF_COLUMNS = [
-    ("ref", "Ref", 0.55),
+    ("ref", "Ref", 0.6),
     ("severity", "Severity", 0.75),
-    ("title", "Finding", 2.3),
-    ("check_id", "Check / rule", 1.4),
-    ("resource", "Resource", 2.0),
-    ("account", "Account / target", 1.1),
-    ("region", "Region", 0.7),
+    ("title", "Finding", 1.8),
+    ("check_id", "Check / rule", 1.75),
+    ("resource", "Resource", 1.8),
+    ("account", "Account / target", 1.0),
+    ("region", "Region", 0.9),
     ("priority", "Pri.", 0.4),
-    ("triage_status", "Triage", 0.7),
-    ("first_seen", "First seen", 0.75),
-    ("fix", "Fix", 1.0),
+    ("triage_status", "Triage", 0.65),
+    ("first_seen", "First seen", 0.85),
+    ("fix", "Fix", 0.9),
 ]
 
 
