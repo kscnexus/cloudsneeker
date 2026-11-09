@@ -11,6 +11,10 @@ export const REPORT_TYPE_ID = {
   IAC: "iac",
   SECRETS: "secrets",
   GOVERNANCE: "governance",
+  SECURITY_ASSESSMENT: "security_assessment",
+  APPSEC_ASSESSMENT: "appsec_assessment",
+  CLOUD_ASSESSMENT: "cloud_assessment",
+  GOVERNANCE_ASSESSMENT: "governance_assessment",
 } as const;
 
 export type ReportTypeId = (typeof REPORT_TYPE_ID)[keyof typeof REPORT_TYPE_ID];
@@ -87,6 +91,11 @@ export interface ReportParams {
   compliance_id?: string | null;
   scan_id?: string | null;
   trend_points?: number;
+  /** Assessment reports only. */
+  period?: string;
+  sections?: string[];
+  stale_days?: number;
+  frameworks?: string[];
 }
 
 export interface ReportTypeAttributes {
@@ -122,6 +131,7 @@ export interface ReportRunAttributes {
   summary?: Record<string, unknown>;
   schedule_id?: string | null;
   created_by_id?: string | null;
+  created_by_name?: string | null;
 }
 
 export interface ReportRunResource {

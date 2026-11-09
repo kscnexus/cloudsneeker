@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from datetime import timedelta
 from unittest.mock import patch
 from uuid import uuid4
@@ -376,3 +377,50 @@ class TestRuns:
             run = ReportRun.objects.get(id=run.id)
         assert run.status == ReportRun.Status.COMPLETED
         assert run.summary["quality"]["status"] == "warn"
+
+
+@pytest.mark.django_db
+class TestRunsApi:
+    def test_create_filter_and_creator_name(self, authenticated_client):
+        from cloudsneeker_api.models import JSON_API_TYPE_PREFIX
+        from django.urls import reverse
+
+        body = {
+            "data": {
+                "type": f"{JSON_API_TYPE_PREFIX}report-runs",
+                "attributes": {
+                    "report_type": "cloud_assessment",
+                    "params": {"period": "7d", "sections": ["roadmap"]},
+                    "formats": ["pdf"],
+                },
+            }
+        }
+        with patch("cloudsneeker_api.reports.runs.transaction.on_commit"):
+            created = authenticated_client.post(
+                reverse("report-runs-list"), data=json.dumps(body), content_type="application/vnd.api+json"
+            )
+        assert created.status_code == 202, created.content
+        assert created.json()["data"]["attributes"]["params"]["period"] == "7d"
+        listing = authenticated_client.get(
+            reverse("report-runs-list"), {"filter[report_type__in]": "cloud_assessment,appsec_assessment"}
+        )
+        rows = listing.json()["data"]
+        assert [row["attributes"]["report_type"] for row in rows] == ["cloud_assessment"]
+        assert rows[0]["attributes"]["created_by_name"]
+        other = authenticated_client.get(reverse("report-runs-list"), {"filter[report_type__in]": "executive"})
+        assert other.json()["data"] == []
+
+    def test_invalid_assessment_params_are_rejected(self, authenticated_client):
+        from cloudsneeker_api.models import JSON_API_TYPE_PREFIX
+        from django.urls import reverse
+
+        body = {
+            "data": {
+                "type": f"{JSON_API_TYPE_PREFIX}report-runs",
+                "attributes": {"report_type": "security_assessment", "params": {"period": "forever"}},
+            }
+        }
+        response = authenticated_client.post(
+            reverse("report-runs-list"), data=json.dumps(body), content_type="application/vnd.api+json"
+        )
+        assert response.status_code == 400

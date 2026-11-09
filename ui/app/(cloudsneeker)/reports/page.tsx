@@ -1,4 +1,5 @@
-import { FileBarChart } from "lucide-react";
+import { FileBarChart, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { getCompliancesOverview } from "@/actions/compliances";
@@ -18,6 +19,7 @@ import { ReportRunsTable } from "@/cloudsneeker/components/report-runs-table";
 import { ReportSchedulesPanel } from "@/cloudsneeker/components/report-schedules-panel";
 import { ReportShareLinksTable } from "@/cloudsneeker/components/report-share-links-table";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { isAssessmentType } from "@/cloudsneeker/lib/assessment-wizard";
 import {
   buildReportCatalog,
   reportTitle,
@@ -28,13 +30,14 @@ import {
   providerOptions,
 } from "@/cloudsneeker/lib/report-options";
 import { getReportsTab, REPORTS_TAB } from "@/cloudsneeker/lib/report-tabs";
+import { reportsHref } from "@/cloudsneeker/routes";
 import type {
   ReportRunResource,
   ReportScheduleResource,
   ReportShareLinkResource,
   ReportTypeResource,
 } from "@/cloudsneeker/types/reports";
-import { Skeleton } from "@/components/shadcn";
+import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import type { SearchParamsProps } from "@/types";
 
@@ -116,6 +119,8 @@ const SSRReportsWorkspace = async ({
   ]);
 
   const catalog = buildReportCatalog(asList<ReportTypeResource>(typesResponse));
+  // Assessments have their own wizard; the catalog keeps the focused reports.
+  const focusedCatalog = catalog.filter((entry) => !isAssessmentType(entry.id));
   const runs = asList<ReportRunResource>(runsResponse);
   const schedules = asList<ReportScheduleResource>(schedulesResponse);
   const links = asList<ReportShareLinkResource>(linksResponse);
@@ -133,11 +138,29 @@ const SSRReportsWorkspace = async ({
       reportsContent={
         <div className="flex flex-col gap-6">
           <SectionCard
+            title="Security assessments"
+            description="Executive, application security, cloud security, and governance and compliance assessments with a remediation roadmap and a quality check before sharing."
+            actions={
+              <Button asChild size="sm">
+                <Link href={reportsHref("assessments")}>
+                  <ShieldCheck aria-hidden="true" />
+                  New assessment
+                </Link>
+              </Button>
+            }
+          >
+            <p className="text-text-neutral-secondary text-sm">
+              A guided wizard picks the report type, scope, period, and
+              sections, then shows progress, coverage warnings, and the
+              quality result before you download the PDF and CSV.
+            </p>
+          </SectionCard>
+          <SectionCard
             title="Report catalog"
             description="Pick a report, set its scope, and generate it."
           >
             <ReportCatalogGrid
-              catalog={catalog}
+              catalog={focusedCatalog}
               providers={providers}
               frameworks={frameworks}
             />
