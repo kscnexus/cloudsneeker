@@ -9,6 +9,7 @@ import { listTrivyRuns, listTrivyTargets } from "@/cloudsneeker/actions/trivy";
 import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-security-dashboard-panel";
 import { AppSecurityFixesCard } from "@/cloudsneeker/components/app-security-fixes-card";
+import { AppSecurityInsights } from "@/cloudsneeker/components/app-security-insights";
 import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-list";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
@@ -35,6 +36,15 @@ import {
   repositorySourcesWithoutTarget,
 } from "@/cloudsneeker/lib/app-security-dashboard";
 import { AREA_CONFIG } from "@/cloudsneeker/lib/area-findings";
+import {
+  appScanActivity,
+  loadAreaTriageCounts,
+} from "@/cloudsneeker/lib/dashboard-data";
+import {
+  appScanFindingTrend,
+  buildRemediationProgress,
+  rankTargetsByFindings,
+} from "@/cloudsneeker/lib/dashboards";
 import {
   isListResponse,
   openFindingsHref,
@@ -67,6 +77,7 @@ import type { SearchParamsProps } from "@/types";
 const DASHBOARD_RUN_PAGE_SIZE = "100";
 const RECENT_RUN_LIMIT = 5;
 const TOP_FIX_LIMIT = 5;
+const TREND_DAYS = 30;
 const APP_SECURITY_CONFIG = AREA_CONFIG[FINDING_AREA.APPLICATION_SECURITY];
 
 interface ApplicationSecurityPageProps {
@@ -198,17 +209,24 @@ const SSRAppSecurityWorkspace = async ({
   activeCategory: AppSecurityCategory | null;
   activeTab: AppSecurityTab;
 }) => {
-  const [targetsResponse, runsResponse, sources, fixable, unfixable] =
-    await Promise.all([
-      listTrivyTargets({ "page[size]": "100", sort: "-inserted_at" }),
-      listTrivyRuns({
-        "page[size]": DASHBOARD_RUN_PAGE_SIZE,
-        sort: "-inserted_at",
-      }),
-      loadSources(),
-      loadFixes(AREA_FIX_FILTER.AVAILABLE, TOP_FIX_LIMIT),
-      loadFixes(AREA_FIX_FILTER.UNAVAILABLE, 1),
-    ]);
+  const [
+    targetsResponse,
+    runsResponse,
+    sources,
+    fixable,
+    unfixable,
+    triageCounts,
+  ] = await Promise.all([
+    listTrivyTargets({ "page[size]": "100", sort: "-inserted_at" }),
+    listTrivyRuns({
+      "page[size]": DASHBOARD_RUN_PAGE_SIZE,
+      sort: "-inserted_at",
+    }),
+    loadSources(),
+    loadFixes(AREA_FIX_FILTER.AVAILABLE, TOP_FIX_LIMIT),
+    loadFixes(AREA_FIX_FILTER.UNAVAILABLE, 1),
+    loadAreaTriageCounts(FINDING_AREA.APPLICATION_SECURITY),
+  ]);
   if (!isListResponse(targetsResponse)) {
     // A failed request must not read as "no targets yet".
     return (
@@ -233,6 +251,10 @@ const SSRAppSecurityWorkspace = async ({
     runTotal: responseCount(runsResponse),
   });
   const severityTotals = await loadSeverityTotals(dashboard.latestScanIds);
+  const openTotal =
+    fixable.count === null || unfixable.count === null
+      ? null
+      : fixable.count + unfixable.count;
   const unscannedRepositories = repositorySourcesWithoutTarget(
     sources,
     targets,
@@ -290,6 +312,21 @@ const SSRAppSecurityWorkspace = async ({
           }
         />
       )}
+      {targets.length > 0 ? (
+        <AppSecurityInsights
+          dashboard={dashboard}
+          targets={targets}
+          rankedTargets={rankTargetsByFindings(
+            runs,
+            new Set(targets.map((target) => target.id)),
+          )}
+          severityTotals={severityTotals}
+          openTotal={openTotal}
+          remediation={buildRemediationProgress(triageCounts)}
+          trend={appScanFindingTrend(runs, TREND_DAYS)}
+          failedScans={appScanActivity(runs)}
+        />
+      ) : null}
       {targets.length > 0 ? (
         <AppSecurityFixesCard
           fixable={fixable.count}

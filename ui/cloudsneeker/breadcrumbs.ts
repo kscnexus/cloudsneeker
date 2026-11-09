@@ -9,6 +9,7 @@ export const ID_SEGMENT_LABEL = "Details";
 // Product areas read with their product names ("Cloud Governance", not
 // "Governance").
 const PRODUCT_SEGMENT_LABELS: Record<string, string> = {
+  [PRODUCT_ROUTE.CLOUD_SECURITY.slice(1)]: BRAND.cloudSecurityName,
   [PRODUCT_ROUTE.APPLICATION_SECURITY.slice(1)]: BRAND.appSecurityName,
   [PRODUCT_ROUTE.GOVERNANCE.slice(1)]: BRAND.governanceName,
 };

@@ -151,11 +151,11 @@ describe("withCloudsneekerNavigation", () => {
       {
         label: NAVIGATION_SECTION_LABEL.CLOUD_SECURITY,
         items: [
+          BRAND.cloudSecurityName,
           "Findings",
           "Triage",
           "Resources",
           "Attack Paths",
-          "Compliance",
         ],
       },
       {
@@ -164,7 +164,7 @@ describe("withCloudsneekerNavigation", () => {
       },
       {
         label: NAVIGATION_SECTION_LABEL.GOVERNANCE,
-        items: [BRAND.governanceName, "Findings", "Triage"],
+        items: [BRAND.governanceName, "Compliance", "Findings", "Triage"],
       },
       {
         label: NAVIGATION_SECTION_LABEL.REPORTS,
@@ -408,11 +408,11 @@ describe("withCloudsneekerNavigation", () => {
         ?.items.map((item) => item.label);
 
     expect(itemLabels(NAVIGATION_SECTION_LABEL.CLOUD_SECURITY)).toEqual([
+      BRAND.cloudSecurityName,
       "Findings",
       "Triage",
       "Resources",
       "Attack Paths",
-      "Compliance",
       "Registry",
     ]);
     expect(itemLabels(NAVIGATION_SECTION_LABEL.SETTINGS)).toEqual([
@@ -600,3 +600,52 @@ describe("withCloudsneekerNavigation plan filtering", () => {
   });
 });
 // --- End operator console ---
+
+describe("withCloudsneekerNavigation dashboards", () => {
+  const sectionItems = (sections: NavigationSection[], label: string) =>
+    sections.find((section) => section.label === label)?.items ?? [];
+
+  it("opens each product section with its dashboard", () => {
+    const result = withCloudsneekerNavigation(upstreamSections(), "/");
+
+    expect(
+      sectionItems(result, NAVIGATION_SECTION_LABEL.CLOUD_SECURITY)[0],
+    ).toMatchObject({
+      href: "/cloud-security",
+      label: BRAND.cloudSecurityName,
+    });
+    expect(
+      sectionItems(result, NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY)[0],
+    ).toMatchObject({ href: "/application-security" });
+    expect(
+      sectionItems(result, NAVIGATION_SECTION_LABEL.GOVERNANCE)[0],
+    ).toMatchObject({ href: "/governance" });
+  });
+
+  it("files Compliance under Governance, right after its dashboard", () => {
+    const result = withCloudsneekerNavigation(upstreamSections(), "/");
+    const governance = sectionItems(
+      result,
+      NAVIGATION_SECTION_LABEL.GOVERNANCE,
+    );
+
+    expect(governance[1]).toMatchObject({ href: "/compliance" });
+    expect(
+      sectionItems(result, NAVIGATION_SECTION_LABEL.CLOUD_SECURITY).some(
+        (item) => item.label === "Compliance",
+      ),
+    ).toBe(false);
+  });
+
+  it("marks only the active dashboard", () => {
+    const result = withCloudsneekerNavigation(
+      upstreamSections(),
+      "/cloud-security",
+    );
+
+    expect(
+      sectionItems(result, NAVIGATION_SECTION_LABEL.CLOUD_SECURITY)[0],
+    ).toMatchObject({ active: true });
+    expect(findItem(result, "Overview")).toMatchObject({ active: false });
+  });
+});

@@ -3,6 +3,8 @@
 // stay out of the URLs users see.
 
 export const PRODUCT_ROUTE = {
+  /** Cloud posture dashboard (the upstream Overview widgets). */
+  CLOUD_SECURITY: "/cloud-security",
   APPLICATION_SECURITY: "/application-security",
   GOVERNANCE: "/governance",
   REPORTS: "/reports",

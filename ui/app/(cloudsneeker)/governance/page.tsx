@@ -13,6 +13,7 @@ import { CustodianPageTabs } from "@/cloudsneeker/components/custodian-page-tabs
 import { CustodianPolicyList } from "@/cloudsneeker/components/custodian-policy-list";
 import { CustodianReportsTable } from "@/cloudsneeker/components/custodian-reports-table";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
+import { GovernanceInsights } from "@/cloudsneeker/components/governance-insights";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
@@ -30,7 +31,18 @@ import {
   findingsHrefForChecks,
   templatesForProwlerChecks,
 } from "@/cloudsneeker/lib/custodian-templates";
+import {
+  loadAreaTriageCounts,
+  loadComplianceFrameworks,
+  loadProviderCounts,
+  loadProviderFindings,
+} from "@/cloudsneeker/lib/dashboard-data";
+import {
+  buildRemediationProgress,
+  summarizeCompliance,
+} from "@/cloudsneeker/lib/dashboards";
 import { governanceHref } from "@/cloudsneeker/routes";
+import { FINDING_AREA } from "@/cloudsneeker/types/area-findings";
 import type {
   CustodianPolicyResource,
   CustodianRunResource,
@@ -51,7 +63,7 @@ export default async function CustodianPage({
 
   return (
     <ContentLayout title={BRAND.governanceName} icon={<Shield />}>
-      <PageHeader description="Manage governance policies, review dry-run reports, and track matched resources. Apply mode is disabled." />
+      <PageHeader description="Compliance across frameworks, cloud policy violations and audit readiness in one place. Policies run as dry-runs; apply mode is disabled." />
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
         <SSRCustodianWorkspace activeTab={activeTab} />
       </Suspense>
@@ -65,7 +77,15 @@ const SSRCustodianWorkspace = async ({
   activeTab: ReturnType<typeof getCustodianTab>;
 }) => {
   const mappedChecks = allMappedProwlerCheckIds();
-  const [policiesResponse, runsResponse, findingsResponse] = await Promise.all([
+  const [
+    policiesResponse,
+    runsResponse,
+    findingsResponse,
+    frameworks,
+    providerFindings,
+    providerCounts,
+    cloudTriage,
+  ] = await Promise.all([
     listCustodianPolicies({
       "page[size]": "100",
       sort: "-inserted_at",
@@ -84,6 +104,10 @@ const SSRCustodianWorkspace = async ({
           },
         })
       : Promise.resolve(undefined),
+    loadComplianceFrameworks(),
+    loadProviderFindings(),
+    loadProviderCounts(),
+    loadAreaTriageCounts(FINDING_AREA.CLOUD),
   ]);
 
   const policyError =
@@ -121,20 +145,19 @@ const SSRCustodianWorkspace = async ({
       if (checkId) failedCheckIds.add(checkId);
     }
   }
-  const findingSuggestions: CustodianFindingSuggestion[] = templatesForProwlerChecks(
-    Array.from(failedCheckIds),
-  ).flatMap((template) =>
-    template.prowlerCheckIds
-      .filter((checkId) => failedCheckIds.has(checkId))
-      .map((checkId) => ({
-        checkId,
-        templateId: template.id,
-        templateName: template.name,
-        providerType: template.providerTypes[0] ?? "aws",
-        findingsHref: findingsHrefForChecks([checkId]) ?? "/findings",
-        newPolicyHref: `${governanceHref("new")}?template=${template.id}`,
-      })),
-  );
+  const findingSuggestions: CustodianFindingSuggestion[] =
+    templatesForProwlerChecks(Array.from(failedCheckIds)).flatMap((template) =>
+      template.prowlerCheckIds
+        .filter((checkId) => failedCheckIds.has(checkId))
+        .map((checkId) => ({
+          checkId,
+          templateId: template.id,
+          templateName: template.name,
+          providerType: template.providerTypes[0] ?? "aws",
+          findingsHref: findingsHrefForChecks([checkId]) ?? "/findings",
+          newPolicyHref: `${governanceHref("new")}?template=${template.id}`,
+        })),
+    );
 
   const metrics = buildCustodianDashboard({
     policies,
@@ -168,7 +191,29 @@ const SSRCustodianWorkspace = async ({
           </Button>
         </div>
       }
-      dashboardContent={<CustodianDashboardPanel metrics={metrics} />}
+      dashboardContent={
+        <div className="flex flex-col gap-6">
+          <GovernanceInsights
+            frameworks={frameworks}
+            compliance={frameworks ? summarizeCompliance(frameworks) : null}
+            providerFindings={providerFindings}
+            accountCount={providerCounts?.total ?? null}
+            riskDecisions={buildRemediationProgress(cloudTriage)}
+          />
+          <section
+            aria-labelledby="cloud-policies-heading"
+            className="flex flex-col gap-3"
+          >
+            <h2
+              id="cloud-policies-heading"
+              className="text-text-neutral-primary text-base font-semibold"
+            >
+              Cloud policies
+            </h2>
+            <CustodianDashboardPanel metrics={metrics} />
+          </section>
+        </div>
+      }
       policiesContent={<CustodianPolicyList policies={policies} />}
       reportsContent={
         <SectionCard
