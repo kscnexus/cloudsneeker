@@ -49,7 +49,16 @@ from cloudsneeker_api.services.plan_catalog import (
     FEATURE_CLOUD_POSTURE,
     FEATURE_GOVERNANCE,
 )
-from django.db.models import Case, F, IntegerField, Q, QuerySet, Value, When
+from django.db.models import (
+    BooleanField,
+    Case,
+    F,
+    IntegerField,
+    Q,
+    QuerySet,
+    Value,
+    When,
+)
 from django.db.models.fields.json import KeyTextTransform
 
 AREA = FindingTriage.Area
@@ -309,10 +318,15 @@ def _finding_queryset(
             | Q(uid__icontains=query.search)
         )
     if query.fix:
-        fixable = _fix_available_q()
-        queryset = queryset.filter(
-            fixable if query.fix == FIX_AVAILABLE else ~fixable
-        )
+        # A CASE, not ~Q: missing JSON keys compare as NULL, and NOT NULL
+        # would drop every row from the "no fix" list.
+        queryset = queryset.annotate(
+            cs_fix_available=Case(
+                When(_fix_available_q(), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
+        ).filter(cs_fix_available=query.fix == FIX_AVAILABLE)
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
             tenant_id, query.area, query.triage_statuses
