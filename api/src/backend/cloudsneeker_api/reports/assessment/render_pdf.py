@@ -411,6 +411,7 @@ class AssessmentDoc(BaseDocTemplate):
         self._last_kind: dict[int, str] = {}
         self._headings = 0
         self._bookmarks = 0
+        self._pages_drawn = 0
 
     def afterFlowable(self, flowable: Flowable) -> None:  # noqa: N802 - reportlab API
         if isinstance(flowable, (Spacer, ActionFlowable, PageBreak, CondPageBreak)):
@@ -436,8 +437,13 @@ class AssessmentDoc(BaseDocTemplate):
             self._headings += 1
             self._bookmarks += 1
 
-    def afterDocument(self) -> None:  # noqa: N802 - reportlab API
-        pages = self.page
+    def _endBuild(self) -> None:  # noqa: N802 - reportlab API
+        # BaseDocTemplate has no after-document hook; run ours after each pass.
+        super()._endBuild()
+        self.afterDocument()
+
+    def afterDocument(self) -> None:  # noqa: N802 - local hook, see _endBuild
+        pages = self._pages_drawn
         # The next build pass prints "Page X of Y" with this count.
         self.meta["printed_total"] = self.meta.get("total_pages")
         self.meta["total_pages"] = pages
@@ -462,6 +468,7 @@ class AssessmentDoc(BaseDocTemplate):
     # -- page decoration --------------------------------------------------
 
     def _draw_cover(self, canv: Canvas, doc: Any) -> None:
+        self._pages_drawn = max(self._pages_drawn, canv.getPageNumber())
         width, height = PORTRAIT
         canv.saveState()
         canv.setFillColor(COVER_BG)
@@ -509,6 +516,7 @@ class AssessmentDoc(BaseDocTemplate):
         canv.drawCentredString(right - width / 2, y, label)
 
     def _draw_chrome(self, canv: Canvas, doc: Any) -> None:
+        self._pages_drawn = max(self._pages_drawn, canv.getPageNumber())
         width, height = canv._pagesize
         canv.saveState()
         canv.setFillColor(BRAND)

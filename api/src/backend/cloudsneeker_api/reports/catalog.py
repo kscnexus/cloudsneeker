@@ -433,7 +433,9 @@ def _assessment_options(
     unknown = sorted({str(item) for item in sections} - set(ASSESSMENT_SECTIONS))
     if unknown:
         raise ReportParamsError(f"Unknown section(s): {', '.join(unknown)}.")
-    stale_days = params.get("stale_days") or 7
+    stale_days = params.get("stale_days")
+    if stale_days in (None, ""):
+        stale_days = 7
     try:
         stale_days = int(stale_days)
     except (TypeError, ValueError) as exc:
