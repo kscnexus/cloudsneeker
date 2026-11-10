@@ -1,9 +1,10 @@
 name: 'Cloudsneeker: VM schedule'
 run-name: "VM ${{ inputs.action || 'schedule check' }}"
-# Pauses the Azure backend VM overnight to save cost: it should run from
-# 12:00 to 02:00 India Standard Time (06:30 to 20:30 UTC) and be deallocated
-# otherwise. A deallocated VM bills only its disk and static IP. The web app
-# on Vercel stays up and shows the API as unreachable while the VM is off.
+# Keeps the Azure backend VM in its running window. Since 2026-11-10 the
+# window is the whole day (the user chose 24/7 so the app never fails while
+# the VM is off); narrow WINDOW_START / WINDOW_END to pause it overnight
+# again. A deallocated VM bills only its disk and static IP, and the web app
+# on Vercel shows the API as unreachable while the VM is off.
 #
 # GitHub starts scheduled runs late, sometimes by many hours (the old
 # fire-once start ran 7-8 hours late every day in November 2026). So instead
@@ -51,8 +52,10 @@ jobs:
     env:
       ACTION: ${{ inputs.action || 'check' }}
       # Running window in UTC, HHMM, start inclusive, end exclusive.
-      WINDOW_START: '0630'
-      WINDOW_END: '2030'
+      # 0000-2400 keeps the VM running all day. The former overnight pause
+      # was 0630-2030 (12:00 to 02:00 IST).
+      WINDOW_START: '0000'
+      WINDOW_END: '2400'
       HOLD_HOURS: '4'
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}

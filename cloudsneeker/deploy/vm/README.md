@@ -239,10 +239,14 @@ sudo systemctl start cloudsneeker-deploy
 journalctl -u cloudsneeker-deploy -f
 ```
 
-## Nightly pause
+## Running window
 
 **Cloudsneeker: VM schedule** (`.github/workflows/cloudsneeker-vm-schedule.yml`)
-deallocates the VM at 02:00 and starts it at 12:00 India Standard Time. While
+keeps the VM inside its running window. Since 2026-11-10 the window is the
+whole day (`WINDOW_START: '0000'`, `WINDOW_END: '2400'`), so the VM runs
+24/7 and an hourly check starts it if it is ever found off. To bring back
+the overnight pause, set the window to `0630`-`2030` UTC, which deallocates
+the VM at 02:00 and starts it at 12:00 India Standard Time. While
 it is off, Azure bills only the disk and the static IP, and the web app shows
 the API as unreachable. The containers restart on boot. Scheduled scans and
 reports set for that window do not run. A push to `main` during the pause
