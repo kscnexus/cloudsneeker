@@ -256,3 +256,14 @@ def refresh_vuln_db_task():
         "snapshot": snapshot.path.name,
         "java_db": snapshot.java_db,
     }
+
+
+# --- Exploit intelligence (EB-022) --------------------------------------------
+
+
+@shared_task(name="cloudsneeker-refresh-vuln-intel", queue="celery")
+def refresh_vuln_intel_task():
+    """Celery Beat entrypoint: refresh the EPSS and CISA KEV feeds."""
+    from cloudsneeker_api.services import vuln_intel
+
+    return vuln_intel.refresh()

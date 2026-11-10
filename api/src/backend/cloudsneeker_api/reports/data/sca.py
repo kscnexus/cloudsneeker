@@ -16,6 +16,7 @@ from cloudsneeker_api.reports.data.findings_report import (
     assemble_findings_report,
 )
 from cloudsneeker_api.reports.schema import ReportData, ReportFilters
+from cloudsneeker_api.services.vuln_intel import exploit_by_cve
 
 SCOPE = ScanScope(
     trivy_modes=frozenset({"repo", "fs", "sbom", "image", "k8s"}),
@@ -25,6 +26,7 @@ SCOPE = ScanScope(
 COLUMNS: list[tuple[str, str]] = [
     ("severity", "Severity"),
     ("cve", "Vulnerability"),
+    ("exploit", "Exploitation"),
     ("package", "Package"),
     ("installed_version", "Installed"),
     ("fixed_version", "Fixed in"),
@@ -82,6 +84,39 @@ SPEC = FindingsReportSpec(
 )
 
 
+def exploit_label(exploit: dict[str, Any] | None) -> str:
+    """``Known exploited``, ``EPSS 94.4%``, both, or empty."""
+    if not exploit:
+        return ""
+    parts = []
+    if exploit.get("known_exploited"):
+        parts.append("Known exploited")
+    score = exploit.get("epss_score")
+    if score is not None:
+        percent = score * 100
+        parts.append(f"EPSS {percent:.{1 if percent >= 10 else 2}f}%")
+    return ", ".join(parts)
+
+
+def add_exploit_context(rows: list[dict[str, Any]]) -> int:
+    """Fill the exploitation column and list exploited CVEs first (EB-022).
+
+    Known exploited CVEs come first, then the highest EPSS scores; rows with
+    no exploit data keep their order. Returns the known exploited row count.
+    """
+    exploits = exploit_by_cve(row.get("cve", "") for row in rows)
+    for row in rows:
+        exploit = exploits.get(row.get("cve", ""))
+        row["exploit"] = exploit_label(exploit)
+        row["_kev"] = bool(exploit and exploit["known_exploited"])
+        row["_epss"] = (exploit or {}).get("epss_score") or 0.0
+    rows.sort(key=lambda row: (not row["_kev"], -row["_epss"]))
+    exploited = sum(1 for row in rows if row["_kev"])
+    for row in rows:
+        del row["_kev"], row["_epss"]
+    return exploited
+
+
 def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     """Assemble the SCA report.
 
@@ -95,6 +130,7 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     data = assemble_findings_report(tenant_id, filters, SPEC)
     if not data.is_empty:
         table = next(t for t in data.tables if t.key == "findings")
+        data.kpis["known_exploited_in_table"] = add_exploit_context(table.rows)
         data.kpis["fixable_in_table"] = sum(
             1 for row in table.rows if row.get("fixed_version")
         )

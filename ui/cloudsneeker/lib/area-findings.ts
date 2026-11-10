@@ -42,6 +42,7 @@ export const AREA_FINDING_SORT = {
   NEWEST: "-last_seen_at",
   OLDEST: "first_seen_at",
   CHECK: "check_id",
+  EXPLOIT: "-epss",
 } as const;
 
 export type AreaFindingSort =
@@ -52,6 +53,7 @@ export const AREA_FINDING_SORT_LABEL: Record<AreaFindingSort, string> = {
   [AREA_FINDING_SORT.NEWEST]: "Last seen",
   [AREA_FINDING_SORT.OLDEST]: "First seen",
   [AREA_FINDING_SORT.CHECK]: "Rule",
+  [AREA_FINDING_SORT.EXPLOIT]: "Exploit likelihood",
 };
 
 /** Query string names on the area pages. */
@@ -63,6 +65,7 @@ export const AREA_PARAM = {
   SORT: "sort",
   PAGE: "page",
   FIX: "fix",
+  EXPLOITED: "exploited",
 } as const;
 
 export const AREA_FIX_FILTER_LABEL: Record<AreaFixFilter, string> = {
@@ -82,6 +85,8 @@ export interface AreaConfig {
   emptyFindings: string;
   /** Findings carry fix data (governance dry runs do not). */
   showFix: boolean;
+  /** Findings can be CVEs with EPSS and CISA KEV data. */
+  showExploit: boolean;
 }
 
 export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
@@ -95,6 +100,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     sourceLabel: "Provider",
     emptyFindings: "Run a scan on a cloud provider to see findings here.",
     showFix: true,
+    showExploit: false,
   },
   [FINDING_AREA.APPLICATION_SECURITY]: {
     area: FINDING_AREA.APPLICATION_SECURITY,
@@ -107,6 +113,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     emptyFindings:
       "Scan a repository, image or archive target to see its findings here.",
     showFix: true,
+    showExploit: true,
   },
   [FINDING_AREA.GOVERNANCE]: {
     area: FINDING_AREA.GOVERNANCE,
@@ -118,6 +125,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     sourceLabel: "Policy",
     emptyFindings: "Run a policy dry run to see the resources it matches here.",
     showFix: false,
+    showExploit: false,
   },
 };
 
@@ -129,7 +137,16 @@ export interface AreaFindingFilters {
   sort: AreaFindingSort;
   page: number;
   fix: AreaFixFilter | null;
+  /** Only CVEs in the CISA Known Exploited Vulnerabilities catalog. */
+  exploited?: boolean;
 }
+
+/** Sort options an area offers (exploit likelihood needs CVE findings). */
+export const areaSortOptions = (area: FindingArea): AreaFindingSort[] =>
+  Object.values(AREA_FINDING_SORT).filter(
+    (sort) =>
+      sort !== AREA_FINDING_SORT.EXPLOIT || AREA_CONFIG[area].showExploit,
+  );
 
 type ParamValue = string | string[] | undefined;
 
@@ -164,6 +181,7 @@ export const parseAreaFilters = (
       : AREA_FINDING_SORT.SEVERITY,
     page: parsePage(params[AREA_PARAM.PAGE]),
     fix: Object.values(AREA_FIX_FILTER).find((value) => value === fix) ?? null,
+    ...(first(params[AREA_PARAM.EXPLOITED]) === "1" ? { exploited: true } : {}),
   };
 };
 
@@ -184,6 +202,9 @@ export const areaFindingsSearchParams = (
   ...(filters.search ? { "filter[search]": filters.search } : {}),
   ...(filters.fix && AREA_CONFIG[area].showFix
     ? { "filter[fix]": filters.fix }
+    : {}),
+  ...(filters.exploited && AREA_CONFIG[area].showExploit
+    ? { "filter[known_exploited]": "true" }
     : {}),
 });
 
@@ -221,6 +242,7 @@ export const areaFindingsPageHref = (
     params.set(AREA_PARAM.SORT, filters.sort);
   }
   if (filters.fix) params.set(AREA_PARAM.FIX, filters.fix);
+  if (filters.exploited) params.set(AREA_PARAM.EXPLOITED, "1");
   if (filters.page && filters.page > 1) {
     params.set(AREA_PARAM.PAGE, String(filters.page));
   }

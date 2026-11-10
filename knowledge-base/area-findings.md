@@ -111,6 +111,8 @@ Each area finding row carries `fix_available`, `fix_summary`, `installed_version
 | SAST result (`extra.fix` / `extra.message`) | The code fix, else the rule message. |
 | Cloud check | `Remediation.Recommendation` from the check metadata (key case ignored). |
 
+Application Security rows also carry exploit intelligence (EB-022): `epss_score`, `epss_percentile`, `known_exploited`, `kev_date_added`, `kev_due_date`, `kev_ransomware` and `kev_required_action`, joined at read time from `cloudsneeker_api.VulnerabilityIntel` on `check_id` (the CVE id the importer writes). `filter[known_exploited]=true` keeps CVEs in the CISA KEV catalog; `sort=-epss` lists the most likely to be exploited first, with unscored rows last. Cloud and Governance rows return the empty values and fall back to severity order. The UI shows "Known exploited" and "EPSS x%" pills under the severity, an Exploitation block in the expanded row, a "Known exploited" chip and an "Exploit likelihood" sort (Application Security only).
+
 Governance rows have no fix. `filter[fix]=available|unavailable` filters the list. Its database form, `_fix_available_q`, must stay in step with `finding_fix`.
 
 The UI shows a Fix column and a "How to fix" block in the Cloud Security and Application Security findings tables, with "Fix available" / "No fix yet" chips. The Application Security page uses the same Dashboard-style tabs as Cloud Governance (`ProductPageTabs`): Dashboard (KPIs, severity, coverage, a Fixes card with the top fixes, recent scans), Targets (scan-type chips) and Scans.

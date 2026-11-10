@@ -31,6 +31,10 @@ import {
   type FindingTriageStatus,
 } from "@/types/findings-triage";
 
+import {
+  AreaFindingExploitBadges,
+  AreaFindingExploitDetails,
+} from "./area-finding-exploit";
 import { AreaFindingFixCell, AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
 import { ReportSeverityBadge } from "./report-severity-badge";
@@ -249,6 +253,9 @@ export const AreaFindingsTable = ({
                     </td>
                     <td className="px-3 py-2 align-top">
                       <ReportSeverityBadge severity={finding.severity} />
+                      {config.showExploit ? (
+                        <AreaFindingExploitBadges finding={finding} />
+                      ) : null}
                     </td>
                     {config.showFix ? (
                       <td className="px-3 py-2 align-top whitespace-nowrap">
@@ -299,6 +306,9 @@ export const AreaFindingsTable = ({
                                 {finding.description}
                               </dd>
                             </div>
+                          ) : null}
+                          {config.showExploit ? (
+                            <AreaFindingExploitDetails finding={finding} />
                           ) : null}
                           <AreaFindingFixDetails finding={finding} />
                           <div>

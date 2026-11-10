@@ -48,7 +48,8 @@ const isFiltered = (filters: AreaFindingFilters): boolean =>
   filters.triage !== null ||
   filters.source !== null ||
   filters.search !== "" ||
-  filters.fix !== null;
+  filters.fix !== null ||
+  Boolean(filters.exploited);
 
 /** One area's Findings page: current findings with filters and triage. */
 export const AreaFindingsView = ({

@@ -39,6 +39,15 @@ export interface AreaFindingAttributes {
   installed_version: string;
   fixed_version: string;
   fix_references: string[];
+  /** EPSS: probability (0-1) the CVE is exploited in the next 30 days. */
+  epss_score: number | null;
+  epss_percentile: number | null;
+  /** Listed in the CISA Known Exploited Vulnerabilities catalog. */
+  known_exploited: boolean;
+  kev_date_added: string | null;
+  kev_due_date: string | null;
+  kev_ransomware: boolean;
+  kev_required_action: string;
   resource_id: string;
   resource_name: string;
   resource_type: string;

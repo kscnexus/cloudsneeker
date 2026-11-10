@@ -45,6 +45,13 @@ const finding = (
     installed_version: "",
     fixed_version: "",
     fix_references: [],
+    epss_score: null,
+    epss_percentile: null,
+    known_exploited: false,
+    kev_date_added: null,
+    kev_due_date: null,
+    kev_ransomware: false,
+    kev_required_action: "",
     resource_id: "package.json:lodash",
     resource_name: "lodash",
     resource_type: "npm",
@@ -208,6 +215,47 @@ describe("AreaFindingsTable", () => {
       "href",
       "https://github.com/advisories/GHSA-1",
     );
+  });
+
+  it("flags known exploited CVEs and shows exploit details", async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaFindingsTable
+        config={config}
+        findings={[
+          finding("a", {
+            known_exploited: true,
+            kev_ransomware: true,
+            kev_date_added: "2021-12-10",
+            kev_due_date: "2021-12-24",
+            kev_required_action: "Apply updates per vendor instructions.",
+            epss_score: 0.94358,
+            epss_percentile: 0.99962,
+          }),
+          finding("b", { epss_score: 0.00043, epss_percentile: 0.11 }),
+          finding("c"),
+        ]}
+        canTriage
+      />,
+    );
+
+    expect(screen.getAllByText("Known exploited")).toHaveLength(1);
+    expect(screen.getByText("EPSS 94.4%")).toBeInTheDocument();
+    expect(screen.getByText("EPSS 0.04%")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Title a/ }));
+    expect(screen.getByText("Exploitation")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Known Exploited Vulnerabilities catalog since 2021-12-10/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Used in ransomware campaigns/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Required action: Apply updates/),
+    ).toBeInTheDocument();
   });
 
   it("has no fix column for governance findings", () => {

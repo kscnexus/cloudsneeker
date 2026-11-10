@@ -8,6 +8,7 @@ import {
   areaFindingHref,
   areaFindingsPageHref,
   areaFindingsSearchParams,
+  areaSortOptions,
   areaTriagePageHref,
   areaTriageSearchParams,
   parseAreaFilters,
@@ -120,6 +121,36 @@ describe("areaFindingsSearchParams", () => {
     expect(
       areaFindingsPageHref(FINDING_AREA.APPLICATION_SECURITY, filters),
     ).toBe("/application-security/findings?fix=unavailable");
+  });
+
+  it("sends the known exploited filter only for CVE areas", () => {
+    const params = parseAreaFilters({ exploited: "1" });
+    expect(params.exploited).toBe(true);
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.APPLICATION_SECURITY, params)[
+        "filter[known_exploited]"
+      ],
+    ).toBe("true");
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.CLOUD, params)[
+        "filter[known_exploited]"
+      ],
+    ).toBeUndefined();
+    expect(
+      areaFindingsPageHref(FINDING_AREA.APPLICATION_SECURITY, {
+        exploited: true,
+        sort: AREA_FINDING_SORT.EXPLOIT,
+      }),
+    ).toBe("/application-security/findings?sort=-epss&exploited=1");
+  });
+
+  it("offers the exploit sort only where findings are CVEs", () => {
+    expect(areaSortOptions(FINDING_AREA.APPLICATION_SECURITY)).toContain(
+      AREA_FINDING_SORT.EXPLOIT,
+    );
+    expect(areaSortOptions(FINDING_AREA.GOVERNANCE)).not.toContain(
+      AREA_FINDING_SORT.EXPLOIT,
+    );
   });
 
   it("scopes the triage list to the area", () => {

@@ -2,13 +2,13 @@ import Link from "next/link";
 
 import {
   AREA_CONFIG,
-  AREA_FINDING_SORT,
   AREA_FINDING_SORT_LABEL,
   AREA_FIX_FILTER_LABEL,
   AREA_PARAM,
   AREA_SEVERITIES,
   type AreaFindingFilters,
   areaFindingsPageHref,
+  areaSortOptions,
   toggleSeverity,
 } from "@/cloudsneeker/lib/area-findings";
 import {
@@ -94,7 +94,25 @@ export const AreaFindingsFilters = ({
           ))}
         </nav>
       ) : null}
+      {AREA_CONFIG[area].showExploit ? (
+        <nav aria-label="Exploitation" className="flex flex-wrap gap-2">
+          <Link
+            href={areaFindingsPageHref(area, {
+              ...reset,
+              exploited: !filters.exploited,
+            })}
+            aria-current={filters.exploited ? "page" : undefined}
+            className={chipClass(Boolean(filters.exploited))}
+            title="CVEs in the CISA Known Exploited Vulnerabilities catalog"
+          >
+            Known exploited
+          </Link>
+        </nav>
+      ) : null}
       <form method="get" className="flex flex-wrap items-end gap-2">
+        {filters.exploited ? (
+          <input type="hidden" name={AREA_PARAM.EXPLOITED} value="1" />
+        ) : null}
         {filters.fix ? (
           <input type="hidden" name={AREA_PARAM.FIX} value={filters.fix} />
         ) : null}
@@ -146,9 +164,9 @@ export const AreaFindingsFilters = ({
           <select
             name={AREA_PARAM.SORT}
             defaultValue={filters.sort}
-            className={cn(FORM_SELECT_CLASS, "w-40")}
+            className={cn(FORM_SELECT_CLASS, "w-44")}
           >
-            {Object.values(AREA_FINDING_SORT).map((sort) => (
+            {areaSortOptions(area).map((sort) => (
               <option key={sort} value={sort}>
                 {AREA_FINDING_SORT_LABEL[sort]}
               </option>

@@ -49,6 +49,12 @@ from cloudsneeker_api.services.plan_catalog import (
     FEATURE_CLOUD_POSTURE,
     FEATURE_GOVERNANCE,
 )
+from cloudsneeker_api.services.vuln_intel import (
+    empty_exploit,
+    epss_subquery,
+    exploit_by_cve,
+    known_exploited_ids,
+)
 from django.db.models import (
     BooleanField,
     Case,
@@ -70,7 +76,9 @@ AREA_FEATURE = {
     AREA.GOVERNANCE: FEATURE_GOVERNANCE,
 }
 SEVERITY_ORDER = ("critical", "high", "medium", "low", "informational")
-SORT_FIELDS = ("severity", "last_seen_at", "first_seen_at", "check_id")
+# ``epss`` (exploit likelihood) applies to CVE findings; other areas fall
+# back to severity.
+SORT_FIELDS = ("severity", "last_seen_at", "first_seen_at", "check_id", "epss")
 DEFAULT_PAGE_SIZE = 25
 MAX_PAGE_SIZE = 100
 SEARCH_MAX_LENGTH = 200
@@ -105,6 +113,8 @@ class AreaFindingQuery:
     # FIX_AVAILABLE, FIX_UNAVAILABLE or "" (any). Cloud and Application
     # Security only; governance rows carry no fix.
     fix: str = ""
+    # Only CVEs in the CISA Known Exploited Vulnerabilities catalog.
+    exploited: bool = False
     sort: str = "severity"
     descending: bool = False
     page: int = 1
@@ -167,6 +177,8 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         include_muted=str(params.get("filter[muted]") or "") == "include",
         include_passed=str(params.get("filter[status]") or "") == "all",
         fix=fix,
+        exploited=str(params.get("filter[known_exploited]") or "").lower()
+        in ("true", "1"),
         sort=sort,
         descending=descending,
         page=_positive_int(params.get("page[number]"), 1),
@@ -327,6 +339,8 @@ def _finding_queryset(
                 output_field=BooleanField(),
             )
         ).filter(cs_fix_available=query.fix == FIX_AVAILABLE)
+    if query.exploited:
+        queryset = queryset.filter(check_id__in=known_exploited_ids())
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
             tenant_id, query.area, query.triage_statuses
@@ -334,12 +348,19 @@ def _finding_queryset(
         queryset = (
             queryset.exclude(uid__in=uids) if exclude else queryset.filter(uid__in=uids)
         )
+    sort = query.sort
+    if sort == "epss":
+        if query.area == AREA.APPLICATION_SECURITY:
+            queryset = queryset.annotate(cs_epss=epss_subquery("check_id"))
+        else:
+            sort = "severity"
     order = {
         "severity": "severity_rank",
         "last_seen_at": "inserted_at",
         "first_seen_at": "first_seen_at",
         "check_id": "check_id",
-    }[query.sort]
+        "epss": "cs_epss",
+    }[sort]
     # Severity rank 0 is critical, so ascending lists the most severe first.
     expression = (
         F(order).desc(nulls_last=True)
@@ -433,6 +454,11 @@ def _finding_rows(
     ):
         resources.setdefault(str(mapping["finding_id"]), mapping)
     triages = _triages_by_uid(tenant_id, [row["uid"] for row in findings])
+    exploits = (
+        exploit_by_cve(row["check_id"] for row in findings)
+        if area == AREA.APPLICATION_SECURITY
+        else {}
+    )
     rows = []
     for finding in findings:
         metadata = finding["check_metadata"] or {}
@@ -466,6 +492,7 @@ def _finding_rows(
                 "status_extended": finding["status_extended"] or "",
                 "remediation": _remediation(metadata),
                 **finding_fix(metadata, raw),
+                **exploits.get(finding["check_id"], empty_exploit()),
                 "resource_id": resource.get("resource__uid") or "",
                 "resource_name": resource.get("resource__name") or "",
                 "resource_type": resource.get("resource__type")
@@ -521,6 +548,9 @@ def _governance_matches(
     excluded: set[str],
     kept: set[str] | None,
 ) -> bool:
+    if query.exploited:
+        # Policy matches are not CVEs, so none is a known exploited one.
+        return False
     if query.severities and finding.severity not in query.severities:
         return False
     if query.sources and finding.policy_id not in query.sources:
@@ -543,7 +573,7 @@ def _governance_matches(
 
 def _governance_sort_key(query: AreaFindingQuery):
     def key(finding: GovernanceFinding):
-        if query.sort == "severity":
+        if query.sort in ("severity", "epss"):
             rank = SEVERITY_ORDER.index(finding.severity)
             return (rank, finding.title, finding.resource_id)
         if query.sort == "check_id":
@@ -580,6 +610,7 @@ def _governance_row(
         "status_extended": "",
         "remediation": "",
         **empty_fix(),
+        **empty_exploit(),
         "resource_id": finding.resource_id,
         "resource_name": finding.resource_name,
         "resource_type": finding.resource_type,
