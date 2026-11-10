@@ -4,6 +4,8 @@
 
 Filters: ``filter[severity__in]``, ``filter[triage_status__in]``,
 ``filter[source__in]`` (provider, target or policy ids), ``filter[search]``,
+``filter[category__in]`` (Application Security: sast, sca, secrets, iac,
+container; adds ``meta.category_counts`` and ``meta.enabled_categories``),
 ``filter[muted]=include``, ``filter[status]=all`` (passed findings too).
 Sort: ``severity`` (default), ``last_seen_at``, ``first_seen_at``,
 ``check_id``; ``-`` reverses. Paginated with ``page[number]`` and
@@ -95,6 +97,14 @@ class AreaFindingViewSet(BaseRLSViewSet):
                         {"id": source.id, "name": source.name, "kind": source.kind}
                         for source in page.sources
                     ],
+                    **(
+                        {
+                            "category_counts": page.category_counts,
+                            "enabled_categories": page.enabled_categories,
+                        }
+                        if page.category_counts is not None
+                        else {}
+                    ),
                 },
             }
         )

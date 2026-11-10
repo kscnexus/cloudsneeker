@@ -8,6 +8,7 @@ import {
   bulkUpdateFindingTriage,
   updateFindingTriage,
 } from "@/cloudsneeker/actions/finding-triage";
+import { securityCategoryShort } from "@/cloudsneeker/lib/app-security-categories";
 import type { AreaConfig } from "@/cloudsneeker/lib/area-findings";
 import {
   TRIAGE_STATUS_FILTERS,
@@ -179,6 +180,7 @@ export const AreaFindingsTable = ({
     config.checkLabel,
     config.resourceLabel,
     config.sourceLabel,
+    ...(config.showCategory ? ["Category"] : []),
     "Severity",
     ...(config.showFix ? ["Fix"] : []),
     "Triage",
@@ -327,6 +329,11 @@ export const AreaFindingsTable = ({
                     <td className="text-text-neutral-secondary px-3 py-2 align-top text-xs">
                       {finding.source_name || "—"}
                     </td>
+                    {config.showCategory ? (
+                      <td className="text-text-neutral-secondary px-3 py-2 align-top text-xs whitespace-nowrap">
+                        {securityCategoryShort(finding.security_category)}
+                      </td>
+                    ) : null}
                     <td className="px-3 py-2 align-top">
                       <ReportSeverityBadge severity={finding.severity} />
                       {config.showExploit ? (

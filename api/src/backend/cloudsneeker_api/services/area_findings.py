@@ -26,8 +26,14 @@ from api.models import (
     StateChoices,
     StatusChoices,
 )
-from cloudsneeker_api.models import FindingTriage, TrivyRun
+from cloudsneeker_api.models import FindingTriage, TrivyRun, TrivyTarget
 from cloudsneeker_api.reports.access import visible_provider_ids
+from cloudsneeker_api.services.app_security_categories import (
+    SECURITY_CATEGORIES,
+    category_case,
+    classify,
+    target_categories,
+)
 from cloudsneeker_api.services.finding_fix import (
     FIX_AVAILABLE,
     FIX_FILTER_VALUES,
@@ -49,6 +55,7 @@ from cloudsneeker_api.services.plan_catalog import (
     FEATURE_CLOUD_POSTURE,
     FEATURE_GOVERNANCE,
 )
+from cloudsneeker_api.services.trivy import normalize_scanners
 from cloudsneeker_api.services.vuln_intel import (
     empty_exploit,
     epss_subquery,
@@ -58,6 +65,7 @@ from cloudsneeker_api.services.vuln_intel import (
 from django.db.models import (
     BooleanField,
     Case,
+    Count,
     F,
     IntegerField,
     Q,
@@ -97,6 +105,8 @@ class Source:
     id: str
     name: str
     provider_id: str
+    # Application Security target mode; empty for other areas.
+    mode: str = ""
 
 
 @dataclass
@@ -107,6 +117,8 @@ class AreaFindingQuery:
     severities: list[str] = field(default_factory=list)
     triage_statuses: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
+    # Application Security only: ``SECURITY_CATEGORIES`` values.
+    categories: list[str] = field(default_factory=list)
     search: str = ""
     include_muted: bool = False
     include_passed: bool = False
@@ -126,6 +138,10 @@ class AreaFindingPage:
     rows: list[dict[str, Any]]
     count: int
     sources: list[Source]
+    # Application Security only: findings per category under every filter but
+    # the category one, and the categories the tenant's targets can report.
+    category_counts: dict[str, int] | None = None
+    enabled_categories: list[str] | None = None
 
 
 def _csv(value: str | None) -> list[str]:
@@ -158,6 +174,14 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
     unknown = sorted(set(statuses) - set(FindingTriage.Status.values))
     if unknown:
         raise AreaFindingsError(f"Unknown triage status: {', '.join(unknown)}.")
+    categories = [value.lower() for value in _csv(params.get("filter[category__in]"))]
+    if categories and area != AREA.APPLICATION_SECURITY:
+        raise AreaFindingsError(
+            "filter[category__in] applies to application_security only."
+        )
+    unknown = sorted(set(categories) - set(SECURITY_CATEGORIES))
+    if unknown:
+        raise AreaFindingsError(f"Unknown category: {', '.join(unknown)}.")
     fix = str(params.get("filter[fix]") or "").strip()
     if fix and fix not in FIX_FILTER_VALUES:
         raise AreaFindingsError(
@@ -173,6 +197,7 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         severities=severities,
         triage_statuses=statuses,
         sources=_csv(params.get("filter[source__in]")),
+        categories=categories,
         search=str(params.get("filter[search]") or "").strip()[:SEARCH_MAX_LENGTH],
         include_muted=str(params.get("filter[muted]") or "") == "include",
         include_passed=str(params.get("filter[status]") or "") == "all",
@@ -208,7 +233,9 @@ def scan_sources(tenant_id: str, role: Role, area: str) -> dict[str, Source]:
             .filter(status=TrivyRun.Status.COMPLETED, scan_id__isnull=False)
             .order_by("target_id", F("finished_at").desc(nulls_last=True))
             .distinct("target_id")
-            .values("scan_id", "target_id", "target__name", "provider_id")
+            .values(
+                "scan_id", "target_id", "target__name", "target__mode", "provider_id"
+            )
         )
         return {
             str(row["scan_id"]): Source(
@@ -216,6 +243,7 @@ def scan_sources(tenant_id: str, role: Role, area: str) -> dict[str, Source]:
                 id=str(row["target_id"]),
                 name=row["target__name"],
                 provider_id=str(row["provider_id"]),
+                mode=row["target__mode"],
             )
             for row in runs
         }
@@ -313,7 +341,11 @@ def _severity_rank() -> Case:
 
 
 def _finding_queryset(
-    tenant_id: str, query: AreaFindingQuery, sources: dict[str, Source]
+    tenant_id: str,
+    query: AreaFindingQuery,
+    sources: dict[str, Source],
+    *,
+    with_categories: bool = True,
 ) -> QuerySet:
     scan_ids = [
         scan_id
@@ -347,6 +379,14 @@ def _finding_queryset(
         ).filter(cs_fix_available=query.fix == FIX_AVAILABLE)
     if query.exploited:
         queryset = queryset.filter(check_id__in=known_exploited_ids())
+    if query.area == AREA.APPLICATION_SECURITY:
+        queryset = queryset.annotate(
+            cs_category=category_case(
+                {scan_id: source.mode for scan_id, source in sources.items()}
+            )
+        )
+        if with_categories and query.categories:
+            queryset = queryset.filter(cs_category__in=query.categories)
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
             tenant_id, query.area, query.triage_statuses
@@ -520,6 +560,9 @@ def _finding_rows(
                 "first_seen_at": finding["first_seen_at"],
                 "last_seen_at": finding["inserted_at"],
                 "categories": categories if isinstance(categories, list) else [],
+                "security_category": classify(raw, source.mode if source else None)
+                if area == AREA.APPLICATION_SECURITY
+                else "",
                 **_triage_fields(triages.get(finding["uid"]), snapshot),
             }
         )
@@ -694,8 +737,43 @@ def list_area_findings(
     count = queryset.count()
     start = (query.page - 1) * query.page_size
     findings = list(queryset[start : start + query.page_size].values(*_FINDING_FIELDS))
-    return AreaFindingPage(
+    page = AreaFindingPage(
         rows=_finding_rows(tenant_id, query.area, findings, sources),
         count=count,
         sources=_unique_sources(sources),
     )
+    if query.area == AREA.APPLICATION_SECURITY:
+        page.category_counts = category_counts(tenant_id, query, sources)
+        page.enabled_categories = enabled_categories(tenant_id, role)
+    return page
+
+
+def category_counts(
+    tenant_id: str, query: AreaFindingQuery, sources: dict[str, Source]
+) -> dict[str, int]:
+    """Findings per category under every filter except the category one."""
+    counts = dict.fromkeys(SECURITY_CATEGORIES, 0)
+    rows = (
+        _finding_queryset(tenant_id, query, sources, with_categories=False)
+        .order_by()
+        .values("cs_category")
+        .annotate(total=Count("id"))
+    )
+    for row in rows:
+        counts[row["cs_category"]] = row["total"]
+    return counts
+
+
+def enabled_categories(tenant_id: str, role: Role) -> list[str]:
+    """Categories that at least one visible target is set up to report."""
+    found: set[str] = set()
+    targets = _visible(TrivyTarget.objects.filter(tenant_id=tenant_id), role).values(
+        "mode", "config"
+    )
+    for target in targets:
+        config = target["config"] if isinstance(target["config"], dict) else {}
+        scanners = normalize_scanners(
+            target["mode"], config.get("scanners"), strict=False
+        )
+        found |= target_categories(target["mode"], scanners)
+    return [category for category in SECURITY_CATEGORIES if category in found]

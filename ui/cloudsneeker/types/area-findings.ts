@@ -17,6 +17,21 @@ export const AREA_FINDING_SOURCE_KIND = {
   POLICY: "policy",
 } as const;
 
+/** Application Security finding category (one per finding). */
+export const SECURITY_CATEGORY = {
+  SAST: "sast",
+  SCA: "sca",
+  SECRETS: "secrets",
+  IAC: "iac",
+  CONTAINER: "container",
+} as const;
+
+export type SecurityCategory =
+  (typeof SECURITY_CATEGORY)[keyof typeof SECURITY_CATEGORY];
+
+export const SECURITY_CATEGORIES: readonly SecurityCategory[] =
+  Object.values(SECURITY_CATEGORY);
+
 export type AreaFindingSourceKind =
   (typeof AREA_FINDING_SOURCE_KIND)[keyof typeof AREA_FINDING_SOURCE_KIND];
 
@@ -61,6 +76,8 @@ export interface AreaFindingAttributes {
   first_seen_at: string | null;
   last_seen_at: string | null;
   categories: string[];
+  /** Application Security only; empty in other areas. */
+  security_category?: SecurityCategory | "";
   triage_id: string | null;
   triage_status: FindingTriageStatus;
   triage_notes_count: number;
@@ -96,5 +113,9 @@ export interface AreaFindingsResponse {
   meta?: {
     pagination?: { page: number; pages: number; count: number };
     sources?: AreaFindingSource[];
+    /** Application Security: findings per category, category filter ignored. */
+    category_counts?: Partial<Record<SecurityCategory, number>>;
+    /** Application Security: categories some target is set up to report. */
+    enabled_categories?: SecurityCategory[];
   };
 }

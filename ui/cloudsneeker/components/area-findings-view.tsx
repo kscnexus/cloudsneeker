@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { auth } from "@/auth.config";
 import { listAreaFindings } from "@/cloudsneeker/actions/finding-triage";
+import { securityCategoryTabs } from "@/cloudsneeker/lib/app-security-categories";
 import {
   AREA_CONFIG,
   type AreaFindingFilters,
@@ -18,6 +19,7 @@ import {
 } from "@/cloudsneeker/lib/findings-links";
 import type {
   AreaFindingResource,
+  AreaFindingsResponse,
   AreaFindingSource,
   FindingArea,
 } from "@/cloudsneeker/types/area-findings";
@@ -31,6 +33,7 @@ import { pagesOf } from "./area-triage-view";
 import { EmptyState } from "./empty-state";
 import { PageHeader } from "./page-header";
 import { SectionCard } from "./section-card";
+import { SecurityCategoryTabs } from "./security-category-tabs";
 
 interface AreaFindingsViewProps {
   area: FindingArea;
@@ -49,7 +52,8 @@ const isFiltered = (filters: AreaFindingFilters): boolean =>
   filters.source !== null ||
   filters.search !== "" ||
   filters.fix !== null ||
-  Boolean(filters.exploited);
+  Boolean(filters.exploited) ||
+  Boolean(filters.category);
 
 /** One area's Findings page: current findings with filters and triage. */
 export const AreaFindingsView = ({
@@ -112,9 +116,20 @@ const SSRAreaFindings = async ({
   const findings = responseList<AreaFindingResource>(response);
   const total = responseCount(response) ?? findings.length;
   const pages = pagesOf(response);
+  const meta = (response as AreaFindingsResponse).meta;
 
   return (
     <SectionCard title="Findings" description={`${total} finding(s).`}>
+      {config.showCategory ? (
+        <SecurityCategoryTabs
+          area={area}
+          filters={filters}
+          tabs={securityCategoryTabs(
+            meta?.category_counts,
+            meta?.enabled_categories,
+          )}
+        />
+      ) : null}
       <AreaFindingsFilters
         area={area}
         filters={filters}

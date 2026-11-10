@@ -22,6 +22,8 @@ import {
   type AreaFixFilter,
   FINDING_AREA,
   type FindingArea,
+  SECURITY_CATEGORIES,
+  type SecurityCategory,
 } from "@/cloudsneeker/types/area-findings";
 import type { FindingTriageStatus } from "@/types/findings-triage";
 
@@ -66,6 +68,7 @@ export const AREA_PARAM = {
   PAGE: "page",
   FIX: "fix",
   EXPLOITED: "exploited",
+  CATEGORY: "category",
 } as const;
 
 export const AREA_FIX_FILTER_LABEL: Record<AreaFixFilter, string> = {
@@ -87,6 +90,8 @@ export interface AreaConfig {
   showFix: boolean;
   /** Findings can be CVEs with EPSS and CISA KEV data. */
   showExploit: boolean;
+  /** Findings carry a security category (SAST, SCA, secrets, IaC, container). */
+  showCategory: boolean;
 }
 
 export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
@@ -101,6 +106,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     emptyFindings: "Run a scan on a cloud provider to see findings here.",
     showFix: true,
     showExploit: false,
+    showCategory: false,
   },
   [FINDING_AREA.APPLICATION_SECURITY]: {
     area: FINDING_AREA.APPLICATION_SECURITY,
@@ -114,6 +120,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
       "Scan a repository, image or archive target to see its findings here.",
     showFix: true,
     showExploit: true,
+    showCategory: true,
   },
   [FINDING_AREA.GOVERNANCE]: {
     area: FINDING_AREA.GOVERNANCE,
@@ -126,6 +133,7 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
     emptyFindings: "Run a policy dry run to see the resources it matches here.",
     showFix: false,
     showExploit: false,
+    showCategory: false,
   },
 };
 
@@ -139,6 +147,8 @@ export interface AreaFindingFilters {
   fix: AreaFixFilter | null;
   /** Only CVEs in the CISA Known Exploited Vulnerabilities catalog. */
   exploited?: boolean;
+  /** Application Security security category. */
+  category?: SecurityCategory;
 }
 
 /** Sort options an area offers (exploit likelihood needs CVE findings). */
@@ -171,6 +181,9 @@ export const parseAreaFilters = (
   const triage = first(params[AREA_PARAM.TRIAGE]);
   const sort = first(params[AREA_PARAM.SORT]);
   const fix = first(params[AREA_PARAM.FIX]);
+  const category = SECURITY_CATEGORIES.find(
+    (value) => value === first(params[AREA_PARAM.CATEGORY]).toLowerCase(),
+  );
   return {
     severities: Array.from(new Set(severities)),
     triage: TRIAGE_STATUS_FILTERS.find((status) => status === triage) ?? null,
@@ -182,6 +195,7 @@ export const parseAreaFilters = (
     page: parsePage(params[AREA_PARAM.PAGE]),
     fix: Object.values(AREA_FIX_FILTER).find((value) => value === fix) ?? null,
     ...(first(params[AREA_PARAM.EXPLOITED]) === "1" ? { exploited: true } : {}),
+    ...(category ? { category } : {}),
   };
 };
 
@@ -205,6 +219,9 @@ export const areaFindingsSearchParams = (
     : {}),
   ...(filters.exploited && AREA_CONFIG[area].showExploit
     ? { "filter[known_exploited]": "true" }
+    : {}),
+  ...(filters.category && AREA_CONFIG[area].showCategory
+    ? { "filter[category__in]": filters.category }
     : {}),
 });
 
@@ -243,6 +260,7 @@ export const areaFindingsPageHref = (
   }
   if (filters.fix) params.set(AREA_PARAM.FIX, filters.fix);
   if (filters.exploited) params.set(AREA_PARAM.EXPLOITED, "1");
+  if (filters.category) params.set(AREA_PARAM.CATEGORY, filters.category);
   if (filters.page && filters.page > 1) {
     params.set(AREA_PARAM.PAGE, String(filters.page));
   }
