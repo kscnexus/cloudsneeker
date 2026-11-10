@@ -10,6 +10,7 @@ import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-securit
 import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-list";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { ScanAllRepositoriesButton } from "@/cloudsneeker/components/scan-all-repositories-button";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import type { SeverityBreakdownItem } from "@/cloudsneeker/components/severity-breakdown";
 import { TrivyTargetList } from "@/cloudsneeker/components/trivy-target-list";
@@ -67,12 +68,15 @@ export default async function ApplicationSecurityPage({
       <PageHeader
         description="Scan dependencies, source code, container images, Infrastructure as Code, secrets, SBOMs and Kubernetes clusters. Results land in Findings next to your cloud security results."
         actions={
-          <Button asChild size="sm">
-            <Link href={newTargetHref()}>
-              <Plus aria-hidden="true" />
-              New target
-            </Link>
-          </Button>
+          <>
+            <ScanAllRepositoriesButton />
+            <Button asChild size="sm">
+              <Link href={newTargetHref()}>
+                <Plus aria-hidden="true" />
+                New target
+              </Link>
+            </Button>
+          </>
         }
       />
       <Suspense fallback={<Skeleton className="h-96 w-full rounded-xl" />}>

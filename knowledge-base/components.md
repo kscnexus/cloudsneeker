@@ -80,6 +80,7 @@ The signed-in application lives in `ui/app/(prowler)/`. Route group names do not
 | `/mutelist` | Mute rules |
 | `/integrations` | Jira, Slack, Amazon S3, Security Hub |
 | `/integrations/bitbucket` | Bitbucket workspace import: lists repositories through `POST /api/v1/bitbucket/repositories` (`cloudsneeker_api/services/bitbucket.py`) and adds the picked ones as IaC providers through `/providers` and `/providers/secrets` |
+| `/application-security` | Application Security targets and runs. **Scan all repositories** (`ui/cloudsneeker/components/scan-all-repositories-button.tsx`) creates a code repository (Trivy `repo` mode) target for each IaC provider that has none, then starts a scan on every repository through `/trivy-targets` and `/trivy-targets/{id}/scan`, 10 per server action call |
 | `/users`, `/roles`, `/invitations` | Access management |
 
 UI code follows a strict split: server actions in `actions/`, adapters next to those actions, shared types in `types/`, shared hooks in `hooks/`, primitives in `components/shadcn/`. React Compiler is on, so components do not add `useMemo` or `useCallback`. Read `skills/prowler-ui/SKILL.md` before editing components.
