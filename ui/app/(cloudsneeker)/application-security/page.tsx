@@ -14,6 +14,7 @@ import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-l
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { ProductPageTabs } from "@/cloudsneeker/components/product-page-tabs";
+import { ScanAllRepositoriesButton } from "@/cloudsneeker/components/scan-all-repositories-button";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import type { SeverityBreakdownItem } from "@/cloudsneeker/components/severity-breakdown";
 import { TrivyTargetList } from "@/cloudsneeker/components/trivy-target-list";
@@ -149,6 +150,7 @@ const workspaceActions = (
         Triage
       </Link>
     </Button>
+    <ScanAllRepositoriesButton />
     <Button asChild size="sm">
       <Link href={newTargetHref()}>
         <Plus aria-hidden="true" />
