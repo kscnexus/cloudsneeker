@@ -4,6 +4,7 @@ import { buildReportCatalog } from "@/cloudsneeker/lib/report-catalog";
 import {
   frameworkOptions,
   latestScanPerProvider,
+  providersWithoutFrameworks,
   providerOptions,
 } from "@/cloudsneeker/lib/report-options";
 import {
@@ -39,6 +40,22 @@ describe("report options", () => {
         2,
       ),
     ).toEqual(["s1", "s3"]);
+  });
+
+  it("skips code and image sources, which have no frameworks", () => {
+    const scan = (id: string, provider: string) => ({
+      id,
+      relationships: { provider: { data: { id: provider } } },
+    });
+    const skip = providersWithoutFrameworks([
+      { id: "a", attributes: { provider: "aws" } },
+      { id: "r", attributes: { provider: "iac" } },
+      { id: "i", attributes: { provider: "image" } },
+    ]);
+    expect(Array.from(skip)).toEqual(["r", "i"]);
+    expect(
+      latestScanPerProvider([scan("s1", "r"), scan("s2", "a"), scan("s3", "i")], 5, skip),
+    ).toEqual(["s2"]);
   });
 
   it("deduplicates frameworks and hides the upstream product name", () => {

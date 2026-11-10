@@ -8,6 +8,8 @@ import {
 } from "@/cloudsneeker/actions/custodian";
 import { CustodianCancelRunButton } from "@/cloudsneeker/components/custodian-cancel-run-button";
 import { CustodianRunResourcesTable } from "@/cloudsneeker/components/custodian-run-resources-table";
+import { FormAlert } from "@/cloudsneeker/components/form-layout";
+import { PageHeader } from "@/cloudsneeker/components/page-header";
 import {
   formatDuration,
   runDurationMs,
@@ -89,9 +91,9 @@ export default async function CustodianRunDetailPage({
 
   return (
     <ContentLayout title={policy.attributes.name} icon={<Shield />}>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex max-w-3xl flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        description={
+          <span className="flex flex-wrap items-center gap-2">
             <Badge variant="tag" className="capitalize">
               {run.attributes.status}
             </Badge>
@@ -103,54 +105,67 @@ export default async function CustodianRunDetailPage({
                 {run.attributes.error_class.replaceAll("_", " ")}
               </Badge>
             ) : null}
-            <span className="text-text-neutral-secondary text-sm">
-              dry-run report
-            </span>
-          </div>
-          <p className="text-text-neutral-secondary text-sm">
-            Provider: {providerLabel}
-            {run.attributes.provider_type
-              ? ` (${run.attributes.provider_type})`
-              : ""}
-          </p>
-          <p className="text-text-neutral-secondary text-sm">
-            Resources matched: {resourceCount}
-            {" · "}
-            Duration: {duration}
-            {run.attributes.summary?.regions?.length
-              ? ` · Regions: ${run.attributes.summary.regions.join(", ")}`
-              : ""}
-          </p>
-          {run.attributes.inserted_at ? (
-            <p className="text-text-neutral-tertiary text-xs">
-              {new Date(run.attributes.inserted_at).toLocaleString()}
-            </p>
-          ) : null}
-          {run.attributes.error ? (
-            <p className="text-text-error text-sm">
-              {run.attributes.error_class
-                ? `[${run.attributes.error_class}] `
-                : ""}
-              {run.attributes.error}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CustodianDownloadYamlButton
-            filename={`governance-policy-${policyId}.yml`}
-            yaml={policy.attributes.policy_yaml}
-          />
-          {findingsHref ? (
+            <span>Dry-run report</span>
+          </span>
+        }
+        meta={[
+          {
+            label: "Provider",
+            value: `${providerLabel}${
+              run.attributes.provider_type
+                ? ` (${run.attributes.provider_type})`
+                : ""
+            }`,
+          },
+          { label: "Resources matched", value: resourceCount },
+          { label: "Duration", value: duration },
+          ...(run.attributes.summary?.regions?.length
+            ? [
+                {
+                  label: "Regions",
+                  value: run.attributes.summary.regions.join(", "),
+                },
+              ]
+            : []),
+          ...(run.attributes.inserted_at
+            ? [
+                {
+                  label: "Started",
+                  value: new Date(run.attributes.inserted_at).toLocaleString(),
+                },
+              ]
+            : []),
+        ]}
+        actions={
+          <>
+            <CustodianDownloadYamlButton
+              filename={`governance-policy-${policyId}.yml`}
+              yaml={policy.attributes.policy_yaml}
+            />
+            {findingsHref ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href={findingsHref}>Related Findings</Link>
+              </Button>
+            ) : null}
+            {isPending ? <CustodianCancelRunButton runId={runId} /> : null}
             <Button asChild variant="ghost" size="sm">
-              <Link href={findingsHref}>Related Findings</Link>
+              <Link href={governanceHref(policyId)}>Back to policy</Link>
             </Button>
-          ) : null}
-          {isPending ? <CustodianCancelRunButton runId={runId} /> : null}
-          <Button asChild variant="ghost" size="sm">
-            <Link href={governanceHref(policyId)}>Back to policy</Link>
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      >
+        <FormAlert
+          message={
+            run.attributes.error
+              ? `${
+                  run.attributes.error_class
+                    ? `[${run.attributes.error_class}] `
+                    : ""
+                }${run.attributes.error}`
+              : null
+          }
+        />
+      </PageHeader>
 
       <Section>
         <SectionHeader>

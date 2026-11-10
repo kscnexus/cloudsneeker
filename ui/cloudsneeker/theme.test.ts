@@ -35,63 +35,143 @@ describe("theme.css phone navbar", () => {
   });
 });
 
-const opsCss = readFileSync(
+const stylesDir = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "styles",
+);
+const opsCss = readFileSync(path.join(stylesDir, "ops-surfaces.css"), "utf8");
+const surfacesCss = readFileSync(path.join(stylesDir, "surfaces.css"), "utf8");
+const tokensCss = readFileSync(
+  path.join(stylesDir, "design-tokens.css"),
+  "utf8",
+);
+const globalsCss = readFileSync(
   path.join(
     path.dirname(fileURLToPath(import.meta.url)),
+    "..",
     "styles",
-    "ops-surfaces.css",
+    "globals.css",
   ),
   "utf8",
 );
 
-const TABLE_SCOPE = [
-  "[data-cloudsneeker-surface] ~ [data-table-scroll-container]",
-  "[data-cloudsneeker-surface] ~ * [data-table-scroll-container]",
-];
-
-const DIALOG_SCOPE = [
-  'body:has([data-cloudsneeker-surface]) [data-slot="dialog-content"]',
-  '[data-slot="dialog-content"]:has(#alert-name)',
-  '[data-slot="dialog-content"]:has(#scan-configuration-name)',
-];
-
-describe("theme.css alerts and scan profiles surfaces", () => {
-  it("imports the scoped stylesheet before any other rule", () => {
-    const importAt = css.indexOf('@import "./styles/ops-surfaces.css";');
-
-    expect(importAt).toBeGreaterThan(-1);
-    expect(importAt).toBeLessThan(css.indexOf(":root"));
-  });
-
-  it("scopes the table restyle to pages that carry the surface marker", () => {
-    for (const selector of TABLE_SCOPE) {
-      expect(opsCss).toContain(selector);
-    }
-    expect(opsCss).toMatch(/thead\s+th \{[^}]*border-radius: 0;/);
-    expect(opsCss).toMatch(/td::after \{[^}]*display: none;/);
-    expect(opsCss).toContain('button[aria-haspopup="menu"]');
-    expect(opsCss).toContain('> div:has([aria-label="Go to first page"])');
-  });
-
-  it("never restyles every data table in the app", () => {
-    expect(opsCss).not.toMatch(/^\[data-table-scroll-container\]/m);
-    expect(opsCss).not.toMatch(/^table/m);
-  });
-
-  it("scopes dialogs by page marker or by the form field ids", () => {
-    for (const selector of DIALOG_SCOPE) {
-      expect(opsCss).toContain(selector);
-    }
-    expect(opsCss).toContain('[data-slot="dialog-header"]');
-    expect(opsCss).toContain('[data-slot="field-label"]');
-    expect(opsCss).not.toMatch(/^\[data-slot="dialog-content"\] \{/m);
-  });
-
-  it("keeps keyboard focus visible on tables and dialogs", () => {
-    expect(opsCss).toMatch(
-      /:is\(a, button, \[role="combobox"\]\):focus-visible \{[^}]*outline: 2px solid/,
+describe("design tokens", () => {
+  it("are imported into the Tailwind entry so they become utilities", () => {
+    expect(globalsCss).toContain(
+      '@import "../cloudsneeker/styles/design-tokens.css"; /* cloudsneeker-hook',
     );
-    expect(opsCss).toMatch(/\[data-slot="dialog-close"\]\):focus-visible/);
+    expect(globalsCss.indexOf("design-tokens.css")).toBeLessThan(
+      globalsCss.indexOf("\n@plugin"),
+    );
+  });
+
+  it("define the stock shadcn colors upstream components use", () => {
+    for (const name of [
+      "muted-foreground",
+      "popover",
+      "popover-foreground",
+      "accent",
+      "accent-foreground",
+      "destructive",
+      "ring",
+      "card",
+    ]) {
+      expect(tokensCss).toMatch(new RegExp(`--color-${name}: var\\(--`));
+    }
+  });
+
+  it("leave the input alias undefined so dark inputs keep their fill", () => {
+    expect(tokensCss).not.toMatch(/--color-input:/);
+  });
+
+  it("alias the near-miss names used in the tree", () => {
+    for (const name of [
+      "text-error",
+      "text-info",
+      "border-error-primary",
+      "bg-button-secondary",
+    ]) {
+      expect(tokensCss).toContain(`--color-${name}:`);
+    }
+  });
+
+  it("have light and dark values for every design-system variable", () => {
+    const rootBlock = css.slice(css.indexOf(":root {"), css.indexOf(".dark {"));
+    const darkBlock = css.slice(css.indexOf(".dark {"), css.indexOf("html {"));
+    for (const name of [
+      "--cs-focus-ring",
+      "--cs-shadow-surface",
+      "--cs-shadow-overlay",
+      "--bg-info-primary",
+      "--text-info-primary",
+    ]) {
+      expect(rootBlock).toContain(`${name}:`);
+      expect(darkBlock).toContain(`${name}:`);
+    }
+    expect(rootBlock).toContain("--cs-radius-control:");
+  });
+});
+
+describe("theme.css app-wide surfaces", () => {
+  it("imports surfaces, then the page specifics, before any other rule", () => {
+    const surfacesAt = css.indexOf('@import "./styles/surfaces.css";');
+    const opsAt = css.indexOf('@import "./styles/ops-surfaces.css";');
+
+    expect(surfacesAt).toBeGreaterThan(-1);
+    expect(surfacesAt).toBeLessThan(opsAt);
+    expect(opsAt).toBeLessThan(css.indexOf(":root"));
+  });
+
+  it("gives every shadcn table square, divided rows", () => {
+    expect(surfacesCss).toMatch(
+      /table\.border-spacing-y-4 > thead th \{[^}]*border-radius: 0;/,
+    );
+    expect(surfacesCss).toMatch(/td::after \{[^}]*display: none;/);
+    expect(surfacesCss).toContain('button[aria-haspopup="menu"]');
+    expect(surfacesCss).toContain(
+      '[data-table-scroll-container] > div:has([aria-label="Go to first page"])',
+    );
+  });
+
+  it("draws the default focus outline in the base layer", () => {
+    expect(surfacesCss).toMatch(
+      /@layer base \{\s*:focus-visible \{[^}]*outline: 2px solid var\(--cs-focus-ring\);/,
+    );
+  });
+
+  it("styles every dialog and alert dialog the same way", () => {
+    expect(surfacesCss).toContain(
+      ':is([data-slot="dialog-content"], [role="alertdialog"]) {',
+    );
+    expect(surfacesCss).toContain('[data-slot="dialog-overlay"] {');
+    expect(surfacesCss).toContain('[data-slot="dialog-title"] {');
+  });
+
+  it("recolors the tabs with product tokens", () => {
+    expect(surfacesCss).toMatch(
+      /\[data-slot="tabs-trigger"\]::after \{[^}]*var\(--sidebar-active-bar\)/,
+    );
+  });
+
+  it("fits dialogs at phone width and respects reduced motion", () => {
+    const start = surfacesCss.indexOf("@media (max-width: 39.99rem)");
+    expect(start).toBeGreaterThan(-1);
+    expect(surfacesCss.slice(start)).toContain(
+      "max-height: calc(100dvh - 2rem);",
+    );
+    expect(surfacesCss).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  it("uses tokens instead of fixed colors", () => {
+    expect(surfacesCss).not.toMatch(/#[0-9a-f]{3,6}/i);
+  });
+});
+
+describe("theme.css alerts and scan profiles specifics", () => {
+  it("keeps only page-specific rules", () => {
+    expect(opsCss).not.toContain("[data-table-scroll-container]");
+    expect(opsCss).not.toMatch(/^table/m);
+    expect(opsCss).not.toContain('[data-slot="dialog-overlay"]');
   });
 
   it("restyles both empty states", () => {
@@ -103,18 +183,14 @@ describe("theme.css alerts and scan profiles surfaces", () => {
     );
   });
 
-  it("fits dialogs and wraps button rows at phone width", () => {
-    const start = opsCss.indexOf("@media (max-width: 39.99rem)");
-    expect(start).toBeGreaterThan(-1);
-    const block = opsCss.slice(start);
-
-    expect(block).toContain("max-height: calc(100dvh - 2rem);");
-    expect(block).toMatch(
-      /div:has\(> \[data-slot="button"\]\) \{[^}]*flex-wrap: wrap;/,
+  it("scopes dialog details by the form field ids", () => {
+    expect(opsCss).toContain('[data-slot="dialog-content"]:has(#alert-name)');
+    expect(opsCss).toContain(
+      '[data-slot="dialog-content"]:has(#scan-configuration-name)',
     );
   });
 
   it("uses theme tokens instead of fixed colors for surfaces and text", () => {
-    expect(opsCss).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+    expect(opsCss).not.toMatch(/#[0-9a-f]{3,6}/i);
   });
 });

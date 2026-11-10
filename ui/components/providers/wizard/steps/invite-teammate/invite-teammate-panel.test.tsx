@@ -286,9 +286,13 @@ describe("InviteTeammatePanel", () => {
     expect(
       await screen.findByText(/Roles could not be loaded right now/),
     ).toBeInTheDocument();
-    expect(lastUiState(onUiState)).toMatchObject({ showAction: false });
-    expect(
-      screen.queryByRole("button", { name: "Send invitation" }),
-    ).not.toBeInTheDocument();
+    // The panel reports showAction after the message renders, and the
+    // harness re-renders its footer button on that report, so wait for it.
+    await waitFor(() => {
+      expect(lastUiState(onUiState)).toMatchObject({ showAction: false });
+      expect(
+        screen.queryByRole("button", { name: "Send invitation" }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

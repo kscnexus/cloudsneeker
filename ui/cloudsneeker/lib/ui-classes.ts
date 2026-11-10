@@ -9,6 +9,24 @@ export const FOCUS_RING_CLASS =
 export const CARD_LIST_CLASS =
   "divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-lg border";
 
+/**
+ * Data table built from plain `<table>` markup. Upstream shadcn tables get
+ * the same look from `ui/cloudsneeker/styles/surfaces.css`, so every list in
+ * the app reads alike: bordered frame, tinted header, divided square rows.
+ */
+export const TABLE_FRAME_CLASS =
+  "border-border-neutral-secondary overflow-x-auto rounded-xl border";
+
+export const TABLE_CLASS = "w-full text-left text-sm";
+
+export const TABLE_HEAD_CLASS = "bg-bg-neutral-tertiary";
+
+export const TABLE_HEADER_CELL_CLASS =
+  "text-text-neutral-secondary px-3 py-2 text-xs font-semibold whitespace-nowrap";
+
+export const TABLE_BODY_CLASS =
+  "divide-border-neutral-secondary divide-y [&>tr]:transition-colors [&>tr:hover]:bg-bg-neutral-tertiary/60";
+
 /** Native `<select>` styled like the shadcn input, with the same focus ring. */
 export const FORM_SELECT_CLASS =
   "border-border-input-primary bg-bg-input-primary text-text-neutral-primary h-10 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus-visible:border-border-input-primary-pressed focus-visible:ring-2 focus-visible:ring-button-tertiary/30 disabled:cursor-not-allowed disabled:opacity-60";

@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from cloudsneeker_api.brand import brand  # cloudsneeker-hook
+from cloudsneeker_api.cache_settings import shared_cache_settings  # cloudsneeker-hook
 from config.custom_logging import LOGGING  # noqa
 from config.env import BASE_DIR, env  # noqa
 from config.settings.celery import *  # noqa
@@ -66,11 +67,16 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "cloudsneeker_api.audit.AuditLogMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.signup.SignupGateMiddleware",  # cloudsneeker-hook
+    "cloudsneeker_api.login_guard.LoginGuardMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.mfa.MfaMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.subscriptions.SubscriptionEnforcementMiddleware",  # cloudsneeker-hook
 ]
 
 SITE_ID = 1
+
+# cloudsneeker-hook: Valkey-backed cache shared by every API worker (sign-in
+# lockout). "default" stays the per-process cache upstream relies on.
+CACHES = shared_cache_settings()  # cloudsneeker-hook
 
 CORS_ALLOWED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
 

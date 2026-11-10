@@ -1,0 +1,67 @@
+/* Cloudsneeker design tokens: the Tailwind theme layer.
+
+   Imported from `ui/styles/globals.css` (one hook line) so these tokens
+   become Tailwind utilities. Raw values live in `ui/cloudsneeker/theme.css`
+   (:root and .dark); this file only names them. Rules for using them are
+   in `knowledge-base/design-system.md`.
+
+   1. Stock shadcn aliases. Upstream components use classes such as
+      `text-muted-foreground`, `bg-popover`, `bg-accent`, `text-destructive`
+      and `ring-ring`. Those colors were never defined, so Tailwind emitted
+      nothing and the text, menu, hover and focus colors silently fell back
+      to inherited values. Each alias points at the matching product token.
+      `input` is left undefined on purpose: defining it would switch on the
+      upstream `dark:bg-input/30` input fills and change every dark field.
+
+   1b. Near-miss names (see below), aliased for the same reason.
+
+   2. Info status colors, next to the existing pass / warning / fail set.
+
+   3. Surface, radius and focus tokens used by the product CSS in
+      `theme.css` and by `ui/cloudsneeker/lib/ui-classes.ts`. */
+
+@theme inline {
+  /* 1. shadcn aliases -> product tokens */
+  --color-background: var(--bg-neutral-primary);
+  --color-foreground: var(--text-neutral-primary);
+  --color-card: var(--bg-neutral-secondary);
+  --color-card-foreground: var(--text-neutral-primary);
+  --color-popover: var(--bg-neutral-tertiary);
+  --color-popover-foreground: var(--text-neutral-primary);
+  --color-muted: var(--bg-neutral-tertiary);
+  --color-muted-foreground: var(--text-neutral-tertiary);
+  --color-accent: var(--bg-neutral-tertiary);
+  --color-accent-foreground: var(--text-neutral-primary);
+  --color-destructive: var(--text-error-primary);
+  --color-ring: var(--bg-button-tertiary);
+
+  /* 1b. Near-miss product names. These classes are used in the tree but
+     name tokens that never existed (for example `text-text-error` instead
+     of `text-text-error-primary`), so they rendered without color. */
+  --color-text-error: var(--text-error-primary);
+  --color-text-warning: var(--text-warning-primary);
+  --color-text-info: var(--text-info-primary);
+  --color-text-primary: var(--text-neutral-primary);
+  --color-text-neutral-primary-hover: var(--text-neutral-secondary);
+  --color-border-error-primary: var(--border-error-primary);
+  --color-border-warning-primary: var(--bg-warning-primary);
+  --color-bg-pass-primary: var(--bg-pass-primary);
+  --color-bg-fail-primary: var(--bg-fail-primary);
+  --color-bg-warning-primary: var(--bg-warning-primary);
+  --color-bg-button-secondary: var(--bg-button-secondary);
+  --color-sidebar-guide: var(--border-sidebar-guide);
+
+  /* 2. Info status (pass / warning / fail already exist upstream) */
+  --color-bg-info: var(--bg-info-primary);
+  --color-bg-info-secondary: var(--bg-info-secondary);
+  --color-border-info: var(--border-info-primary);
+  --color-text-info-primary: var(--text-info-primary);
+
+  /* 3. Surfaces, radii, focus */
+  --color-focus-ring: var(--cs-focus-ring);
+  --shadow-surface: var(--cs-shadow-surface);
+  --shadow-overlay: var(--cs-shadow-overlay);
+  --radius-control: var(--cs-radius-control);
+  --radius-surface: var(--cs-radius-surface);
+  --radius-overlay: var(--cs-radius-overlay);
+}

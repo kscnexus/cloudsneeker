@@ -6,6 +6,13 @@ import {
   formatAuditTime,
   shortId,
 } from "@/cloudsneeker/lib/audit-log";
+import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import type { AuditEventResource } from "@/cloudsneeker/types/audit";
 import { Badge } from "@/components/shadcn";
 
@@ -31,22 +38,18 @@ interface AuditLogTableProps {
 }
 
 export const AuditLogTable = ({ events }: AuditLogTableProps) => (
-  <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-    <table className="w-full text-left text-sm">
-      <thead className="bg-bg-neutral-tertiary">
+  <div className={TABLE_FRAME_CLASS}>
+    <table className={TABLE_CLASS}>
+      <thead className={TABLE_HEAD_CLASS}>
         <tr>
           {AUDIT_LOG_COLUMNS.map((header) => (
-            <th
-              key={header}
-              scope="col"
-              className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold whitespace-nowrap"
-            >
+            <th key={header} scope="col" className={TABLE_HEADER_CELL_CLASS}>
               {header}
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-border-neutral-secondary divide-y">
+      <tbody className={TABLE_BODY_CLASS}>
         {events.map((event) => {
           const attributes = event.attributes;
           return (

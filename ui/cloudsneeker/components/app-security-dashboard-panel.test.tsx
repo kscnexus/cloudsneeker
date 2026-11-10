@@ -70,10 +70,9 @@ describe("AppSecurityDashboardPanel", () => {
     expect(
       within(kpis).getByText("2 critical in the latest scans"),
     ).toBeInTheDocument();
-    expect(within(kpis).getByRole("link", { name: /Last scan/ })).toHaveAttribute(
-      "href",
-      "/application-security/t1/runs/r1",
-    );
+    expect(
+      within(kpis).getByRole("link", { name: /Last scan/ }),
+    ).toHaveAttribute("href", "/application-security/t1/runs/r1");
 
     expect(
       screen.getByRole("region", { name: "Open findings by severity" }),
@@ -83,7 +82,10 @@ describe("AppSecurityDashboardPanel", () => {
     expect(within(areas).getAllByRole("link")).toHaveLength(7);
     expect(
       within(areas).getByRole("link", { name: /Code \(SAST\)/ }),
-    ).toHaveAttribute("href", "/application-security?category=code");
+    ).toHaveAttribute(
+      "href",
+      "/application-security?tab=targets&category=code",
+    );
     expect(
       within(areas).getByText("6 findings in the latest scans"),
     ).toBeInTheDocument();
@@ -99,7 +101,7 @@ describe("AppSecurityDashboardPanel", () => {
     );
 
     const active = screen.getByRole("link", { name: /Code \(SAST\)/ });
-    expect(active).toHaveAttribute("href", "/application-security");
+    expect(active).toHaveAttribute("href", "/application-security?tab=targets");
     expect(active).toHaveAttribute("aria-current", "true");
     expect(
       screen.queryByRole("region", { name: "Open findings by severity" }),

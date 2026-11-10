@@ -8,6 +8,7 @@ import {
 } from "@/actions/compliances";
 import { getThreatScore } from "@/actions/overview";
 import { getScan, getScans, getScansByState } from "@/actions/scans";
+import { defaultComplianceScanId } from "@/cloudsneeker/compliance/default-scan"; // cloudsneeker-hook
 import { ScanComparisonOverview } from "@/cloudsneeker/compliance/scan-comparison-overview"; // cloudsneeker-hook
 import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import {
@@ -294,7 +295,7 @@ export default async function Compliance({
     : scanIdParam;
   const selectedScanId: string | null =
     (await resolveUrlScanId(scanIdFromUrl, expandedScansData)) ||
-    expandedScansData[0]?.id ||
+    defaultComplianceScanId(expandedScansData) || // cloudsneeker-hook
     null;
   const onboardingAction = selectedScanId
     ? { flowId: "view-compliance" }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from cloudsneeker_api.models import FindingTriage
 from cloudsneeker_api.reports.catalog import EXECUTIVE
 from cloudsneeker_api.reports.data import governance
 from cloudsneeker_api.reports.data.common import (
@@ -26,6 +27,7 @@ from cloudsneeker_api.reports.data.common import (
 from cloudsneeker_api.reports.data.compliance import compliance_scan_ids
 from cloudsneeker_api.reports.schema import ReportData, ReportFilters, ReportTable
 from cloudsneeker_api.services.finding_triage import triage_counts
+from django.db.models import F, Q
 from django.utils import timezone
 
 APPSEC_SCOPE = ScanScope(
@@ -323,6 +325,8 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
         }
     )
     data.extra["triage"] = triage
+    accepted = accepted_risk_rows(tenant_id, all_ids, filters)
+    data.kpis["triage_risk_accepted"] = len(accepted)
     data.headline = executive_headline(
         data.grade,
         data.score,
@@ -369,7 +373,76 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
             total=len(posture),
         ),
     ]
+    if accepted:
+        data.tables.append(
+            ReportTable(
+                key="accepted_risks",
+                title="Accepted risks",
+                columns=ACCEPTED_RISK_COLUMNS,
+                rows=accepted,
+                total=len(accepted),
+            )
+        )
     return data
+
+
+ACCEPTED_RISK_COLUMNS: list[tuple[str, str]] = [
+    ("check_id", "Finding"),
+    ("area", "Area"),
+    ("reason", "Reason"),
+    ("approved_by", "Approved by"),
+    ("approved_on", "Approved"),
+    ("expires_on", "Expires"),
+]
+
+
+def accepted_risk_rows(
+    tenant_id: str, scan_ids: list, filters: ReportFilters
+) -> list[dict[str, Any]]:
+    """Risks currently accepted for findings in scope, soonest expiry first.
+
+    Covers triage rows with status ``risk_accepted`` whose finding UID is in
+    the in-scope scans, plus governance matches (which have no finding rows)
+    on the providers in scope (EB-019).
+    """
+    in_scope = Q(area=FindingTriage.Area.GOVERNANCE)
+    if filters.provider_ids:
+        in_scope &= Q(provider_id__in=filters.provider_ids)
+    if scan_ids:
+        in_scope |= Q(
+            finding_uid__in=findings_for(tenant_id, scan_ids, filters).values("uid")
+        )
+    rows = (
+        FindingTriage.objects.filter(
+            tenant_id=tenant_id, status=FindingTriage.Status.RISK_ACCEPTED
+        )
+        .filter(in_scope)
+        .select_related("risk_approved_by")
+        .order_by(F("risk_expires_on").asc(nulls_last=True), "check_id")
+    )
+    areas = dict(FindingTriage.Area.choices)
+    return [
+        {
+            "check_id": triage.check_id or triage.finding_uid,
+            "finding_uid": triage.finding_uid,
+            "area": areas.get(triage.area, triage.area),
+            "reason": triage.risk_reason,
+            "approved_by": (
+                getattr(triage.risk_approved_by, "email", "")
+                if triage.risk_approved_by_id
+                else ""
+            ),
+            "approved_on": (
+                triage.risk_approved_at.date().isoformat()
+                if triage.risk_approved_at
+                else ""
+            ),
+            "expires_on": (
+                triage.risk_expires_on.isoformat() if triage.risk_expires_on else ""
+            ),
+        }
+        for triage in rows
+    ]
 
 
 def finding_triage_summary(

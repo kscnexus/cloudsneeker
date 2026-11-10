@@ -69,8 +69,11 @@ export async function verifySessionValid(page: Page) {
   const session = await getSession(page);
   expect(session).toBeTruthy();
   expect(session.user).toBeTruthy();
-  expect(session.accessToken).toBeTruthy();
-  expect(session.refreshToken).toBeTruthy();
+  expect(session.userId).toBeTruthy();
+  // cloudsneeker-hook: API tokens stay in the encrypted cookie, never in the
+  // session JSON scripts can read (ui/cloudsneeker/lib/session-response.ts).
+  expect(session.accessToken).toBeUndefined();
+  expect(session.refreshToken).toBeUndefined();
   return session;
 }
 

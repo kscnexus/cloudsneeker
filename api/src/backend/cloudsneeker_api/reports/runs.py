@@ -17,6 +17,7 @@ from api.db_utils import rls_transaction
 from cloudsneeker_api.models import ReportRun
 from cloudsneeker_api.reports.catalog import (
     FORMAT_JSON,
+    FORMAT_PDF,
     filters_from_params,
     get_report_type,
     report_filename,
@@ -105,7 +106,7 @@ def enqueue_report_run(
 
 def run_summary(data: ReportData) -> dict[str, Any]:
     """Return the small summary stored on the run for list views and email."""
-    return {
+    summary = {
         "title": data.title,
         "headline": data.headline,
         "grade": data.grade,
@@ -114,6 +115,30 @@ def run_summary(data: ReportData) -> dict[str, Any]:
         "severity_totals": data.severity_totals,
         "status_totals": data.status_totals,
     }
+    content = data.extra.get("assessment")
+    if content:
+        quality = content.get("quality") or {}
+        meta = content.get("meta") or {}
+        summary.update(
+            {
+                "engine_version": meta.get("engine_version"),
+                "period": (meta.get("period") or {}).get("label"),
+                "scope": (meta.get("scope") or {}).get("providers") or [],
+                "warnings": (content.get("coverage") or {}).get("warnings") or [],
+                "quality": {
+                    "status": quality.get("status"),
+                    "distributable": quality.get("distributable"),
+                    "summary": quality.get("summary"),
+                    "failed": [
+                        check["id"]
+                        for check in quality.get("checks") or []
+                        if check.get("status") == "fail"
+                    ],
+                },
+                "pages": (content.get("layout") or {}).get("pages"),
+            }
+        )
+    return summary
 
 
 def write_artifacts(
@@ -135,6 +160,17 @@ def write_artifacts(
     directory.mkdir(parents=True, exist_ok=True)
     paths: dict[str, str] = {}
     sizes: dict[str, int] = {}
+    content = data.extra.get("assessment")
+    if content is not None:
+        # The PDF render runs quality control; JSON is written last so it
+        # carries the result.
+        formats = sorted(formats, key=lambda item: (item != FORMAT_PDF, item == FORMAT_JSON))
+        if FORMAT_PDF not in formats:
+            from cloudsneeker_api.reports.assessment.quality import evaluate
+
+            content["quality"] = evaluate(
+                content, getattr(data, "assessment_findings", []) or [], None
+            )
     for fmt in formats:
         content = get_renderer(fmt)(data)
         filename = report_filename(report_type, fmt, data.generated_at)

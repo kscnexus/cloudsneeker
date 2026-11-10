@@ -28,6 +28,12 @@ from api.models import (
 )
 from cloudsneeker_api.models import FindingTriage, TrivyRun
 from cloudsneeker_api.reports.access import visible_provider_ids
+from cloudsneeker_api.services.finding_fix import (
+    FIX_AVAILABLE,
+    FIX_FILTER_VALUES,
+    empty_fix,
+    finding_fix,
+)
 from cloudsneeker_api.services.finding_triage import (
     APP_SECURITY_SCAN_SOURCE,
     FindingSnapshot,
@@ -43,7 +49,22 @@ from cloudsneeker_api.services.plan_catalog import (
     FEATURE_CLOUD_POSTURE,
     FEATURE_GOVERNANCE,
 )
-from django.db.models import Case, F, IntegerField, Q, QuerySet, Value, When
+from cloudsneeker_api.services.vuln_intel import (
+    empty_exploit,
+    epss_subquery,
+    exploit_by_cve,
+    known_exploited_ids,
+)
+from django.db.models import (
+    BooleanField,
+    Case,
+    F,
+    IntegerField,
+    Q,
+    QuerySet,
+    Value,
+    When,
+)
 from django.db.models.fields.json import KeyTextTransform
 
 AREA = FindingTriage.Area
@@ -55,7 +76,9 @@ AREA_FEATURE = {
     AREA.GOVERNANCE: FEATURE_GOVERNANCE,
 }
 SEVERITY_ORDER = ("critical", "high", "medium", "low", "informational")
-SORT_FIELDS = ("severity", "last_seen_at", "first_seen_at", "check_id")
+# ``epss`` (exploit likelihood) applies to CVE findings; other areas fall
+# back to severity.
+SORT_FIELDS = ("severity", "last_seen_at", "first_seen_at", "check_id", "epss")
 DEFAULT_PAGE_SIZE = 25
 MAX_PAGE_SIZE = 100
 SEARCH_MAX_LENGTH = 200
@@ -87,6 +110,11 @@ class AreaFindingQuery:
     search: str = ""
     include_muted: bool = False
     include_passed: bool = False
+    # FIX_AVAILABLE, FIX_UNAVAILABLE or "" (any). Cloud and Application
+    # Security only; governance rows carry no fix.
+    fix: str = ""
+    # Only CVEs in the CISA Known Exploited Vulnerabilities catalog.
+    exploited: bool = False
     sort: str = "severity"
     descending: bool = False
     page: int = 1
@@ -130,6 +158,11 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
     unknown = sorted(set(statuses) - set(FindingTriage.Status.values))
     if unknown:
         raise AreaFindingsError(f"Unknown triage status: {', '.join(unknown)}.")
+    fix = str(params.get("filter[fix]") or "").strip()
+    if fix and fix not in FIX_FILTER_VALUES:
+        raise AreaFindingsError(
+            f"filter[fix] must be one of {', '.join(FIX_FILTER_VALUES)}."
+        )
     sort = str(params.get("sort") or "severity").strip()
     descending = sort.startswith("-")
     sort = sort.lstrip("-")
@@ -143,6 +176,9 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         search=str(params.get("filter[search]") or "").strip()[:SEARCH_MAX_LENGTH],
         include_muted=str(params.get("filter[muted]") or "") == "include",
         include_passed=str(params.get("filter[status]") or "") == "all",
+        fix=fix,
+        exploited=str(params.get("filter[known_exploited]") or "").lower()
+        in ("true", "1"),
         sort=sort,
         descending=descending,
         page=_positive_int(params.get("page[number]"), 1),
@@ -235,13 +271,19 @@ def _triage_fields(triage: FindingTriage | None, snapshot: FindingSnapshot) -> d
             "triage_notes_count": 0,
             "triage_latest_note": "",
             "assignee_id": None,
+            "risk_reason": "",
+            "risk_expires_on": None,
         }
+    accepted = triage.status == FindingTriage.Status.RISK_ACCEPTED
     return {
         "triage_id": str(triage.id),
         "triage_status": effective_status(triage, snapshot),
         "triage_notes_count": int(getattr(triage, "notes_total", 0) or 0),
         "triage_latest_note": getattr(triage, "latest_note_body", "") or "",
         "assignee_id": str(triage.assignee_id) if triage.assignee_id else None,
+        # EB-019: shown while the risk is accepted.
+        "risk_reason": triage.risk_reason if accepted else "",
+        "risk_expires_on": triage.risk_expires_on if accepted else None,
     }
 
 
@@ -293,6 +335,18 @@ def _finding_queryset(
             | Q(cs_title__icontains=query.search)
             | Q(uid__icontains=query.search)
         )
+    if query.fix:
+        # A CASE, not ~Q: missing JSON keys compare as NULL, and NOT NULL
+        # would drop every row from the "no fix" list.
+        queryset = queryset.annotate(
+            cs_fix_available=Case(
+                When(_fix_available_q(), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
+        ).filter(cs_fix_available=query.fix == FIX_AVAILABLE)
+    if query.exploited:
+        queryset = queryset.filter(check_id__in=known_exploited_ids())
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
             tenant_id, query.area, query.triage_statuses
@@ -300,12 +354,19 @@ def _finding_queryset(
         queryset = (
             queryset.exclude(uid__in=uids) if exclude else queryset.filter(uid__in=uids)
         )
+    sort = query.sort
+    if sort == "epss":
+        if query.area == AREA.APPLICATION_SECURITY:
+            queryset = queryset.annotate(cs_epss=epss_subquery("check_id"))
+        else:
+            sort = "severity"
     order = {
         "severity": "severity_rank",
         "last_seen_at": "inserted_at",
         "first_seen_at": "first_seen_at",
         "check_id": "check_id",
-    }[query.sort]
+        "epss": "cs_epss",
+    }[sort]
     # Severity rank 0 is critical, so ascending lists the most severe first.
     expression = (
         F(order).desc(nulls_last=True)
@@ -313,6 +374,33 @@ def _finding_queryset(
         else F(order).asc(nulls_last=True)
     )
     return queryset.annotate(severity_rank=_severity_rank()).order_by(expression, "id")
+
+
+def _non_empty(lookup: str) -> Q:
+    return Q(**{f"{lookup}__isnull": False}) & ~Q(**{lookup: ""})
+
+
+def _fix_available_q() -> Q:
+    """Database form of ``finding_fix(...)["fix_available"]``."""
+    return (
+        _non_empty("raw_result__FixedVersion")
+        | _non_empty("raw_result__Resolution")
+        | (Q(raw_result__has_key="RuleID") & Q(raw_result__has_key="Match"))
+        | (
+            Q(raw_result__has_key="Name")
+            & Q(raw_result__has_key="Category")
+            & ~Q(raw_result__has_key="RuleID")
+        )
+        | Q(raw_result__extra__has_key="fix")
+        | Q(raw_result__extra__has_key="message")
+        | (
+            ~Q(raw_result__has_key="VulnerabilityID")
+            & (
+                _non_empty("check_metadata__Remediation__Recommendation__Text")
+                | _non_empty("check_metadata__remediation__recommendation__text")
+            )
+        )
+    )
 
 
 def app_security_location(raw: dict[str, Any], file: str = "") -> str:
@@ -372,6 +460,11 @@ def _finding_rows(
     ):
         resources.setdefault(str(mapping["finding_id"]), mapping)
     triages = _triages_by_uid(tenant_id, [row["uid"] for row in findings])
+    exploits = (
+        exploit_by_cve(row["check_id"] for row in findings)
+        if area == AREA.APPLICATION_SECURITY
+        else {}
+    )
     rows = []
     for finding in findings:
         metadata = finding["check_metadata"] or {}
@@ -404,6 +497,8 @@ def _finding_rows(
                 ),
                 "status_extended": finding["status_extended"] or "",
                 "remediation": _remediation(metadata),
+                **finding_fix(metadata, raw),
+                **exploits.get(finding["check_id"], empty_exploit()),
                 "resource_id": resource.get("resource__uid") or "",
                 "resource_name": resource.get("resource__name") or "",
                 "resource_type": resource.get("resource__type")
@@ -459,6 +554,9 @@ def _governance_matches(
     excluded: set[str],
     kept: set[str] | None,
 ) -> bool:
+    if query.exploited:
+        # Policy matches are not CVEs, so none is a known exploited one.
+        return False
     if query.severities and finding.severity not in query.severities:
         return False
     if query.sources and finding.policy_id not in query.sources:
@@ -481,7 +579,7 @@ def _governance_matches(
 
 def _governance_sort_key(query: AreaFindingQuery):
     def key(finding: GovernanceFinding):
-        if query.sort == "severity":
+        if query.sort in ("severity", "epss"):
             rank = SEVERITY_ORDER.index(finding.severity)
             return (rank, finding.title, finding.resource_id)
         if query.sort == "check_id":
@@ -517,6 +615,8 @@ def _governance_row(
         "description": finding.description,
         "status_extended": "",
         "remediation": "",
+        **empty_fix(),
+        **empty_exploit(),
         "resource_id": finding.resource_id,
         "resource_name": finding.resource_name,
         "resource_type": finding.resource_type,

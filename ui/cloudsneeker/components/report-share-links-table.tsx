@@ -1,12 +1,19 @@
 "use client";
 
-import { Link2Off } from "lucide-react";
+import { Link2, Link2Off } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { revokeReportShareLink } from "@/cloudsneeker/actions/reports";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
+import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { reportsHref } from "@/cloudsneeker/routes";
 import {
   SHARE_LINK_STATE,
@@ -14,6 +21,9 @@ import {
   type ShareLinkState,
 } from "@/cloudsneeker/types/reports";
 import { Badge, Button } from "@/components/shadcn";
+
+import { EmptyState } from "./empty-state";
+import { FormAlert } from "./form-layout";
 
 const STATE_BADGE: Record<
   ShareLinkState,
@@ -50,9 +60,11 @@ export const ReportShareLinksTable = ({
 
   if (links.length === 0) {
     return (
-      <p className="text-text-neutral-secondary border-border-neutral-secondary rounded-xl border border-dashed p-6 text-sm">
-        No share links yet. Use Share on a ready report to create one.
-      </p>
+      <EmptyState
+        icon={<Link2 />}
+        title="No share links yet"
+        description="Use Share on a ready report to create one."
+      />
     );
   }
 
@@ -76,17 +88,17 @@ export const ReportShareLinksTable = ({
         Links are shown once when created. Revoke a link to stop access
         immediately.
       </p>
-      {error ? <p className="text-text-error-primary text-sm">{error}</p> : null}
-      <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-bg-neutral-tertiary">
+      <FormAlert message={error} />
+      <div className={TABLE_FRAME_CLASS}>
+        <table className={TABLE_CLASS}>
+          <thead className={TABLE_HEAD_CLASS}>
             <tr>
               {["Report", "State", "Created", "Expires", "Views", ""].map(
                 (header, index) => (
                   <th
                     key={`${header}-${index}`}
                     scope="col"
-                    className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold"
+                    className={TABLE_HEADER_CELL_CLASS}
                   >
                     {header}
                   </th>
@@ -94,7 +106,7 @@ export const ReportShareLinksTable = ({
               )}
             </tr>
           </thead>
-          <tbody className="divide-border-neutral-secondary divide-y">
+          <tbody className={TABLE_BODY_CLASS}>
             {links.map((link) => {
               const attributes = link.attributes;
               const state = STATE_BADGE[attributes.state] ?? {

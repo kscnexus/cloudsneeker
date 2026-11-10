@@ -42,6 +42,7 @@ from cloudsneeker_api.services.finding_triage import (
     add_note,
     bulk_update_status,
     check_note_author,
+    clean_risk_acceptance,
     effective_status,
     findings_by_id,
     get_note,
@@ -178,6 +179,9 @@ class FindingTriageViewSet(BaseRLSViewSet):
                 status=data.get("status"),
                 note=data.get("note"),
                 assignee_id=data["assignee_id"] if "assignee_id" in data else ...,
+                acceptance=clean_risk_acceptance(
+                    data.get("risk_reason"), data.get("risk_expires_on")
+                ),
             )
         except TriageNotFound as exc:
             raise NotFound(str(exc)) from exc
@@ -293,6 +297,9 @@ class FindingTriageViewSet(BaseRLSViewSet):
                 status=data["status"],
                 note=data.get("note"),
                 user_id=str(request.user.id),
+                acceptance=clean_risk_acceptance(
+                    data.get("risk_reason"), data.get("risk_expires_on")
+                ),
             )
         except TriageError as exc:
             raise ValidationError({"detail": str(exc)}, code=exc.code) from exc

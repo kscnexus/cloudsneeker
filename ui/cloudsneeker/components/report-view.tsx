@@ -18,6 +18,11 @@ import {
   sourceColumns,
   sourceRowLabel,
 } from "@/cloudsneeker/lib/report-view";
+import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import type { ReportPayload } from "@/cloudsneeker/types/reports";
 import { HorizontalBarChart, LineChart } from "@/components/graphs";
 
@@ -53,7 +58,7 @@ const Section = ({
   description?: string;
   children: ReactNode;
 }) => (
-  <section className="border-border-neutral-secondary bg-bg-neutral-secondary flex flex-col gap-4 rounded-xl border p-5 break-inside-avoid-page print:border-0 print:p-0">
+  <section className="border-border-neutral-secondary bg-bg-neutral-secondary flex break-inside-avoid-page flex-col gap-4 rounded-xl border p-5 print:border-0 print:p-0">
     <div className="flex flex-col gap-1">
       <h2 className="text-text-neutral-primary text-lg font-semibold">
         {title}
@@ -85,7 +90,11 @@ const filterSummary = (report: ReportPayload): string[] => {
   return parts;
 };
 
-export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) => {
+export const ReportView = ({
+  report,
+  actions,
+  brandHeader,
+}: ReportViewProps) => {
   const kpis = Object.entries(report.kpis ?? {});
   const severityData = severityChartData(report.severity_totals ?? {});
   const hasSeverity = severityData.some((item) => item.value > 0);
@@ -146,7 +155,7 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
           {kpis.map(([key, value]) => (
             <li
               key={key}
-              className="border-border-neutral-secondary bg-bg-neutral-secondary flex flex-col gap-1 rounded-xl border p-4 break-inside-avoid"
+              className="border-border-neutral-secondary bg-bg-neutral-secondary flex break-inside-avoid flex-col gap-1 rounded-xl border p-4"
             >
               <span className="text-text-neutral-secondary text-xs">
                 {humanizeKey(key)}
@@ -203,7 +212,7 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
             {risks.map((risk, index) => (
               <li
                 key={`${risk.check_id}-${index}`}
-                className="border-border-neutral-secondary flex flex-col gap-2 rounded-lg border p-4 break-inside-avoid"
+                className="border-border-neutral-secondary flex break-inside-avoid flex-col gap-2 rounded-lg border p-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-text-neutral-tertiary text-xs font-semibold">
@@ -243,10 +252,10 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
       {sources.length > 0 ? (
         <Section title="Breakdown by source">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className={TABLE_CLASS}>
               <thead>
                 <tr className="border-border-neutral-secondary border-b">
-                  <th scope="col" className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold">
+                  <th scope="col" className={TABLE_HEADER_CELL_CLASS}>
                     Source
                   </th>
                   {sourceKeys.map((key) => (
@@ -260,7 +269,7 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-border-neutral-secondary divide-y">
+              <tbody className={TABLE_BODY_CLASS}>
                 {sources.map((row, index) => (
                   <tr key={`source-${index}`}>
                     <td className="text-text-neutral-primary px-3 py-2 font-medium">
@@ -291,7 +300,10 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
             {compliance.map((item) => {
               const pct = item.pass_pct ?? 0;
               return (
-                <li key={item.compliance_id} className="flex flex-col gap-1 break-inside-avoid">
+                <li
+                  key={item.compliance_id}
+                  className="flex break-inside-avoid flex-col gap-1"
+                >
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="text-text-neutral-primary font-medium">
                       {frameworkLabel(item.compliance_id)}
@@ -327,7 +339,7 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
             {actionsList.map((item) => (
               <li
                 key={`action-${item.priority}`}
-                className="flex gap-3 text-sm break-inside-avoid"
+                className="flex break-inside-avoid gap-3 text-sm"
               >
                 <span className="bg-button-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-black">
                   {item.priority}
@@ -339,7 +351,9 @@ export const ReportView = ({ report, actions, brandHeader }: ReportViewProps) =>
                   {item.why || (item.title && item.action) ? (
                     <span className="text-text-neutral-tertiary text-xs">
                       {item.why ?? item.title}
-                      {item.severity ? ` · ${severityLabel(item.severity)}` : ""}
+                      {item.severity
+                        ? ` · ${severityLabel(item.severity)}`
+                        : ""}
                       {item.resources ? ` · ${item.resources} resource(s)` : ""}
                     </span>
                   ) : null}

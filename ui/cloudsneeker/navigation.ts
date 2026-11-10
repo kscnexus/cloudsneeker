@@ -9,6 +9,7 @@ import {
   Bell,
   Boxes,
   ClipboardCheck,
+  Cloud,
   FileBarChart,
   ListChecks,
   type LucideIcon,
@@ -380,7 +381,24 @@ const regroupNavigation = (
     assistant ? { ...assistant, label: BRAND.assistantName } : undefined,
   ];
 
+  const cloudDashboard = isCloudsneekerFeatureEnabled("executiveOverview")
+    ? productLink(
+        PRODUCT_ROUTE.CLOUD_SECURITY,
+        BRAND.cloudSecurityName,
+        Cloud,
+        pathname,
+      )
+    : undefined;
+
+  // Compliance sits with Governance (frameworks, controls, audit) when the
+  // product dashboards are on; otherwise it stays with cloud posture.
+  const compliance = takeLink("/compliance");
+  const complianceInGovernance =
+    isCloudsneekerFeatureEnabled("executiveOverview") &&
+    isCloudsneekerFeatureEnabled("custodian");
+
   const cloudSecurityItems = [
+    cloudDashboard,
     takeLink("/findings"),
     // --- Finding triage (EB-010) ---
     isCloudsneekerFeatureEnabled("findingTriage")
@@ -394,7 +412,7 @@ const regroupNavigation = (
     // --- End finding triage (EB-010) ---
     takeLink("/resources"),
     takeLink("/attack-paths"),
-    takeLink("/compliance"),
+    complianceInGovernance ? undefined : compliance,
   ];
 
   const applicationSecurity = isCloudsneekerFeatureEnabled("trivy")
@@ -410,17 +428,21 @@ const regroupNavigation = (
       )
     : null;
 
-  const governance = isCloudsneekerFeatureEnabled("custodian")
-    ? sectionOrNull(
-        NAVIGATION_SECTION_LABEL.GOVERNANCE,
-        areaLinks(
-          PRODUCT_ROUTE.GOVERNANCE,
-          BRAND.governanceName,
-          Scale,
-          governanceHref,
-          pathname,
-        ),
+  const governanceLinks = isCloudsneekerFeatureEnabled("custodian")
+    ? areaLinks(
+        PRODUCT_ROUTE.GOVERNANCE,
+        BRAND.governanceName,
+        Scale,
+        governanceHref,
+        pathname,
       )
+    : [];
+  const governance = isCloudsneekerFeatureEnabled("custodian")
+    ? sectionOrNull(NAVIGATION_SECTION_LABEL.GOVERNANCE, [
+        governanceLinks[0],
+        complianceInGovernance ? compliance : undefined,
+        ...governanceLinks.slice(1),
+      ])
     : null;
 
   const reports = isCloudsneekerFeatureEnabled("reports")

@@ -32,6 +32,22 @@ export interface AreaFindingAttributes {
   description: string;
   status_extended: string;
   remediation: string;
+  /** A concrete fix exists: a fixed version, a resolution or a recommendation. */
+  fix_available: boolean;
+  /** What to do, in a sentence or two ("Upgrade PyJWT from 2.8.0 to 2.10.1 or later."). */
+  fix_summary: string;
+  installed_version: string;
+  fixed_version: string;
+  fix_references: string[];
+  /** EPSS: probability (0-1) the CVE is exploited in the next 30 days. */
+  epss_score: number | null;
+  epss_percentile: number | null;
+  /** Listed in the CISA Known Exploited Vulnerabilities catalog. */
+  known_exploited: boolean;
+  kev_date_added: string | null;
+  kev_due_date: string | null;
+  kev_ransomware: boolean;
+  kev_required_action: string;
   resource_id: string;
   resource_name: string;
   resource_type: string;
@@ -50,7 +66,18 @@ export interface AreaFindingAttributes {
   triage_notes_count: number;
   triage_latest_note: string;
   assignee_id: string | null;
+  /** EB-019: set while the risk is accepted. */
+  risk_reason?: string;
+  risk_expires_on?: string | null;
 }
+
+export const AREA_FIX_FILTER = {
+  AVAILABLE: "available",
+  UNAVAILABLE: "unavailable",
+} as const;
+
+export type AreaFixFilter =
+  (typeof AREA_FIX_FILTER)[keyof typeof AREA_FIX_FILTER];
 
 export interface AreaFindingResource {
   id: string;

@@ -4,7 +4,9 @@ import { Suspense } from "react";
 import { getAllProviderGroups } from "@/actions/manage-groups/manage-groups";
 import { getAllProviders } from "@/actions/providers";
 import { getLighthouseV2Configurations } from "@/app/(prowler)/lighthouse/_actions";
+import { ExecutiveOverview } from "@/cloudsneeker/components/executive-overview"; // cloudsneeker-hook
 import { RiskOverview } from "@/cloudsneeker/components/risk-overview"; // cloudsneeker-hook
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { ProviderAccountSelectors } from "@/components/filters/provider-account-selectors";
 import { ProviderGroupSelector } from "@/components/filters/provider-group-selector";
 import {
@@ -52,6 +54,9 @@ export default async function Home({
 }: {
   searchParams: Promise<SearchParamsProps>;
 }) {
+  // cloudsneeker-hook: executive summary; these widgets live on /cloud-security
+  if (isCloudsneekerFeatureEnabled("executiveOverview"))
+    return <ExecutiveOverview />;
   const resolvedSearchParams = await searchParams;
   const [providersData, providerGroupsData, lighthouseBannerHref] =
     await Promise.all([

@@ -77,6 +77,7 @@ export const ContentVersionsPanel = ({
   const warning = staleWarning(db);
   const posture = versions.cloud_security;
   const rules = versions.code_analysis_rules;
+  const feeds = versions.exploit_intelligence ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -124,6 +125,26 @@ export const ContentVersionsPanel = ({
                 : undefined
             }
           />
+          {feeds.map((feed) => (
+            <VersionRow
+              key={feed.id}
+              label={feed.label}
+              value={
+                feed.refreshed_at
+                  ? feed.version
+                    ? `Version ${feed.version}`
+                    : "Current"
+                  : "Not downloaded yet"
+              }
+              hint={
+                feed.refreshed_at
+                  ? `${(feed.records ?? 0).toLocaleString("en-US")} CVEs. Refreshed ${formatUtc(feed.refreshed_at)}. Refreshed daily.${feed.last_error ? " The last refresh failed; the data shown is from the last successful one." : ""}`
+                  : feed.last_error
+                    ? "The last download failed. It is retried daily."
+                    : "Downloaded by the daily refresh."
+              }
+            />
+          ))}
         </dl>
       </SectionCard>
 

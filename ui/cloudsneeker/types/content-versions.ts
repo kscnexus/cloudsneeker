@@ -26,11 +26,23 @@ export interface EngineVersion {
   version: string | null;
 }
 
+/** One exploit intelligence feed (EPSS or CISA KEV, EB-022). */
+export interface ExploitIntelligenceFeed {
+  id: string;
+  label: string;
+  /** Day scored (EPSS) or catalog version (KEV). */
+  version: string | null;
+  records: number | null;
+  refreshed_at: string | null;
+  last_error: string | null;
+}
+
 export interface ContentVersionsAttributes {
   release: string | null;
   cloud_security: { version: string; checks: number; frameworks: number };
   vulnerability_database: VulnerabilityDatabaseVersion;
   code_analysis_rules: { version: string | null; rules: number | null };
+  exploit_intelligence?: ExploitIntelligenceFeed[];
   engines: EngineVersion[];
 }
 

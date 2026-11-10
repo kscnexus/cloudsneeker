@@ -113,8 +113,13 @@ class ReportTypeViewSet(BaseRLSViewSet):
         return Response({"data": self._document(key)})
 
 
+class _CharInFilter(filters.BaseInFilter, filters.CharFilter):
+    """Comma-separated list of values."""
+
+
 class ReportRunFilter(filters.FilterSet):
     report_type = filters.CharFilter()
+    report_type__in = _CharInFilter(field_name="report_type", lookup_expr="in")
     status = filters.CharFilter()
     trigger = filters.CharFilter()
     schedule = filters.UUIDFilter(field_name="schedule_id")
@@ -160,7 +165,9 @@ class ReportRunViewSet(_ReportVisibilityMixin, BaseRLSViewSet):
     required_permissions = []
 
     def get_queryset(self):
-        queryset = ReportRun.objects.filter(tenant_id=self.request.tenant_id)
+        queryset = ReportRun.objects.filter(
+            tenant_id=self.request.tenant_id
+        ).select_related("created_by")
         return self._role_scoped(queryset)
 
     def get_serializer_class(self):

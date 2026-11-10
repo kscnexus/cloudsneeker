@@ -41,6 +41,12 @@ export const CLOUDSNEEKER_FEATURES = {
   findingTriage: true,
   /** Add the repositories of a Bitbucket workspace as IaC providers at once. */
   bitbucketImport: true,
+  /**
+   * Executive Overview at `/`: a platform summary linking to the Cloud
+   * Security, Application Security and Governance dashboards. The upstream
+   * cloud widgets move to `/cloud-security`.
+   */
+  executiveOverview: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;

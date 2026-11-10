@@ -32,6 +32,8 @@ class ReportFilters:
         compliance_id: Framework id, required by the compliance report.
         scan_id: Optional scan pinned by the compliance report.
         trend_points: How many points the trend series keeps.
+        options: Report-specific options (assessment period, sections,
+            frameworks, stale threshold).
     """
 
     provider_ids: list[str] = field(default_factory=list)
@@ -41,6 +43,7 @@ class ReportFilters:
     compliance_id: str | None = None
     scan_id: str | None = None
     trend_points: int = 10
+    options: dict[str, Any] = field(default_factory=dict)
 
     def severities(self) -> list[str]:
         """Return the severities kept by ``severity_floor``, most severe first."""
@@ -59,6 +62,7 @@ class ReportFilters:
             "compliance_id": self.compliance_id,
             "scan_id": self.scan_id,
             "trend_points": self.trend_points,
+            "options": dict(self.options),
         }
 
 

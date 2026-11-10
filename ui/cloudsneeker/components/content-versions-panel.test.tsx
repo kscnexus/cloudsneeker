@@ -51,6 +51,42 @@ describe("ContentVersionsPanel", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("lists the exploit intelligence feeds", () => {
+    render(
+      <ContentVersionsPanel
+        versions={{
+          ...versions,
+          exploit_intelligence: [
+            {
+              id: "epss",
+              label: "Exploit prediction scores (EPSS)",
+              version: "2026-11-10",
+              records: 301234,
+              refreshed_at: "2026-11-10T13:00:00Z",
+              last_error: null,
+            },
+            {
+              id: "kev",
+              label: "Known exploited vulnerabilities (CISA KEV)",
+              version: null,
+              records: null,
+              refreshed_at: null,
+              last_error: "Download failed: timeout",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText("Version 2026-11-10")).toBeInTheDocument();
+    expect(
+      screen.getByText(/301,234 CVEs\. Refreshed 2026-11-10 13:00 UTC/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Not downloaded yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("The last download failed. It is retried daily."),
+    ).toBeInTheDocument();
+  });
+
   it("warns when the vulnerability database is older than the limit", () => {
     render(
       <ContentVersionsPanel

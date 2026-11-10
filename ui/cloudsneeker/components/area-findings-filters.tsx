@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import {
-  AREA_FINDING_SORT,
+  AREA_CONFIG,
   AREA_FINDING_SORT_LABEL,
+  AREA_FIX_FILTER_LABEL,
   AREA_PARAM,
   AREA_SEVERITIES,
   type AreaFindingFilters,
   areaFindingsPageHref,
+  areaSortOptions,
   toggleSeverity,
 } from "@/cloudsneeker/lib/area-findings";
 import {
@@ -15,9 +17,10 @@ import {
 } from "@/cloudsneeker/lib/finding-triage";
 import { severityLabel } from "@/cloudsneeker/lib/report-view";
 import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
-import type {
-  AreaFindingSource,
-  FindingArea,
+import {
+  AREA_FIX_FILTER,
+  type AreaFindingSource,
+  type FindingArea,
 } from "@/cloudsneeker/types/area-findings";
 import { Button, Input } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
@@ -77,7 +80,42 @@ export const AreaFindingsFilters = ({
           </Link>
         ))}
       </nav>
+      {AREA_CONFIG[area].showFix ? (
+        <nav aria-label="Fix" className="flex flex-wrap gap-2">
+          {[null, ...Object.values(AREA_FIX_FILTER)].map((fix) => (
+            <Link
+              key={fix ?? "any"}
+              href={areaFindingsPageHref(area, { ...reset, fix })}
+              aria-current={fix === filters.fix ? "page" : undefined}
+              className={chipClass(fix === filters.fix)}
+            >
+              {fix ? AREA_FIX_FILTER_LABEL[fix] : "Any fix state"}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+      {AREA_CONFIG[area].showExploit ? (
+        <nav aria-label="Exploitation" className="flex flex-wrap gap-2">
+          <Link
+            href={areaFindingsPageHref(area, {
+              ...reset,
+              exploited: !filters.exploited,
+            })}
+            aria-current={filters.exploited ? "page" : undefined}
+            className={chipClass(Boolean(filters.exploited))}
+            title="CVEs in the CISA Known Exploited Vulnerabilities catalog"
+          >
+            Known exploited
+          </Link>
+        </nav>
+      ) : null}
       <form method="get" className="flex flex-wrap items-end gap-2">
+        {filters.exploited ? (
+          <input type="hidden" name={AREA_PARAM.EXPLOITED} value="1" />
+        ) : null}
+        {filters.fix ? (
+          <input type="hidden" name={AREA_PARAM.FIX} value={filters.fix} />
+        ) : null}
         {filters.severities.length ? (
           <input
             type="hidden"
@@ -126,9 +164,9 @@ export const AreaFindingsFilters = ({
           <select
             name={AREA_PARAM.SORT}
             defaultValue={filters.sort}
-            className={cn(FORM_SELECT_CLASS, "w-40")}
+            className={cn(FORM_SELECT_CLASS, "w-44")}
           >
-            {Object.values(AREA_FINDING_SORT).map((sort) => (
+            {areaSortOptions(area).map((sort) => (
               <option key={sort} value={sort}>
                 {AREA_FINDING_SORT_LABEL[sort]}
               </option>

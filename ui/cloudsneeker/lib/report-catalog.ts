@@ -66,6 +66,26 @@ const REPORT_COPY: Record<ReportTypeId, { title: string; description: string }> 
       description:
         "Credentials and keys found in code, images, and cloud accounts.",
     },
+    [REPORT_TYPE_ID.SECURITY_ASSESSMENT]: {
+      title: "Executive Security Assessment",
+      description:
+        "Board-ready assessment: score, coverage, top risks with business impact, trend, and a 90-day remediation roadmap.",
+    },
+    [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: {
+      title: "Application Security Assessment",
+      description:
+        "Dependencies, code, secrets, and templates with fixes, owners, and a remediation plan.",
+    },
+    [REPORT_TYPE_ID.CLOUD_ASSESSMENT]: {
+      title: "Cloud Security Assessment",
+      description:
+        "Cloud configuration findings per account and service with provider-specific fixes.",
+    },
+    [REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT]: {
+      title: "Governance and Compliance Assessment",
+      description:
+        "Policy violations and assessed frameworks, kept apart from frameworks that are only available.",
+    },
     [REPORT_TYPE_ID.GOVERNANCE]: {
       title: "Cloud governance",
       description:
