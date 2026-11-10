@@ -246,6 +246,7 @@ class TrivyRunSerializer(RLSSerializer):
             "output",
             "error",
             "error_class",
+            "archived_at",
         ]
 
     class JSONAPIMeta:

@@ -582,6 +582,8 @@ class TrivyRun(CloudsneekerRLSModel):
         blank=True,
         related_name="cloudsneeker_trivy_runs",
     )
+    # Set by the daily archive task once the run is past the retention window.
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}trivy_runs"
