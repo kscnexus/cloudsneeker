@@ -129,12 +129,14 @@ export const AreaFindingsTable = ({
     }
     run(
       () =>
-        bulkUpdateFindingTriage(
-          Array.from(selected),
-          bulkStatus,
-          undefined,
-          accept ? cleanedAcceptance : undefined,
-        ),
+        accept
+          ? bulkUpdateFindingTriage(
+              Array.from(selected),
+              bulkStatus,
+              undefined,
+              cleanedAcceptance,
+            )
+          : bulkUpdateFindingTriage(Array.from(selected), bulkStatus),
       () => {
         setSelected(new Set());
         if (accept) resetAcceptance();
