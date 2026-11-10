@@ -838,7 +838,7 @@ class FindingTriage(CloudsneekerRLSModel):
         UNDER_REVIEW = "under_review", "Under review"
         REMEDIATING = "remediating", "Remediating"
         RESOLVED = "resolved", "Resolved"
-        # Reserved for EB-019 (expiry and approver); allowed now.
+        # EB-019: carries a reason, an approver and an expiry date.
         RISK_ACCEPTED = "risk_accepted", "Risk accepted"
         FALSE_POSITIVE = "false_positive", "False positive"
         REOPENED = "reopened", "Reopened"
@@ -894,6 +894,20 @@ class FindingTriage(CloudsneekerRLSModel):
         blank=True,
         related_name="cloudsneeker_updated_finding_triages",
     )
+    # EB-019 risk acceptance: why, who approved it and until when. Kept after
+    # the acceptance ends so the history stays readable.
+    risk_reason = models.TextField(blank=True, default="")
+    risk_expires_on = models.DateField(null=True, blank=True)
+    risk_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_approved_risk_triages",
+    )
+    risk_approved_at = models.DateTimeField(null=True, blank=True)
+    # Set when the expiry task reopened the finding.
+    risk_expired_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}finding_triages"

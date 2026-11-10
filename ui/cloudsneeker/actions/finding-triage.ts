@@ -64,7 +64,13 @@ export const listAreaFindings = async (searchParams: SearchParams) => {
 /** Set the triage status (and optional note) of one finding UID. */
 export const updateFindingTriage = async (
   findingUid: string,
-  attributes: { status?: FindingTriageStatus; note?: string },
+  attributes: {
+    status?: FindingTriageStatus;
+    note?: string;
+    /** EB-019: only with `risk_accepted`. */
+    risk_reason?: string;
+    risk_expires_on?: string;
+  },
 ) => {
   const headers = await getAuthHeaders({ contentType: true });
   try {
@@ -91,6 +97,7 @@ export const bulkUpdateFindingTriage = async (
   findingUids: string[],
   status: FindingTriageStatus,
   note?: string,
+  acceptance?: { risk_reason: string; risk_expires_on: string },
 ) => {
   const headers = await getAuthHeaders({ contentType: true });
   try {
@@ -104,6 +111,7 @@ export const bulkUpdateFindingTriage = async (
             finding_uids: findingUids,
             status,
             ...(note ? { note } : {}),
+            ...(acceptance ?? {}),
           },
         },
       }),

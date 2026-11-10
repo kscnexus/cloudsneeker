@@ -267,3 +267,18 @@ def refresh_vuln_intel_task():
     from cloudsneeker_api.services import vuln_intel
 
     return vuln_intel.refresh()
+
+
+# --- Risk acceptance expiry (EB-019) ------------------------------------------
+
+
+@shared_task(name="cloudsneeker-expire-risk-acceptances", queue="celery")
+def expire_risk_acceptances_task():
+    """Celery Beat entrypoint: reopen expired risk acceptances, email owners."""
+    from cloudsneeker_api.services import risk_acceptance
+
+    expired = risk_acceptance.expire_risk_acceptances()
+    return {
+        "reopened": len(expired),
+        "emails_sent": risk_acceptance.notify_owners(expired) if expired else 0,
+    }

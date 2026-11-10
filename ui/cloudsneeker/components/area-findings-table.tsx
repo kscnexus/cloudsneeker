@@ -15,6 +15,12 @@ import {
 } from "@/cloudsneeker/lib/finding-triage";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
 import {
+  defaultRiskAcceptance,
+  RISK_ACCEPTED_STATUS,
+  type RiskAcceptanceInput,
+  riskAcceptanceProblem,
+} from "@/cloudsneeker/lib/risk-acceptance";
+import {
   FORM_CHECK_CLASS,
   FORM_SELECT_CLASS,
   TABLE_BODY_CLASS,
@@ -38,6 +44,7 @@ import {
 import { AreaFindingFixCell, AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
 import { ReportSeverityBadge } from "./report-severity-badge";
+import { RiskAcceptanceFields } from "./risk-acceptance-fields";
 
 interface AreaFindingsTableProps {
   config: AreaConfig;
@@ -72,6 +79,12 @@ export const AreaFindingsTable = ({
   );
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // EB-019: finding whose risk acceptance form is open, and the form values
+  // (shared with the bulk bar).
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const [acceptance, setAcceptance] = useState<RiskAcceptanceInput>(() =>
+    defaultRiskAcceptance(),
+  );
 
   const uids = findings.map((finding) => finding.attributes.uid);
   const allSelected = uids.length > 0 && uids.every((uid) => selected.has(uid));
@@ -98,14 +111,61 @@ export const AreaFindingsTable = ({
 
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(uids));
 
-  const applyBulk = () =>
-    run(
-      () => bulkUpdateFindingTriage(Array.from(selected), bulkStatus),
-      () => setSelected(new Set()),
-    );
+  const acceptanceProblem = riskAcceptanceProblem(acceptance);
+  const cleanedAcceptance = {
+    risk_reason: acceptance.risk_reason.trim(),
+    risk_expires_on: acceptance.risk_expires_on,
+  };
+  const resetAcceptance = () => {
+    setAccepting(null);
+    setAcceptance(defaultRiskAcceptance());
+  };
 
-  const setStatus = (uid: string, status: FindingTriageStatus) =>
+  const applyBulk = () => {
+    const accept = bulkStatus === RISK_ACCEPTED_STATUS;
+    if (accept && acceptanceProblem) {
+      setError(acceptanceProblem);
+      return;
+    }
+    run(
+      () =>
+        bulkUpdateFindingTriage(
+          Array.from(selected),
+          bulkStatus,
+          undefined,
+          accept ? cleanedAcceptance : undefined,
+        ),
+      () => {
+        setSelected(new Set());
+        if (accept) resetAcceptance();
+      },
+    );
+  };
+
+  const setStatus = (uid: string, status: FindingTriageStatus) => {
+    if (status === RISK_ACCEPTED_STATUS) {
+      // Accepting a risk needs a reason and an expiry first.
+      setError(null);
+      setAccepting(uid);
+      return;
+    }
     run(() => updateFindingTriage(uid, { status }));
+  };
+
+  const acceptRisk = (uid: string) => {
+    if (acceptanceProblem) {
+      setError(acceptanceProblem);
+      return;
+    }
+    run(
+      () =>
+        updateFindingTriage(uid, {
+          status: RISK_ACCEPTED_STATUS,
+          ...cleanedAcceptance,
+        }),
+      resetAcceptance,
+    );
+  };
 
   const addNote = (uid: string) =>
     run(
@@ -151,8 +211,22 @@ export const AreaFindingsTable = ({
               </option>
             ))}
           </select>
+          {bulkStatus === RISK_ACCEPTED_STATUS ? (
+            <div className="basis-full">
+              <RiskAcceptanceFields
+                idPrefix="area-bulk-risk"
+                value={acceptance}
+                onChange={setAcceptance}
+                disabled={pending}
+              />
+            </div>
+          ) : null}
           <Button size="xs" onClick={applyBulk} disabled={pending}>
-            {pending ? "Saving…" : "Set status"}
+            {pending
+              ? "Saving…"
+              : bulkStatus === RISK_ACCEPTED_STATUS
+                ? "Accept risk"
+                : "Set status"}
           </Button>
           <Button
             size="xs"
@@ -287,11 +361,56 @@ export const AreaFindingsTable = ({
                           status={finding.triage_status}
                         />
                       )}
+                      {finding.triage_status === RISK_ACCEPTED_STATUS &&
+                      finding.risk_expires_on ? (
+                        <span
+                          className="text-text-neutral-tertiary mt-1 block text-xs"
+                          title={finding.risk_reason || undefined}
+                        >
+                          Until {finding.risk_expires_on}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="text-text-neutral-secondary px-3 py-2 align-top text-xs whitespace-nowrap">
                       {formatReportDate(finding.last_seen_at)}
                     </td>
                   </tr>
+                  {accepting === finding.uid ? (
+                    <tr className="bg-bg-neutral-secondary">
+                      <td />
+                      <td colSpan={columns.length} className="px-3 py-3">
+                        <div
+                          role="group"
+                          aria-label={`Accept the risk of ${finding.title}`}
+                          className="flex flex-col gap-2"
+                        >
+                          <RiskAcceptanceFields
+                            idPrefix={`risk-${finding.uid}`}
+                            value={acceptance}
+                            onChange={setAcceptance}
+                            disabled={pending}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="xs"
+                              onClick={() => acceptRisk(finding.uid)}
+                              disabled={pending}
+                            >
+                              {pending ? "Saving…" : "Accept risk"}
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              onClick={resetAcceptance}
+                              disabled={pending}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
                   {isOpen ? (
                     <tr className="bg-bg-neutral-secondary">
                       <td />

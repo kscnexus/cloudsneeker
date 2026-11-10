@@ -258,6 +258,54 @@ describe("AreaFindingsTable", () => {
     ).toBeInTheDocument();
   });
 
+  it("asks for a reason and expiry before accepting a risk", async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaFindingsTable
+        config={config}
+        findings={[
+          finding("a"),
+          finding("b", {
+            triage_status: "risk_accepted",
+            risk_expires_on: "2027-01-31",
+            risk_reason: "Behind VPN",
+          }),
+        ]}
+        canTriage
+      />,
+    );
+
+    expect(screen.getByText("Until 2027-01-31")).toBeInTheDocument();
+
+    await user.selectOptions(
+      screen.getByLabelText("Triage status of Title a"),
+      "risk_accepted",
+    );
+    expect(updateMock).not.toHaveBeenCalled();
+    const form = screen.getByRole("group", {
+      name: "Accept the risk of Title a",
+    });
+    expect(form).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Accept risk" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/reason/);
+    expect(updateMock).not.toHaveBeenCalled();
+
+    await user.type(
+      screen.getByLabelText("Why is this risk accepted?"),
+      "Compensating WAF rule",
+    );
+    await user.click(screen.getByRole("button", { name: "Accept risk" }));
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
+    const [uid, attributes] = updateMock.mock.calls[0];
+    expect(uid).toBe("a");
+    expect(attributes).toMatchObject({
+      status: "risk_accepted",
+      risk_reason: "Compensating WAF rule",
+    });
+    expect(attributes.risk_expires_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("has no fix column for governance findings", () => {
     render(
       <AreaFindingsTable

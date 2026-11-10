@@ -66,6 +66,9 @@ export interface AreaFindingAttributes {
   triage_notes_count: number;
   triage_latest_note: string;
   assignee_id: string | null;
+  /** EB-019: set while the risk is accepted. */
+  risk_reason?: string;
+  risk_expires_on?: string | null;
 }
 
 export const AREA_FIX_FILTER = {

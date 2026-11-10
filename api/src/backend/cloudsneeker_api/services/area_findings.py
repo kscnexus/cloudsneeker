@@ -271,13 +271,19 @@ def _triage_fields(triage: FindingTriage | None, snapshot: FindingSnapshot) -> d
             "triage_notes_count": 0,
             "triage_latest_note": "",
             "assignee_id": None,
+            "risk_reason": "",
+            "risk_expires_on": None,
         }
+    accepted = triage.status == FindingTriage.Status.RISK_ACCEPTED
     return {
         "triage_id": str(triage.id),
         "triage_status": effective_status(triage, snapshot),
         "triage_notes_count": int(getattr(triage, "notes_total", 0) or 0),
         "triage_latest_note": getattr(triage, "latest_note_body", "") or "",
         "assignee_id": str(triage.assignee_id) if triage.assignee_id else None,
+        # EB-019: shown while the risk is accepted.
+        "risk_reason": triage.risk_reason if accepted else "",
+        "risk_expires_on": triage.risk_expires_on if accepted else None,
     }
 
 
