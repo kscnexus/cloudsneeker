@@ -53,16 +53,36 @@ export const providerOptions = (
       .join(" · "),
   }));
 
+/** Provider types whose scans carry no compliance frameworks (code and images). */
+const NO_FRAMEWORK_PROVIDER_TYPES = new Set(["iac", "image"]);
+
+/**
+ * Providers whose scans have no compliance frameworks. Asking the API for
+ * their compliance overviews is slow (it computes them on demand) and
+ * returns nothing useful.
+ */
+export const providersWithoutFrameworks = (
+  providers: ProviderLike[],
+): Set<string> =>
+  new Set(
+    providers
+      .filter((provider) =>
+        NO_FRAMEWORK_PROVIDER_TYPES.has(provider.attributes.provider ?? ""),
+      )
+      .map((provider) => provider.id),
+  );
+
 /** Latest completed scan id per provider, newest first, capped. */
 export const latestScanPerProvider = (
   scans: ScanLike[],
   limit: number,
+  skipProviderIds: ReadonlySet<string> = new Set(),
 ): string[] => {
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const scan of scans) {
     const providerId = scan.relationships?.provider?.data?.id ?? scan.id;
-    if (seen.has(providerId)) continue;
+    if (seen.has(providerId) || skipProviderIds.has(providerId)) continue;
     seen.add(providerId);
     ids.push(scan.id);
     if (ids.length >= limit) break;

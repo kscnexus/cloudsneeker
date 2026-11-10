@@ -16,6 +16,7 @@ import {
 import {
   frameworkOptions,
   latestScanPerProvider,
+  providersWithoutFrameworks,
 } from "@/cloudsneeker/lib/report-options";
 import type { ReportRunResource } from "@/cloudsneeker/types/reports";
 import { Skeleton } from "@/components/shadcn";
@@ -29,14 +30,20 @@ const asList = <T,>(response: unknown): T[] => {
   return Array.isArray(data) ? (data as T[]) : [];
 };
 
-const loadFrameworks = async () => {
-  const scans = await getScans({
+const loadFrameworks = async (
+  providers: Promise<Awaited<ReturnType<typeof getProviders>>>,
+) => {
+  const [scans, providerList] = await Promise.all([
+    getScans({
     filters: { "filter[state]": "completed" },
     sort: "-inserted_at",
     pageSize: 50,
     fields: { scans: "completed_at,provider" },
-  });
-  const scanIds = latestScanPerProvider(asList(scans), FRAMEWORK_SCAN_LIMIT);
+    }),
+    providers,
+  ]);
+  const skip = providersWithoutFrameworks(providerList?.data ?? []);
+  const scanIds = latestScanPerProvider(asList(scans), FRAMEWORK_SCAN_LIMIT, skip);
   const overviews = await Promise.all(
     scanIds.map((scanId) => getCompliancesOverview({ scanId })),
   );
@@ -61,9 +68,10 @@ export default async function SecurityAssessmentsPage() {
 }
 
 const SSRAssessments = async () => {
+  const providersRequest = getProviders({ pageSize: 100 });
   const [providersResponse, frameworks, runsResponse] = await Promise.all([
-    getProviders({ pageSize: 100 }),
-    loadFrameworks().catch(() => []),
+    providersRequest,
+    loadFrameworks(providersRequest).catch(() => []),
     listReportRuns({
       "page[size]": "50",
       sort: "-inserted_at",

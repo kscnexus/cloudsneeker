@@ -27,6 +27,7 @@ import {
 import {
   frameworkOptions,
   latestScanPerProvider,
+  providersWithoutFrameworks,
   providerOptions,
 } from "@/cloudsneeker/lib/report-options";
 import { getReportsTab, REPORTS_TAB } from "@/cloudsneeker/lib/report-tabs";
@@ -67,17 +68,20 @@ const asList = <T,>(response: unknown): T[] => {
   return Array.isArray(data) ? (data as T[]) : [];
 };
 
-const loadFrameworks = async () => {
-  const scans = await getScans({
+const loadFrameworks = async (
+  providers: Promise<Awaited<ReturnType<typeof getProviders>>>,
+) => {
+  const [scans, providerList] = await Promise.all([
+    getScans({
     filters: { "filter[state]": "completed" },
     sort: "-inserted_at",
     pageSize: 50,
     fields: { scans: "completed_at,provider" },
-  });
-  const scanIds = latestScanPerProvider(
-    asList(scans),
-    FRAMEWORK_SCAN_LIMIT,
-  );
+    }),
+    providers,
+  ]);
+  const skip = providersWithoutFrameworks(providerList?.data ?? []);
+  const scanIds = latestScanPerProvider(asList(scans), FRAMEWORK_SCAN_LIMIT, skip);
   const overviews = await Promise.all(
     scanIds.map((scanId) => getCompliancesOverview({ scanId })),
   );
@@ -98,6 +102,7 @@ const SSRReportsWorkspace = async ({
   const session = await auth();
   const canManage = Boolean(session?.user?.permissions?.manage_scans);
 
+  const providersRequest = getProviders({ pageSize: 100 });
   const [
     typesResponse,
     runsResponse,
@@ -114,8 +119,8 @@ const SSRReportsWorkspace = async ({
     canManage && activeTab === REPORTS_TAB.SHARE_LINKS
       ? listReportShareLinks({ "page[size]": "100", sort: "-inserted_at" })
       : Promise.resolve(undefined),
-    getProviders({ pageSize: 100 }),
-    loadFrameworks().catch(() => []),
+    providersRequest,
+    loadFrameworks(providersRequest).catch(() => []),
   ]);
 
   const catalog = buildReportCatalog(asList<ReportTypeResource>(typesResponse));
