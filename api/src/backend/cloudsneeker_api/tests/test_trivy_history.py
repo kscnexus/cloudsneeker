@@ -173,3 +173,21 @@ class TestRunHistoryFilters:
         )
 
         assert response.status_code == 400
+
+    def test_mode_filter(self, authenticated_client, repo_provider):
+        repo_run = _run(_target(repo_provider, "web-repo"))
+        sast = TrivyTarget.objects.create(
+            tenant_id=repo_provider.tenant_id,
+            name="web-sast",
+            mode="sast",
+            provider=repo_provider,
+        )
+        sast_run = _run(sast)
+        url = reverse("trivy-runs-list")
+
+        assert _ids(authenticated_client.get(url, {"filter[mode]": "sast"})) == [
+            str(sast_run.id)
+        ]
+        assert _ids(authenticated_client.get(url, {"filter[mode]": "repo"})) == [
+            str(repo_run.id)
+        ]

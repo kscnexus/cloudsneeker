@@ -17,6 +17,45 @@ export const AREA_FINDING_SOURCE_KIND = {
   POLICY: "policy",
 } as const;
 
+/** Application Security finding category (one per finding). */
+export const SECURITY_CATEGORY = {
+  SAST: "sast",
+  SCA: "sca",
+  SECRETS: "secrets",
+  IAC: "iac",
+  CONTAINER: "container",
+} as const;
+
+export type SecurityCategory =
+  (typeof SECURITY_CATEGORY)[keyof typeof SECURITY_CATEGORY];
+
+export const SECURITY_CATEGORIES: readonly SecurityCategory[] =
+  Object.values(SECURITY_CATEGORY);
+
+/** Application Security risk priority: P0 Immediate to P4 Low. */
+export const RISK_PRIORITY = {
+  P0: "p0",
+  P1: "p1",
+  P2: "p2",
+  P3: "p3",
+  P4: "p4",
+} as const;
+
+export type RiskPriority = (typeof RISK_PRIORITY)[keyof typeof RISK_PRIORITY];
+
+export const RISK_PRIORITIES: readonly RiskPriority[] =
+  Object.values(RISK_PRIORITY);
+
+/** Findings of one application (linked provider), `summary=applications`. */
+export interface AreaApplicationSummary {
+  id: string;
+  total: number;
+  critical: number;
+  high: number;
+  /** P0 and P1 findings. */
+  urgent: number;
+}
+
 export type AreaFindingSourceKind =
   (typeof AREA_FINDING_SOURCE_KIND)[keyof typeof AREA_FINDING_SOURCE_KIND];
 
@@ -61,6 +100,14 @@ export interface AreaFindingAttributes {
   first_seen_at: string | null;
   last_seen_at: string | null;
   categories: string[];
+  /** Application Security only; empty in other areas. */
+  security_category?: SecurityCategory | "";
+  /** Application Security only; empty in other areas. */
+  priority?: RiskPriority | "";
+  /** Remediation due date from the priority's window. */
+  due_at?: string | null;
+  /** Past the due date while the triage status is still active. */
+  overdue?: boolean;
   triage_id: string | null;
   triage_status: FindingTriageStatus;
   triage_notes_count: number;
@@ -96,5 +143,13 @@ export interface AreaFindingsResponse {
   meta?: {
     pagination?: { page: number; pages: number; count: number };
     sources?: AreaFindingSource[];
+    /** Application Security: findings per category, category filter ignored. */
+    category_counts?: Partial<Record<SecurityCategory, number>>;
+    /** Application Security: categories some target is set up to report. */
+    enabled_categories?: SecurityCategory[];
+    /** Application Security: findings per priority, priority filter ignored. */
+    priority_counts?: Partial<Record<RiskPriority, number>>;
+    overdue_count?: number;
+    applications?: AreaApplicationSummary[];
   };
 }

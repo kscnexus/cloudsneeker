@@ -42,6 +42,8 @@ class TrivyRunFilter(filters.FilterSet):
     target = filters.UUIDFilter(field_name="target_id")
     provider = filters.UUIDFilter(field_name="provider_id")
     trigger = filters.CharFilter()
+    # Target mode (repo, image, sast, ...) for the scanning centre.
+    mode = filters.CharFilter(field_name="target__mode")
     archived = filters.BooleanFilter(method="filter_archived")
     latest_per_target = filters.NumberFilter(method="filter_latest_per_target")
 

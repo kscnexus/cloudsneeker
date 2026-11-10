@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
 
@@ -8,7 +9,11 @@ import {
   bulkUpdateFindingTriage,
   updateFindingTriage,
 } from "@/cloudsneeker/actions/finding-triage";
-import type { AreaConfig } from "@/cloudsneeker/lib/area-findings";
+import { securityCategoryShort } from "@/cloudsneeker/lib/app-security-categories";
+import {
+  type AreaConfig,
+  appSecurityFindingHref,
+} from "@/cloudsneeker/lib/area-findings";
 import {
   TRIAGE_STATUS_FILTERS,
   triageStatusLabel,
@@ -45,6 +50,7 @@ import { AreaFindingFixCell, AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
 import { ReportSeverityBadge } from "./report-severity-badge";
 import { RiskAcceptanceFields } from "./risk-acceptance-fields";
+import { RiskPriorityBadge } from "./risk-priority-badge";
 
 interface AreaFindingsTableProps {
   config: AreaConfig;
@@ -179,7 +185,9 @@ export const AreaFindingsTable = ({
     config.checkLabel,
     config.resourceLabel,
     config.sourceLabel,
+    ...(config.showCategory ? ["Category"] : []),
     "Severity",
+    ...(config.showCategory ? ["Priority"] : []),
     ...(config.showFix ? ["Fix"] : []),
     "Triage",
     "Last seen",
@@ -327,12 +335,25 @@ export const AreaFindingsTable = ({
                     <td className="text-text-neutral-secondary px-3 py-2 align-top text-xs">
                       {finding.source_name || "—"}
                     </td>
+                    {config.showCategory ? (
+                      <td className="text-text-neutral-secondary px-3 py-2 align-top text-xs whitespace-nowrap">
+                        {securityCategoryShort(finding.security_category)}
+                      </td>
+                    ) : null}
                     <td className="px-3 py-2 align-top">
                       <ReportSeverityBadge severity={finding.severity} />
                       {config.showExploit ? (
                         <AreaFindingExploitBadges finding={finding} />
                       ) : null}
                     </td>
+                    {config.showCategory ? (
+                      <td className="px-3 py-2 align-top">
+                        <RiskPriorityBadge
+                          priority={finding.priority}
+                          overdue={finding.overdue}
+                        />
+                      </td>
+                    ) : null}
                     {config.showFix ? (
                       <td className="px-3 py-2 align-top whitespace-nowrap">
                         <AreaFindingFixCell finding={finding} />
@@ -418,6 +439,16 @@ export const AreaFindingsTable = ({
                       <td />
                       <td colSpan={columns.length} className="px-3 pb-4">
                         <dl className="grid gap-3 text-xs sm:grid-cols-2">
+                          {config.showCategory ? (
+                            <div className="sm:col-span-2">
+                              <Link
+                                href={appSecurityFindingHref(finding.uid)}
+                                className="text-text-neutral-primary text-sm font-medium underline underline-offset-2"
+                              >
+                                Open the full finding
+                              </Link>
+                            </div>
+                          ) : null}
                           {finding.description ? (
                             <div className="sm:col-span-2">
                               <dt className="text-text-neutral-tertiary font-semibold">

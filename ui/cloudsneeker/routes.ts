@@ -82,6 +82,12 @@ export const AREA_PAGE_SEGMENT = {
   TRIAGE: "triage",
 } as const;
 
+/** Application Security pages beside the hub, findings and triage. */
+export const APP_SECURITY_SEGMENT = {
+  APPLICATIONS: "applications",
+  SCANS: "scans",
+} as const;
+
 /** Same-origin download proxy (`app/api/cloudsneeker/reports/...`). */
 export const REPORT_DOWNLOAD_API_BASE = "/api/cloudsneeker/reports";
 

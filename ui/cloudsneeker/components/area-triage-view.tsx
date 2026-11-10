@@ -1,6 +1,6 @@
 import { ClipboardCheck } from "lucide-react";
 import Link from "next/link";
-import { Suspense } from "react";
+import { type ReactNode, Suspense } from "react";
 
 import { listFindingTriages } from "@/cloudsneeker/actions/finding-triage";
 import {
@@ -39,6 +39,10 @@ import { SectionCard } from "./section-card";
 interface AreaTriageViewProps {
   area: FindingArea;
   searchParams: SearchParamsProps;
+  /** Page title instead of "<Area> triage". */
+  title?: string;
+  /** Shown above the triage list (for example a remediation summary). */
+  intro?: ReactNode;
 }
 
 export const pagesOf = (response: unknown): number => {
@@ -58,15 +62,24 @@ const DESCRIPTION: Record<FindingArea, string> = {
 };
 
 /** One area's Triage page: triaged findings by status. */
-export const AreaTriageView = ({ area, searchParams }: AreaTriageViewProps) => {
+export const AreaTriageView = ({
+  area,
+  searchParams,
+  title: titleOverride,
+  intro,
+}: AreaTriageViewProps) => {
   const status = parseTriageStatus(searchParams[TRIAGE_STATUS_PARAM]);
   const page = parseTriagePage(searchParams[TRIAGE_PAGE_PARAM]);
   const title =
-    area === FINDING_AREA.CLOUD ? "Triage" : `${AREA_CONFIG[area].name} triage`;
+    titleOverride ??
+    (area === FINDING_AREA.CLOUD
+      ? "Triage"
+      : `${AREA_CONFIG[area].name} triage`);
 
   return (
     <ContentLayout title={title} icon={<ClipboardCheck />}>
       <PageHeader description={DESCRIPTION[area]} />
+      {intro ? <div className="mb-6">{intro}</div> : null}
       <Suspense
         key={`${area}-${status ?? "all"}-${page}`}
         fallback={<Skeleton className="h-64 w-full rounded-xl" />}

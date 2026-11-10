@@ -8,6 +8,7 @@ Read these pages in order when you are new to the repository:
 2. [Architecture](architecture.md) — runtime services, data stores, and request paths
 3. [Scan Lifecycle](scan-lifecycle.md) — how a provider scan becomes findings
 4. [Components](components.md) — SDK, API, UI, MCP server, and dashboard
+   * [Application Security redesign](app-security-redesign.md) — module audit, target architecture, security categories
 5. [Local Development](local-development.md) — setup, commands, and conventions
 6. [Coding Standards](coding-standards.md) — Prowler style, structure, and which skill to open
 7. [Feature Verification](feature-verification.md) — unit tests, compatibility, and integration checks
