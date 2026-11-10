@@ -210,6 +210,28 @@ def purge_audit_events_task(older_than_days: int | None = None):
     return {"deleted": purge_all_tenants(tenant_ids, days), "retention_days": days}
 
 
+# --- Application Security scan history ------------------------------------------
+
+
+@shared_task(name="cloudsneeker-archive-trivy-runs", queue="celery")
+def archive_trivy_runs_task(older_than_days: int | None = None):
+    """Celery Beat entrypoint: archive Application Security runs past the window.
+
+    The window is ``APP_SECURITY_SCAN_ARCHIVE_DAYS`` (default 365). Each tenant
+    is archived in its own RLS transaction.
+    """
+    from api.db_router import MainRouter
+    from api.models import Tenant
+    from cloudsneeker_api.services.trivy_history import (
+        archive_all_tenants,
+        archive_days,
+    )
+
+    days = older_than_days or archive_days()
+    tenant_ids = Tenant.objects.using(MainRouter.admin_db).values_list("id", flat=True)
+    return {"archived": archive_all_tenants(tenant_ids, days), "archive_days": days}
+
+
 # --- Operator console (Phase 1) -----------------------------------------------
 
 

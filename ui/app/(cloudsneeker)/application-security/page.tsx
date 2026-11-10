@@ -11,6 +11,7 @@ import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-securit
 import { AppSecurityFixesCard } from "@/cloudsneeker/components/app-security-fixes-card";
 import { AppSecurityInsights } from "@/cloudsneeker/components/app-security-insights";
 import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-list";
+import { AppSecurityScanHistory } from "@/cloudsneeker/components/app-security-scan-history";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { ProductPageTabs } from "@/cloudsneeker/components/product-page-tabs";
@@ -36,6 +37,12 @@ import {
   newTargetHref,
   repositorySourcesWithoutTarget,
 } from "@/cloudsneeker/lib/app-security-dashboard";
+import {
+  getScanHistoryView,
+  SCAN_HISTORY_PAGE_PARAM,
+  SCAN_HISTORY_PARAM,
+  type ScanHistoryView,
+} from "@/cloudsneeker/lib/app-security-scan-history";
 import { AREA_CONFIG } from "@/cloudsneeker/lib/area-findings";
 import {
   appScanActivity,
@@ -104,6 +111,10 @@ export default async function ApplicationSecurityPage({
         <SSRAppSecurityWorkspace
           activeCategory={activeCategory}
           activeTab={activeTab}
+          historyView={getScanHistoryView(
+            resolvedSearchParams[SCAN_HISTORY_PARAM],
+          )}
+          historyPage={resolvedSearchParams[SCAN_HISTORY_PAGE_PARAM]}
         />
       </Suspense>
     </ContentLayout>
@@ -207,9 +218,13 @@ const loadSources = async (): Promise<AppSecuritySource[]> => {
 const SSRAppSecurityWorkspace = async ({
   activeCategory,
   activeTab,
+  historyView,
+  historyPage,
 }: {
   activeCategory: AppSecurityCategory | null;
   activeTab: AppSecurityTab;
+  historyView: ScanHistoryView;
+  historyPage: string | string[] | undefined;
 }) => {
   const [
     targetsResponse,
@@ -409,17 +424,13 @@ const SSRAppSecurityWorkspace = async ({
     </div>
   );
 
-  const scansContent = (
-    <SectionCard
-      title="Scans"
-      description={`Newest first, up to ${DASHBOARD_RUN_PAGE_SIZE}. Open a scan for its summary or jump to its findings.`}
-    >
-      <AppSecurityRunList
-        runs={runs}
-        emptyMessage="No scans yet. Open a target and start a scan."
-      />
-    </SectionCard>
-  );
+  // Loaded only on the Scans tab: it pages through every target's history.
+  const scansContent =
+    activeTab === APP_SECURITY_TAB.SCANS ? (
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+        <AppSecurityScanHistory view={historyView} page={historyPage} />
+      </Suspense>
+    ) : null;
 
   return (
     <ProductPageTabs

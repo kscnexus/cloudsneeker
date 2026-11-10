@@ -13,13 +13,15 @@ from cloudsneeker_api.serializers_trivy import (
 from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.trivy import TrivyHubError, enqueue_trivy_run
 from cloudsneeker_api.services.trivy_schedule import delete_target_schedule
-from django.db.models import OuterRef, Subquery
+from django.db.models import F, OuterRef, Subquery, Window
+from django.db.models.functions import RowNumber
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
+from rest_framework_json_api.serializers import ValidationError
 
 
 class TrivyTargetFilter(filters.FilterSet):
@@ -32,15 +34,42 @@ class TrivyTargetFilter(filters.FilterSet):
         fields = ["mode", "provider", "schedule_enabled"]
 
 
+LATEST_PER_TARGET_MAX = 100
+
+
 class TrivyRunFilter(filters.FilterSet):
     status = filters.CharFilter()
     target = filters.UUIDFilter(field_name="target_id")
     provider = filters.UUIDFilter(field_name="provider_id")
     trigger = filters.CharFilter()
+    archived = filters.BooleanFilter(method="filter_archived")
+    latest_per_target = filters.NumberFilter(method="filter_latest_per_target")
 
     class Meta:
         model = TrivyRun
         fields = ["status", "target", "provider", "trigger"]
+
+    def filter_archived(self, queryset, name, value):
+        return queryset.filter(archived_at__isnull=not value)
+
+    def filter_latest_per_target(self, queryset, name, value):
+        """Keep each target's newest ``value`` runs (1-100).
+
+        Other filters narrow the runs before they are counted, so with
+        ``filter[archived]=false`` each target keeps its newest current runs.
+        """
+        if value != int(value) or not 1 <= value <= LATEST_PER_TARGET_MAX:
+            raise ValidationError(
+                f"latest_per_target must be a whole number from 1 to "
+                f"{LATEST_PER_TARGET_MAX}."
+            )
+        return queryset.annotate(
+            target_rank=Window(
+                expression=RowNumber(),
+                partition_by=[F("target_id")],
+                order_by=[F("inserted_at").desc(), F("id").desc()],
+            )
+        ).filter(target_rank__lte=int(value))
 
 
 @extend_schema_view(
@@ -85,9 +114,7 @@ class TrivyTargetViewSet(BaseRLSViewSet):
         target = serializer.save()
         target = TrivyTarget.objects.select_related("provider").get(pk=target.pk)
         return Response(
-            TrivyTargetSerializer(
-                target, context=self.get_serializer_context()
-            ).data,
+            TrivyTargetSerializer(target, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -98,9 +125,7 @@ class TrivyTargetViewSet(BaseRLSViewSet):
         target = serializer.save()
         target = TrivyTarget.objects.select_related("provider").get(pk=target.pk)
         return Response(
-            TrivyTargetSerializer(
-                target, context=self.get_serializer_context()
-            ).data
+            TrivyTargetSerializer(target, context=self.get_serializer_context()).data
         )
 
     def perform_destroy(self, instance):

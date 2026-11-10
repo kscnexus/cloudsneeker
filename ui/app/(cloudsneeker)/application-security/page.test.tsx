@@ -41,6 +41,13 @@ describe("Application Security page workspace", () => {
     expect(source).toContain("Targets could not be loaded");
   });
 
+  it("loads grouped scan history only on the Scans tab", () => {
+    expect(source).toContain("<AppSecurityScanHistory");
+    expect(source).toContain("activeTab === APP_SECURITY_TAB.SCANS");
+    expect(source).toContain("getScanHistoryView(");
+    expect(source).toContain("SCAN_HISTORY_PAGE_PARAM");
+  });
+
   it("filters targets by the category in the query", () => {
     expect(source).toContain("getAppSecurityCategory");
     expect(source).toContain("filterTargetsByCategory");
