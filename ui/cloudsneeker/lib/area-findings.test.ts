@@ -201,7 +201,10 @@ describe("area links", () => {
         uid: "trivy-repo-CVE-1",
         checkId: "CVE-1",
       }),
-    ).toBe("/application-security/findings?q=trivy-repo-CVE-1");
+    ).toBe("/application-security/findings/trivy-repo-CVE-1");
+    expect(
+      areaFindingHref(FINDING_AREA.GOVERNANCE, { uid: "g-1", checkId: "r" }),
+    ).toBe("/governance/findings?q=g-1");
   });
 });
 

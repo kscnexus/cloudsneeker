@@ -22,6 +22,8 @@ import {
   type AreaFixFilter,
   FINDING_AREA,
   type FindingArea,
+  RISK_PRIORITIES,
+  type RiskPriority,
   SECURITY_CATEGORIES,
   type SecurityCategory,
 } from "@/cloudsneeker/types/area-findings";
@@ -69,6 +71,9 @@ export const AREA_PARAM = {
   FIX: "fix",
   EXPLOITED: "exploited",
   CATEGORY: "category",
+  PRIORITY: "priority",
+  OVERDUE: "overdue",
+  APPLICATION: "app",
 } as const;
 
 export const AREA_FIX_FILTER_LABEL: Record<AreaFixFilter, string> = {
@@ -149,6 +154,12 @@ export interface AreaFindingFilters {
   exploited?: boolean;
   /** Application Security security category. */
   category?: SecurityCategory;
+  /** Application Security risk priority. */
+  priority?: RiskPriority;
+  /** Application Security: past the remediation due date. */
+  overdue?: boolean;
+  /** Application Security: linked provider (repository) id. */
+  application?: string;
 }
 
 /** Sort options an area offers (exploit likelihood needs CVE findings). */
@@ -184,6 +195,10 @@ export const parseAreaFilters = (
   const category = SECURITY_CATEGORIES.find(
     (value) => value === first(params[AREA_PARAM.CATEGORY]).toLowerCase(),
   );
+  const priority = RISK_PRIORITIES.find(
+    (value) => value === first(params[AREA_PARAM.PRIORITY]).toLowerCase(),
+  );
+  const application = first(params[AREA_PARAM.APPLICATION]).slice(0, 64);
   return {
     severities: Array.from(new Set(severities)),
     triage: TRIAGE_STATUS_FILTERS.find((status) => status === triage) ?? null,
@@ -196,6 +211,9 @@ export const parseAreaFilters = (
     fix: Object.values(AREA_FIX_FILTER).find((value) => value === fix) ?? null,
     ...(first(params[AREA_PARAM.EXPLOITED]) === "1" ? { exploited: true } : {}),
     ...(category ? { category } : {}),
+    ...(priority ? { priority } : {}),
+    ...(first(params[AREA_PARAM.OVERDUE]) === "1" ? { overdue: true } : {}),
+    ...(application ? { application } : {}),
   };
 };
 
@@ -222,6 +240,17 @@ export const areaFindingsSearchParams = (
     : {}),
   ...(filters.category && AREA_CONFIG[area].showCategory
     ? { "filter[category__in]": filters.category }
+    : {}),
+  ...(AREA_CONFIG[area].showCategory
+    ? {
+        ...(filters.priority
+          ? { "filter[priority__in]": filters.priority }
+          : {}),
+        ...(filters.overdue ? { "filter[overdue]": "true" } : {}),
+        ...(filters.application
+          ? { "filter[application__in]": filters.application }
+          : {}),
+      }
     : {}),
 });
 
@@ -261,6 +290,11 @@ export const areaFindingsPageHref = (
   if (filters.fix) params.set(AREA_PARAM.FIX, filters.fix);
   if (filters.exploited) params.set(AREA_PARAM.EXPLOITED, "1");
   if (filters.category) params.set(AREA_PARAM.CATEGORY, filters.category);
+  if (filters.priority) params.set(AREA_PARAM.PRIORITY, filters.priority);
+  if (filters.overdue) params.set(AREA_PARAM.OVERDUE, "1");
+  if (filters.application) {
+    params.set(AREA_PARAM.APPLICATION, filters.application);
+  }
   if (filters.page && filters.page > 1) {
     params.set(AREA_PARAM.PAGE, String(filters.page));
   }
@@ -279,14 +313,22 @@ export const areaTriagePageHref = (
   return withQuery(AREA_CONFIG[area].triageHref, params);
 };
 
-/** Where a triaged finding is opened: the cloud check, else the area search. */
+/** Detail page of one Application Security finding. */
+export const appSecurityFindingHref = (uid: string): string =>
+  appSecurityHref(AREA_PAGE_SEGMENT.FINDINGS, uid);
+
+/** Where a triaged finding is opened: the cloud check, the Application
+ * Security detail page, else the area search. */
 export const areaFindingHref = (
   area: FindingArea,
   finding: { uid: string; checkId: string },
-): string =>
-  area === FINDING_AREA.CLOUD
-    ? triageFindingsHref(finding.checkId)
-    : areaFindingsPageHref(area, { search: finding.uid });
+): string => {
+  if (area === FINDING_AREA.CLOUD) return triageFindingsHref(finding.checkId);
+  if (area === FINDING_AREA.APPLICATION_SECURITY) {
+    return appSecurityFindingHref(finding.uid);
+  }
+  return areaFindingsPageHref(area, { search: finding.uid });
+};
 
 /** Toggle one severity in the active set (for the severity chips). */
 export const toggleSeverity = (

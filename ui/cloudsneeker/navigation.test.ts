@@ -160,7 +160,13 @@ describe("withCloudsneekerNavigation", () => {
       },
       {
         label: NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
-        items: [BRAND.appSecurityName, "Findings", "Triage"],
+        items: [
+          BRAND.appSecurityName,
+          "Applications",
+          "Findings",
+          "Scans",
+          "Remediation",
+        ],
       },
       {
         label: NAVIGATION_SECTION_LABEL.GOVERNANCE,
@@ -477,7 +483,9 @@ describe("withCloudsneekerNavigation area findings", () => {
 
     expect(hrefs(NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY)).toEqual([
       "/application-security",
+      "/application-security/applications",
       "/application-security/findings",
+      "/application-security/scans",
       "/application-security/triage",
     ]);
     expect(hrefs(NAVIGATION_SECTION_LABEL.GOVERNANCE)).toEqual([
@@ -500,7 +508,12 @@ describe("withCloudsneekerNavigation area findings", () => {
         .map((item) => item.label);
 
     expect(active("/application-security/findings")).toEqual(["Findings"]);
-    expect(active("/application-security/triage")).toEqual(["Triage"]);
+    expect(active("/application-security/findings/u-1")).toEqual(["Findings"]);
+    expect(active("/application-security/triage")).toEqual(["Remediation"]);
+    expect(active("/application-security/applications/p-1")).toEqual([
+      "Applications",
+    ]);
+    expect(active("/application-security/scans")).toEqual(["Scans"]);
     expect(active("/application-security/abc/runs/1")).toEqual([
       BRAND.appSecurityName,
     ]);

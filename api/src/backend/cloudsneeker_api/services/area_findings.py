@@ -14,7 +14,7 @@ row shape with triage merged in (``knowledge-base/area-findings.md``).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -33,6 +33,16 @@ from cloudsneeker_api.services.app_security_categories import (
     category_case,
     classify,
     target_categories,
+)
+from cloudsneeker_api.services.app_security_priority import (
+    ACTIVE_TRIAGE_STATUSES,
+    PRIORITIES,
+    due_at,
+    is_overdue,
+    known_exploited_annotation,
+    past_sla_q,
+    priority,
+    priority_case,
 )
 from cloudsneeker_api.services.finding_fix import (
     FIX_AVAILABLE,
@@ -74,6 +84,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.fields.json import KeyTextTransform
+from django.utils import timezone
 
 AREA = FindingTriage.Area
 AREA_VALUES = tuple(AREA.values)
@@ -119,6 +130,14 @@ class AreaFindingQuery:
     sources: list[str] = field(default_factory=list)
     # Application Security only: ``SECURITY_CATEGORIES`` values.
     categories: list[str] = field(default_factory=list)
+    # Application Security only: ``PRIORITIES`` values, past-SLA findings,
+    # applications (linked provider ids) and one finding uid.
+    priorities: list[str] = field(default_factory=list)
+    overdue: bool = False
+    applications: list[str] = field(default_factory=list)
+    uid: str = ""
+    # ``summary=applications`` adds per-application totals to the page.
+    summarize_applications: bool = False
     search: str = ""
     include_muted: bool = False
     include_passed: bool = False
@@ -142,6 +161,9 @@ class AreaFindingPage:
     # the category one, and the categories the tenant's targets can report.
     category_counts: dict[str, int] | None = None
     enabled_categories: list[str] | None = None
+    priority_counts: dict[str, int] | None = None
+    overdue_count: int | None = None
+    applications: list[dict[str, Any]] | None = None
 
 
 def _csv(value: str | None) -> list[str]:
@@ -182,6 +204,20 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
     unknown = sorted(set(categories) - set(SECURITY_CATEGORIES))
     if unknown:
         raise AreaFindingsError(f"Unknown category: {', '.join(unknown)}.")
+    priorities = [value.lower() for value in _csv(params.get("filter[priority__in]"))]
+    unknown = sorted(set(priorities) - set(PRIORITIES))
+    if unknown:
+        raise AreaFindingsError(f"Unknown priority: {', '.join(unknown)}.")
+    overdue = str(params.get("filter[overdue]") or "").lower() in ("true", "1")
+    applications = _csv(params.get("filter[application__in]"))
+    uid = str(params.get("filter[uid]") or "").strip()
+    if (priorities or overdue or applications or uid) and (
+        area != AREA.APPLICATION_SECURITY
+    ):
+        raise AreaFindingsError(
+            "Priority, overdue, application and uid filters apply to "
+            "application_security only."
+        )
     fix = str(params.get("filter[fix]") or "").strip()
     if fix and fix not in FIX_FILTER_VALUES:
         raise AreaFindingsError(
@@ -198,6 +234,12 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         triage_statuses=statuses,
         sources=_csv(params.get("filter[source__in]")),
         categories=categories,
+        priorities=priorities,
+        overdue=overdue,
+        applications=applications,
+        uid=uid,
+        summarize_applications=area == AREA.APPLICATION_SECURITY
+        and str(params.get("summary") or "") == "applications",
         search=str(params.get("filter[search]") or "").strip()[:SEARCH_MAX_LENGTH],
         include_muted=str(params.get("filter[muted]") or "") == "include",
         include_passed=str(params.get("filter[status]") or "") == "all",
@@ -346,11 +388,13 @@ def _finding_queryset(
     sources: dict[str, Source],
     *,
     with_categories: bool = True,
+    with_priorities: bool = True,
 ) -> QuerySet:
     scan_ids = [
         scan_id
         for scan_id, source in sources.items()
-        if not query.sources or source.id in query.sources
+        if (not query.sources or source.id in query.sources)
+        and (not query.applications or source.provider_id in query.applications)
     ]
     queryset = Finding.all_objects.filter(tenant_id=tenant_id, scan_id__in=scan_ids)
     if not query.include_passed:
@@ -359,6 +403,8 @@ def _finding_queryset(
         queryset = queryset.filter(muted=False)
     if query.severities:
         queryset = queryset.filter(severity__in=query.severities)
+    if query.uid:
+        queryset = queryset.filter(uid=query.uid)
     if query.search:
         queryset = queryset.annotate(
             cs_title=KeyTextTransform("CheckTitle", "check_metadata")
@@ -387,6 +433,21 @@ def _finding_queryset(
         )
         if with_categories and query.categories:
             queryset = queryset.filter(cs_category__in=query.categories)
+        queryset = queryset.annotate(
+            cs_kev=known_exploited_annotation(), cs_epss=epss_subquery("check_id")
+        ).annotate(cs_priority=priority_case())
+        if with_priorities and query.priorities:
+            queryset = queryset.filter(cs_priority__in=query.priorities)
+        if query.overdue:
+            uids, exclude = _triage_filter_uids(
+                tenant_id, query.area, list(ACTIVE_TRIAGE_STATUSES)
+            )
+            queryset = queryset.filter(past_sla_q(timezone.now()))
+            queryset = (
+                queryset.exclude(uid__in=uids)
+                if exclude
+                else queryset.filter(uid__in=uids)
+            )
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
             tenant_id, query.area, query.triage_statuses
@@ -395,11 +456,8 @@ def _finding_queryset(
             queryset.exclude(uid__in=uids) if exclude else queryset.filter(uid__in=uids)
         )
     sort = query.sort
-    if sort == "epss":
-        if query.area == AREA.APPLICATION_SECURITY:
-            queryset = queryset.annotate(cs_epss=epss_subquery("check_id"))
-        else:
-            sort = "severity"
+    if sort == "epss" and query.area != AREA.APPLICATION_SECURITY:
+        sort = "severity"
     order = {
         "severity": "severity_rank",
         "last_seen_at": "inserted_at",
@@ -506,6 +564,7 @@ def _finding_rows(
         else {}
     )
     rows = []
+    now = timezone.now()
     for finding in findings:
         metadata = finding["check_metadata"] or {}
         resource = resources.get(str(finding["id"]), {})
@@ -522,6 +581,23 @@ def _finding_rows(
             area=area,
         )
         categories = metadata.get("Categories") or []
+        exploit = exploits.get(finding["check_id"], empty_exploit())
+        triage = _triage_fields(triages.get(finding["uid"]), snapshot)
+        app_security = area == AREA.APPLICATION_SECURITY
+        category = (
+            classify(raw, source.mode if source else None) if app_security else ""
+        )
+        level = (
+            priority(
+                finding["severity"],
+                category,
+                known_exploited=bool(exploit.get("known_exploited")),
+                epss_score=exploit.get("epss_score"),
+            )
+            if app_security
+            else ""
+        )
+        due = due_at(finding["first_seen_at"], level) if level else None
         rows.append(
             {
                 "uid": finding["uid"],
@@ -538,7 +614,7 @@ def _finding_rows(
                 "status_extended": finding["status_extended"] or "",
                 "remediation": _remediation(metadata),
                 **finding_fix(metadata, raw),
-                **exploits.get(finding["check_id"], empty_exploit()),
+                **exploit,
                 "resource_id": resource.get("resource__uid") or "",
                 "resource_name": resource.get("resource__name") or "",
                 "resource_type": resource.get("resource__type")
@@ -560,10 +636,14 @@ def _finding_rows(
                 "first_seen_at": finding["first_seen_at"],
                 "last_seen_at": finding["inserted_at"],
                 "categories": categories if isinstance(categories, list) else [],
-                "security_category": classify(raw, source.mode if source else None)
-                if area == AREA.APPLICATION_SECURITY
-                else "",
-                **_triage_fields(triages.get(finding["uid"]), snapshot),
+                "security_category": category,
+                "priority": level,
+                "due_at": due,
+                "overdue": bool(level)
+                and is_overdue(
+                    finding["first_seen_at"], level, triage["triage_status"], now
+                ),
+                **triage,
             }
         )
     return rows
@@ -745,7 +825,69 @@ def list_area_findings(
     if query.area == AREA.APPLICATION_SECURITY:
         page.category_counts = category_counts(tenant_id, query, sources)
         page.enabled_categories = enabled_categories(tenant_id, role)
+        page.priority_counts = priority_counts(tenant_id, query, sources)
+        if query.overdue:
+            page.overdue_count = count
+        else:
+            page.overdue_count = _finding_queryset(
+                tenant_id, replace(query, overdue=True), sources
+            ).count()
+        if query.summarize_applications:
+            page.applications = application_summary(tenant_id, query, sources)
     return page
+
+
+def application_summary(
+    tenant_id: str, query: AreaFindingQuery, sources: dict[str, Source]
+) -> list[dict[str, Any]]:
+    """Findings per application (linked provider) under the page's filters."""
+    totals: dict[str, dict[str, Any]] = {}
+    for source in sources.values():
+        totals.setdefault(
+            source.provider_id,
+            {
+                "id": source.provider_id,
+                "total": 0,
+                "critical": 0,
+                "high": 0,
+                "urgent": 0,
+            },
+        )
+    rows = (
+        _finding_queryset(tenant_id, query, sources)
+        .order_by()
+        .values("scan_id")
+        .annotate(
+            total=Count("id"),
+            critical=Count("id", filter=Q(severity="critical")),
+            high=Count("id", filter=Q(severity="high")),
+            urgent=Count("id", filter=Q(cs_priority__in=PRIORITIES[:2])),
+        )
+    )
+    for row in rows:
+        source = sources.get(str(row["scan_id"]))
+        if source is None:
+            continue
+        summary = totals[source.provider_id]
+        for key in ("total", "critical", "high", "urgent"):
+            summary[key] += row[key]
+    return sorted(totals.values(), key=lambda item: item["id"])
+
+
+def priority_counts(
+    tenant_id: str, query: AreaFindingQuery, sources: dict[str, Source]
+) -> dict[str, int]:
+    """Findings per priority under every filter except the priority one."""
+    counts = dict.fromkeys(PRIORITIES, 0)
+    rows = (
+        _finding_queryset(tenant_id, query, sources, with_priorities=False)
+        .order_by()
+        .values("cs_priority")
+        .annotate(total=Count("id"))
+    )
+    for row in rows:
+        counts[row["cs_priority"]] = row["total"]
+    return counts
 
 
 def category_counts(

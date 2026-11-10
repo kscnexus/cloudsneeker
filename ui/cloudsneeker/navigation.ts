@@ -6,11 +6,13 @@
 // not in the upstream file.
 
 import {
+  AppWindow,
   Bell,
   Boxes,
   ClipboardCheck,
   Cloud,
   FileBarChart,
+  History,
   ListChecks,
   type LucideIcon,
   Scale,
@@ -33,6 +35,7 @@ import { BRAND } from "./brand";
 import { isCloudsneekerFeatureEnabled } from "./features";
 import { isHrefInPlan } from "./lib/entitlements";
 import {
+  APP_SECURITY_SEGMENT,
   AREA_PAGE_SEGMENT,
   appSecurityHref,
   governanceHref,
@@ -255,6 +258,40 @@ const areaLinks = (
   return [hub, findings, ...(triage ? [triage] : [])];
 };
 
+/**
+ * Application Security: Overview (the hub), Applications, Findings, Scans and
+ * Remediation (the triage page). Exactly one link is active per page.
+ */
+const appSecurityLinks = (pathname: string): NavigationLink[] => {
+  const [hub, findings, triage] = areaLinks(
+    PRODUCT_ROUTE.APPLICATION_SECURITY,
+    BRAND.appSecurityName,
+    Boxes,
+    appSecurityHref,
+    pathname,
+  );
+  const applications = productLink(
+    appSecurityHref(APP_SECURITY_SEGMENT.APPLICATIONS),
+    "Applications",
+    AppWindow,
+    pathname,
+  );
+  const scans = productLink(
+    appSecurityHref(APP_SECURITY_SEGMENT.SCANS),
+    "Scans",
+    History,
+    pathname,
+  );
+  hub.active = hub.active && !applications.active && !scans.active;
+  return [
+    hub,
+    applications,
+    findings,
+    scans,
+    ...(triage ? [{ ...triage, label: "Remediation" }] : []),
+  ];
+};
+
 const sectionOrNull = (
   label: string | undefined,
   items: (NavigationItem | undefined)[],
@@ -418,13 +455,7 @@ const regroupNavigation = (
   const applicationSecurity = isCloudsneekerFeatureEnabled("trivy")
     ? sectionOrNull(
         NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
-        areaLinks(
-          PRODUCT_ROUTE.APPLICATION_SECURITY,
-          BRAND.appSecurityName,
-          Boxes,
-          appSecurityHref,
-          pathname,
-        ),
+        appSecurityLinks(pathname),
       )
     : null;
 

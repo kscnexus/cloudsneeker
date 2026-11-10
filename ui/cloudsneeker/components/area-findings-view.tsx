@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { auth } from "@/auth.config";
 import { listAreaFindings } from "@/cloudsneeker/actions/finding-triage";
+import { listTrivyTargets } from "@/cloudsneeker/actions/trivy";
 import { securityCategoryTabs } from "@/cloudsneeker/lib/app-security-categories";
 import {
   AREA_CONFIG,
@@ -23,6 +24,7 @@ import type {
   AreaFindingSource,
   FindingArea,
 } from "@/cloudsneeker/types/area-findings";
+import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
 import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import type { SearchParamsProps } from "@/types";
@@ -32,6 +34,7 @@ import { AreaFindingsTable } from "./area-findings-table";
 import { pagesOf } from "./area-triage-view";
 import { EmptyState } from "./empty-state";
 import { PageHeader } from "./page-header";
+import { RiskPriorityFilter } from "./risk-priority-filter";
 import { SectionCard } from "./section-card";
 import { SecurityCategoryTabs } from "./security-category-tabs";
 
@@ -46,6 +49,23 @@ const sourcesOf = (response: unknown): AreaFindingSource[] => {
   return Array.isArray(sources) ? (sources as AreaFindingSource[]) : [];
 };
 
+/** Display name of an application (linked provider) from one of its targets. */
+const loadApplicationName = async (
+  providerId: string,
+): Promise<string | undefined> => {
+  const response = await listTrivyTargets({
+    "filter[provider]": providerId,
+    "page[size]": "1",
+  });
+  if (!isListResponse(response)) return undefined;
+  const target = responseList<TrivyTargetResource>(response)[0];
+  return (
+    target?.attributes.provider_alias ||
+    target?.attributes.provider_uid ||
+    undefined
+  );
+};
+
 const isFiltered = (filters: AreaFindingFilters): boolean =>
   filters.severities.length > 0 ||
   filters.triage !== null ||
@@ -53,7 +73,10 @@ const isFiltered = (filters: AreaFindingFilters): boolean =>
   filters.search !== "" ||
   filters.fix !== null ||
   Boolean(filters.exploited) ||
-  Boolean(filters.category);
+  Boolean(filters.category) ||
+  Boolean(filters.priority) ||
+  Boolean(filters.overdue) ||
+  Boolean(filters.application);
 
 /** One area's Findings page: current findings with filters and triage. */
 export const AreaFindingsView = ({
@@ -117,6 +140,9 @@ const SSRAreaFindings = async ({
   const total = responseCount(response) ?? findings.length;
   const pages = pagesOf(response);
   const meta = (response as AreaFindingsResponse).meta;
+  const applicationName = filters.application
+    ? await loadApplicationName(filters.application)
+    : undefined;
 
   return (
     <SectionCard title="Findings" description={`${total} finding(s).`}>
@@ -129,6 +155,22 @@ const SSRAreaFindings = async ({
             meta?.enabled_categories,
           )}
         />
+      ) : null}
+      {config.showCategory ? (
+        <RiskPriorityFilter
+          area={area}
+          filters={filters}
+          counts={meta?.priority_counts}
+          overdueCount={meta?.overdue_count}
+          applicationName={applicationName}
+        />
+      ) : null}
+      {isFiltered(filters) ? (
+        <div className="flex justify-end">
+          <Button asChild size="xs" variant="ghost">
+            <Link href={areaFindingsPageHref(area, {})}>Clear all filters</Link>
+          </Button>
+        </div>
       ) : null}
       <AreaFindingsFilters
         area={area}

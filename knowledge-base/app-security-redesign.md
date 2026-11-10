@@ -32,17 +32,34 @@ Data model:
 
 ## Target architecture and mapping
 
-| New section | Built from | Status |
+Sidebar: Overview (the hub), Applications, Findings, Scans, Remediation.
+
+| New section | Route | Status |
 | --- | --- | --- |
-| Overview | Dashboard tab of `/application-security` | Exists; to be trimmed to posture, distribution and drill-downs |
-| Application Inventory | Targets tab, grouped by linked provider (repository) | Planned: group targets by `provider_id`; no new model needed for a first version |
-| Security Findings | `/application-security/findings` | **Category dimension shipped** |
-| Finding detail | Inline expander in the findings table | Planned: route keyed by finding uid |
-| Security Scanning | `/[targetId]` and `/[targetId]/runs/[runId]` | Exists per target; planned: one runs list with category and status filters |
+| Overview | `/application-security` (Dashboard tab) | Exists; top applications at risk still to add |
+| Application Inventory | `/application-security/applications` | Shipped. An application is a linked provider (repository) with its targets. Search, sort by risk, name or findings, and pagination |
+| Application detail | `/application-security/applications/{providerId}` | Shipped. Tabs: Overview (by category and priority), Targets, Findings, Scans, plus a Reports link |
+| Security Findings | `/application-security/findings` | Shipped. Category tabs, priority and overdue chips, application filter, Category and Priority columns |
+| Finding detail | `/application-security/findings/{uid}` | Shipped. Summary, where it is, why it matters, what is wrong (with evidence), how to fix, how to verify, assignment and status |
+| Security Scanning | `/application-security/scans` | Shipped. All current runs with status, scan type, trigger and application filters, and status counts |
 | Component Inventory | Not supported | Needs SBOM/package storage; vulnerability rows only carry the vulnerable package |
-| Remediation & Risk | `/application-security/triage` plus risk acceptance | Exists; due dates and validation by rescan are planned |
-| Scan History | Scans tab: 20 per target plus the yearly archive | Exists |
+| Remediation & Risk | `/application-security/triage` (labelled Remediation) | Shipped. A queue on top (overdue, P0, P1, P2, remediating) over the triage list |
+| Scan History | Scans tab of the hub: 20 per target plus the yearly archive | Exists |
 | Reports | `/reports` (shared) | Exists outside the module |
+
+## Risk priority and due dates
+
+`services/app_security_priority.py` sets a priority that is not the severity:
+
+| Priority | Rule | Fix within |
+| --- | --- | --- |
+| P0 Immediate | known exploited (CISA KEV) CVE rated critical or high, or a critical secret | 2 days |
+| P1 Urgent | other critical, any known exploited CVE, high CVE with EPSS of 0.1 or more, or a high secret | 7 days |
+| P2 High | other high | 30 days |
+| P3 Normal | medium | 90 days |
+| P4 Low | low and informational | 180 days |
+
+The due date is first seen plus the window. A finding is overdue past its due date while its triage status is open, under review, remediating or reopened. Rows carry `priority`, `due_at` and `overdue`. Filters: `filter[priority__in]`, `filter[overdue]=true`, `filter[application__in]` (provider ids) and `filter[uid]`. Meta: `priority_counts` (ignores the priority filter) and `overdue_count`. `summary=applications` adds `meta.applications` with `total`, `critical`, `high` and `urgent` (P0+P1) per provider. `/trivy-runs` also accepts `filter[mode]`.
 
 ## Security categories (phase 5, shipped)
 
