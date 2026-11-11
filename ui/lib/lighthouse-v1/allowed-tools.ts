@@ -1,4 +1,7 @@
-import { canonicalToolName } from "@/cloudsneeker/lighthouse-tools"; // cloudsneeker-hook
+import {
+  CLOUDSNEEKER_AREA_TOOLS,
+  canonicalToolName,
+} from "@/cloudsneeker/lighthouse-tools"; // cloudsneeker-hook
 
 /**
  * Tools explicitly allowed for the LLM to list and execute.
@@ -51,6 +54,8 @@ const ALLOWED_TOOLS = new Set([
   "prowler_list_attack_paths_scans",
   "prowler_run_attack_paths_query",
   "prowler_get_attack_paths_cartography_schema",
+  // cloudsneeker-hook: Application Security and Governance (read only)
+  ...CLOUDSNEEKER_AREA_TOOLS,
 ]);
 
 /**
