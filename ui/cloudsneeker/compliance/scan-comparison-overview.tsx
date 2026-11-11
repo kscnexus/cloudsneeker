@@ -16,8 +16,6 @@ import {
 import type { ExpandedScanData, SearchParamsProps } from "@/types";
 import type { ComplianceOverviewData } from "@/types/compliance";
 
-import { ScanComparisonFilters } from "./scan-comparison-filters";
-import { ScanComparisonTable } from "./scan-comparison-table";
 import {
   buildFrameworkSnapshot,
   compareFrameworks,
@@ -25,15 +23,16 @@ import {
   parseScanComparisonParams,
   resolveDefaultScanPair,
 } from "./scan-comparison";
+import { ScanComparisonFilters } from "./scan-comparison-filters";
+import { ScanComparisonTable } from "./scan-comparison-table";
 
 interface ScanComparisonOverviewProps {
   searchParams: SearchParamsProps;
   scans: ExpandedScanData[];
 }
 
-const isOverviewArray = (
-  data: unknown,
-): data is ComplianceOverviewData[] => Array.isArray(data);
+const isOverviewArray = (data: unknown): data is ComplianceOverviewData[] =>
+  Array.isArray(data);
 
 const TRIVY_RUNS_PAGE_SIZE = "200";
 
@@ -51,8 +50,15 @@ const loadTrivyHubScanIds = async (): Promise<Set<string>> => {
   );
 };
 
+// Null when the API reports a server error: the scan's compliance task
+// failed, so it has no results (the endpoint answers 500 by design).
 const loadSnapshots = async (scanId: string) => {
-  const response = await getCompliancesOverview({ scanId });
+  let response: Awaited<ReturnType<typeof getCompliancesOverview>>;
+  try {
+    response = await getCompliancesOverview({ scanId });
+  } catch {
+    return null;
+  }
   const data = response && "data" in response ? response.data : undefined;
   if (!isOverviewArray(data)) return [];
 
@@ -122,8 +128,15 @@ export const ScanComparisonOverview = async ({
     loadSnapshots(compareScanId),
   ]);
 
-  const rows = compareFrameworks(baselineSnapshots, compareSnapshots);
+  const rows = compareFrameworks(
+    baselineSnapshots ?? [],
+    compareSnapshots ?? [],
+  );
   const sameScan = baselineScanId === compareScanId;
+  const unavailable = [
+    baselineSnapshots === null ? "baseline" : null,
+    compareSnapshots === null && !sameScan ? "compare" : null,
+  ].filter((label): label is string => label !== null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -139,6 +152,15 @@ export const ScanComparisonOverview = async ({
           <AlertDescription>
             Baseline and compare point at the same scan. Choose a second scan to
             see score changes.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {unavailable.length > 0 && (
+        <Alert variant="info">
+          <Info className="size-4" />
+          <AlertDescription>
+            {`The ${unavailable.join(" and ")} scan has no compliance results: building them failed after the scan finished. Choose another scan.`}
           </AlertDescription>
         </Alert>
       )}
