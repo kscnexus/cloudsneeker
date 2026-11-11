@@ -46,6 +46,7 @@ class ReportRunSerializer(RLSSerializer):
 
     report_name = serializers.SerializerMethodField()
     created_by_id = serializers.UUIDField(read_only=True, allow_null=True)
+    created_by_name = serializers.SerializerMethodField()
     schedule_id = serializers.UUIDField(read_only=True, allow_null=True)
     available_formats = serializers.SerializerMethodField()
 
@@ -70,10 +71,16 @@ class ReportRunSerializer(RLSSerializer):
             "summary",
             "schedule_id",
             "created_by_id",
+            "created_by_name",
         ]
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}report-runs"
+
+    def get_created_by_name(self, obj: ReportRun) -> str | None:
+        """Display name of the requesting user (never the email address)."""
+        user = obj.created_by
+        return (getattr(user, "name", "") or None) if user else None
 
     def get_report_name(self, obj: ReportRun) -> str:
         try:

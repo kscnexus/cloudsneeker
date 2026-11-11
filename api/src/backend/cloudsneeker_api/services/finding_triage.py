@@ -6,6 +6,11 @@ Visibility follows findings: a role with ``unlimited_visibility`` sees every
 UID of the tenant, any other role only the UIDs whose latest finding belongs
 to one of its providers (``reports.access.visible_provider_ids``).
 
+``risk_accepted`` (EB-019) carries a reason, the approving user and an
+expiry date (default ``RISK_DEFAULT_DAYS``, at most ``RISK_MAX_DAYS`` ahead).
+An hourly task (``expire_risk_acceptances``) reopens findings whose
+acceptance has expired and emails the owner.
+
 A ``resolved`` triage whose finding fails again in a scan newer than the
 status change reads as ``reopened`` (``effective_status``). The stored status
 is not rewritten on read; rescan automation that persists the transition is a
@@ -22,7 +27,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from api.models import Finding, Membership, Role, StatusChoices
@@ -40,6 +45,9 @@ from django.db.models import Count, OuterRef, QuerySet, Subquery
 from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 
+RISK_DEFAULT_DAYS = 90
+RISK_MAX_DAYS = 365
+RISK_REASON_MAX_LENGTH = 1000
 BULK_MAX_FINDINGS = 500
 LOOKUP_MAX_FINDINGS = 200
 STATUS_VALUES = frozenset(FindingTriage.Status.values)
@@ -134,6 +142,98 @@ def validate_status(status: Any) -> str:
     return status
 
 
+@dataclass(frozen=True)
+class RiskAcceptance:
+    """Reason and expiry sent with ``risk_accepted`` (``None`` = not sent)."""
+
+    reason: str | None = None
+    expires_on: date | None = None
+
+    @property
+    def sent(self) -> bool:
+        return self.reason is not None or self.expires_on is not None
+
+
+def clean_risk_acceptance(
+    reason: Any = None, expires_on: Any = None, *, today: date | None = None
+) -> RiskAcceptance:
+    """Validate a risk acceptance reason and expiry date.
+
+    Raises:
+        TriageError: Reason too long, or expiry not between tomorrow and
+            ``RISK_MAX_DAYS`` days ahead.
+    """
+    today = today or timezone.now().date()
+    cleaned_reason = None
+    if reason is not None:
+        if not isinstance(reason, str):
+            raise TriageError("Risk reason must be text.", "invalid_risk_reason")
+        cleaned_reason = _CONTROL_CHARS.sub("", reason).strip()
+        if len(cleaned_reason) > RISK_REASON_MAX_LENGTH:
+            raise TriageError(
+                f"Risk reason cannot exceed {RISK_REASON_MAX_LENGTH} characters.",
+                "invalid_risk_reason",
+            )
+    if expires_on is not None:
+        if isinstance(expires_on, str):
+            try:
+                expires_on = date.fromisoformat(expires_on)
+            except ValueError as error:
+                raise TriageError(
+                    "risk_expires_on must be a date (YYYY-MM-DD).",
+                    "invalid_risk_expiry",
+                ) from error
+        if expires_on <= today:
+            raise TriageError(
+                "The risk acceptance must expire after today.", "invalid_risk_expiry"
+            )
+        if expires_on > today + timedelta(days=RISK_MAX_DAYS):
+            raise TriageError(
+                f"A risk can be accepted for at most {RISK_MAX_DAYS} days.",
+                "invalid_risk_expiry",
+            )
+    return RiskAcceptance(reason=cleaned_reason, expires_on=expires_on)
+
+
+def _accept_risk(
+    triage: FindingTriage,
+    acceptance: RiskAcceptance,
+    *,
+    renewing: bool,
+    note_body: str | None,
+    user_id: str,
+    now: datetime,
+) -> None:
+    """Record reason, approver and expiry on a ``risk_accepted`` triage.
+
+    ``renewing`` is true when the triage was already accepted: it keeps the
+    current reason and a future expiry unless new values are sent. The
+    acting user becomes the approver.
+    """
+    today = now.date()
+    if acceptance.reason is not None:
+        triage.risk_reason = acceptance.reason
+    elif note_body:
+        triage.risk_reason = note_body[:RISK_REASON_MAX_LENGTH]
+    elif not renewing:
+        triage.risk_reason = ""
+    if acceptance.expires_on is not None:
+        triage.risk_expires_on = acceptance.expires_on
+    elif not (renewing and triage.risk_expires_on and triage.risk_expires_on > today):
+        triage.risk_expires_on = today + timedelta(days=RISK_DEFAULT_DAYS)
+    triage.risk_approved_by_id = user_id
+    triage.risk_approved_at = now
+    triage.risk_expired_at = None
+
+
+def _check_acceptance_status(target_status: str, acceptance: RiskAcceptance) -> None:
+    if acceptance.sent and target_status != FindingTriage.Status.RISK_ACCEPTED:
+        raise TriageError(
+            "risk_reason and risk_expires_on apply only to the risk_accepted status.",
+            "invalid_risk_acceptance",
+        )
+
+
 def validate_assignee(tenant_id: str, assignee_id: Any) -> str | None:
     """Return the assignee id when the user is a member of the tenant.
 
@@ -179,7 +279,9 @@ def visible_findings(tenant_id: str, role: Role) -> QuerySet:
 
 def visible_triages(tenant_id: str, role: Role) -> QuerySet:
     """Triage rows the role can read, with note count and latest note."""
-    queryset = FindingTriage.objects.filter(tenant_id=tenant_id)
+    queryset = FindingTriage.objects.filter(tenant_id=tenant_id).select_related(
+        "risk_approved_by"
+    )
     visible = visible_provider_ids(role)
     if visible is not None:
         queryset = queryset.filter(provider_id__in=list(visible))
@@ -334,6 +436,7 @@ def upsert_triage(
     note: str | None = None,
     assignee_id: Any = ...,
     source: str = FindingTriage.Source.MANUAL,
+    acceptance: RiskAcceptance | None = None,
 ) -> tuple[FindingTriage, bool]:
     """Create or update the triage of one finding UID.
 
@@ -346,6 +449,7 @@ def upsert_triage(
         note: Optional note added to the thread.
         assignee_id: New assignee (``None`` clears it); omit to keep it.
         source: Where the change came from.
+        acceptance: Reason and expiry for ``risk_accepted`` (EB-019).
 
     Returns:
         ``(triage, created)``.
@@ -364,12 +468,15 @@ def upsert_triage(
         validate_assignee(tenant_id, assignee_id) if assignee_id is not ... else ...
     )
 
+    acceptance = acceptance or RiskAcceptance()
     now = timezone.now()
     triage = (
         FindingTriage.objects.select_for_update()
         .filter(tenant_id=tenant_id, finding_uid=finding_uid)
         .first()
     )
+    previous = triage.status if triage else None
+    _check_acceptance_status(status or previous or FindingTriage.Status.OPEN, acceptance)
     created = triage is None
     if created:
         triage = FindingTriage(
@@ -388,6 +495,17 @@ def upsert_triage(
     triage.source = source
     if assignee is not ...:
         triage.assignee_id = assignee
+    if triage.status == FindingTriage.Status.RISK_ACCEPTED and (
+        status_changed or acceptance.sent
+    ):
+        _accept_risk(
+            triage,
+            acceptance,
+            renewing=previous == FindingTriage.Status.RISK_ACCEPTED,
+            note_body=body,
+            user_id=user_id,
+            now=now,
+        )
     triage.save()
     if body:
         FindingTriageNote.objects.create(
@@ -408,6 +526,7 @@ def bulk_update_status(
     status: Any,
     user_id: str,
     note: str | None = None,
+    acceptance: RiskAcceptance | None = None,
 ) -> BulkResult:
     """Set one status on many finding UIDs.
 
@@ -429,6 +548,8 @@ def bulk_update_status(
             "batch_too_large",
         )
     validate_status(status)
+    acceptance = acceptance or RiskAcceptance()
+    _check_acceptance_status(status, acceptance)
     body = clean_note_body(note) if note not in (None, "") else None
 
     snapshots = latest_findings(tenant_id, role, uids)
@@ -447,6 +568,7 @@ def bulk_update_status(
             result.skipped_uids.append(uid)
             continue
         triage = existing.get(uid)
+        previous = triage.status if triage else None
         if triage is None:
             triage = FindingTriage(
                 tenant_id=tenant_id,
@@ -467,6 +589,21 @@ def bulk_update_status(
         triage.area = snapshot.area
         triage.updated_by_id = user_id
         triage.source = FindingTriage.Source.BULK
+        if status == FindingTriage.Status.RISK_ACCEPTED and (
+            changed or acceptance.sent
+        ):
+            _accept_risk(
+                triage,
+                acceptance,
+                renewing=previous == FindingTriage.Status.RISK_ACCEPTED,
+                note_body=body,
+                user_id=user_id,
+                now=now,
+            )
+            if not changed:
+                # Renewing an acceptance is an update.
+                result.unchanged -= 1
+                result.updated += 1
         triage.save()
         if body:
             notes.append(

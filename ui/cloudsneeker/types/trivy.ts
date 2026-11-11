@@ -151,6 +151,8 @@ export interface TrivyRunAttributes {
   output?: Record<string, unknown>;
   error?: string;
   error_class?: string;
+  /** Set once the run is past the one-year history window. */
+  archived_at?: string | null;
   inserted_at?: string;
   updated_at?: string;
   engine?: string;

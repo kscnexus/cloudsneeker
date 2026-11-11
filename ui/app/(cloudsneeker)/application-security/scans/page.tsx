@@ -7,9 +7,10 @@ import { getProviders } from "@/actions/providers/providers";
 import { listTrivyRuns, listTrivyTargets } from "@/cloudsneeker/actions/trivy";
 import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-security-dashboard-panel";
-import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-list";
+import { AppSecurityScanHistory } from "@/cloudsneeker/components/app-security-scan-history";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { ScanAllRepositoriesButton } from "@/cloudsneeker/components/scan-all-repositories-button";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import type { SeverityBreakdownItem } from "@/cloudsneeker/components/severity-breakdown";
 import { TrivyTargetList } from "@/cloudsneeker/components/trivy-target-list";
@@ -25,6 +26,12 @@ import {
   newTargetHref,
   repositorySourcesWithoutTarget,
 } from "@/cloudsneeker/lib/app-security-dashboard";
+import {
+  getScanHistoryView,
+  SCAN_HISTORY_PAGE_PARAM,
+  SCAN_HISTORY_PARAM,
+  type ScanHistoryView,
+} from "@/cloudsneeker/lib/app-security-scan-history";
 import { APPSEC_SEGMENT } from "@/cloudsneeker/lib/appsec";
 import {
   isListResponse,
@@ -47,9 +54,8 @@ import { ContentLayout } from "@/components/shadcn/content-layout";
 import { FAIL_FILTER_VALUE, MUTED_FILTER } from "@/lib/findings-filters";
 import type { SearchParamsProps } from "@/types";
 
-/** Runs read for the KPIs; the list shows the newest few. */
+/** Runs read for the KPIs. */
 const DASHBOARD_RUN_PAGE_SIZE = "100";
-const RECENT_RUN_LIMIT = 10;
 
 interface ApplicationSecurityPageProps {
   searchParams: Promise<SearchParamsProps>;
@@ -71,16 +77,25 @@ export default async function ApplicationSecurityPage({
       <PageHeader
         description="Targets are the repositories, container images, archives, SBOMs and clusters you scan, on demand or on a schedule. Each scan updates the findings and the software inventory of its target."
         actions={
-          <Button asChild size="sm">
-            <Link href={newTargetHref()}>
-              <Plus aria-hidden="true" />
-              New target
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ScanAllRepositoriesButton />
+            <Button asChild size="sm">
+              <Link href={newTargetHref()}>
+                <Plus aria-hidden="true" />
+                New target
+              </Link>
+            </Button>
+          </div>
         }
       />
       <Suspense fallback={<Skeleton className="h-96 w-full rounded-xl" />}>
-        <SSRAppSecurityWorkspace activeCategory={activeCategory} />
+        <SSRAppSecurityWorkspace
+          activeCategory={activeCategory}
+          historyView={getScanHistoryView(
+            resolvedSearchParams[SCAN_HISTORY_PARAM],
+          )}
+          historyPage={resolvedSearchParams[SCAN_HISTORY_PAGE_PARAM]}
+        />
       </Suspense>
     </ContentLayout>
   );
@@ -132,8 +147,12 @@ const loadSources = async (): Promise<AppSecuritySource[]> => {
 
 const SSRAppSecurityWorkspace = async ({
   activeCategory,
+  historyView,
+  historyPage,
 }: {
   activeCategory: AppSecurityCategory | null;
+  historyView: ScanHistoryView;
+  historyPage: string | string[] | undefined;
 }) => {
   const [targetsResponse, runsResponse, sources] = await Promise.all([
     listTrivyTargets({ "page[size]": "100", sort: "-inserted_at" }),
@@ -245,15 +264,9 @@ const SSRAppSecurityWorkspace = async ({
         )}
       </SectionCard>
 
-      <SectionCard
-        title="Recent scans"
-        description="Newest first. Open a scan for its summary or jump to its findings."
-      >
-        <AppSecurityRunList
-          runs={runs.slice(0, RECENT_RUN_LIMIT)}
-          emptyMessage="No scans yet. Open a target and start a scan."
-        />
-      </SectionCard>
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+        <AppSecurityScanHistory view={historyView} page={historyPage} />
+      </Suspense>
     </div>
   );
 };

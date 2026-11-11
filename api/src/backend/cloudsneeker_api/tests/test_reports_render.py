@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import pytest
 from cloudsneeker_api.reports.catalog import ReportParamsError
 from cloudsneeker_api.reports.data.sast import sast_row
-from cloudsneeker_api.reports.data.sca import sca_row
+from cloudsneeker_api.reports.data.sca import exploit_label, sca_row
 from cloudsneeker_api.reports.data.secrets import secret_row
 from cloudsneeker_api.reports.render import get_renderer
 from cloudsneeker_api.reports.render.tabular import (
@@ -274,6 +274,15 @@ class TestRowBuilders:
         assert row["fixed_version"] == "3.0.8"
         assert row["provider"] == "app-repo (repo)"
         assert row["target"] == "package-lock.json:openssl"
+
+    def test_exploit_label(self):
+        assert exploit_label(None) == ""
+        assert exploit_label({"known_exploited": False, "epss_score": 0.00043}) == (
+            "EPSS 0.04%"
+        )
+        assert exploit_label({"known_exploited": True, "epss_score": 0.94358}) == (
+            "Known exploited, EPSS 94.4%"
+        )
 
     def test_secret_row_never_includes_match(self):
         item = self._item(

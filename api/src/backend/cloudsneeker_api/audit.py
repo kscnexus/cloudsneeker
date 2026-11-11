@@ -301,8 +301,10 @@ def _is_sensitive_name(name: str) -> bool:
 def _is_resource_identifier(value: Any) -> bool:
     if isinstance(value, list):
         return bool(value) and all(_is_resource_identifier(item) for item in value)
-    return isinstance(value, dict) and set(value) <= {"type", "id", "meta"} and (
-        "type" in value and "id" in value
+    return (
+        isinstance(value, dict)
+        and set(value) <= {"type", "id", "meta"}
+        and ("type" in value and "id" in value)
     )
 
 

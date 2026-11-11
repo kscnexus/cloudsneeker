@@ -152,7 +152,9 @@ class TestValidateSastConfig:
 
     def test_unknown_ruleset(self):
         with pytest.raises(TrivyHubError, match="Unknown ruleset 'p/default'"):
-            validate_sast_config({"repository_url": REPO_URL, "rulesets": ["p/default"]})
+            validate_sast_config(
+                {"repository_url": REPO_URL, "rulesets": ["p/default"]}
+            )
 
     def test_rulesets_must_be_strings(self):
         with pytest.raises(TrivyHubError, match="list of ruleset names"):
@@ -263,7 +265,9 @@ class TestOpengrepBinary:
 
     def test_path_lookup_and_missing(self, monkeypatch):
         monkeypatch.delenv("OPENGREP_BIN", raising=False)
-        with patch("cloudsneeker_api.services.sast.shutil.which", return_value="/bin/og"):
+        with patch(
+            "cloudsneeker_api.services.sast.shutil.which", return_value="/bin/og"
+        ):
             assert resolve_opengrep_bin() == "/bin/og"
         with patch("cloudsneeker_api.services.sast.shutil.which", return_value=None):
             with pytest.raises(TrivyHubError, match="engine was not found"):
@@ -383,7 +387,9 @@ class TestRunOpengrepScan:
         config = validate_sast_config(
             {"archive_b64": _zip_b64({"app.py": "eval(x)"}), "exclude": ["tests"]}
         )
-        with patch("cloudsneeker_api.services.sast.subprocess.run", side_effect=fake_run):
+        with patch(
+            "cloudsneeker_api.services.sast.subprocess.run", side_effect=fake_run
+        ):
             report = run_opengrep_scan(config=config, provider=_iac_provider())
         assert report["results"][0]["path"] == "app.py"
         assert report["cloudsneeker_rulesets"] == ["python"]
@@ -563,9 +569,12 @@ class TestOpengrepMapping:
         assert bounded_uid("short") == "short"
 
     def test_normalize_rule_id(self):
-        assert normalize_rule_id(
-            "tmp.rules.python.crypto.python_crypto_rule-crypto.hazmat-hash-md5"
-        ) == "python_crypto_rule-crypto.hazmat-hash-md5"
+        assert (
+            normalize_rule_id(
+                "tmp.rules.python.crypto.python_crypto_rule-crypto.hazmat-hash-md5"
+            )
+            == "python_crypto_rule-crypto.hazmat-hash-md5"
+        )
         assert normalize_rule_id("my.custom.rule") == "my.custom.rule"
 
     def test_dispatch_by_mode(self):
@@ -612,7 +621,13 @@ class TestProcessSastRun:
                 setattr(target_run, name, value)
 
         stored = {
-            "lifecycle": {"new": 1, "reopened": 0, "open": 0, "fixed": 0, "suppressed": 0},
+            "lifecycle": {
+                "new": 1,
+                "reopened": 0,
+                "open": 0,
+                "fixed": 0,
+                "suppressed": 0,
+            },
             "scan_id": "scan-1",
             "sbom_id": None,
             "finding_count": 1,
@@ -626,7 +641,9 @@ class TestProcessSastRun:
             ) as mock_scan,
             patch("cloudsneeker_api.services.trivy.run_trivy_cli") as mock_trivy,
             patch.object(engine, "run_unit") as mock_unit,
-            patch.object(engine, "persist_results", return_value=stored) as mock_persist,
+            patch.object(
+                engine, "persist_results", return_value=stored
+            ) as mock_persist,
         ):
             result = process_trivy_run(tenant_id="t-1", run_id="r-1")
 

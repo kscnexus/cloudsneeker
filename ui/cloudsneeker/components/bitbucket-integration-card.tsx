@@ -12,12 +12,12 @@ export const BitbucketIntegrationCard = () => {
       <CardHeader>
         <div className="flex w-full flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <FolderGit2 className="size-10 text-gray-700 dark:text-gray-200" />
+            <FolderGit2 className="text-text-neutral-secondary size-10" />
             <div className="flex flex-col gap-1">
-              <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              <h4 className="text-text-neutral-primary text-lg font-bold">
                 Bitbucket
               </h4>
-              <p className="text-xs text-nowrap text-gray-500 dark:text-gray-300">
+              <p className="text-text-neutral-tertiary text-xs text-nowrap">
                 Add every repository in a workspace for code scanning.
               </p>
             </div>
@@ -33,7 +33,7 @@ export const BitbucketIntegrationCard = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-text-neutral-secondary text-sm">
           Connect a Bitbucket Cloud workspace or a Bitbucket Data Center project
           with one read-only token, pick the repositories, and they are added as
           Infrastructure as Code providers.

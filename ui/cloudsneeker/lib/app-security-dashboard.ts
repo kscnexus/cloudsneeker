@@ -110,6 +110,35 @@ export const categoryDefinition = (
 ): AppSecurityCategoryDefinition | undefined =>
   APP_SECURITY_CATEGORIES.find((item) => item.id === category);
 
+/** Tabs of the Application Security page, like the governance page's. */
+export const APP_SECURITY_TAB = {
+  DASHBOARD: "dashboard",
+  TARGETS: "targets",
+  SCANS: "scans",
+} as const;
+
+export type AppSecurityTab =
+  (typeof APP_SECURITY_TAB)[keyof typeof APP_SECURITY_TAB];
+
+export const APP_SECURITY_TAB_PARAM = "tab";
+
+/** Tab from `?tab=`; a category filter alone opens Targets. */
+export const getAppSecurityTab = (
+  value: string | string[] | undefined,
+  category: AppSecurityCategory | null = null,
+): AppSecurityTab => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const known = Object.values(APP_SECURITY_TAB).find((tab) => tab === raw);
+  if (known) return known;
+  return category ? APP_SECURITY_TAB.TARGETS : APP_SECURITY_TAB.DASHBOARD;
+};
+
+export const appSecurityTabHref = (tab: AppSecurityTab): string =>
+  tab === APP_SECURITY_TAB.DASHBOARD
+    ? appSecurityHref()
+    : `${appSecurityHref()}?${APP_SECURITY_TAB_PARAM}=${tab}`;
+
+/** Targets tab filtered to one category, or every target. */
 export const appSecurityCategoryHref = (
   category: AppSecurityCategory | null,
 ): string => {

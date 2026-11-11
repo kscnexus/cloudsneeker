@@ -450,9 +450,7 @@ class CustodianRun(CloudsneekerRLSModel):
     status = models.CharField(
         max_length=32, choices=Status.choices, default=Status.PENDING
     )
-    mode = models.CharField(
-        max_length=32, choices=Mode.choices, default=Mode.DRYRUN
-    )
+    mode = models.CharField(max_length=32, choices=Mode.choices, default=Mode.DRYRUN)
     trigger = models.CharField(
         max_length=32, choices=Trigger.choices, default=Trigger.MANUAL
     )
@@ -617,6 +615,8 @@ class TrivyRun(CloudsneekerRLSModel):
     # Masked raw report on shared storage, relative to the artifact root.
     artifact_path = models.CharField(max_length=500, blank=True, default="")
     cancel_requested_at = models.DateTimeField(null=True, blank=True)
+    # Set by the daily archive task once the run is past the retention window.
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}trivy_runs"
@@ -873,7 +873,7 @@ class FindingTriage(CloudsneekerRLSModel):
         UNDER_REVIEW = "under_review", "Under review"
         REMEDIATING = "remediating", "Remediating"
         RESOLVED = "resolved", "Resolved"
-        # Reserved for EB-019 (expiry and approver); allowed now.
+        # EB-019: carries a reason, an approver and an expiry date.
         RISK_ACCEPTED = "risk_accepted", "Risk accepted"
         FALSE_POSITIVE = "false_positive", "False positive"
         REOPENED = "reopened", "Reopened"
@@ -929,6 +929,20 @@ class FindingTriage(CloudsneekerRLSModel):
         blank=True,
         related_name="cloudsneeker_updated_finding_triages",
     )
+    # EB-019 risk acceptance: why, who approved it and until when. Kept after
+    # the acceptance ends so the history stays readable.
+    risk_reason = models.TextField(blank=True, default="")
+    risk_expires_on = models.DateField(null=True, blank=True)
+    risk_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_approved_risk_triages",
+    )
+    risk_approved_at = models.DateTimeField(null=True, blank=True)
+    # Set when the expiry task reopened the finding.
+    risk_expired_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}finding_triages"
@@ -1287,6 +1301,53 @@ class TenantSsoPolicy(models.Model):
 
 
 # --- End multi-factor authentication ------------------------------------------
+
+
+# --- Exploit intelligence (EB-022) --------------------------------------------
+# Public EPSS and CISA KEV data, one row per CVE, shared by every tenant. Not
+# row-level security protected: the daily refresh task writes it through
+# ``MainRouter.admin_db``, and the tenant-scoped database user only reads it
+# (``GRANT SELECT``) so the findings list can join it inside a tenant
+# transaction.
+
+
+class VulnerabilityIntel(models.Model):
+    """Exploit likelihood (EPSS) and known exploitation (KEV) of one CVE."""
+
+    cve_id = models.CharField(max_length=32, primary_key=True)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    # Probability of exploitation in the next 30 days, 0 to 1.
+    epss_score = models.FloatField(null=True, blank=True)
+    epss_percentile = models.FloatField(null=True, blank=True)
+    # Listed in the CISA Known Exploited Vulnerabilities catalog.
+    kev = models.BooleanField(default=False, db_index=True)
+    kev_date_added = models.DateField(null=True, blank=True)
+    kev_due_date = models.DateField(null=True, blank=True)
+    kev_ransomware = models.BooleanField(default=False)
+    kev_name = models.CharField(max_length=300, blank=True, default="")
+    kev_required_action = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}vulnerability_intel"
+
+
+class VulnerabilityIntelFeed(models.Model):
+    """Last refresh of one exploit intelligence feed."""
+
+    class Name(models.TextChoices):
+        EPSS = "epss", "Exploit prediction scores (EPSS)"
+        KEV = "kev", "Known exploited vulnerabilities (CISA KEV)"
+
+    name = models.CharField(max_length=16, choices=Name.choices, primary_key=True)
+    # Day scored (EPSS) or catalog version (KEV) of the stored data.
+    version = models.CharField(max_length=64, blank=True, default="")
+    record_count = models.PositiveIntegerField(default=0)
+    refreshed_at = models.DateTimeField(null=True, blank=True)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = f"{TABLE_PREFIX}vulnerability_intel_feeds"
 
 
 # --- Application security posture management (ASPM) ---------------------------

@@ -20,7 +20,7 @@ from functools import lru_cache
 from importlib import metadata
 from pathlib import Path
 
-from cloudsneeker_api.services import vuln_db
+from cloudsneeker_api.services import vuln_db, vuln_intel
 
 RELEASE_ENV = "CLOUDSNEEKER_RELEASE_VERSION"
 SAST_RULES_REF_ENV = "CLOUDSNEEKER_SAST_RULES_REF"
@@ -156,6 +156,14 @@ def engines() -> list[dict]:
     return entries
 
 
+def exploit_intelligence() -> list[dict]:
+    """EPSS and CISA KEV feeds: data version, CVE count and last refresh."""
+    return [
+        {**feed, "refreshed_at": _iso(feed["refreshed_at"])}
+        for feed in vuln_intel.feed_status()
+    ]
+
+
 def content_versions(now: datetime | None = None) -> dict:
     """Attributes of the ``content-versions`` resource."""
     return {
@@ -163,5 +171,6 @@ def content_versions(now: datetime | None = None) -> dict:
         "cloud_security": cloud_security_content(),
         "vulnerability_database": vulnerability_database(now),
         "code_analysis_rules": code_analysis_rules(),
+        "exploit_intelligence": exploit_intelligence(),
         "engines": engines(),
     }

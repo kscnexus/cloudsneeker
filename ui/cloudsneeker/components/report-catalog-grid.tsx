@@ -13,6 +13,7 @@ import {
   Package,
   Presentation,
   Scale,
+  ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -44,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/shadcn/dialog";
 
+import { FormAlert } from "./form-layout";
 import {
   asReportParamsForm,
   ReportParamsFields,
@@ -60,6 +62,10 @@ export const REPORT_TYPE_ICON: Record<ReportTypeId, LucideIcon> = {
   [REPORT_TYPE_ID.IAC]: FileCode2,
   [REPORT_TYPE_ID.SECRETS]: KeyRound,
   [REPORT_TYPE_ID.GOVERNANCE]: Scale,
+  [REPORT_TYPE_ID.SECURITY_ASSESSMENT]: ShieldCheck,
+  [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: Code2,
+  [REPORT_TYPE_ID.CLOUD_ASSESSMENT]: Cloud,
+  [REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT]: Scale,
 };
 
 export const reportTypeIcon = (id: string): LucideIcon =>
@@ -179,8 +185,8 @@ export const ReportCatalogGrid = ({
           <DialogHeader>
             <DialogTitle>Generate {selected?.title}</DialogTitle>
             <DialogDescription>
-              The report is prepared in the background and appears under
-              Recent reports when it is ready.
+              The report is prepared in the background and appears under Recent
+              reports when it is ready.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -190,9 +196,7 @@ export const ReportCatalogGrid = ({
               providers={providers}
               frameworks={frameworks}
             />
-            {error ? (
-              <p className="text-text-error-primary text-sm">{error}</p>
-            ) : null}
+            <FormAlert message={error} />
             <DialogFooter>
               <Button
                 type="button"

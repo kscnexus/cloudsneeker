@@ -8,13 +8,14 @@ describe("Application Security page workspace", () => {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const source = readFileSync(path.join(currentDir, "page.tsx"), "utf8");
 
-  it("renders the dashboard, then targets and recent runs", () => {
+  it("renders the dashboard, then targets and scan history", () => {
     expect(source).toContain("listTrivyTargets");
     expect(source).toContain("listTrivyRuns");
     expect(source).toContain("buildAppSecurityDashboard");
     expect(source).toContain("AppSecurityDashboardPanel");
     expect(source).toContain("TrivyTargetList");
-    expect(source).toContain("AppSecurityRunList");
+    expect(source).toContain("AppSecurityScanHistory");
+    expect(source).toContain("<ScanAllRepositoriesButton");
     expect(source).toContain("New target");
     expect(source.indexOf("<AppSecurityDashboardPanel")).toBeLessThan(
       source.indexOf("<TrivyTargetList"),
@@ -24,6 +25,12 @@ describe("Application Security page workspace", () => {
   it("shows a load error instead of an empty list when targets fail", () => {
     expect(source).toContain("isListResponse(targetsResponse)");
     expect(source).toContain("Targets could not be loaded");
+  });
+
+  it("shows scan history grouped by target, with the archive", () => {
+    expect(source).toContain("<AppSecurityScanHistory");
+    expect(source).toContain("getScanHistoryView(");
+    expect(source).toContain("SCAN_HISTORY_PAGE_PARAM");
   });
 
   it("filters targets by the category in the query", () => {

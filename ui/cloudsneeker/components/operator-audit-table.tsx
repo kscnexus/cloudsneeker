@@ -1,5 +1,12 @@
 import Link from "next/link";
 
+import {
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_FRAME_CLASS,
+  TABLE_HEADER_CELL_CLASS,
+  TABLE_HEAD_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { operatorCustomerHref } from "@/cloudsneeker/routes";
 import type { OperatorAuditResource } from "@/cloudsneeker/types/operator";
 
@@ -29,22 +36,18 @@ export const OperatorAuditTable = ({
 }: {
   events: OperatorAuditResource[];
 }) => (
-  <div className="border-border-neutral-secondary overflow-x-auto rounded-xl border">
-    <table className="w-full text-left text-sm">
-      <thead className="bg-bg-neutral-tertiary">
+  <div className={TABLE_FRAME_CLASS}>
+    <table className={TABLE_CLASS}>
+      <thead className={TABLE_HEAD_CLASS}>
         <tr>
           {OPERATOR_AUDIT_COLUMNS.map((header) => (
-            <th
-              key={header}
-              scope="col"
-              className="text-text-neutral-secondary px-3 py-2 text-xs font-semibold whitespace-nowrap"
-            >
+            <th key={header} scope="col" className={TABLE_HEADER_CELL_CLASS}>
               {header}
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-border-neutral-secondary divide-y">
+      <tbody className={TABLE_BODY_CLASS}>
         {events.map((event) => {
           const attributes = event.attributes;
           const rawTenantName = attributes.metadata?.tenant_name;

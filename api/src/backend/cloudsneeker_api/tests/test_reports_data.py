@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -24,6 +24,7 @@ from cloudsneeker_api.reports.data.common import (
     latest_scan_ids,
 )
 from cloudsneeker_api.reports.schema import ReportFilters
+from cloudsneeker_api.services import vuln_intel
 
 NOW = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
 
@@ -259,6 +260,26 @@ class TestApplicationSecurityReports:
         assert row["fixed_version"] == "4.17.21"
         assert data.kpis["fixable_in_table"] == 1
         assert data.top_risks[0]["remediation"] == "Upgrade lodash to 4.17.21 or later."
+
+    def test_sca_shows_exploitation(self, repo_scan):
+        tenant, _ = repo_scan
+        vuln_intel.store_kev(
+            [
+                vuln_intel.KevEntry(
+                    cve_id="CVE-2024-0001",
+                    date_added=date(2024, 1, 1),
+                    due_date=date(2024, 1, 22),
+                    ransomware=False,
+                    name="lodash",
+                    required_action="Patch.",
+                )
+            ]
+        )
+        vuln_intel.store_epss([vuln_intel.EpssScore("CVE-2024-0001", 0.5, 0.99)])
+        data = _assemble(tenant, "sca")
+        row = next(t for t in data.tables if t.key == "findings").rows[0]
+        assert row["exploit"] == "Known exploited, EPSS 50.0%"
+        assert data.kpis["known_exploited_in_table"] == 1
 
     def test_iac_keeps_misconfigurations_only(self, repo_scan):
         tenant, _ = repo_scan

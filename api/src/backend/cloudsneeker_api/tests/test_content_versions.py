@@ -119,8 +119,12 @@ class TestContentVersionsEndpoint:
             "cloud_security",
             "vulnerability_database",
             "code_analysis_rules",
+            "exploit_intelligence",
             "engines",
         }
+        feeds = {feed["id"]: feed for feed in attributes["exploit_intelligence"]}
+        assert set(feeds) == {"epss", "kev"}
+        assert feeds["kev"]["refreshed_at"] is None
 
     def test_requires_authentication(self, client):
         assert client.get(reverse("content-versions")).status_code == 401

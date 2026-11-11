@@ -52,6 +52,35 @@ describe("FindingTriageTable", () => {
     );
   });
 
+  it("shows the expiry, approver and reason of an accepted risk", () => {
+    render(
+      <FindingTriageTable
+        triages={[
+          triage({
+            status: "risk_accepted",
+            stored_status: "risk_accepted",
+            risk_expires_on: "2099-01-31",
+            risk_reason: "Behind the corporate VPN",
+            risk_approved_by_name: "Ada Admin",
+          }),
+          triage({
+            status: "reopened",
+            stored_status: "reopened",
+            risk_expires_on: "2026-10-31",
+            risk_expired_at: "2026-11-01T00:00:00Z",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Until 2099-01-31")).toBeInTheDocument();
+    expect(screen.getByText("Approved by Ada Admin")).toBeInTheDocument();
+    expect(screen.getByText("Behind the corporate VPN")).toBeInTheDocument();
+    expect(
+      screen.getByText("Risk acceptance expired 2026-10-31"),
+    ).toBeInTheDocument();
+  });
+
   it("renders a dash without notes", () => {
     render(
       <FindingTriageTable

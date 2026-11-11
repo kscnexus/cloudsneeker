@@ -28,6 +28,13 @@ export interface FindingTriageAttributes {
   has_note: boolean;
   note_id: string | null;
   current_note: string;
+  /** EB-019 risk acceptance; kept as history after it ends. */
+  risk_reason?: string;
+  risk_expires_on?: string | null;
+  risk_approved_by_id?: string | null;
+  risk_approved_by_name?: string;
+  risk_approved_at?: string | null;
+  risk_expired_at?: string | null;
 }
 
 export interface FindingTriageResource {

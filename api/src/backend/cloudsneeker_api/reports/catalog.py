@@ -86,6 +86,28 @@ CONTAINER = "container"
 IAC = "iac"
 SECRETS = "secrets"
 GOVERNANCE = "governance"
+SECURITY_ASSESSMENT = "security_assessment"
+APPSEC_ASSESSMENT = "appsec_assessment"
+CLOUD_ASSESSMENT = "cloud_assessment"
+GOVERNANCE_ASSESSMENT = "governance_assessment"
+ASSESSMENT_TYPES: tuple[str, ...] = (
+    SECURITY_ASSESSMENT,
+    APPSEC_ASSESSMENT,
+    CLOUD_ASSESSMENT,
+    GOVERNANCE_ASSESSMENT,
+)
+ASSESSMENT_PARAMS: tuple[str, ...] = ("period", "sections", "stale_days")
+ASSESSMENT_PERIODS: tuple[str, ...] = ("latest", "7d", "30d", "90d", "custom")
+ASSESSMENT_SECTIONS: tuple[str, ...] = (
+    "trend",
+    "top_risks",
+    "posture",
+    "compliance",
+    "roadmap",
+    "appendix",
+    "ai_insights",
+)
+MAX_FRAMEWORKS = 50
 
 REPORT_TYPES: dict[str, ReportType] = {
     item.id: item
@@ -179,6 +201,51 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="governance",
+        ),
+        ReportType(
+            id=SECURITY_ASSESSMENT,
+            name="Executive Security Assessment",
+            description=(
+                "Board-ready assessment across cloud, application security, and "
+                "governance: score, coverage, top risks with business impact, "
+                "trend, and a 90-day remediation roadmap."
+            ),
+            audience="management",
+            category="assessment",
+            optional_params=(*ASSESSMENT_PARAMS, "frameworks"),
+        ),
+        ReportType(
+            id=APPSEC_ASSESSMENT,
+            name="Application Security Assessment",
+            description=(
+                "Vulnerable dependencies, code weaknesses, exposed secrets, and "
+                "template misconfigurations with fixes and a remediation plan."
+            ),
+            audience="engineering",
+            category="assessment",
+            optional_params=ASSESSMENT_PARAMS,
+        ),
+        ReportType(
+            id=CLOUD_ASSESSMENT,
+            name="Cloud Security Assessment",
+            description=(
+                "Cloud configuration findings per account and service, with "
+                "provider-specific fixes and a remediation plan."
+            ),
+            audience="engineering",
+            category="assessment",
+            optional_params=ASSESSMENT_PARAMS,
+        ),
+        ReportType(
+            id=GOVERNANCE_ASSESSMENT,
+            name="Governance and Compliance Assessment",
+            description=(
+                "Governance policy violations and assessed compliance frameworks, "
+                "kept apart from frameworks that are only available."
+            ),
+            audience="management",
+            category="assessment",
+            optional_params=(*ASSESSMENT_PARAMS, "frameworks"),
         ),
     )
 }
@@ -339,7 +406,62 @@ def validate_params(report_type: str, params: Any) -> dict[str, Any]:
     if "scan_id" in allowed:
         scan_id = params.get("scan_id")
         normalized["scan_id"] = _parse_uuid(scan_id, "scan_id") if scan_id else None
+    if spec.id in ASSESSMENT_TYPES:
+        normalized.update(_assessment_options(params, allowed, date_from, date_to))
     return normalized
+
+
+def _assessment_options(
+    params: dict[str, Any],
+    allowed: set[str],
+    date_from: datetime | None,
+    date_to: datetime | None,
+) -> dict[str, Any]:
+    """Validate the options of an assessment report."""
+    period = str(params.get("period") or "latest").lower()
+    if period not in ASSESSMENT_PERIODS:
+        raise ReportParamsError(f"period must be one of: {', '.join(ASSESSMENT_PERIODS)}.")
+    if period == "custom" and not (date_from or date_to):
+        raise ReportParamsError("A custom period needs date_from or date_to.")
+    sections = params.get("sections")
+    if sections in (None, ""):
+        sections = [item for item in ASSESSMENT_SECTIONS if item != "ai_insights"]
+    if isinstance(sections, str):
+        sections = [item.strip() for item in sections.split(",") if item.strip()]
+    if not isinstance(sections, (list, tuple)):
+        raise ReportParamsError("sections must be a list.")
+    unknown = sorted({str(item) for item in sections} - set(ASSESSMENT_SECTIONS))
+    if unknown:
+        raise ReportParamsError(f"Unknown section(s): {', '.join(unknown)}.")
+    stale_days = params.get("stale_days")
+    if stale_days in (None, ""):
+        stale_days = 7
+    try:
+        stale_days = int(stale_days)
+    except (TypeError, ValueError) as exc:
+        raise ReportParamsError("stale_days must be an integer.") from exc
+    if not 1 <= stale_days <= 90:
+        raise ReportParamsError("stale_days must be between 1 and 90.")
+    options: dict[str, Any] = {
+        "period": period,
+        "sections": [item for item in ASSESSMENT_SECTIONS if item in set(map(str, sections))],
+        "stale_days": stale_days,
+    }
+    if "frameworks" in allowed:
+        frameworks = params.get("frameworks") or []
+        if isinstance(frameworks, str):
+            frameworks = [item.strip() for item in frameworks.split(",") if item.strip()]
+        if not isinstance(frameworks, (list, tuple)) or len(frameworks) > MAX_FRAMEWORKS:
+            raise ReportParamsError(f"frameworks must be a list of at most {MAX_FRAMEWORKS}.")
+        cleaned = []
+        for item in frameworks:
+            value = str(item)
+            if not value or len(value) > 100 or not all(ch.isalnum() or ch in "._-" for ch in value):
+                raise ReportParamsError(f"Invalid framework id: {item}")
+            if value not in cleaned:
+                cleaned.append(value)
+        options["frameworks"] = cleaned
+    return options
 
 
 def filters_from_params(params: dict[str, Any]) -> ReportFilters:
@@ -359,6 +481,11 @@ def filters_from_params(params: dict[str, Any]) -> ReportFilters:
         compliance_id=params.get("compliance_id"),
         scan_id=params.get("scan_id"),
         trend_points=int(params.get("trend_points") or 10),
+        options={
+            key: params[key]
+            for key in (*ASSESSMENT_PARAMS, "frameworks")
+            if key in params
+        },
     )
 
 

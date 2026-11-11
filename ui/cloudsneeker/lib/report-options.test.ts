@@ -4,6 +4,7 @@ import { buildReportCatalog } from "@/cloudsneeker/lib/report-catalog";
 import {
   frameworkOptions,
   latestScanPerProvider,
+  providersWithoutFrameworks,
   providerOptions,
 } from "@/cloudsneeker/lib/report-options";
 import {
@@ -19,7 +20,10 @@ describe("report options", () => {
   it("labels providers by type and alias", () => {
     expect(
       providerOptions([
-        { id: "p1", attributes: { provider: "aws", alias: "Prod", uid: "123" } },
+        {
+          id: "p1",
+          attributes: { provider: "aws", alias: "Prod", uid: "123" },
+        },
         { id: "p2", attributes: { provider: "iac", alias: null, uid: "repo" } },
       ]),
     ).toEqual([
@@ -41,17 +45,45 @@ describe("report options", () => {
     ).toEqual(["s1", "s3"]);
   });
 
+  it("skips code and image sources, which have no frameworks", () => {
+    const scan = (id: string, provider: string) => ({
+      id,
+      relationships: { provider: { data: { id: provider } } },
+    });
+    const skip = providersWithoutFrameworks([
+      { id: "a", attributes: { provider: "aws" } },
+      { id: "r", attributes: { provider: "iac" } },
+      { id: "i", attributes: { provider: "image" } },
+    ]);
+    expect(Array.from(skip)).toEqual(["r", "i"]);
+    expect(
+      latestScanPerProvider(
+        [scan("s1", "r"), scan("s2", "a"), scan("s3", "i")],
+        5,
+        skip,
+      ),
+    ).toEqual(["s2"]);
+  });
+
   it("deduplicates frameworks and hides the upstream product name", () => {
     expect(
       frameworkOptions([
         [
-          { id: "cis_2.0_aws", attributes: { framework: "CIS", version: "2.0" } },
+          {
+            id: "cis_2.0_aws",
+            attributes: { framework: "CIS", version: "2.0" },
+          },
           {
             id: "prowler_threatscore_aws",
             attributes: { framework: "ProwlerThreatScore", version: "1.0" },
           },
         ],
-        [{ id: "cis_2.0_aws", attributes: { framework: "CIS", version: "2.0" } }],
+        [
+          {
+            id: "cis_2.0_aws",
+            attributes: { framework: "CIS", version: "2.0" },
+          },
+        ],
       ]),
     ).toEqual([
       { id: "cis_2.0_aws", label: "CIS 2.0 · AWS" },
@@ -89,7 +121,10 @@ describe("report catalog", () => {
       },
     ];
     const catalog = buildReportCatalog(types);
-    expect(catalog[0]).toMatchObject({ id: "compliance", requiresFramework: true });
+    expect(catalog[0]).toMatchObject({
+      id: "compliance",
+      requiresFramework: true,
+    });
     expect(catalog[0]?.description).not.toBe("api copy");
     expect(catalog[1]).toMatchObject({
       title: "Future",

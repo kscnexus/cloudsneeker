@@ -25,7 +25,7 @@ The status values are the ones the inherited findings UI already renders (`ui/ty
 | `under_review` | Someone is investigating |
 | `remediating` | A fix is in progress |
 | `resolved` | Fixed. The UI asks for evidence (a note) and then locks the status |
-| `risk_accepted` | Accepted risk. EB-019 adds expiry and approver |
+| `risk_accepted` | Accepted risk, with a reason, an approver and an expiry date (EB-019, see below) |
 | `false_positive` | Not a real issue |
 | `reopened` | Failing again after it was resolved |
 
@@ -35,9 +35,20 @@ The API returns `status` as the effective status. A `resolved` triage reads as `
 
 ### Extension Points
 
-* EB-019 (risk acceptance): add nullable `accepted_until`, `approver`, and `reason` columns to `FindingTriage`, and an expiry task that sets `reopened` with `source=automation`.
 * EB-020 (ownership): `assignee` already exists. Add assignment rules in a new table and a "My findings" view filtered with `filter[assignee]`.
 * EB-021 (SLA): SLA dates come from `Finding.first_seen_at` and severity. Count `false_positive` and `risk_accepted` triage as excluded from overdue counts.
+
+### Risk Acceptance (EB-019)
+
+`FindingTriage` carries `risk_reason`, `risk_expires_on` (a date), `risk_approved_by`, `risk_approved_at` and `risk_expired_at` (migration `0021_risk_acceptance`).
+
+* Setting `risk_accepted` (single `PATCH` or bulk) records the acting user as the approver. The body may send `risk_reason` and `risk_expires_on`. The expiry must be after today (UTC) and at most `RISK_MAX_DAYS` (365) days ahead.
+* Without `risk_reason`, the note becomes the reason. Without `risk_expires_on`, the expiry is today plus `RISK_DEFAULT_DAYS` (90). The inherited cloud UI sends only a status and a note, so it gets these defaults.
+* Sending the fields again on an accepted finding renews it (new approver and time; reason and expiry kept unless sent). Sending them with any other status returns `400`.
+* The hourly Beat task `cloudsneeker-expire-risk-acceptances` (`services/risk_acceptance.py`) reopens every acceptance whose expiry is before today: status `reopened`, `source=automation`, `risk_expired_at` set, and a note from no author. It emails the assignee, else the approver, through the tenant's SMTP settings (one email per owner). Tenants without SMTP still get the reopen and the note.
+* The reason, approver and expiry stay on the row after it reopens, as history.
+* Area findings rows return `risk_reason` and `risk_expires_on` while the risk is accepted. The executive report adds a `triage_risk_accepted` KPI and an "Accepted risks" table (finding, area, reason, approver, approval date, expiry) for findings in scope plus governance matches on the providers in scope.
+* UI: choosing "Risk accepted" in an area findings table, or in its bulk bar, opens a reason and expiry form first. The row shows "Until <date>". Triage pages show the expiry (highlighted within 14 days), approver and reason, or "Risk acceptance expired" once reopened.
 
 ## API
 
@@ -54,7 +65,7 @@ All routes are under `/api/v1/` (`cloudsneeker_api/urls.py`, views in `cloudsnee
 | `GET` / `PATCH findings/{finding_uid}/triage` | The paths the inherited UI calls. `GET` on an untriaged visible finding returns `status: open` with `id: null`. `PATCH` creates the row (upsert, `201`) or updates it (`200`) |
 | `GET` / `POST findings/{finding_uid}/triage/notes`, `PATCH` / `DELETE .../notes/{note_id}` | Same note thread by UID. The first `POST` creates the triage |
 
-`PATCH` accepts `status`, `note`, and `assignee_id`. The assignee must be a member of the tenant. A note sent with a status change records that status on the note.
+`PATCH` accepts `status`, `note`, `assignee_id`, `risk_reason`, and `risk_expires_on`. The assignee must be a member of the tenant. A note sent with a status change records that status on the note.
 
 The UID routes use Django's `path` converter, so UIDs that contain `/` work when the client URL-encodes them. Upstream `findings/{pk}` routes never match these paths, because their `pk` pattern excludes `/` and `.`.
 
@@ -84,6 +95,10 @@ The executive report adds `triage_in_progress` (`under_review` plus `remediating
 The open-issue counts and the score are unchanged. A false positive still counts as open until it is muted.
 
 ## Known Gaps
+
+* A cloud finding the inherited UI muted when its risk was accepted stays muted after the acceptance expires. The expiry note and email say so; the user removes the mute rule on the Mutelist page.
+* No reminder is sent before an acceptance expires; the Triage page highlights the last 14 days.
+* The approver is the user who accepts the risk. There is no separate approval step.
 
 * Rescans do not persist `reopened`. It is derived when the triage is read. A post-scan task that writes `reopened` with `source=automation` would need a hook in the upstream scan task.
 * `filter[status]` matches the stored status. A derived `reopened` row is listed under `resolved`.

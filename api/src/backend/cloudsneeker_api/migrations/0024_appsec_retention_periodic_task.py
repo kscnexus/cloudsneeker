@@ -28,7 +28,7 @@ def delete_periodic_task(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("cloudsneeker_api", "0019_appsec_aspm"),
+        ("cloudsneeker_api", "0023_appsec_aspm"),
         ("django_celery_beat", "0019_alter_periodictasks_options"),
     ]
 

@@ -9,6 +9,9 @@ import { ReactNode, Suspense } from "react";
 import { getProviders } from "@/actions/providers";
 import { getScansByState } from "@/actions/scans/scans";
 import { auth } from "@/auth.config";
+import { BRAND } from "@/cloudsneeker/brand";
+import { CloudsneekerPlanStatus } from "@/cloudsneeker/components/plan-status"; // cloudsneeker-hook
+import { SkipToContent } from "@/cloudsneeker/components/skip-to-content"; // cloudsneeker-hook
 import MainLayout from "@/components/layout/main-layout/main-layout";
 import {
   OnboardingCheckpointWatcher,
@@ -22,8 +25,6 @@ import { TaskPollingWatcher } from "@/components/shared/task-polling-watcher";
 import { GlobalSidePanel } from "@/components/side-panel";
 import { FeedbackSurvey } from "@/components/survey/feedback-survey";
 import { fontMono, fontSans } from "@/config/fonts";
-import { BRAND } from "@/cloudsneeker/brand";
-import { CloudsneekerPlanStatus } from "@/cloudsneeker/components/plan-status"; // cloudsneeker-hook
 import { siteConfig } from "@/config/site";
 import { REGISTRY_ACCESS } from "@/lib/registry/access";
 import { evaluateRegistryAccess } from "@/lib/registry/access.server";
@@ -114,6 +115,8 @@ export default async function RootLayout({
           fontMono.variable,
         )}
       >
+        {/* cloudsneeker-hook: skip link */}
+        <SkipToContent />
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
           {/* Suspense contains the useSearchParams() CSR bailout so statically
               prerendered pages don't fail the build (matches the auth layout). */}

@@ -3,6 +3,8 @@
 // stay out of the URLs users see.
 
 export const PRODUCT_ROUTE = {
+  /** Cloud posture dashboard (the upstream Overview widgets). */
+  CLOUD_SECURITY: "/cloud-security",
   APPLICATION_SECURITY: "/application-security",
   GOVERNANCE: "/governance",
   REPORTS: "/reports",
@@ -78,6 +80,12 @@ export const findingTriageHref = (...segments: string[]): string =>
 export const AREA_PAGE_SEGMENT = {
   FINDINGS: "findings",
   TRIAGE: "triage",
+} as const;
+
+/** Application Security pages beside the hub, findings and triage. */
+export const APP_SECURITY_SEGMENT = {
+  APPLICATIONS: "applications",
+  SCANS: "scans",
 } as const;
 
 /** Same-origin download proxy (`app/api/cloudsneeker/reports/...`). */

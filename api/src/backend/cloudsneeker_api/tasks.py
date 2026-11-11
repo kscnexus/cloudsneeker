@@ -236,6 +236,28 @@ def purge_audit_events_task(older_than_days: int | None = None):
     return {"deleted": purge_all_tenants(tenant_ids, days), "retention_days": days}
 
 
+# --- Application Security scan history ------------------------------------------
+
+
+@shared_task(name="cloudsneeker-archive-trivy-runs", queue="celery")
+def archive_trivy_runs_task(older_than_days: int | None = None):
+    """Celery Beat entrypoint: archive Application Security runs past the window.
+
+    The window is ``APP_SECURITY_SCAN_ARCHIVE_DAYS`` (default 365). Each tenant
+    is archived in its own RLS transaction.
+    """
+    from api.db_router import MainRouter
+    from api.models import Tenant
+    from cloudsneeker_api.services.trivy_history import (
+        archive_all_tenants,
+        archive_days,
+    )
+
+    days = older_than_days or archive_days()
+    tenant_ids = Tenant.objects.using(MainRouter.admin_db).values_list("id", flat=True)
+    return {"archived": archive_all_tenants(tenant_ids, days), "archive_days": days}
+
+
 # --- Operator console (Phase 1) -----------------------------------------------
 
 
@@ -281,4 +303,30 @@ def refresh_vuln_db_task():
         "refreshed": True,
         "snapshot": snapshot.path.name,
         "java_db": snapshot.java_db,
+    }
+
+
+# --- Exploit intelligence (EB-022) --------------------------------------------
+
+
+@shared_task(name="cloudsneeker-refresh-vuln-intel", queue="celery")
+def refresh_vuln_intel_task():
+    """Celery Beat entrypoint: refresh the EPSS and CISA KEV feeds."""
+    from cloudsneeker_api.services import vuln_intel
+
+    return vuln_intel.refresh()
+
+
+# --- Risk acceptance expiry (EB-019) ------------------------------------------
+
+
+@shared_task(name="cloudsneeker-expire-risk-acceptances", queue="celery")
+def expire_risk_acceptances_task():
+    """Celery Beat entrypoint: reopen expired risk acceptances, email owners."""
+    from cloudsneeker_api.services import risk_acceptance
+
+    expired = risk_acceptance.expire_risk_acceptances()
+    return {
+        "reopened": len(expired),
+        "emails_sent": risk_acceptance.notify_owners(expired) if expired else 0,
     }

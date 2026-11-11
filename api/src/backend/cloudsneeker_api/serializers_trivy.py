@@ -287,6 +287,7 @@ class TrivyRunSerializer(RLSSerializer):
             "stats",
             "cancel_requested_at",
             "has_artifact",
+            "archived_at",
         ]
 
     class JSONAPIMeta:

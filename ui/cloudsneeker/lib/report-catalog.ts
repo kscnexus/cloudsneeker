@@ -24,54 +24,76 @@ export interface ReportCatalogEntry {
   requiresFramework: boolean;
 }
 
-const REPORT_COPY: Record<ReportTypeId, { title: string; description: string }> =
-  {
-    [REPORT_TYPE_ID.EXECUTIVE]: {
-      title: "Executive summary",
-      description:
-        "One page for leadership: overall security grade, top business risks, trend, and the next actions that matter most.",
-    },
-    [REPORT_TYPE_ID.CLOUD_POSTURE]: {
-      title: "Cloud posture",
-      description:
-        "How well your cloud accounts are configured, by severity, service, and account.",
-    },
-    [REPORT_TYPE_ID.COMPLIANCE]: {
-      title: "Compliance",
-      description:
-        "Requirement-by-requirement status for one framework, ready to hand to an auditor.",
-    },
-    [REPORT_TYPE_ID.SCA]: {
-      title: "Open-source dependencies",
-      description:
-        "Vulnerable third-party packages with the fixed version to upgrade to.",
-    },
-    [REPORT_TYPE_ID.SAST]: {
-      title: "Source code security",
-      description:
-        "Weaknesses in your own code such as injection, cross-site scripting, and insecure crypto.",
-    },
-    [REPORT_TYPE_ID.CONTAINER]: {
-      title: "Container images",
-      description:
-        "Vulnerabilities, exposed secrets, and misconfigurations in images and Kubernetes workloads.",
-    },
-    [REPORT_TYPE_ID.IAC]: {
-      title: "Infrastructure as Code",
-      description:
-        "Misconfigurations caught in templates before they reach production.",
-    },
-    [REPORT_TYPE_ID.SECRETS]: {
-      title: "Exposed secrets",
-      description:
-        "Credentials and keys found in code, images, and cloud accounts.",
-    },
-    [REPORT_TYPE_ID.GOVERNANCE]: {
-      title: "Cloud governance",
-      description:
-        "Resources that break your governance policies and how that changed since the last check.",
-    },
-  };
+const REPORT_COPY: Record<
+  ReportTypeId,
+  { title: string; description: string }
+> = {
+  [REPORT_TYPE_ID.EXECUTIVE]: {
+    title: "Executive summary",
+    description:
+      "One page for leadership: overall security grade, top business risks, trend, and the next actions that matter most.",
+  },
+  [REPORT_TYPE_ID.CLOUD_POSTURE]: {
+    title: "Cloud posture",
+    description:
+      "How well your cloud accounts are configured, by severity, service, and account.",
+  },
+  [REPORT_TYPE_ID.COMPLIANCE]: {
+    title: "Compliance",
+    description:
+      "Requirement-by-requirement status for one framework, ready to hand to an auditor.",
+  },
+  [REPORT_TYPE_ID.SCA]: {
+    title: "Open-source dependencies",
+    description:
+      "Vulnerable third-party packages with the fixed version to upgrade to.",
+  },
+  [REPORT_TYPE_ID.SAST]: {
+    title: "Source code security",
+    description:
+      "Weaknesses in your own code such as injection, cross-site scripting, and insecure crypto.",
+  },
+  [REPORT_TYPE_ID.CONTAINER]: {
+    title: "Container images",
+    description:
+      "Vulnerabilities, exposed secrets, and misconfigurations in images and Kubernetes workloads.",
+  },
+  [REPORT_TYPE_ID.IAC]: {
+    title: "Infrastructure as Code",
+    description:
+      "Misconfigurations caught in templates before they reach production.",
+  },
+  [REPORT_TYPE_ID.SECRETS]: {
+    title: "Exposed secrets",
+    description:
+      "Credentials and keys found in code, images, and cloud accounts.",
+  },
+  [REPORT_TYPE_ID.SECURITY_ASSESSMENT]: {
+    title: "Executive Security Assessment",
+    description:
+      "Board-ready assessment: score, coverage, top risks with business impact, trend, and a 90-day remediation roadmap.",
+  },
+  [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: {
+    title: "Application Security Assessment",
+    description:
+      "Dependencies, code, secrets, and templates with fixes, owners, and a remediation plan.",
+  },
+  [REPORT_TYPE_ID.CLOUD_ASSESSMENT]: {
+    title: "Cloud Security Assessment",
+    description:
+      "Cloud configuration findings per account and service with provider-specific fixes.",
+  },
+  [REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT]: {
+    title: "Governance and Compliance Assessment",
+    description:
+      "Policy violations and assessed frameworks, kept apart from frameworks that are only available.",
+  },
+  [REPORT_TYPE_ID.GOVERNANCE]: {
+    title: "Cloud governance",
+    description:
+      "Resources that break your governance policies and how that changed since the last check.",
+  },
+};
 
 const isKnownReportType = (id: string): id is ReportTypeId =>
   Object.values(REPORT_TYPE_ID).includes(id as ReportTypeId);

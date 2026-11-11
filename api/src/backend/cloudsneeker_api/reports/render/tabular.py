@@ -196,6 +196,10 @@ def render_csv(data: ReportData) -> bytes:
     Returns:
         CSV bytes.
     """
+    if "assessment" in data.extra:
+        from cloudsneeker_api.reports.assessment.export import render_assessment_csv
+
+        return render_assessment_csv(data)
     table = _primary_table(data)
     buffer = io.StringIO()
     writer = csv.writer(buffer)

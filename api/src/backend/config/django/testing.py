@@ -43,3 +43,11 @@ SIMPLE_JWT["SIGNING_KEY"] = env.str(  # noqa: F405
 # Tests don't need secure password hashing; PBKDF2 (~hundreds of ms per call)
 # dominates fixture setup time across every create_user()/check_password().
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+# cloudsneeker-hook: no Valkey in unit tests, and the sign-in lockout would
+# trip on fixtures that sign in with wrong passwords. Its own tests enable it.
+CACHES["cloudsneeker-shared"] = {  # noqa: F405
+    "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    "LOCATION": "cloudsneeker-shared",
+}
+CLOUDSNEEKER_LOGIN_GUARD_ENABLED = False

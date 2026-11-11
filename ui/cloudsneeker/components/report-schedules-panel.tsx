@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -28,6 +28,8 @@ import {
   DialogTitle,
 } from "@/components/shadcn/dialog";
 
+import { EmptyState } from "./empty-state";
+import { FormAlert } from "./form-layout";
 import type { ReportOption } from "./report-params-fields";
 import { ReportScheduleForm } from "./report-schedule-form";
 
@@ -39,7 +41,9 @@ interface ReportSchedulesPanelProps {
   canManage: boolean;
 }
 
-type Editing = { mode: "create" } | { mode: "edit"; schedule: ReportScheduleResource };
+type Editing =
+  | { mode: "create" }
+  | { mode: "edit"; schedule: ReportScheduleResource };
 
 export const ReportSchedulesPanel = ({
   schedules,
@@ -94,8 +98,8 @@ export const ReportSchedulesPanel = ({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-text-neutral-secondary max-w-2xl text-sm">
-          Email a report on a schedule. Each delivery uses the latest results
-          at send time.
+          Email a report on a schedule. Each delivery uses the latest results at
+          send time.
         </p>
         <Button
           type="button"
@@ -108,12 +112,14 @@ export const ReportSchedulesPanel = ({
         </Button>
       </div>
 
-      {error ? <p className="text-text-error-primary text-sm">{error}</p> : null}
+      <FormAlert message={error} />
 
       {schedules.length === 0 ? (
-        <p className="text-text-neutral-secondary border-border-neutral-secondary rounded-xl border border-dashed p-6 text-sm">
-          No scheduled reports yet.
-        </p>
+        <EmptyState
+          icon={<CalendarClock />}
+          title="No scheduled reports yet"
+          description="Add a schedule to email a report on a regular cadence."
+        />
       ) : (
         <ul className="divide-border-neutral-secondary border-border-neutral-secondary divide-y rounded-xl border">
           {schedules.map((schedule) => {
@@ -162,7 +168,9 @@ export const ReportSchedulesPanel = ({
                   </Button>
                   <Button
                     type="button"
-                    variant={confirming === schedule.id ? "destructive" : "ghost"}
+                    variant={
+                      confirming === schedule.id ? "destructive" : "ghost"
+                    }
                     size="xs"
                     disabled={busy === schedule.id}
                     onClick={() => onDelete(schedule.id)}

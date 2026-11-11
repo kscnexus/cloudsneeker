@@ -1,13 +1,15 @@
 import { BRAND } from "./brand";
 import { PRODUCT_ROUTE } from "./routes";
 
-const UUID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_SEGMENT =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const ID_SEGMENT_LABEL = "Details";
 
 // Product areas read with their product names ("Cloud Governance", not
 // "Governance").
 const PRODUCT_SEGMENT_LABELS: Record<string, string> = {
+  [PRODUCT_ROUTE.CLOUD_SECURITY.slice(1)]: BRAND.cloudSecurityName,
   [PRODUCT_ROUTE.APPLICATION_SECURITY.slice(1)]: BRAND.appSecurityName,
   [PRODUCT_ROUTE.GOVERNANCE.slice(1)]: BRAND.governanceName,
 };
@@ -24,3 +26,11 @@ export const breadcrumbSegmentLabel = (
   if (UUID_SEGMENT.test(segment)) return ID_SEGMENT_LABEL;
   return PRODUCT_SEGMENT_LABELS[segment] ?? fallback;
 };
+
+// Path segments that group pages but have no page of their own. A crumb for
+// one is shown as plain text, not a link to a 404.
+const PAGELESS_PATHS: ReadonlySet<string> = new Set(["/settings"]);
+
+/** Whether an auto-generated crumb for `path` can link anywhere. */
+export const isBreadcrumbPathLinkable = (path: string): boolean =>
+  !PAGELESS_PATHS.has(path);

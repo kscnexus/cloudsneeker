@@ -909,4 +909,3 @@ def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
     from cloudsneeker_api.appsec.engine import execute_run
 
     return execute_run(tenant_id=tenant_id, run_id=run_id)
-

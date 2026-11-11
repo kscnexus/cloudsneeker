@@ -8,6 +8,7 @@ import {
   areaFindingHref,
   areaFindingsPageHref,
   areaFindingsSearchParams,
+  areaSortOptions,
   areaTriagePageHref,
   areaTriageSearchParams,
   parseAreaFilters,
@@ -45,6 +46,7 @@ describe("parseAreaFilters", () => {
         q: "  lodash ",
         sort: "-last_seen_at",
         page: "3",
+        fix: "available",
       }),
     ).toEqual({
       severities: ["high", "critical"],
@@ -53,12 +55,18 @@ describe("parseAreaFilters", () => {
       search: "lodash",
       sort: AREA_FINDING_SORT.NEWEST,
       page: 3,
+      fix: "available",
     });
   });
 
   it("falls back to defaults", () => {
     expect(
-      parseAreaFilters({ triage: "done", sort: "uid", page: "-1" }),
+      parseAreaFilters({
+        triage: "done",
+        sort: "uid",
+        page: "-1",
+        fix: "maybe",
+      }),
     ).toEqual({
       severities: [],
       triage: null,
@@ -66,6 +74,7 @@ describe("parseAreaFilters", () => {
       search: "",
       sort: AREA_FINDING_SORT.SEVERITY,
       page: 1,
+      fix: null,
     });
   });
 });
@@ -80,6 +89,7 @@ describe("areaFindingsSearchParams", () => {
         search: "vol",
         sort: AREA_FINDING_SORT.SEVERITY,
         page: 2,
+        fix: "available",
       }),
     ).toEqual({
       "filter[area]": "governance",
@@ -91,6 +101,56 @@ describe("areaFindingsSearchParams", () => {
       "filter[source__in]": "policy-1",
       "filter[search]": "vol",
     });
+  });
+
+  it("sends the fix filter only for areas with fix data", () => {
+    const filters = {
+      severities: [],
+      triage: null,
+      source: null,
+      search: "",
+      sort: AREA_FINDING_SORT.SEVERITY,
+      page: 1,
+      fix: "unavailable" as const,
+    };
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.APPLICATION_SECURITY, filters)[
+        "filter[fix]"
+      ],
+    ).toBe("unavailable");
+    expect(
+      areaFindingsPageHref(FINDING_AREA.APPLICATION_SECURITY, filters),
+    ).toBe("/application-security/findings?fix=unavailable");
+  });
+
+  it("sends the known exploited filter only for CVE areas", () => {
+    const params = parseAreaFilters({ exploited: "1" });
+    expect(params.exploited).toBe(true);
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.APPLICATION_SECURITY, params)[
+        "filter[known_exploited]"
+      ],
+    ).toBe("true");
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.CLOUD, params)[
+        "filter[known_exploited]"
+      ],
+    ).toBeUndefined();
+    expect(
+      areaFindingsPageHref(FINDING_AREA.APPLICATION_SECURITY, {
+        exploited: true,
+        sort: AREA_FINDING_SORT.EXPLOIT,
+      }),
+    ).toBe("/application-security/findings?sort=-epss&exploited=1");
+  });
+
+  it("offers the exploit sort only where findings are CVEs", () => {
+    expect(areaSortOptions(FINDING_AREA.APPLICATION_SECURITY)).toContain(
+      AREA_FINDING_SORT.EXPLOIT,
+    );
+    expect(areaSortOptions(FINDING_AREA.GOVERNANCE)).not.toContain(
+      AREA_FINDING_SORT.EXPLOIT,
+    );
   });
 
   it("scopes the triage list to the area", () => {
@@ -141,7 +201,10 @@ describe("area links", () => {
         uid: "trivy-repo-CVE-1",
         checkId: "CVE-1",
       }),
-    ).toBe("/application-security/findings?q=trivy-repo-CVE-1");
+    ).toBe("/application-security/findings/trivy-repo-CVE-1");
+    expect(
+      areaFindingHref(FINDING_AREA.GOVERNANCE, { uid: "g-1", checkId: "r" }),
+    ).toBe("/governance/findings?q=g-1");
   });
 });
 

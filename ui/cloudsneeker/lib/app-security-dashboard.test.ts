@@ -13,10 +13,13 @@ import {
 
 import {
   APP_SECURITY_CATEGORY,
+  APP_SECURITY_TAB,
   appSecurityCategoryHref,
+  appSecurityTabHref,
   buildAppSecurityDashboard,
   filterTargetsByCategory,
   getAppSecurityCategory,
+  getAppSecurityTab,
   latestCompletedRunByTarget,
   newTargetHref,
   repositorySourcesWithoutTarget,
@@ -79,6 +82,27 @@ describe("appSecurityCategoryHref", () => {
       "/application-security/scans?category=secrets",
     );
     expect(appSecurityCategoryHref(null)).toBe("/application-security/scans");
+  });
+});
+
+describe("Application Security tabs", () => {
+  it("reads the tab, opening Targets for a category link", () => {
+    expect(getAppSecurityTab("scans")).toBe(APP_SECURITY_TAB.SCANS);
+    expect(getAppSecurityTab(["targets"])).toBe(APP_SECURITY_TAB.TARGETS);
+    expect(getAppSecurityTab("bogus")).toBe(APP_SECURITY_TAB.DASHBOARD);
+    expect(getAppSecurityTab(undefined)).toBe(APP_SECURITY_TAB.DASHBOARD);
+    expect(getAppSecurityTab(undefined, APP_SECURITY_CATEGORY.SECRETS)).toBe(
+      APP_SECURITY_TAB.TARGETS,
+    );
+  });
+
+  it("links each tab, leaving the dashboard bare", () => {
+    expect(appSecurityTabHref(APP_SECURITY_TAB.DASHBOARD)).toBe(
+      "/application-security",
+    );
+    expect(appSecurityTabHref(APP_SECURITY_TAB.SCANS)).toBe(
+      "/application-security?tab=scans",
+    );
   });
 });
 

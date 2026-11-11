@@ -80,6 +80,9 @@ def gate_token_response(request, response):
     email = str(attributes.get("email") or "").strip()
     if not email:
         return response
+    # The 401s below replace the DRF response, so tell LoginGuardMiddleware
+    # which account a wrong code belongs to.
+    request.cloudsneeker_sign_in_email = email
 
     from api.db_router import MainRouter
     from api.models import User

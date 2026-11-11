@@ -19,7 +19,8 @@ from cloudsneeker_api.services.trivy import (
     request_run_cancel,
 )
 from cloudsneeker_api.services.trivy_schedule import delete_target_schedule
-from django.db.models import OuterRef, Subquery
+from django.db.models import F, OuterRef, Subquery, Window
+from django.db.models.functions import RowNumber
 from django.http import HttpResponse
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -28,6 +29,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
+from rest_framework_json_api.serializers import ValidationError
 
 
 class TrivyTargetFilter(filters.FilterSet):
@@ -42,15 +44,44 @@ class TrivyTargetFilter(filters.FilterSet):
         fields = ["mode", "provider", "schedule_enabled", "application", "unassigned"]
 
 
+LATEST_PER_TARGET_MAX = 100
+
+
 class TrivyRunFilter(filters.FilterSet):
     status = filters.CharFilter()
     target = filters.UUIDFilter(field_name="target_id")
     provider = filters.UUIDFilter(field_name="provider_id")
     trigger = filters.CharFilter()
+    # Target mode (repo, image, sast, ...) for the scanning centre.
+    mode = filters.CharFilter(field_name="target__mode")
+    archived = filters.BooleanFilter(method="filter_archived")
+    latest_per_target = filters.NumberFilter(method="filter_latest_per_target")
 
     class Meta:
         model = TrivyRun
         fields = ["status", "target", "provider", "trigger"]
+
+    def filter_archived(self, queryset, name, value):
+        return queryset.filter(archived_at__isnull=not value)
+
+    def filter_latest_per_target(self, queryset, name, value):
+        """Keep each target's newest ``value`` runs (1-100).
+
+        Other filters narrow the runs before they are counted, so with
+        ``filter[archived]=false`` each target keeps its newest current runs.
+        """
+        if value != int(value) or not 1 <= value <= LATEST_PER_TARGET_MAX:
+            raise ValidationError(
+                f"latest_per_target must be a whole number from 1 to "
+                f"{LATEST_PER_TARGET_MAX}."
+            )
+        return queryset.annotate(
+            target_rank=Window(
+                expression=RowNumber(),
+                partition_by=[F("target_id")],
+                order_by=[F("inserted_at").desc(), F("id").desc()],
+            )
+        ).filter(target_rank__lte=int(value))
 
 
 @extend_schema_view(
@@ -95,9 +126,7 @@ class TrivyTargetViewSet(BaseRLSViewSet):
         target = serializer.save()
         target = TrivyTarget.objects.select_related("provider").get(pk=target.pk)
         return Response(
-            TrivyTargetSerializer(
-                target, context=self.get_serializer_context()
-            ).data,
+            TrivyTargetSerializer(target, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -108,9 +137,7 @@ class TrivyTargetViewSet(BaseRLSViewSet):
         target = serializer.save()
         target = TrivyTarget.objects.select_related("provider").get(pk=target.pk)
         return Response(
-            TrivyTargetSerializer(
-                target, context=self.get_serializer_context()
-            ).data
+            TrivyTargetSerializer(target, context=self.get_serializer_context()).data
         )
 
     def perform_destroy(self, instance):
@@ -214,8 +241,14 @@ class TrivyRunViewSet(BaseRLSViewSet):
         allowed = caps.TARGETS.get(run.target.mode, {}).get("export_formats", ())
         if fmt not in allowed:
             return Response(
-                {"errors": [{"detail": "This format is not available for the scan.",
-                             "code": "invalid_format"}]},
+                {
+                    "errors": [
+                        {
+                            "detail": "This format is not available for the scan.",
+                            "code": "invalid_format",
+                        }
+                    ]
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
@@ -225,21 +258,35 @@ class TrivyRunViewSet(BaseRLSViewSet):
         report = engine.load_report(run, index)
         if report is None:
             return Response(
-                {"errors": [{"detail": "The scan report is no longer stored.",
-                             "code": "artifact_gone"}]},
+                {
+                    "errors": [
+                        {
+                            "detail": "The scan report is no longer stored.",
+                            "code": "artifact_gone",
+                        }
+                    ]
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         if fmt == "json":
             body, content_type, extension = (
-                json.dumps(report).encode("utf-8"), "application/json", "json",
+                json.dumps(report).encode("utf-8"),
+                "application/json",
+                "json",
             )
         else:
             try:
                 body = engine.convert_report(report, fmt)
             except engine.EngineError as exc:
                 return Response(
-                    {"errors": [{"detail": scrub_engine_text(str(exc)),
-                                 "code": "conversion_failed"}]},
+                    {
+                        "errors": [
+                            {
+                                "detail": scrub_engine_text(str(exc)),
+                                "code": "conversion_failed",
+                            }
+                        ]
+                    },
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             _, content_type, extension = engine.CONVERT_FORMATS[fmt]

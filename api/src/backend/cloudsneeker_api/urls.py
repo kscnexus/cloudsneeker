@@ -80,9 +80,13 @@ from django.urls import include, path
 from rest_framework_nested import routers
 
 router = routers.DefaultRouter(trailing_slash=False)
-router.register(r"scan-configurations", ScanConfigurationViewSet, basename="scan-configurations")
+router.register(
+    r"scan-configurations", ScanConfigurationViewSet, basename="scan-configurations"
+)
 router.register(r"alerts/rules", AlertRuleViewSet, basename="alert-rules")
-router.register(r"alerts/recipients", AlertRecipientViewSet, basename="alert-recipients")
+router.register(
+    r"alerts/recipients", AlertRecipientViewSet, basename="alert-recipients"
+)
 router.register(r"ingestions", IngestionViewSet, basename="ingestions")
 router.register(
     r"email-delivery-config",
@@ -120,9 +124,7 @@ router.register(r"appsec", AppSecPlatformViewSet, basename="appsec")
 # --- End ASPM ---
 router.register(r"report-types", ReportTypeViewSet, basename="report-types")
 router.register(r"report-runs", ReportRunViewSet, basename="report-runs")
-router.register(
-    r"report-schedules", ReportScheduleViewSet, basename="report-schedules"
-)
+router.register(r"report-schedules", ReportScheduleViewSet, basename="report-schedules")
 router.register(
     r"report-share-links", ReportShareLinkViewSet, basename="report-share-links"
 )
@@ -196,7 +198,9 @@ operator_urlpatterns = [
         OperatorPlanDetailView.as_view(),
         name="operator-plan-detail",
     ),
-    path("operator/operators", OperatorListView.as_view(), name="operator-operator-list"),
+    path(
+        "operator/operators", OperatorListView.as_view(), name="operator-operator-list"
+    ),
     path(
         "operator/audit-events",
         OperatorAuditListView.as_view(),

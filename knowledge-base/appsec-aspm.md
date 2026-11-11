@@ -79,7 +79,7 @@ No second queue, worker, auth layer or settings system is added. Reports, alerts
 
 ## Data Model
 
-Migration `0019_appsec_aspm` (tables and `TrivyRun` / `TrivyTarget` columns) and `0020_appsec_retention_periodic_task`. All tables are row-level security protected.
+Migration `0023_appsec_aspm` (tables and `TrivyRun` / `TrivyTarget` columns) and `0024_appsec_retention_periodic_task`. All tables are row-level security protected.
 
 | Table | Holds |
 | --- | --- |

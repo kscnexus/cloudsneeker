@@ -528,6 +528,12 @@ def render_pdf(data: ReportData) -> bytes:
     Returns:
         PDF document bytes.
     """
+    if "assessment" in data.extra:
+        from cloudsneeker_api.reports.assessment.render_pdf import (
+            render_assessment_pdf,
+        )
+
+        return render_assessment_pdf(data)
     styles = create_pdf_styles()
     cell = _cell_style(styles)
     charts = _charts(data)

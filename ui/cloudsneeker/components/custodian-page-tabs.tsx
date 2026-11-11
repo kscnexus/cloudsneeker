@@ -1,6 +1,3 @@
-"use client";
-
-import { useRouter } from "next/navigation";
 import { ReactNode } from "react";
 
 import {
@@ -8,7 +5,8 @@ import {
   CUSTODIAN_TAB,
   type CustodianTab,
 } from "@/cloudsneeker/lib/custodian-dashboard";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn";
+
+import { ProductPageTabs } from "./product-page-tabs";
 
 interface CustodianPageTabsProps {
   activeTab: CustodianTab;
@@ -24,37 +22,29 @@ export const CustodianPageTabs = ({
   policiesContent,
   reportsContent,
   actions,
-}: CustodianPageTabsProps) => {
-  const router = useRouter();
-
-  const handleTabChange = (tab: string) => {
-    const typedTab = tab as CustodianTab;
-    if (typedTab === activeTab) return;
-    router.push(buildCustodianTabHref(typedTab));
-  };
-
-  return (
-    <Tabs value={activeTab} onValueChange={handleTabChange}>
-      <div className="flex flex-col gap-[18px]">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value={CUSTODIAN_TAB.DASHBOARD}>Dashboard</TabsTrigger>
-            <TabsTrigger value={CUSTODIAN_TAB.POLICIES}>Policies</TabsTrigger>
-            <TabsTrigger value={CUSTODIAN_TAB.REPORTS}>Reports</TabsTrigger>
-          </TabsList>
-          {actions}
-        </div>
-
-        <TabsContent value={CUSTODIAN_TAB.DASHBOARD}>
-          {dashboardContent}
-        </TabsContent>
-        <TabsContent value={CUSTODIAN_TAB.POLICIES}>
-          {policiesContent}
-        </TabsContent>
-        <TabsContent value={CUSTODIAN_TAB.REPORTS}>
-          {reportsContent}
-        </TabsContent>
-      </div>
-    </Tabs>
-  );
-};
+}: CustodianPageTabsProps) => (
+  <ProductPageTabs
+    activeTab={activeTab}
+    actions={actions}
+    tabs={[
+      {
+        value: CUSTODIAN_TAB.DASHBOARD,
+        label: "Dashboard",
+        href: buildCustodianTabHref(CUSTODIAN_TAB.DASHBOARD),
+        content: dashboardContent,
+      },
+      {
+        value: CUSTODIAN_TAB.POLICIES,
+        label: "Policies",
+        href: buildCustodianTabHref(CUSTODIAN_TAB.POLICIES),
+        content: policiesContent,
+      },
+      {
+        value: CUSTODIAN_TAB.REPORTS,
+        label: "Reports",
+        href: buildCustodianTabHref(CUSTODIAN_TAB.REPORTS),
+        content: reportsContent,
+      },
+    ]}
+  />
+);

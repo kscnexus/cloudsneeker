@@ -19,6 +19,7 @@ from cloudsneeker_api.models import (
 )
 from cloudsneeker_api.services.finding_triage import (
     BULK_MAX_FINDINGS,
+    RISK_REASON_MAX_LENGTH,
     FindingSnapshot,
     effective_status,
 )
@@ -42,6 +43,8 @@ class FindingTriageSerializer(RLSSerializer):
     has_note = serializers.SerializerMethodField()
     note_id = serializers.SerializerMethodField()
     current_note = serializers.SerializerMethodField()
+    risk_approved_by_id = serializers.UUIDField(read_only=True, allow_null=True)
+    risk_approved_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = FindingTriage
@@ -65,10 +68,22 @@ class FindingTriageSerializer(RLSSerializer):
             "has_note",
             "note_id",
             "current_note",
+            "risk_reason",
+            "risk_expires_on",
+            "risk_approved_by_id",
+            "risk_approved_by_name",
+            "risk_approved_at",
+            "risk_expired_at",
         ]
 
     class JSONAPIMeta:
         resource_name = TRIAGE_RESOURCE
+
+    def get_risk_approved_by_name(self, obj: FindingTriage) -> str:
+        user = obj.risk_approved_by if obj.risk_approved_by_id else None
+        if user is None:
+            return ""
+        return getattr(user, "name", "") or getattr(user, "email", "")
 
     def _finding(self, obj: FindingTriage) -> FindingSnapshot | None:
         return (self.context.get("findings") or {}).get(obj.finding_uid)
@@ -111,6 +126,14 @@ class FindingTriageUpdateSerializer(BaseSerializerV1):
         max_length=FINDING_TRIAGE_NOTE_MAX_LENGTH,
     )
     assignee_id = serializers.UUIDField(required=False, allow_null=True)
+    # EB-019: only with status ``risk_accepted`` (checked in the service).
+    risk_reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=False,
+        max_length=RISK_REASON_MAX_LENGTH,
+    )
+    risk_expires_on = serializers.DateField(required=False)
 
     class JSONAPIMeta:
         resource_name = TRIAGE_RESOURCE
@@ -144,6 +167,13 @@ class FindingTriageBulkSerializer(BaseSerializerV1):
         trim_whitespace=False,
         max_length=FINDING_TRIAGE_NOTE_MAX_LENGTH,
     )
+    risk_reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=False,
+        max_length=RISK_REASON_MAX_LENGTH,
+    )
+    risk_expires_on = serializers.DateField(required=False)
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}finding-triage-bulk"

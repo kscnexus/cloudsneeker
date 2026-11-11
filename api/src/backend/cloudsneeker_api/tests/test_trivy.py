@@ -557,9 +557,7 @@ class TestEnqueueTrivyRun:
         mock_runs.create.return_value = run
 
         with (
-            patch(
-                "cloudsneeker_api.services.trivy.rls_transaction"
-            ) as mock_rls,
+            patch("cloudsneeker_api.services.trivy.rls_transaction") as mock_rls,
             patch(
                 "cloudsneeker_api.services.trivy.TrivyTarget.objects",
                 mock_qs,
@@ -571,9 +569,7 @@ class TestEnqueueTrivyRun:
             patch(
                 "cloudsneeker_api.services.trivy.transaction.on_commit"
             ) as mock_on_commit,
-            patch(
-                "cloudsneeker_api.tasks.trivy_scan_task"
-            ) as mock_task,
+            patch("cloudsneeker_api.tasks.trivy_scan_task") as mock_task,
         ):
             mock_rls.return_value.__enter__ = MagicMock()
             mock_rls.return_value.__exit__ = MagicMock(return_value=False)
