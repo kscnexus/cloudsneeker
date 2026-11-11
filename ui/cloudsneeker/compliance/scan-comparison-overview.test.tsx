@@ -20,6 +20,12 @@ vi.mock("@/components/compliance", () => ({
   NoScansAvailable: () => <div>No scans available</div>,
 }));
 
+vi.mock("./accounts-framework-overview", () => ({
+  AccountsFrameworkOverview: ({ providerType }: { providerType: string }) => (
+    <div>{`accounts:${providerType}`}</div>
+  ),
+}));
+
 vi.mock("./scan-comparison-filters", () => ({
   ScanComparisonFilters: ({
     baselineScanId,
@@ -273,6 +279,20 @@ describe("ScanComparisonOverview", () => {
       screen.getByText(/compare scan has no compliance results/i),
     ).toBeInTheDocument();
     expect(screen.queryByText("Compare scans")).toBeNull();
+  });
+
+  it("shows frameworks across accounts in the accounts view", async () => {
+    render(
+      await ScanComparisonOverview({
+        searchParams: { view: "accounts" },
+        scans: scans as never,
+      }),
+    );
+    expect(screen.getByText("accounts:aws")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Across accounts" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(getCompliancesOverviewMock).not.toHaveBeenCalled();
   });
 
   it("asks for a second scan when fewer than two exist", async () => {
