@@ -20,6 +20,9 @@ The machine has no test database and no Docker, so database tests and async MCP 
 | --- | --- |
 | Pull request: "Cloudsneeker: Tests" (SDK, API with database, UI, MCP) | First run: 3 failures (an upstream mute test patched `transaction.on_commit` with a one-argument stand-in that the new signal reached; a duplicate rule name in `test_alert_areas`; the new `area` tool argument lacked the blank guard). Fixed in `fix(platform)`. Two reruns failed only in "Render assessment report samples" because `security.ubuntu.com` did not resolve on the runner; the third passed |
 | `main` after merge (`10005697`) | Tests, brand gate and "Deploy to Azure" passed on 2026-11-11 |
+| PR #5, #6, #8 (compliance) | Passed; #5 needed one rerun of "Build api image" (Debian mirror sync) |
+| PR #7 (alert history) | First run: every API test errored in database setup because the RLS constraint was created inside `CreateModel`; fixed with `AddConstraint`. Second run passed (API, UI) |
+| `main` after #7 and #8 (`be1c0b75`) | Tests passed, "Deploy to Azure" completed on 2026-11-12; `/api/v1/alerts/events` answers 401 unauthenticated (route live) |
 
 ## Deployed Site Scenarios
 
@@ -27,8 +30,10 @@ Run on https://cloudsneeker.vercel.app on 2026-11-11 after the merge, signed in 
 
 | Scenario | Steps | Status |
 | --- | --- | --- |
-| Compliance | Sidebar Compliance → Single Scan; Provider lists cloud then SaaS, no code or image providers; Account narrows the scan list; frameworks match the provider | Verified with AWS scan `01a1b683` (Provider, Account, Scan selectors, ThreatScore, 49 frameworks). **Open (PI-027):** scan `01a1c06a` (4,628 resources, finished near a VM restart) raises a server error on the page, and it is the default scan, so plain `/compliance?tab=per-scan` shows the error page. The page-level scan list is the same for every scan, so the failure is in that scan's compliance data calls; API logs are needed |
-| Multiple Scans | `/compliance` (Multiple Scans) | **Open (PI-028):** shows "No Scans available" because it reads the newest 50 scans, all Application Security, and then drops them. Pre-existing; same cause as PI-013 on Single Scan |
+| Compliance | Sidebar Compliance → Single Scan; Provider lists cloud then SaaS, no code or image providers; Account narrows the scan list; frameworks match the provider | Verified with AWS scan `01a1b683` (Provider, Account, Scan selectors, ThreatScore, 49 frameworks). Fixed in #5 (PI-027), see below. Before the fix: scan `01a1c06a` (4,628 resources, finished near a VM restart) raises a server error on the page, and it is the default scan, so plain `/compliance?tab=per-scan` shows the error page. The page-level scan list is the same for every scan, so the failure is in that scan's compliance data calls; API logs are needed |
+| Multiple Scans | `/compliance` (Multiple Scans) | Verified 2026-11-12 after #5, #6, #8: compares two AWS scans with results, no "Removed" rows, no notice |
+| Compliance, failed scan | `/compliance?tab=per-scan&scanId=01a1c06a-…` | Verified after #5: the "Compliance results are not available for this scan" notice instead of the error page; the default opens a scan with frameworks |
+| Alert history | `/alerts?tab=history`, filters Status = Open, Module = Cloud Governance, search | Verified 2026-11-12: Rules and History tabs; filters reach the API; empty state (the tenant has no alert rules, so no event exists yet) |
 | Alerts | `/alerts` → New alert → Modules = Application Security → Test shows only application counts; rule list shows the module | Verified: New alert, Modules selector, Test returned 8,597 findings. No rule saved (tenant has no alert rules) |
 | Application Security alert | Rescan a target with an Application Security rule enabled; notification links to the scan run | Needs a confirmed recipient or Slack channel on the tenant |
 | Governance alert | Run a policy dry run with a governance rule enabled | Needs a confirmed recipient or Slack channel |
