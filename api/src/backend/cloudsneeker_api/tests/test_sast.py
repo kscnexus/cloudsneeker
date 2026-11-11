@@ -635,6 +635,7 @@ class TestProcessSastRun:
         with (
             patch("cloudsneeker_api.models.TrivyRun.objects", mock_runs),
             patch.object(engine, "_update_run", side_effect=update),
+            patch.object(engine, "running_slots_full", return_value=False),
             patch(
                 "cloudsneeker_api.services.sast.run_opengrep_scan",
                 return_value=report,
@@ -688,6 +689,7 @@ class TestProcessSastRun:
         with (
             patch("cloudsneeker_api.models.TrivyRun.objects", mock_runs),
             patch.object(engine, "_update_run", side_effect=update),
+            patch.object(engine, "running_slots_full", return_value=False),
             patch(
                 "cloudsneeker_api.services.sast.run_opengrep_scan",
                 side_effect=TrivyHubError("Repository clone failed: denied"),
