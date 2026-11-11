@@ -682,6 +682,9 @@ def process_custodian_dry_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                     "updated_at",
                 ]
             )
+            from cloudsneeker_api.services.alert_dispatch import enqueue_after_scan
+
+            enqueue_after_scan(tenant_id, custodian_run_id=str(run_id))
         return {"status": CustodianRun.Status.COMPLETED, "run_id": str(run_id)}
     except Exception as exc:  # noqa: BLE001
         message = scrub_engine_text(str(exc))[:4000]

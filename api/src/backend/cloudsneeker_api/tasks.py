@@ -20,78 +20,38 @@ def process_finding_ingestion_task(tenant_id: str, ingestion_id: str):
 
 @shared_task(base=RLSTask, name="cloudsneeker-evaluate-alert-rules", queue="scans")
 @set_tenant(keep_tenant=True)
-def evaluate_alert_rules_task(tenant_id: str, scan_id: str | None = None):
-    """Evaluate enabled after-scan alert rules and notify email/Slack destinations."""
-    from api.db_utils import rls_transaction
-    from api.models import Finding
-    from cloudsneeker_api.models import AlertRecipient, AlertRule
-    from cloudsneeker_api.services.alert_conditions import evaluate_condition
-    from cloudsneeker_api.services.email_delivery import send_with_tenant_smtp
-    from cloudsneeker_api.services.slack import post_alert_to_channels
+def evaluate_alert_rules_task(
+    tenant_id: str,
+    scan_id: str | None = None,
+    custodian_run_id: str | None = None,
+    trigger: str = "after_scan",
+):
+    """Evaluate enabled alert rules and notify email and Slack destinations.
 
-    with rls_transaction(tenant_id):
-        rules = AlertRule.objects.filter(
-            tenant_id=tenant_id,
-            enabled=True,
-            trigger__in=[
-                AlertRule.Trigger.AFTER_SCAN,
-                AlertRule.Trigger.BOTH,
-            ],
-        ).prefetch_related("recipients")
-        findings = Finding.all_objects.filter(tenant_id=tenant_id)
-        if scan_id:
-            findings = findings.filter(scan_id=scan_id)
+    ``after_scan`` runs once per finished scan: a cloud or application scan
+    (``scan_id``) or a governance policy run (``custodian_run_id``). ``daily``
+    looks at the current state: the latest scan per provider and target and
+    the latest run per policy.
+    """
+    from cloudsneeker_api.services.alert_dispatch import evaluate_and_notify
 
-        notified = 0
-        for rule in rules:
-            matched, queryset = evaluate_condition(findings, rule.condition or {})
-            if not matched:
-                continue
-            count = queryset.count()
-            body = (
-                f"Alert rule '{rule.name}' matched {count} finding(s).\n\n"
-                f"{rule.description or ''}"
-            ).strip()
-            subject = f"[Cloudsneeker] {rule.name}"
+    return evaluate_and_notify(
+        tenant_id=tenant_id,
+        scan_id=scan_id,
+        custodian_run_id=custodian_run_id,
+        trigger=trigger,
+    )
 
-            emails = list(
-                rule.recipients.filter(
-                    status=AlertRecipient.Status.CONFIRMED
-                ).values_list("email", flat=True)
-            )
-            if emails:
-                try:
-                    send_with_tenant_smtp(
-                        tenant_id=tenant_id,
-                        subject=subject,
-                        message=body,
-                        recipient_list=emails,
-                    )
-                except Exception:
-                    logger.exception(
-                        "Alert email delivery failed tenant=%s rule=%s",
-                        tenant_id,
-                        rule.id,
-                    )
 
-            channel_ids = list(rule.slack_channel_ids or [])
-            if channel_ids:
-                try:
-                    post_alert_to_channels(
-                        tenant_id=tenant_id,
-                        channel_ids=channel_ids,
-                        text=f"*{subject}*\n{body}",
-                    )
-                except Exception:
-                    logger.exception(
-                        "Alert Slack delivery failed tenant=%s rule=%s",
-                        tenant_id,
-                        rule.id,
-                    )
+@shared_task(name="cloudsneeker-evaluate-daily-alert-rules", queue="celery")
+def evaluate_daily_alert_rules_task():
+    """Celery Beat entrypoint: queue daily alert evaluation per tenant."""
+    from cloudsneeker_api.services.alert_dispatch import tenants_with_daily_rules
 
-            if emails or channel_ids:
-                notified += 1
-        return {"rules_notified": notified}
+    tenant_ids = tenants_with_daily_rules()
+    for tenant_id in tenant_ids:
+        evaluate_alert_rules_task.delay(tenant_id=tenant_id, trigger="daily")
+    return {"tenants": len(tenant_ids)}
 
 
 @shared_task(base=RLSTask, name="cloudsneeker-custodian-dry-run", queue="scans")

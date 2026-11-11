@@ -56,9 +56,11 @@ from cloudsneeker_api.services.finding_triage import (
     effective_status,
     with_note_summary,
 )
+from cloudsneeker_api.services.area_mute import muted_uid_map
 from cloudsneeker_api.services.governance_findings import (
     GovernanceFinding,
     governance_findings,
+    is_governance_uid,
 )
 from cloudsneeker_api.services.plan_catalog import (
     FEATURE_APPLICATION_SECURITY,
@@ -714,15 +716,18 @@ def _governance_sort_key(query: AreaFindingQuery):
 
 
 def _governance_row(
-    finding: GovernanceFinding, triage: FindingTriage | None
+    finding: GovernanceFinding,
+    triage: FindingTriage | None,
+    mute: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    muted = mute is not None
     snapshot = FindingSnapshot(
         id=finding.uid,
         uid=finding.uid,
         check_id=finding.rule_name,
         provider_id=finding.provider_id,
         status=StatusChoices.FAIL,
-        muted=False,
+        muted=muted,
         inserted_at=finding.last_seen_at,
         area=AREA.GOVERNANCE,
     )
@@ -733,7 +738,8 @@ def _governance_row(
         "title": finding.title,
         "severity": finding.severity,
         "status": StatusChoices.FAIL,
-        "muted": False,
+        "muted": muted,
+        "muted_reason": mute["reason"] if mute else "",
         "check_id": finding.rule_name,
         "description": finding.description,
         "status_extended": "",
@@ -771,7 +777,13 @@ def _governance_page(
         )
         for finding in findings
     }
-    excluded: set[str] = set()
+    # Governance UIDs muted through the shared mutelist (services/area_mute.py).
+    muted = {
+        uid: entry
+        for uid, entry in muted_uid_map(tenant_id).items()
+        if is_governance_uid(uid)
+    }
+    excluded: set[str] = set() if query.include_muted else set(muted)
     kept: set[str] | None = None
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
@@ -779,7 +791,7 @@ def _governance_page(
         )
         values = set(uids.values_list("finding_uid", flat=True))
         if exclude:
-            excluded = values
+            excluded = excluded | values
         else:
             kept = values
     matches = [
@@ -792,7 +804,10 @@ def _governance_page(
     page = matches[start : start + query.page_size]
     triages = _triages_by_uid(tenant_id, [finding.uid for finding in page])
     return AreaFindingPage(
-        rows=[_governance_row(finding, triages.get(finding.uid)) for finding in page],
+        rows=[
+            _governance_row(finding, triages.get(finding.uid), muted.get(finding.uid))
+            for finding in page
+        ],
         count=len(matches),
         sources=sorted(sources.values(), key=lambda source: source.name.lower()),
     )

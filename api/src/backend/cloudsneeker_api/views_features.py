@@ -4,7 +4,7 @@ from api.authentication import CombinedJWTOrAPIKeyAuthentication
 from api.base_views import BaseRLSViewSet
 from api.db_router import MainRouter
 from api.db_utils import rls_transaction
-from api.models import Finding, Provider
+from api.models import Provider
 from api.rbac.permissions import Permissions
 from cloudsneeker_api.models import (
     JSON_API_TYPE_PREFIX,
@@ -33,7 +33,7 @@ from cloudsneeker_api.serializers_scan_config import (
     ScanConfigurationSerializer,
     ScanConfigurationWriteSerializer,
 )
-from cloudsneeker_api.services.alert_conditions import preview_condition
+from cloudsneeker_api.services.alert_evaluation import preview_rule, seed_condition
 from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.custodian import (
     CustodianDryRunError,
@@ -499,18 +499,8 @@ class AlertRuleViewSet(BaseRLSViewSet):
         filter_bag = payload.get("filter_bag") or {}
         if not isinstance(filter_bag, dict):
             filter_bag = {}
-        severity = (
-            filter_bag.get("severity")
-            or filter_bag.get("filter[severity]")
-            or filter_bag.get("filter[severity__in]")
-        )
-        if isinstance(severity, str):
-            severity = [part.strip() for part in severity.split(",") if part.strip()]
-        condition = {
-            "op": "count_gte",
-            "filter": {"severity": severity or ["critical", "high"]},
-            "value": 1,
-        }
+        condition = seed_condition(filter_bag)
+        severity = condition["filter"].get("severity") or []
         name = "Findings alert"
         if severity:
             name = f"{', '.join(severity)} findings"
@@ -545,8 +535,7 @@ class AlertRuleViewSet(BaseRLSViewSet):
         self.resource_name = False
         payload = request.data or {}
         condition = payload.get("condition") or {}
-        queryset = Finding.all_objects.filter(tenant_id=request.tenant_id)
-        preview = preview_condition(queryset, condition)
+        preview = preview_rule(str(request.tenant_id), condition)
         return Response(
             {
                 "data": {
