@@ -38,6 +38,8 @@ Run on https://cloudsneeker.vercel.app on 2026-11-11 after the merge, signed in 
 | Governance finding detail (#11) | `/governance/findings/custodian-…-averytestdb` | Verified: resource, policy, rule, run link, dates, triage link, Mute, raw resource record |
 | Frameworks across accounts (#13) | `/compliance?tab=cross-provider&view=accounts` | Verified: AWS · 1 account, 49 frameworks, 25% of 5895 requirements passed, most failed first |
 | Select all matching (#9) | `/governance/findings`, select the page | Verified the bar ("1 selected on this page"); "Select all matching" is not offered because every governance finding fits on one page; the cross-page path is covered by component tests |
+| Reports (#15) | `/reports` catalogue; generate Exceptions | Verified 2026-11-12: Exceptions, Remediation tracking, Open-source licenses and Software bill of materials listed; an Exceptions PDF generated (34 KB, "no exceptions in scope" on this tenant). The first load after the deploy showed "Reports are not available right now" while the API restarted |
+| Uptime monitoring (#14) | "Cloudsneeker: Uptime" run on demand | Passed (API liveness, API authentication, web app sign-in) |
 | Alerts | `/alerts` → New alert → Modules = Application Security → Test shows only application counts; rule list shows the module | Verified: New alert, Modules selector, Test returned 8,597 findings. No rule saved (tenant has no alert rules) |
 | Application Security alert | Rescan a target with an Application Security rule enabled; notification links to the scan run | Needs a confirmed recipient or Slack channel on the tenant |
 | Governance alert | Run a policy dry run with a governance rule enabled | Needs a confirmed recipient or Slack channel |
