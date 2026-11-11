@@ -147,7 +147,7 @@ describe("withCloudsneekerNavigation", () => {
     const result = withCloudsneekerNavigation(upstreamSections(), "/");
 
     expect(labelsOf(result)).toEqual([
-      { label: null, items: ["Overview", BRAND.assistantName] },
+      { label: null, items: ["Overview", BRAND.assistantName, "Search"] },
       {
         label: NAVIGATION_SECTION_LABEL.CLOUD_SECURITY,
         items: [
@@ -444,7 +444,10 @@ describe("withCloudsneekerNavigation", () => {
 
     const result = withCloudsneekerNavigation(sections, "/");
 
-    expect(result[0]?.items.map((item) => item.label)).toEqual(["Overview"]);
+    expect(result[0]?.items.map((item) => item.label)).toEqual([
+      "Overview",
+      "Search",
+    ]);
   });
 });
 

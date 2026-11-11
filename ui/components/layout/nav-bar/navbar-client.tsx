@@ -4,6 +4,8 @@ import { BellRing, Info } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, Suspense, type ReactElement } from "react";
 
+import { GlobalSearchBox } from "@/cloudsneeker/components/global-search-box"; // cloudsneeker-hook
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { MobileAppSidebar } from "@/components/layout/app-sidebar";
 import {
   BreadcrumbNavigation,
@@ -131,6 +133,10 @@ export function NavbarClient({
           </Suspense>
         </div>
         <div className="flex flex-1 items-center justify-end gap-3">
+          {/* cloudsneeker-hook: search every product area */}
+          {isCloudsneekerFeatureEnabled("globalSearch") ? (
+            <GlobalSearchBox className="hidden max-w-xs lg:block" />
+          ) : null}
           <SidePanelTrigger />
           <ThemeSwitch />
           {feedsSlot}
