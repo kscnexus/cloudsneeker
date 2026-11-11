@@ -182,19 +182,20 @@ class TestLifecycle:
 
     def test_absence_without_coverage_is_not_a_fix(self, target):
         _scan(target, _report([_vuln(severity="MEDIUM")], [SECRET]))
-        # A secrets-only scan says nothing about vulnerabilities.
+        # A secrets-only scan says nothing about vulnerabilities, so the
+        # finding keeps its state instead of being marked fixed.
         _scan(target, _report([], [SECRET]), options={"scanners": ["secret"]})
-        assert _state(target)["CVE-2024-0001"] == "open"
+        assert _state(target)["CVE-2024-0001"] == "new"
         # A severity filter above the finding's severity.
         _scan(
             target,
             _report([]),
             options={"scanners": ["vuln"], "severities": ["CRITICAL"]},
         )
-        assert _state(target)["CVE-2024-0001"] == "open"
+        assert _state(target)["CVE-2024-0001"] == "new"
         # A partial scan.
         _scan(target, _report([]), complete=False)
-        assert _state(target)["CVE-2024-0001"] == "open"
+        assert _state(target)["CVE-2024-0001"] == "new"
         # A full scan that no longer reports it.
         _scan(target, _report([]))
         assert _state(target)["CVE-2024-0001"] == "fixed"
@@ -386,15 +387,24 @@ class TestFindingsApi:
         lines = response.content.decode().splitlines()
         assert lines[0].startswith("uid,category,severity") and len(lines) == 2
 
-    def test_other_tenant_sees_nothing(self, target, tenants_fixture):
+    def test_other_tenant_sees_nothing(
+        self, authenticated_client, target, tenants_fixture
+    ):
         _scan(target, _report([_vuln()]))
-        other = tenants_fixture[1]
-        assert AppSecFinding.objects.filter(tenant_id=other.id).count() == 0
-        from api.db_utils import rls_transaction
+        finding = AppSecFinding.objects.filter(target=target).first()
+        assert finding is not None
+        # Move the scan's rows to a tenant the signed-in user is not in.
+        other = tenants_fixture[2]
+        AppSecFinding.objects.filter(target=target).update(tenant_id=other.id)
+        AppSecSbom.objects.filter(target=target).update(tenant_id=other.id)
 
-        with rls_transaction(str(other.id)):
-            assert AppSecFinding.objects.count() == 0
-            assert AppSecSbom.objects.count() == 0
+        listed = authenticated_client.get(reverse("appsec-findings-list"))
+        assert listed.status_code == 200
+        assert listed.json()["data"] == []
+        detail = authenticated_client.get(
+            reverse("appsec-findings-detail", kwargs={"pk": finding.id})
+        )
+        assert detail.status_code == 404
 
 
 @pytest.mark.django_db

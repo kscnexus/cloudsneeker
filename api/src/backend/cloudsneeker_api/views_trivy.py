@@ -231,7 +231,9 @@ class TrivyRunViewSet(BaseRLSViewSet):
         tags=["Trivy"],
         summary="Download the stored scan report (json, sarif, cyclonedx, spdx-json)",
     )
-    @action(detail=True, methods=["get"], url_path="export")
+    # No filter backends: the JSON:API query validation would reject the
+    # ``format`` and ``index`` parameters with a 400.
+    @action(detail=True, methods=["get"], url_path="export", filter_backends=[])
     def export(self, request, pk=None):
         from cloudsneeker_api.appsec import capabilities as caps
         from cloudsneeker_api.appsec import engine
