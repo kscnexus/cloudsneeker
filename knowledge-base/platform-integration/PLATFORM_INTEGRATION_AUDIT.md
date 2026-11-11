@@ -69,7 +69,7 @@ Status values: Identified, In Progress, Fixed, Tested, Deployed, Verified, Block
 | PI-020 | Seeker AI | No tool could read Application Security or Governance data | Only upstream cloud tools were allowlisted | Answers about applications or policies had no data | Five read-only MCP tools, allowlisted | `mcp_server/tests/cloudsneeker/test_area_tools.py` (CI) | Fixed |
 | PI-021 | Seeker AI | Prompt was cloud-only; no rule for the selected application finding | Upstream prompt | "How do I fix this?" on an application finding had no context | Prompt names the modules, the page-path rule and the source and recommendation rules | `lighthouse-prompt.test.ts` | Tested |
 | PI-022 | Reports | No license, SBOM, remediation tracking, or suppression/exception report; no finding status filter; the governance report shows muted as 0 | Not built | Gaps against the requested catalogue | See [Report Coverage Audit](REPORT_COVERAGE_AUDIT.md) | — | Identified |
-| PI-023 | Alerts | Alerts are rules, not alert records: no acknowledge, resolve, history | No alert event model | Cannot track an alert's lifecycle | Design in the matrix document; needs a new table | — | Identified |
+| PI-023 | Alerts | Alerts are rules, not alert records: no acknowledge, resolve, history | No alert event model | Cannot track an alert's lifecycle | `AlertEvent` per firing with status, API `alerts/events`, History tab on `/alerts` | `test_alert_events.py`, `alert-history.test.ts`, `alert-history.test.tsx` | Fixed |
 | PI-024 | Navigation | No global search | Not built | Users browse module by module | Design note in [UX and Navigation Audit](UX_AND_NAVIGATION_AUDIT.md) | — | Identified |
 | PI-025 | Governance | No detail page per governance finding | Not built | Links fall back to a search, or the policy run page (alerts) | Alerts link to the policy run, which lists the matched resource | — | Identified |
 | PI-026 | Lists | Area table "select all" covers the visible page only, without saying so | Label | A user could think every result was selected | Bar now says "N selected on this page" | `area-findings-table.test.tsx` | Tested |
@@ -80,4 +80,3 @@ Status values: Identified, In Progress, Fixed, Tested, Deployed, Verified, Block
 
 * Upstream checks, migrations and API types.
 * The bare `/compliance` route still opens Multiple Scans (upstream default; upstream tests assert it). Every Cloudsneeker entry point opens Single Scan.
-* Alert records with acknowledge and resolve (PI-023): needs a model and is a feature, which the brief puts on hold.
