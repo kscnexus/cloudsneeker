@@ -317,6 +317,43 @@ class TestRunUnit:
             outcome.failure.kind == failures.FAILURE_DATABASE and outcome.parsed is None
         )
 
+    def test_registry_rate_limit_retries_at_once_offline(self, tmp_path):
+        rate_limited = (
+            "FATAL Error remote Maven repository returned 429 Too Many Requests "
+            "for https://repo.maven.apache.org/maven2/org/x/x.pom. Retry-After: 1157."
+        )
+        calls = iter(
+            [
+                _process_result(tmp_path, exit_code=1, stderr=rate_limited),
+                _process_result(tmp_path, report=REPORT),
+            ]
+        )
+        outcome, process, sleeps = self._run(
+            tmp_path, lambda *args, **kwargs: next(calls)(*args, **kwargs)
+        )
+        assert outcome.failure is None and outcome.offline_fallback is True
+        assert process.call_count == 2 and sleeps == []
+        first, second = (call.args[0] for call in process.call_args_list)
+        assert engine.OFFLINE_FLAG not in first
+        assert second[:3] == [
+            "/usr/local/bin/trivy",
+            "repository",
+            engine.OFFLINE_FLAG,
+        ]
+        assert engine.OFFLINE_FLAG in outcome.command
+
+    def test_registry_rate_limit_falls_back_only_once(self, tmp_path):
+        outcome, process, _ = self._run(
+            tmp_path,
+            _process_result(
+                tmp_path,
+                exit_code=1,
+                stderr="FATAL npm registry returned 429 Too Many Requests",
+            ),
+        )
+        assert process.call_count == 2
+        assert outcome.failure.kind == failures.FAILURE_RATE_LIMITED
+
     def test_auth_failure_is_not_retried_and_is_redacted(self, tmp_path):
         outcome, process, _ = self._run(
             tmp_path,
@@ -817,3 +854,19 @@ class TestExports:
         assert engine.load_report(SimpleNamespace(artifact_path="")) is None
         assert engine.load_report(SimpleNamespace(artifact_path="../../etc")) is None
         assert engine.load_report(SimpleNamespace(artifact_path="tenant/other")) is None
+
+
+class TestRateLimitClassification:
+    def test_registry_429_is_rate_limited(self):
+        result = failures.classify_failure(
+            1,
+            "FATAL Error remote Maven repository returned 429 Too Many Requests",
+        )
+        assert result.kind == failures.FAILURE_RATE_LIMITED
+        assert result.message.startswith("A package registry rate-limited")
+
+    def test_database_download_limit_stays_a_database_failure(self):
+        result = failures.classify_failure(
+            1, "FATAL failed to download vulnerability DB: TOOMANYREQUESTS"
+        )
+        assert result.kind == failures.FAILURE_DATABASE and result.retryable

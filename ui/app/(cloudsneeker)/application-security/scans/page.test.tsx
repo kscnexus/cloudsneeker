@@ -9,7 +9,8 @@ describe("Application Security page workspace", () => {
   const source = readFileSync(path.join(currentDir, "page.tsx"), "utf8");
 
   it("renders the dashboard, then targets and scan history", () => {
-    expect(source).toContain("listTrivyTargets");
+    // Every target, not only the first page of 100.
+    expect(source).toContain("loadAllTargets()");
     expect(source).toContain("listTrivyRuns");
     expect(source).toContain("buildAppSecurityDashboard");
     expect(source).toContain("AppSecurityDashboardPanel");
@@ -23,7 +24,7 @@ describe("Application Security page workspace", () => {
   });
 
   it("shows a load error instead of an empty list when targets fail", () => {
-    expect(source).toContain("isListResponse(targetsResponse)");
+    expect(source).toContain("if (!loadedTargets)");
     expect(source).toContain("Targets could not be loaded");
   });
 

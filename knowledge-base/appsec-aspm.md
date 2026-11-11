@@ -157,12 +157,15 @@ Environment (platform level; not tenant editable):
 | --- | --- | --- |
 | `TRIVY_HUB_TIMEOUT_SECONDS` | 900 | Scan timeout when the profile sets none |
 | `TRIVY_HUB_MAX_CONCURRENT_PER_TARGET` | 2 | Active scans per target |
-| `APPSEC_MAX_ACTIVE_RUNS_PER_TENANT` | 10 | Active scans per tenant |
+| `APPSEC_MAX_ACTIVE_RUNS_PER_TENANT` | 10 | Scans running at once per tenant; extra runs stay queued and are dispatched again every 30 s (`engine.execute_run`). Running rows older than timeout × attempts + 10 min do not count |
+| `APPSEC_MAX_QUEUED_RUNS_PER_TENANT` | 1000 | Queued plus running scans per tenant; past it, starting a scan is refused |
 | `APPSEC_ENGINE_MAX_ATTEMPTS` | 3 | Attempts for database and network failures |
 | `APPSEC_MAX_REPORT_BYTES` | 512 MiB | Largest report read |
 | `APPSEC_MAX_EXTRACTED_BYTES`, `APPSEC_MAX_EXTRACTED_FILES` | 2 GiB, 200000 | Archive limits |
 | `APPSEC_MAX_IMAGES_PER_RUN` | 20 | Images in one scan |
 | `APPSEC_ENGINE_DIRECT_MODES` | all | Target types the engine runs itself |
+
+When a package registry rate-limits a scan (HTTP 429, typically Maven Central while many Java repositories scan at once, with a Retry-After of about 20 minutes), the engine retries once at once with `--offline-scan` instead of failing. The run completes but is recorded as incomplete with that reason, so findings it no longer reports are not marked fixed.
 
 Raw reports are stored masked under `DJANGO_TMP_OUTPUT_DIRECTORY/cloudsneeker-appsec/<tenant>/<run>/`, which the API and the workers must share (same requirement as reports). The daily task `cloudsneeker-appsec-retention` deletes reports and long-fixed findings past the tenant's retention.
 

@@ -800,6 +800,8 @@ class UnitOutcome:
     attempts: int = 0
     duration_ms: int = 0
     artifact: str = ""
+    # Re-run without remote dependency lookups after a registry rate limit.
+    offline_fallback: bool = False
 
 
 def run_unit(
@@ -877,6 +879,17 @@ def run_unit(
             outcome.failure = None
             break
         outcome.failure = failures.classify_failure(result.exit_code, stderr)
+        if (
+            outcome.failure.kind == failures.FAILURE_RATE_LIMITED
+            and OFFLINE_FLAG not in argv
+            and attempt < limits["max_attempts"]
+        ):
+            # Retry at once without remote metadata; the scan is then
+            # recorded as incomplete (see ``OFFLINE_FALLBACK_REASON``).
+            argv = [*argv[:2], OFFLINE_FLAG, *argv[2:]]
+            outcome.command = redact_argv(argv, unit.secrets)
+            outcome.offline_fallback = True
+            continue
         if not outcome.failure.retryable or attempt == limits["max_attempts"]:
             return outcome
         delay = failures.retry_delay_seconds(attempt)
@@ -1042,6 +1055,12 @@ def _fail(run, using: str, failure: failures.Failure, **fields: Any) -> dict[str
     )
     return {"status": status, "run_id": str(run.id)}
 
+
+OFFLINE_FLAG = "--offline-scan"
+OFFLINE_FALLBACK_REASON = (
+    "A package registry rate-limited the scan, so it ran without remote "
+    "dependency metadata; some transitive dependencies may be missing."
+)
 
 # Seconds a run waits before checking for a free slot again.
 DEFER_SECONDS = 30
@@ -1236,6 +1255,9 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
             reasons.append(f"{error['resource']}: {error['error']}")
     for item in failed:
         reasons.append(f"{item.unit.label}: {item.failure.message}")
+    for item in succeeded:
+        if item.offline_fallback:
+            reasons.append(f"{item.unit.label}: {OFFLINE_FALLBACK_REASON}")
     # Distinct units have distinct scopes, so fingerprints cannot collide.
     coverage = lifecycle.coverage_for(
         options, complete=not reasons, reasons=reasons[:20]

@@ -5,13 +5,13 @@ import {
   getAppSecCapabilities,
   listAppSecProfiles,
 } from "@/cloudsneeker/actions/appsec";
-import { listTrivyTargets } from "@/cloudsneeker/actions/trivy";
 import type {
   AppSecProfileOption,
   AppSecTargetOption,
 } from "@/cloudsneeker/components/appsec-application-form";
 import { attributesOf } from "@/cloudsneeker/lib/appsec";
 import { responseList } from "@/cloudsneeker/lib/findings-links";
+import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import type {
   AppSecCapabilities,
   AppSecProfileAttributes,
@@ -35,11 +35,9 @@ export const canManageScans = async (): Promise<boolean> => {
 };
 
 export const loadTargetOptions = async (): Promise<AppSecTargetOption[]> => {
-  const response = await listTrivyTargets({
-    "page[size]": "100",
-    sort: "name",
-  });
-  return responseList<TargetResource>(response).map((target) => ({
+  const loaded = await loadAllTargets({}, "name");
+  const targets = (loaded?.targets ?? []) as unknown as TargetResource[];
+  return targets.map((target) => ({
     id: target.id,
     name: target.attributes.name,
     mode: target.attributes.mode,

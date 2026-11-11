@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { getFindings } from "@/actions/findings/findings";
 import { getProviders } from "@/actions/providers/providers";
-import { listTrivyRuns, listTrivyTargets } from "@/cloudsneeker/actions/trivy";
+import { listTrivyRuns } from "@/cloudsneeker/actions/trivy";
 import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-security-dashboard-panel";
 import { AppSecurityScanHistory } from "@/cloudsneeker/components/app-security-scan-history";
@@ -34,12 +34,13 @@ import {
 } from "@/cloudsneeker/lib/app-security-scan-history";
 import { APPSEC_SEGMENT } from "@/cloudsneeker/lib/appsec";
 import {
-  isListResponse,
+  
   openFindingsHref,
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
 import { labelForProviderType } from "@/cloudsneeker/lib/trivy-modes";
+import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import {
   REPORT_SEVERITY_ORDER,
@@ -47,7 +48,6 @@ import {
 } from "@/cloudsneeker/types/reports";
 import type {
   TrivyRunResource,
-  TrivyTargetResource,
 } from "@/cloudsneeker/types/trivy";
 import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
@@ -154,15 +154,15 @@ const SSRAppSecurityWorkspace = async ({
   historyView: ScanHistoryView;
   historyPage: string | string[] | undefined;
 }) => {
-  const [targetsResponse, runsResponse, sources] = await Promise.all([
-    listTrivyTargets({ "page[size]": "100", sort: "-inserted_at" }),
+  const [loadedTargets, runsResponse, sources] = await Promise.all([
+    loadAllTargets(),
     listTrivyRuns({
       "page[size]": DASHBOARD_RUN_PAGE_SIZE,
       sort: "-inserted_at",
     }),
     loadSources(),
   ]);
-  if (!isListResponse(targetsResponse)) {
+  if (!loadedTargets) {
     // A failed request must not read as "no targets yet".
     return (
       <SectionCard title="Targets">
@@ -178,7 +178,7 @@ const SSRAppSecurityWorkspace = async ({
       </SectionCard>
     );
   }
-  const targets = responseList<TrivyTargetResource>(targetsResponse);
+  const targets = loadedTargets.targets;
   const runs = responseList<TrivyRunResource>(runsResponse);
   const dashboard = buildAppSecurityDashboard({
     targets,

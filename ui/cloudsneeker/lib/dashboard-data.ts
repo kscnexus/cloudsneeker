@@ -15,7 +15,7 @@ import { getProviders } from "@/actions/providers/providers";
 import { getScans } from "@/actions/scans/scans";
 import { listCustodianRuns } from "@/cloudsneeker/actions/custodian";
 import { listAreaFindings } from "@/cloudsneeker/actions/finding-triage";
-import { listTrivyRuns, listTrivyTargets } from "@/cloudsneeker/actions/trivy";
+import { listTrivyRuns } from "@/cloudsneeker/actions/trivy";
 import type { SeverityBreakdownItem } from "@/cloudsneeker/components/severity-breakdown";
 import { areaFindingsPageHref } from "@/cloudsneeker/lib/area-findings";
 import {
@@ -31,6 +31,7 @@ import {
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
+import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import { appSecurityHref, governanceHref } from "@/cloudsneeker/routes";
 import type {
   AreaFindingResource,
@@ -171,13 +172,8 @@ export const loadProviderCounts = async (): Promise<ProviderCounts | null> => {
 export const loadAppTargets = async (): Promise<
   TrivyTargetResource[] | null
 > => {
-  const response: unknown = await listTrivyTargets({
-    "page[size]": "100",
-    sort: "-inserted_at",
-  });
-  return isListResponse(response)
-    ? responseList<TrivyTargetResource>(response)
-    : null;
+  const loaded = await loadAllTargets();
+  return loaded ? loaded.targets : null;
 };
 
 export const loadAppRuns = async (): Promise<TrivyRunResource[] | null> => {

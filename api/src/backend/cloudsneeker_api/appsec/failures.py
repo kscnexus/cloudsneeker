@@ -21,6 +21,10 @@ FAILURE_RESOURCES = "resources"
 FAILURE_OUTPUT = "output"
 FAILURE_CANCELLED = "cancelled"
 FAILURE_ENGINE = "engine"
+# A package registry (Maven Central, npm, PyPI) refused dependency metadata
+# with HTTP 429. Its Retry-After is often 20 minutes, too long to hold a
+# worker, so the engine retries at once without remote lookups.
+FAILURE_RATE_LIMITED = "rate_limited"
 
 STDERR_TAIL_CHARS = 4000
 
@@ -32,6 +36,14 @@ _PATTERNS: tuple[tuple[str, re.Pattern], ...] = (
             r"failed to download artifact|init error: db error|"
             r"unable to (initialize|download) .*(db|database)|"
             r"oci download error|TOOMANYREQUESTS|checks? bundle)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        FAILURE_RATE_LIMITED,
+        re.compile(
+            r"(returned 429|429 Too Many Requests|status code 429|"
+            r"rate limit(ed| exceeded))",
             re.IGNORECASE,
         ),
     ),
@@ -97,6 +109,7 @@ _MESSAGES = {
     FAILURE_OUTPUT: "The scanner returned a report that could not be read.",
     FAILURE_CANCELLED: "The scan was cancelled.",
     FAILURE_ENGINE: "The scanner stopped with an error.",
+    FAILURE_RATE_LIMITED: "A package registry rate-limited the scan.",
 }
 
 RETRYABLE = frozenset({FAILURE_DATABASE, FAILURE_NETWORK})
