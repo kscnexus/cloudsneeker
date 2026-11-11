@@ -7,6 +7,7 @@ import { Fragment, useState, useTransition } from "react";
 
 import {
   bulkUpdateFindingTriage,
+  listMatchingAreaFindingUids,
   updateFindingTriage,
 } from "@/cloudsneeker/actions/finding-triage";
 import { securityCategoryShort } from "@/cloudsneeker/lib/app-security-categories";
@@ -18,6 +19,10 @@ import {
   TRIAGE_STATUS_FILTERS,
   triageStatusLabel,
 } from "@/cloudsneeker/lib/finding-triage";
+import {
+  matchingSelectionSize,
+  selectionLabel,
+} from "@/cloudsneeker/lib/matching-selection";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
 import {
   defaultRiskAcceptance,
@@ -57,6 +62,10 @@ interface AreaFindingsTableProps {
   config: AreaConfig;
   findings: AreaFindingResource[];
   canTriage: boolean;
+  /** List query of the current filters, for "Select all matching". */
+  query?: Record<string, string | undefined>;
+  /** Findings matching the filters on every page. */
+  total?: number;
 }
 
 const errorOf = (result: unknown): string | null => {
@@ -76,6 +85,8 @@ export const AreaFindingsTable = ({
   config,
   findings,
   canTriage,
+  query,
+  total = 0,
 }: AreaFindingsTableProps) => {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -117,6 +128,25 @@ export const AreaFindingsTable = ({
   };
 
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(uids));
+
+  const matchingCount = matchingSelectionSize(total);
+  const canSelectMatching =
+    Boolean(query) &&
+    allSelected &&
+    total > uids.length &&
+    selected.size < matchingCount;
+  const selectMatching = () => {
+    if (!query) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await listMatchingAreaFindingUids(query);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      setSelected(new Set(result.uids));
+    });
+  };
 
   const acceptanceProblem = riskAcceptanceProblem(acceptance);
   const cleanedAcceptance = {
@@ -203,8 +233,20 @@ export const AreaFindingsTable = ({
           className="border-border-neutral-secondary bg-bg-neutral-tertiary flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm"
         >
           <span className="text-text-neutral-primary font-medium">
-            {selected.size} selected on this page
+            {selectionLabel(selected.size, uids.length)}
           </span>
+          {canSelectMatching ? (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={selectMatching}
+              disabled={pending}
+            >
+              {total > matchingCount
+                ? `Select the first ${matchingCount} of ${total} matching`
+                : `Select all ${total} matching`}
+            </Button>
+          ) : null}
           <label className="sr-only" htmlFor="area-bulk-status">
             Triage status for the selected findings
           </label>

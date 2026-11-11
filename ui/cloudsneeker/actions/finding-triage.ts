@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  MATCHING_PAGES,
+  MATCHING_SELECTION_LIMIT,
+  matchingPageQuery,
+} from "@/cloudsneeker/lib/matching-selection";
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { handleApiError, handleApiResponse } from "@/lib/server-actions-helper";
 import type { FindingTriageStatus } from "@/types/findings-triage";
@@ -59,6 +64,42 @@ export const listAreaFindings = async (searchParams: SearchParams) => {
   } catch (error) {
     return handleApiError(error);
   }
+};
+
+/** UIDs of every finding matching an area query, up to the bulk limit. */
+export const listMatchingAreaFindingUids = async (
+  searchParams: SearchParams,
+): Promise<{ uids: string[]; total: number } | { error: string }> => {
+  const headers = await getAuthHeaders({ contentType: false });
+  const uids: string[] = [];
+  let total = 0;
+  try {
+    for (let page = 1; page <= MATCHING_PAGES; page += 1) {
+      const response = await fetch(
+        buildUrl(AREA_FINDINGS_PATH, matchingPageQuery(searchParams, page)),
+        { headers },
+      );
+      const result = (await handleApiResponse(response)) as {
+        data?: { id?: unknown }[];
+        meta?: { pagination?: { count?: unknown; pages?: unknown } };
+        error?: unknown;
+      };
+      if (!result || result.error || !Array.isArray(result.data)) {
+        return { error: "The matching findings could not be loaded." };
+      }
+      result.data.forEach((row) => {
+        if (typeof row.id === "string") uids.push(row.id);
+      });
+      const pagination = result.meta?.pagination;
+      total = typeof pagination?.count === "number" ? pagination.count : total;
+      const pages =
+        typeof pagination?.pages === "number" ? pagination.pages : 1;
+      if (page >= pages || uids.length >= MATCHING_SELECTION_LIMIT) break;
+    }
+  } catch (error) {
+    return handleApiError(error) as { error: string };
+  }
+  return { uids: uids.slice(0, MATCHING_SELECTION_LIMIT), total };
 };
 
 /** Set the triage status (and optional note) of one finding UID. */

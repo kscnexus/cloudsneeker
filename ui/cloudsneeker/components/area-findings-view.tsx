@@ -205,6 +205,8 @@ const SSRAreaFindings = async ({
           config={config}
           findings={findings}
           canTriage={canTriage}
+          query={areaFindingsSearchParams(area, filters)}
+          total={total}
         />
       )}
       {pages > 1 ? (

@@ -7,15 +7,17 @@ import type { AreaFindingResource } from "@/cloudsneeker/types/area-findings";
 
 import { AreaFindingsTable } from "./area-findings-table";
 
-const { bulkMock, updateMock, refreshMock } = vi.hoisted(() => ({
+const { bulkMock, updateMock, refreshMock, matchingMock } = vi.hoisted(() => ({
   bulkMock: vi.fn(),
   updateMock: vi.fn(),
   refreshMock: vi.fn(),
+  matchingMock: vi.fn(),
 }));
 
 vi.mock("@/cloudsneeker/actions/finding-triage", () => ({
   bulkUpdateFindingTriage: bulkMock,
   updateFindingTriage: updateMock,
+  listMatchingAreaFindingUids: matchingMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -96,6 +98,67 @@ describe("AreaFindingsTable", () => {
     expect(screen.getByText("Title a")).toBeInTheDocument();
     expect(screen.getByText("lodash 4.17.0")).toBeInTheDocument();
     expect(screen.getByText("web-repo")).toBeInTheDocument();
+  });
+
+  it("selects every matching finding across pages", async () => {
+    // Given - two findings on this page, 120 match the filters
+    const user = userEvent.setup();
+    const matching = Array.from({ length: 120 }, (_, index) => `u-${index}`);
+    matchingMock.mockReset().mockResolvedValue({ uids: matching, total: 120 });
+    render(
+      <AreaFindingsTable
+        config={config}
+        findings={[finding("a"), finding("b")]}
+        canTriage
+        query={{ "filter[area]": "application_security" }}
+        total={120}
+      />,
+    );
+
+    // When
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select all findings on this page",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Select all 120 matching" }),
+    );
+
+    // Then
+    expect(matchingMock).toHaveBeenCalledWith({
+      "filter[area]": "application_security",
+    });
+    expect(
+      await screen.findByText("120 selected across pages"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Set status" }));
+    await waitFor(() =>
+      expect(bulkMock).toHaveBeenCalledWith(matching, expect.any(String)),
+    );
+  });
+
+  it("offers the first 500 when more findings match", async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaFindingsTable
+        config={config}
+        findings={[finding("a")]}
+        canTriage
+        query={{}}
+        total={9000}
+      />,
+    );
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select all findings on this page",
+      }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Select the first 500 of 9000 matching",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("is read only without the manage permission", () => {
