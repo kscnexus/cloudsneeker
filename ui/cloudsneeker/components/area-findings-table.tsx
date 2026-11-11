@@ -13,6 +13,7 @@ import { securityCategoryShort } from "@/cloudsneeker/lib/app-security-categorie
 import {
   type AreaConfig,
   appSecurityFindingHref,
+  governanceFindingHref,
 } from "@/cloudsneeker/lib/area-findings";
 import {
   TRIAGE_STATUS_FILTERS,
@@ -34,7 +35,10 @@ import {
   TABLE_HEADER_CELL_CLASS,
   TABLE_HEAD_CLASS,
 } from "@/cloudsneeker/lib/ui-classes";
-import type { AreaFindingResource } from "@/cloudsneeker/types/area-findings";
+import {
+  type AreaFindingResource,
+  FINDING_AREA,
+} from "@/cloudsneeker/types/area-findings";
 import { Button, Textarea } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
 import {
@@ -445,10 +449,15 @@ export const AreaFindingsTable = ({
                       <td />
                       <td colSpan={columns.length} className="px-3 pb-4">
                         <dl className="grid gap-3 text-xs sm:grid-cols-2">
-                          {config.showCategory ? (
+                          {config.showCategory ||
+                          finding.area === FINDING_AREA.GOVERNANCE ? (
                             <div className="sm:col-span-2">
                               <Link
-                                href={appSecurityFindingHref(finding.uid)}
+                                href={
+                                  finding.area === FINDING_AREA.GOVERNANCE
+                                    ? governanceFindingHref(finding.uid)
+                                    : appSecurityFindingHref(finding.uid)
+                                }
                                 className="text-text-neutral-primary text-sm font-medium underline underline-offset-2"
                               >
                                 Open the full finding

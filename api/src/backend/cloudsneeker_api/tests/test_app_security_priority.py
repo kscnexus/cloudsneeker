@@ -76,7 +76,7 @@ class TestParse:
         [
             {"filter[area]": "application_security", "filter[priority__in]": "p9"},
             {"filter[area]": "cloud", "filter[overdue]": "true"},
-            {"filter[area]": "governance", "filter[uid]": "x"},
+            {"filter[area]": "cloud", "filter[uid]": "x"},
         ],
     )
     def test_rejects(self, params):

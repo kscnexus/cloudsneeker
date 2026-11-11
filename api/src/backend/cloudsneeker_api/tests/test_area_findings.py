@@ -338,6 +338,55 @@ class TestAreaFindingsApi:
         )
         assert cloud.json()["data"] == []
 
+    def test_governance_uid_lookup_returns_one_finding_with_resource(
+        self, authenticated_client, aws_provider
+    ):
+        from api.models import MuteRule
+
+        policy, _ = _policy_run(
+            aws_provider,
+            [
+                {"VolumeId": "vol-1", "Size": 8, "c7n:policy": "unused-ebs"},
+                {"VolumeId": "vol-2", "c7n:policy": "unused-ebs"},
+            ],
+        )
+        uid = governance_uid(str(policy.id), "vol-1")
+        MuteRule.objects.create(
+            tenant_id=aws_provider.tenant_id,
+            name="muted volume",
+            reason="scratch disk",
+            finding_uids=[uid],
+        )
+
+        listed = _list(authenticated_client, "governance")
+        assert uid not in _uids(listed)
+        assert all(
+            "resource_details" not in item["attributes"]
+            for item in listed.json()["data"]
+        )
+
+        one = _list(authenticated_client, "governance", **{"filter[uid]": uid})
+        assert _uids(one) == [uid]
+        attributes = one.json()["data"][0]["attributes"]
+        assert attributes["muted"] is True
+        assert attributes["muted_reason"] == "scratch disk"
+        assert attributes["resource_details"]["VolumeId"] == "vol-1"
+        assert attributes["resource_details"]["Size"] == 8
+
+    def test_governance_uid_lookup_follows_visibility(
+        self, authenticated_client_no_permissions_rbac, aws_provider
+    ):
+        policy, _ = _policy_run(
+            aws_provider, [{"VolumeId": "vol-1", "c7n:policy": "unused-ebs"}]
+        )
+        uid = governance_uid(str(policy.id), "vol-1")
+        response = _list(
+            authenticated_client_no_permissions_rbac,
+            "governance",
+            **{"filter[uid]": uid},
+        )
+        assert _uids(response) == []
+
     def test_app_security_triage_records_area(self, authenticated_client, aws_provider):
         _finding(_app_security_scan(aws_provider), "trivy-repo-CVE-2")
         response = authenticated_client.patch(

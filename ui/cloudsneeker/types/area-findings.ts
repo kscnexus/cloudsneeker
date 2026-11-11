@@ -67,6 +67,12 @@ export interface AreaFindingAttributes {
   severity: string;
   status: string;
   muted: boolean;
+  /** Reason of the mute rule when muted. */
+  muted_reason?: string;
+  /** Governance: the policy run that reported the resource. */
+  run_id?: string;
+  /** Governance, one-finding lookup: the resource as the run reported it. */
+  resource_details?: Record<string, unknown>;
   check_id: string;
   description: string;
   status_extended: string;

@@ -7,9 +7,11 @@ Filters: ``filter[severity__in]``, ``filter[triage_status__in]``,
 ``filter[category__in]`` (Application Security: sast, sca, secrets, iac,
 container; adds ``meta.category_counts`` and ``meta.enabled_categories``),
 ``filter[priority__in]`` (p0-p4), ``filter[overdue]=true``,
-``filter[application__in]`` (linked provider ids) and ``filter[uid]``
-(Application Security; adds ``meta.priority_counts`` and
-``meta.overdue_count``). ``summary=applications`` adds ``meta.applications``
+``filter[application__in]`` (linked provider ids) (Application Security;
+adds ``meta.priority_counts`` and ``meta.overdue_count``).
+``filter[uid]`` (Application Security and Governance) returns one finding;
+for Governance it is returned even when muted and carries
+``resource_details``, the resource as the policy run reported it. ``summary=applications`` adds ``meta.applications``
 with totals per linked provider,
 ``filter[muted]=include``, ``filter[status]=all`` (passed findings too).
 Sort: ``severity`` (default), ``last_seen_at``, ``first_seen_at``,

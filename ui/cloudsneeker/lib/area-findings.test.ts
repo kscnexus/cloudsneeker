@@ -203,8 +203,11 @@ describe("area links", () => {
       }),
     ).toBe("/application-security/findings/trivy-repo-CVE-1");
     expect(
-      areaFindingHref(FINDING_AREA.GOVERNANCE, { uid: "g-1", checkId: "r" }),
-    ).toBe("/governance/findings?q=g-1");
+      areaFindingHref(FINDING_AREA.GOVERNANCE, {
+        uid: "custodian-p1-arn:aws:s3:::b/1",
+        checkId: "r",
+      }),
+    ).toBe("/governance/findings/custodian-p1-arn%3Aaws%3As3%3A%3A%3Ab%2F1");
   });
 });
 
