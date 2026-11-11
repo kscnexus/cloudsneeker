@@ -607,6 +607,24 @@ def redact_argv(argv: list[str], secrets: tuple[str, ...]) -> list[str]:
     return [redact(item, *secrets) if secrets else item for item in argv]
 
 
+def drop_nul_chars(value: Any) -> Any:
+    """Remove NUL characters from every string in a report.
+
+    A code snippet copied from a binary-ish file can carry ``\x00``, which
+    PostgreSQL refuses in text and JSON columns ("unsupported Unicode escape
+    sequence"), so the whole scan failed to save.
+    """
+    if isinstance(value, str):
+        return value.replace("\x00", "") if "\x00" in value else value
+    if isinstance(value, dict):
+        return {
+            drop_nul_chars(key): drop_nul_chars(item) for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [drop_nul_chars(item) for item in value]
+    return value
+
+
 def mask_report(report: dict[str, Any]) -> dict[str, Any]:
     """Mask every secret finding of a raw report before it is stored."""
 
@@ -907,7 +925,7 @@ def run_unit(
     except EngineError as exc:
         outcome.failure = exc.failure
         return outcome
-    report = mask_report(scrub_secrets(report, unit.secrets))
+    report = drop_nul_chars(mask_report(scrub_secrets(report, unit.secrets)))
     outcome.parsed = parser.parse_report(report, mode=mode, scope=unit.scope)
     try:
         outcome.artifact = store_report(artifact_dir, index, report)

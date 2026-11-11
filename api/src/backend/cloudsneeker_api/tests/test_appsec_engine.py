@@ -870,3 +870,38 @@ class TestRateLimitClassification:
             1, "FATAL failed to download vulnerability DB: TOOMANYREQUESTS"
         )
         assert result.kind == failures.FAILURE_DATABASE and result.retryable
+
+
+class TestDropNulChars:
+    def test_removes_nul_from_nested_strings(self):
+        report = {
+            "Results": [
+                {
+                    "Target": "a\x00b",
+                    "Code": {"Lines": [{"Number": 35, "Content": "\x00x\x00"}]},
+                    "Count": 3,
+                }
+            ]
+        }
+        cleaned = engine.drop_nul_chars(report)
+        assert cleaned == {
+            "Results": [
+                {
+                    "Target": "ab",
+                    "Code": {"Lines": [{"Number": 35, "Content": "x"}]},
+                    "Count": 3,
+                }
+            ]
+        }
+        assert "\\u0000" not in json.dumps(cleaned)
+
+    def test_a_report_with_nul_in_a_snippet_is_stored_without_it(self, tmp_path):
+        report = json.loads(json.dumps(REPORT))
+        report["Results"][0]["Target"] = "pack\x00age-lock.json"
+        outcome, _, _ = TestRunUnit()._run(
+            tmp_path, _process_result(tmp_path, report=report)
+        )
+        assert outcome.failure is None
+        assert "\\u0000" not in json.dumps(
+            [finding.details for finding in outcome.parsed.findings]
+        )
