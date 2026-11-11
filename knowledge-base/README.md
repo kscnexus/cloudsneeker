@@ -24,5 +24,6 @@ Read these pages in order when you are new to the repository:
 17. [Product Dashboards](dashboards.md) — Overview, Cloud Security, Application Security and Governance dashboards: structure, data sources, drill-downs and missing APIs
 18. [Application Security Posture Management](appsec-aspm.md) — scan engine, finding lifecycle, inventory, profiles, policies, API, operations and rollback
 19. [Application Security Coverage](appsec-coverage.md) — generated matrix of what the scan engine supports and what is implemented, partial, missing, unsupported or not applicable
+20. [Platform Integration Audit](platform-integration/PLATFORM_INTEGRATION_AUDIT.md) — how the three modules connect to findings, alerts, mutelist, reports, Seeker AI and RBAC; issue log and integration matrix
 
 Agent rules for day-to-day coding stay in the root [`AGENTS.md`](../AGENTS.md) and in each component `AGENTS.md`. Cursor rules in [`.cursor/rules/`](../.cursor/rules/) enforce the upstream split on every session. Skills under [`skills/`](../skills/) hold the patterns those rules point to. Use this knowledge base for orientation, then open the matching skill before changing code.

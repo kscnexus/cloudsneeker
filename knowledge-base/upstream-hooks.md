@@ -247,6 +247,24 @@ The gate fixes a CVE in an upstream dependency the way upstream would: by moving
 | `mcp_server/uv.lock` | Authlib 1.9.1, certifi 2026.10.23 | CVE-2026-96760, GHSA-6q48-6c7w-9gw2. |
 | `ui/package.json`, `ui/pnpm-lock.yaml` | `next` 16.4.1 | GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr in 16.3.6. |
 
+## Platform Integration Hooks (2026-11-11)
+
+See [Platform Integration Audit](platform-integration/PLATFORM_INTEGRATION_AUDIT.md).
+
+| File | Hook | Re-apply by |
+| --- | --- | --- |
+| `ui/app/(prowler)/alerts/_types/index.ts` | `AREA: "area"` in `ALERT_FILTER_FIELDS` | Keep the upstream fields; add the one key. |
+| `ui/app/(prowler)/alerts/_lib/alert-adapter.ts` | `area: ALERT_AREA_FILTER_KEY` in `SIMPLE_FIELD_TO_FINDINGS_FILTER` | One map entry plus the import. |
+| `ui/app/(prowler)/alerts/_components/alert-form-modal.tsx` | `editableFilters`, `initialAreas` props; `filtersEditable` replaces `editingAlert` as the filter, test and seed gate; `AlertAreaField` in the Filters card | Re-add the two props and swap the four `editingAlert` checks. |
+| `ui/app/(prowler)/alerts/_components/alerts-manager.tsx` | "New alert" button, `newAlertAreas` state, create branch in `submitAlert`, `initialNewArea` prop | Keep upstream edit flow; re-add the create branch. |
+| `ui/app/(prowler)/alerts/_components/alerts-table.tsx` | Modules column | One column definition. |
+| `ui/app/(prowler)/alerts/page.tsx` | `initialNewArea={requestedNewAlertArea(...)}` | One prop. |
+| `ui/app/(prowler)/compliance/page.tsx` | Parallel `getScans` with `complianceScanFilters()`; `expandedScansData = eligibleComplianceScans(allExpandedScans)` outside the Cloud edition | Keep the upstream fetch untouched (its tests assert it). |
+| `ui/components/compliance/compliance-header/compliance-filters.tsx` | `ComplianceScopeSelectors`, `scansInScope`, `RunComplianceScanLink` behind the `complianceScope` flag | Three lines inside the filter row. |
+| `ui/lib/lighthouse-v1/allowed-tools.ts` | `...CLOUDSNEEKER_AREA_TOOLS` in `ALLOWED_TOOLS` | One spread plus the import. |
+| `mcp_server/prowler_mcp_server/prowler_app/server.py` | Second `load_all_tools` for `prowler_mcp_server.cloudsneeker.tools` | One line after the upstream loader. |
+| `api/src/backend/cloudsneeker_api/signals.py` (Cloudsneeker file) | `post_save` / `post_delete` on upstream `MuteRule` | Not an upstream edit; listed because it reacts to an upstream model. |
+
 ## Adding a Hook
 
 1. Exhaust an extension point first: `cloudsneeker/`, `api/src/backend/cloudsneeker_api/` (new route in `urls.py`), `ui/cloudsneeker/navigation.ts`, `ui/app/(cloudsneeker)/`.

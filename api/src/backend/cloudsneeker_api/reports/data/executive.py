@@ -296,7 +296,9 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
             "label": DOMAIN_LABELS["governance"],
             "score": governance_data.score,
             "grade": governance_data.grade,
-            "open_issues": governance_data.kpis.get("matched_resources", 0),
+            # Muted governance findings are not open issues.
+            "open_issues": governance_data.kpis.get("matched_resources", 0)
+            - governance_data.kpis.get("muted_resources", 0),
             "critical": 0,
             "high": 0,
             "coverage": f"{governance_data.kpis.get('policies_evaluated', 0)} policy(ies)",
