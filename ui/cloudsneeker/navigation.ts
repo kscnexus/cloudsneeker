@@ -17,6 +17,7 @@ import {
   ScanSearch,
   ShieldAlert,
   ShieldCheck,
+  Search,
   SlidersHorizontal,
   Upload,
 } from "lucide-react";
@@ -41,6 +42,7 @@ import {
   APPSEC_WORKSPACES,
 } from "./lib/appsec";
 import { isHrefInPlan } from "./lib/entitlements";
+import { SEARCH_PATH } from "./lib/global-search";
 import {
   AREA_PAGE_SEGMENT,
   appSecurityHref,
@@ -489,6 +491,9 @@ const regroupNavigation = (
   const overviewItems = [
     takeLink("/"),
     assistant ? { ...assistant, label: BRAND.assistantName } : undefined,
+    isCloudsneekerFeatureEnabled("globalSearch")
+      ? productLink(SEARCH_PATH, "Search", Search, pathname)
+      : undefined,
   ];
 
   const cloudSecurityItems = [

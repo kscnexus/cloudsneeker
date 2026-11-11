@@ -52,6 +52,8 @@ export const CLOUDSNEEKER_FEATURES = {
    * the frameworks shown are the ones assessed for that provider.
    */
   complianceScope: true,
+  /** Search box in the header and the /search page (all product areas). */
+  globalSearch: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;
