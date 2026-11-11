@@ -4,7 +4,13 @@ import secrets
 from datetime import timedelta
 
 from api.v1.serializers import BaseWriteSerializer, RLSSerializer
-from cloudsneeker_api.models import AlertRecipient, AlertRule, AlertRuleRecipient
+from cloudsneeker_api.models import (
+    AlertEvent,
+    AlertRecipient,
+    AlertRule,
+    AlertRuleRecipient,
+)
+from cloudsneeker_api.services.alert_events import NOTE_MAX_LENGTH, set_status
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -193,4 +199,66 @@ class AlertRuleWriteSerializer(RLSSerializer, BaseWriteSerializer):
                 )
                 for recipient in recipients
             ]
+        )
+
+
+class AlertEventSerializer(RLSSerializer):
+    """Read serializer for alert history."""
+
+    rule_id = serializers.SerializerMethodField()
+    status_changed_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AlertEvent
+        fields = [
+            "id",
+            "rule_id",
+            "rule_name",
+            "trigger",
+            "scan_id",
+            "custodian_run_id",
+            "areas",
+            "area_counts",
+            "severity_counts",
+            "total",
+            "links",
+            "delivered",
+            "status",
+            "status_changed_at",
+            "status_changed_by",
+            "note",
+            "inserted_at",
+            "updated_at",
+        ]
+
+    def get_rule_id(self, obj):
+        return str(obj.rule_id) if obj.rule_id else None
+
+    def get_status_changed_by(self, obj):
+        user = obj.status_changed_by
+        if user is None:
+            return None
+        return {"id": str(user.id), "name": user.name or user.email}
+
+
+class AlertEventUpdateSerializer(BaseWriteSerializer):
+    """Status and note of an alert event; nothing else is writable."""
+
+    status = serializers.ChoiceField(
+        choices=AlertEvent.Status.choices, required=False
+    )
+    note = serializers.CharField(
+        max_length=NOTE_MAX_LENGTH, required=False, allow_blank=True
+    )
+
+    class Meta:
+        model = AlertEvent
+        fields = ["status", "note"]
+
+    def update(self, instance, validated_data):
+        return set_status(
+            instance,
+            status=validated_data.get("status", instance.status),
+            user=self.context["request"].user,
+            note=validated_data.get("note"),
         )

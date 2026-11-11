@@ -7,9 +7,22 @@ import { getScans } from "@/actions/scans";
 import { getAlert, listAlerts } from "@/app/(prowler)/alerts/_actions";
 import { AlertsLighthouseContext } from "@/app/(prowler)/alerts/_components/alerts-lighthouse-context";
 import { AlertsManager } from "@/app/(prowler)/alerts/_components/alerts-manager";
+import { listAlertEvents } from "@/cloudsneeker/actions/alert-events"; // cloudsneeker-hook
+import { AlertHistory } from "@/cloudsneeker/components/alert-history"; // cloudsneeker-hook
 import { AlertsSummary } from "@/cloudsneeker/components/alerts-summary"; // cloudsneeker-hook
+import { ALERTS_VIEW, AlertsTabs } from "@/cloudsneeker/components/alerts-tabs"; // cloudsneeker-hook
 import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { requestedNewAlertArea } from "@/cloudsneeker/lib/alert-areas"; // cloudsneeker-hook
+import {
+  ALERTS_HISTORY_TAB,
+  ALERTS_TAB_PARAM,
+  alertHistoryQuery,
+  toAlertEvents,
+} from "@/cloudsneeker/lib/alert-history"; // cloudsneeker-hook
+import {
+  paginationOf,
+  parseListFilters,
+} from "@/cloudsneeker/lib/list-filters"; // cloudsneeker-hook
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { createScanDetailsMapping } from "@/lib";
 import { isCloud } from "@/lib/shared/env";
@@ -60,6 +73,33 @@ export default async function AlertsPage({ searchParams }: AlertsPageProps) {
   }
 
   const resolvedSearchParams = await searchParams;
+
+  // cloudsneeker-hook: History tab lists each firing of a rule with its status.
+  if (
+    isCloudsneekerFeatureEnabled("alerts") &&
+    getParamValue(resolvedSearchParams, ALERTS_TAB_PARAM) === ALERTS_HISTORY_TAB
+  ) {
+    const historyFilters = parseListFilters(resolvedSearchParams);
+    const historyResult = await listAlertEvents(
+      alertHistoryQuery(historyFilters),
+    );
+    const historyError =
+      historyResult && "error" in historyResult
+        ? String(historyResult.error)
+        : null;
+    return (
+      <ContentLayout title="Alerts" icon={<BellRing />}>
+        <AlertsTabs active={ALERTS_VIEW.HISTORY} />
+        <AlertHistory
+          events={historyError ? [] : toAlertEvents(historyResult)}
+          filters={historyFilters}
+          pagination={paginationOf(historyResult, historyFilters.page)}
+          loadError={historyError}
+        />
+      </ContentLayout>
+    );
+  }
+
   const editAlertId = getParamValue(resolvedSearchParams, "edit");
   const [result, providersData, scansData, metadataInfoData, editResult] =
     await Promise.all([
@@ -106,6 +146,10 @@ export default async function AlertsPage({ searchParams }: AlertsPageProps) {
 
   return (
     <ContentLayout title="Alerts" icon={<BellRing />}>
+      {/* cloudsneeker-hook: Rules and History views */}
+      {isCloudsneekerFeatureEnabled("alerts") ? (
+        <AlertsTabs active={ALERTS_VIEW.RULES} />
+      ) : null}
       {/* cloudsneeker-hook: key figures above the alerts list */}
       <AlertsSummary
         alerts={alerts}

@@ -324,5 +324,9 @@ class TestEvaluateRules:
             "cloudsneeker_api.services.slack.post_alert_to_channels"
         ) as post:
             result = evaluate_and_notify(tenant_id, scan_id=str(scan.id))
-        assert result == {"rules_matched": 1, "rules_notified": 1}
+        assert result == {
+            "rules_matched": 1,
+            "rules_notified": 1,
+            "already_recorded": 0,
+        }
         assert "Cloud Security: 1 finding(s)" in post.call_args.kwargs["text"]
