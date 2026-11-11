@@ -3,12 +3,13 @@ import { Suspense } from "react";
 
 import {
   COMPLIANCE_OVERVIEW_RESOURCE_TYPE,
-  getComplianceOverviewMetadataInfo,
   getCompliancesOverview,
 } from "@/actions/compliances";
 import { getThreatScore } from "@/actions/overview";
 import { getScan, getScans, getScansByState } from "@/actions/scans";
-import { defaultComplianceScanId } from "@/cloudsneeker/compliance/default-scan"; // cloudsneeker-hook
+import { ComplianceUnavailable } from "@/cloudsneeker/compliance/compliance-unavailable"; // cloudsneeker-hook
+import { loadComplianceMetadata } from "@/cloudsneeker/compliance/load-compliance-metadata"; // cloudsneeker-hook
+import { selectComplianceScan } from "@/cloudsneeker/compliance/scan-availability"; // cloudsneeker-hook
 import { ScanComparisonOverview } from "@/cloudsneeker/compliance/scan-comparison-overview"; // cloudsneeker-hook
 import {
   complianceScanFilters,
@@ -112,9 +113,9 @@ export default async function Compliance({
     // cloudsneeker-hook: without cloud APIs, Multiple Scans compares two scans.
     if (!isCloud() && isCloudsneekerFeatureEnabled("scanComparison")) {
       const scansData = await getScans({
-        filters: {
-          "filter[state]": "completed",
-        },
+        // cloudsneeker-hook: only providers with compliance frameworks, so
+        // application (code and image) scans cannot fill the 50 rows.
+        filters: complianceScanFilters(),
         pageSize: 50,
         fields: {
           scans: "name,completed_at,provider",
@@ -315,10 +316,15 @@ export default async function Compliance({
   const scanIdFromUrl = Array.isArray(scanIdParam)
     ? scanIdParam[0]
     : scanIdParam;
-  const selectedScanId: string | null =
-    (await resolveUrlScanId(scanIdFromUrl, expandedScansData)) ||
-    defaultComplianceScanId(expandedScansData) || // cloudsneeker-hook
-    null;
+  // cloudsneeker-hook: a scan whose compliance task failed answers 500; the
+  // default skips it and a URL scan shows a notice instead of the error page.
+  const complianceSelection = await selectComplianceScan(
+    await resolveUrlScanId(scanIdFromUrl, expandedScansData),
+    expandedScansData,
+    loadComplianceMetadata,
+  );
+  const selectedScanId: string | null = complianceSelection.scanId;
+  const complianceUnavailable = complianceSelection.unavailable;
   const onboardingAction = selectedScanId
     ? { flowId: "view-compliance" }
     : {
@@ -342,18 +348,16 @@ export default async function Compliance({
       }
     : undefined;
 
-  const metadataInfoData = selectedScanId
-    ? await getComplianceOverviewMetadataInfo({
-        filters: {
-          "filter[scan_id]": selectedScanId,
-        },
-      })
-    : { data: { attributes: { regions: [] } } };
+  const metadataInfoData = complianceSelection.metadata; // cloudsneeker-hook
 
   const uniqueRegions = metadataInfoData?.data?.attributes?.regions || [];
 
   let threatScoreData = null;
-  if (selectedScanId && typeof selectedScanId === "string") {
+  if (
+    selectedScanId &&
+    typeof selectedScanId === "string" &&
+    !complianceUnavailable // cloudsneeker-hook
+  ) {
     const threatScoreResponse = await getThreatScore({
       filters: { "filter[scan_id]": selectedScanId },
     });
@@ -392,22 +396,26 @@ export default async function Compliance({
           </div>
         )}
 
-      <Suspense
-        key={searchParamsKey}
-        fallback={
-          <ComplianceOverviewPanel>
-            <ComplianceSkeletonGrid />
-          </ComplianceOverviewPanel>
-        }
-      >
-        <SSRComplianceGrid
-          searchParams={resolvedSearchParams}
-          scanId={selectedScanId}
-          selectedScan={selectedScanData}
-          watchlistPromise={watchlistPromise}
-          subscriptionOnly={subscriptionOnly}
-        />
-      </Suspense>
+      {complianceUnavailable ? (
+        <ComplianceUnavailable /> // cloudsneeker-hook
+      ) : (
+        <Suspense
+          key={searchParamsKey}
+          fallback={
+            <ComplianceOverviewPanel>
+              <ComplianceSkeletonGrid />
+            </ComplianceOverviewPanel>
+          }
+        >
+          <SSRComplianceGrid
+            searchParams={resolvedSearchParams}
+            scanId={selectedScanId}
+            selectedScan={selectedScanData}
+            watchlistPromise={watchlistPromise}
+            subscriptionOnly={subscriptionOnly}
+          />
+        </Suspense>
+      )}
     </>
   ) : (
     <NoScansAvailable />

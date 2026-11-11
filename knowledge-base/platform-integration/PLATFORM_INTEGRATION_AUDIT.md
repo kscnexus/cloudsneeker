@@ -73,6 +73,8 @@ Status values: Identified, In Progress, Fixed, Tested, Deployed, Verified, Block
 | PI-024 | Navigation | No global search | Not built | Users browse module by module | Design note in [UX and Navigation Audit](UX_AND_NAVIGATION_AUDIT.md) | — | Identified |
 | PI-025 | Governance | No detail page per governance finding | Not built | Links fall back to a search, or the policy run page (alerts) | Alerts link to the policy run, which lists the matched resource | — | Identified |
 | PI-026 | Lists | Area table "select all" covers the visible page only, without saying so | Label | A user could think every result was selected | Bar now says "N selected on this page" | `area-findings-table.test.tsx` | Tested |
+| PI-027 | Compliance | Single Scan showed the error page for a scan whose compliance task failed, and that scan was the default | `compliance-overviews/metadata` answers 500 "Task failed to generate compliance overview data" by design; the page let the error escape | Compliance unreachable from the sidebar | Default skips scans whose metadata fails (up to 5 tried); a URL scan shows a notice with a link to Scans | `scan-availability.test.ts`, `load-compliance-metadata.test.ts`, upstream `page.test.tsx` | Fixed |
+| PI-028 | Compliance | Multiple Scans showed "No Scans available" | It read the newest 50 completed scans, all Application Security, then dropped them | Comparison unusable | Same provider filter as Single Scan (`complianceScanFilters()`) | upstream `page.test.tsx` | Fixed |
 
 ## What Was Not Changed
 
