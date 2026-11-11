@@ -7,8 +7,8 @@ untouched.
 from __future__ import annotations
 
 from django.db import transaction
-from django.db.transaction import on_commit as _on_commit
 from django.db.models.signals import post_delete, post_save
+from django.db.transaction import on_commit as _on_commit
 
 
 def _invitation_saved(sender, instance, created, **kwargs):
