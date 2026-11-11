@@ -117,11 +117,15 @@ export const loadCloudSeverity = async (): Promise<
   }));
 };
 
-/** Every framework of the latest scans, with its requirement counts. */
-export const loadComplianceFrameworks = async (): Promise<
-  ComplianceFrameworkRow[] | null
-> => {
-  const response = await getComplianceWatchlist({ inWatchlist: false });
+/** Every framework of the latest scans, with its requirement counts;
+ * `filters` narrows the accounts (for example `filter[provider_type]`). */
+export const loadComplianceFrameworks = async (
+  filters: Record<string, string> = {},
+): Promise<ComplianceFrameworkRow[] | null> => {
+  const response = await getComplianceWatchlist({
+    filters,
+    inWatchlist: false,
+  });
   if (!response || !("data" in response) || !Array.isArray(response.data)) {
     return null;
   }

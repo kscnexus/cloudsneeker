@@ -16,6 +16,14 @@ import {
 import type { ExpandedScanData, SearchParamsProps } from "@/types";
 import type { ComplianceOverviewData } from "@/types/compliance";
 
+import { AccountsFrameworkOverview } from "./accounts-framework-overview";
+import {
+  MULTI_SCAN_VIEW,
+  multiScanViewOf,
+  providerTypeOptions,
+  selectedProviderType,
+} from "./accounts-view";
+import { MultiScanViewTabs } from "./multi-scan-view-tabs";
 import {
   buildFrameworkSnapshot,
   compareFrameworks,
@@ -114,6 +122,21 @@ export const ScanComparisonOverview = async ({
     return <NoScansAvailable />;
   }
 
+  const view = multiScanViewOf(searchParams);
+  const typeOptions = providerTypeOptions(scans);
+  const providerType = selectedProviderType(searchParams, typeOptions);
+  if (view === MULTI_SCAN_VIEW.ACCOUNTS) {
+    return (
+      <div className="flex flex-col gap-6">
+        <MultiScanViewTabs active={view} providerType={providerType} />
+        <AccountsFrameworkOverview
+          options={typeOptions}
+          providerType={providerType}
+        />
+      </div>
+    );
+  }
+
   // A default scan without compliance results (its task failed) is skipped
   // for the next one of the same provider; a scan the user chose is kept.
   const chosen = parseScanComparisonParams(searchParams);
@@ -181,6 +204,7 @@ export const ScanComparisonOverview = async ({
 
   return (
     <div className="flex flex-col gap-6">
+      <MultiScanViewTabs active={view} providerType={providerType} />
       <ScanComparisonFilters
         scans={scans}
         baselineScanId={baselineScanId}
