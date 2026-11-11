@@ -317,8 +317,12 @@ export const areaTriagePageHref = (
 export const appSecurityFindingHref = (uid: string): string =>
   appSecurityHref(AREA_PAGE_SEGMENT.FINDINGS, uid);
 
-/** Where a triaged finding is opened: the cloud check, the Application
- * Security detail page, else the area search. */
+/** Detail page of one Governance finding (a resource a policy matched). */
+export const governanceFindingHref = (uid: string): string =>
+  `/governance/findings/${encodeURIComponent(uid)}`;
+
+/** Where a triaged finding is opened: the cloud check, or the Application
+ * Security or Governance detail page. */
 export const areaFindingHref = (
   area: FindingArea,
   finding: { uid: string; checkId: string },
@@ -327,7 +331,7 @@ export const areaFindingHref = (
   if (area === FINDING_AREA.APPLICATION_SECURITY) {
     return appSecurityFindingHref(finding.uid);
   }
-  return areaFindingsPageHref(area, { search: finding.uid });
+  return governanceFindingHref(finding.uid);
 };
 
 /** Toggle one severity in the active set (for the severity chips). */

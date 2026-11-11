@@ -94,7 +94,7 @@ describe("FindingTriageTable", () => {
 });
 
 describe("FindingTriageTable in another area", () => {
-  it("links to the area's findings by UID", () => {
+  it("links to the finding's detail page", () => {
     render(
       <FindingTriageTable
         triages={[triage({ finding_uid: "custodian-p1-vol-1" })]}
@@ -104,6 +104,6 @@ describe("FindingTriageTable in another area", () => {
 
     expect(
       screen.getByRole("link", { name: /Open in Cloud Governance findings/ }),
-    ).toHaveAttribute("href", "/governance/findings?q=custodian-p1-vol-1");
+    ).toHaveAttribute("href", "/governance/findings/custodian-p1-vol-1");
   });
 });

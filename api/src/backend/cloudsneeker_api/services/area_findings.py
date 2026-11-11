@@ -213,12 +213,16 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
     overdue = str(params.get("filter[overdue]") or "").lower() in ("true", "1")
     applications = _csv(params.get("filter[application__in]"))
     uid = str(params.get("filter[uid]") or "").strip()
-    if (priorities or overdue or applications or uid) and (
+    if (priorities or overdue or applications) and (
         area != AREA.APPLICATION_SECURITY
     ):
         raise AreaFindingsError(
-            "Priority, overdue, application and uid filters apply to "
+            "Priority, overdue and application filters apply to "
             "application_security only."
+        )
+    if uid and area not in (AREA.APPLICATION_SECURITY, AREA.GOVERNANCE):
+        raise AreaFindingsError(
+            "The uid filter applies to application_security and governance."
         )
     fix = str(params.get("filter[fix]") or "").strip()
     if fix and fix not in FIX_FILTER_VALUES:
@@ -679,6 +683,8 @@ def _governance_matches(
     excluded: set[str],
     kept: set[str] | None,
 ) -> bool:
+    if query.uid and finding.uid != query.uid:
+        return False
     if query.exploited:
         # Policy matches are not CVEs, so none is a known exploited one.
         return False
@@ -719,6 +725,8 @@ def _governance_row(
     finding: GovernanceFinding,
     triage: FindingTriage | None,
     mute: dict[str, Any] | None = None,
+    *,
+    with_resource: bool = False,
 ) -> dict[str, Any]:
     muted = mute is not None
     snapshot = FindingSnapshot(
@@ -761,6 +769,8 @@ def _governance_row(
         "last_seen_at": finding.last_seen_at,
         "categories": [],
         **_triage_fields(triage, snapshot),
+        # The resource as the policy run reported it, for the detail page.
+        **({"resource_details": finding.raw} if with_resource else {}),
     }
 
 
@@ -783,7 +793,10 @@ def _governance_page(
         for uid, entry in muted_uid_map(tenant_id).items()
         if is_governance_uid(uid)
     }
-    excluded: set[str] = set() if query.include_muted else set(muted)
+    # One finding asked for by uid (its detail page) is shown even when muted.
+    excluded: set[str] = (
+        set() if query.include_muted or query.uid else set(muted)
+    )
     kept: set[str] | None = None
     if query.triage_statuses:
         uids, exclude = _triage_filter_uids(
@@ -805,7 +818,12 @@ def _governance_page(
     triages = _triages_by_uid(tenant_id, [finding.uid for finding in page])
     return AreaFindingPage(
         rows=[
-            _governance_row(finding, triages.get(finding.uid), muted.get(finding.uid))
+            _governance_row(
+                finding,
+                triages.get(finding.uid),
+                muted.get(finding.uid),
+                with_resource=bool(query.uid),
+            )
             for finding in page
         ],
         count=len(matches),
