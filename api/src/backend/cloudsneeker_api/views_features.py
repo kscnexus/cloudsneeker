@@ -8,6 +8,7 @@ from api.models import Provider
 from api.rbac.permissions import Permissions
 from cloudsneeker_api.models import (
     JSON_API_TYPE_PREFIX,
+    AlertEvent,
     AlertRecipient,
     AlertRule,
     CustodianPolicy,
@@ -17,6 +18,8 @@ from cloudsneeker_api.models import (
 )
 from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.serializers_alerts import (
+    AlertEventSerializer,
+    AlertEventUpdateSerializer,
     AlertRecipientSerializer,
     AlertRuleSerializer,
     AlertRuleWriteSerializer,
@@ -465,6 +468,74 @@ class AlertRuleFilter(filters.FilterSet):
     class Meta:
         model = AlertRule
         fields = ["enabled", "trigger"]
+
+
+class AlertEventFilter(filters.FilterSet):
+    status = filters.ChoiceFilter(choices=AlertEvent.Status.choices)
+    status__in = filters.BaseInFilter(field_name="status", lookup_expr="in")
+    rule = filters.UUIDFilter(field_name="rule_id")
+    trigger = filters.CharFilter()
+    area = filters.CharFilter(method="filter_area")
+    severity = filters.CharFilter(method="filter_severity")
+    inserted_at__gte = filters.DateFilter(field_name="inserted_at", lookup_expr="date__gte")
+    inserted_at__lte = filters.DateFilter(field_name="inserted_at", lookup_expr="date__lte")
+    search = filters.CharFilter(field_name="rule_name", lookup_expr="icontains")
+
+    class Meta:
+        model = AlertEvent
+        fields = ["status", "trigger"]
+
+    def filter_area(self, queryset, name, value):
+        return queryset.filter(areas__contains=[value])
+
+    def filter_severity(self, queryset, name, value):
+        # Counts are stored only when above zero, so a key means "has some".
+        severities = [item for item in str(value).split(",") if item]
+        return queryset.filter(severity_counts__has_any_keys=severities)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Alerts"], summary="List alert history"),
+    retrieve=extend_schema(tags=["Alerts"], summary="Get an alert event"),
+    partial_update=extend_schema(
+        tags=["Alerts"], summary="Acknowledge, resolve or dismiss an alert event"
+    ),
+)
+class AlertEventViewSet(BaseRLSViewSet):
+    """Alert history: every firing of a rule, with its status."""
+
+    queryset = AlertEvent.objects.all()
+    serializer_class = AlertEventSerializer
+    filterset_class = AlertEventFilter
+    http_method_names = ["get", "patch", "head", "options"]
+    ordering = ["-inserted_at"]
+    ordering_fields = ["inserted_at", "total", "status", "rule_name"]
+    required_permissions = []
+
+    def get_queryset(self):
+        return AlertEvent.objects.filter(
+            tenant_id=self.request.tenant_id
+        ).select_related("status_changed_by")
+
+    def get_serializer_class(self):
+        if self.action == "partial_update":
+            return AlertEventUpdateSerializer
+        return AlertEventSerializer
+
+    def get_permissions(self):
+        self.required_permissions = (
+            [Permissions.MANAGE_SCANS] if self.action == "partial_update" else []
+        )
+        return super().get_permissions()
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        event = serializer.save()
+        return Response(
+            AlertEventSerializer(event, context=self.get_serializer_context()).data
+        )
 
 
 @extend_schema_view(

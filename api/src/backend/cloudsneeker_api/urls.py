@@ -27,6 +27,7 @@ from cloudsneeker_api.views_content_versions import ContentVersionsView  # EB-04
 from cloudsneeker_api.views_custodian_library import CustodianLibraryViewSet
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_features import (
+    AlertEventViewSet,
     AlertRecipientConfirmView,
     AlertRecipientUnsubscribeView,
     AlertRecipientViewSet,
@@ -84,6 +85,7 @@ router.register(
     r"scan-configurations", ScanConfigurationViewSet, basename="scan-configurations"
 )
 router.register(r"alerts/rules", AlertRuleViewSet, basename="alert-rules")
+router.register(r"alerts/events", AlertEventViewSet, basename="alert-events")
 router.register(
     r"alerts/recipients", AlertRecipientViewSet, basename="alert-recipients"
 )

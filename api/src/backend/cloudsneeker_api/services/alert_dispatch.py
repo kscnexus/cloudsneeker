@@ -176,8 +176,10 @@ def evaluate_and_notify(
     trigger: str = TRIGGER_AFTER_SCAN,
 ) -> dict[str, int]:
     from api.db_utils import rls_transaction
+    from cloudsneeker_api.services.alert_events import mark_delivered, record_event
 
     notified = 0
+    already_recorded = 0
     with rls_transaction(tenant_id):
         matches = evaluate_rules(
             tenant_id,
@@ -186,9 +188,27 @@ def evaluate_and_notify(
             trigger=trigger,
         )
         for rule, match in matches:
+            # The event is written first: a retried evaluation finds it and
+            # does not notify the same firing twice.
+            event, created = record_event(
+                tenant_id,
+                rule,
+                match,
+                trigger=TRIGGER_DAILY if trigger == TRIGGER_DAILY else TRIGGER_AFTER_SCAN,
+                scan_id=scan_id,
+                custodian_run_id=custodian_run_id,
+            )
+            if not created:
+                already_recorded += 1
+                continue
             if _notify(tenant_id, rule, match):
                 notified += 1
-    return {"rules_matched": len(matches), "rules_notified": notified}
+                mark_delivered(event)
+    return {
+        "rules_matched": len(matches),
+        "rules_notified": notified,
+        "already_recorded": already_recorded,
+    }
 
 
 def enqueue_after_scan(

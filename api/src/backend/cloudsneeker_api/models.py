@@ -227,6 +227,82 @@ class AlertRuleRecipient(CloudsneekerRLSModel):
         ]
 
 
+class AlertEvent(CloudsneekerRLSModel):
+    """One firing of an alert rule: what matched, where it was sent, and
+    where it stands (open, acknowledged, resolved, dismissed).
+
+    ``dedup_key`` keeps one event per rule per scan, per policy run, or per
+    day for daily rules, so a retried evaluation never doubles an alert.
+    """
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        RESOLVED = "resolved", "Resolved"
+        DISMISSED = "dismissed", "Dismissed"
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    rule = models.ForeignKey(
+        AlertRule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events",
+    )
+    rule_name = models.CharField(max_length=100)
+    trigger = models.CharField(max_length=32, choices=AlertRule.Trigger.choices)
+    dedup_key = models.CharField(max_length=200)
+    scan_id = models.UUIDField(null=True, blank=True)
+    custodian_run_id = models.UUIDField(null=True, blank=True)
+    areas = models.JSONField(default=list)
+    area_counts = models.JSONField(default=dict)
+    severity_counts = models.JSONField(default=dict)
+    total = models.PositiveIntegerField(default=0)
+    links = models.JSONField(default=list)
+    delivered = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.OPEN
+    )
+    status_changed_at = models.DateTimeField(null=True, blank=True)
+    status_changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cloudsneeker_alert_events",
+    )
+    note = models.TextField(blank=True, default="")
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}alert_events"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+            models.UniqueConstraint(
+                fields=("tenant_id", "dedup_key"),
+                name="unique_cs_alert_event_dedup",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "-inserted_at"],
+                name="cs_alert_event_tenant_time",
+            ),
+            models.Index(
+                fields=["tenant_id", "status"],
+                name="cs_alert_event_tenant_status",
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = "alert-events"
+
+
 class EmailDeliveryConfig(CloudsneekerRLSModel):
     """Per-tenant SMTP settings used to deliver alert emails."""
 
