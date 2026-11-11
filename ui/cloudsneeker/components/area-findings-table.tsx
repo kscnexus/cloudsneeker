@@ -48,6 +48,7 @@ import {
 } from "./area-finding-exploit";
 import { AreaFindingFixCell, AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
+import { MuteFindingsButton } from "./mute-findings-button";
 import { ReportSeverityBadge } from "./report-severity-badge";
 import { RiskAcceptanceFields } from "./risk-acceptance-fields";
 import { RiskPriorityBadge } from "./risk-priority-badge";
@@ -202,7 +203,7 @@ export const AreaFindingsTable = ({
           className="border-border-neutral-secondary bg-bg-neutral-tertiary flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm"
         >
           <span className="text-text-neutral-primary font-medium">
-            {selected.size} selected
+            {selected.size} selected on this page
           </span>
           <label className="sr-only" htmlFor="area-bulk-status">
             Triage status for the selected findings
@@ -238,6 +239,11 @@ export const AreaFindingsTable = ({
                 ? "Accept risk"
                 : "Set status"}
           </Button>
+          <MuteFindingsButton
+            findingUids={Array.from(selected)}
+            label={config.name}
+            onMuted={() => setSelected(new Set())}
+          />
           <Button
             size="xs"
             variant="ghost"

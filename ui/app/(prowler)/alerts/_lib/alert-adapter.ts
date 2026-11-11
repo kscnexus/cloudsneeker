@@ -7,6 +7,7 @@ import {
   type AlertLeafFilter,
   type AlertRule,
 } from "@/app/(prowler)/alerts/_types";
+import { ALERT_AREA_FILTER_KEY } from "@/cloudsneeker/lib/alert-areas"; // cloudsneeker-hook
 
 import type { AlertFormValues } from "../_types/alert-form";
 
@@ -76,6 +77,7 @@ const SIMPLE_FIELD_TO_FINDINGS_FILTER: Partial<
   check_id: "filter[check_id__in]",
   finding_group_id: "filter[finding_group_id]",
   resource_uid: "filter[resource_uid__in]",
+  area: ALERT_AREA_FILTER_KEY, // cloudsneeker-hook
 };
 
 const uniqueValues = (values: string[]): string[] =>

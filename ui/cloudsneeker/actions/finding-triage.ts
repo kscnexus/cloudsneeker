@@ -123,3 +123,37 @@ export const bulkUpdateFindingTriage = async (
     return handleApiError(error);
   }
 };
+
+/** Mute findings of any area through the shared mutelist
+ * (`POST /area-findings/mute`). Muted findings leave the active views and
+ * stay readable with the muted filter. */
+export const muteAreaFindings = async (input: {
+  findingUids: string[];
+  name: string;
+  reason: string;
+}) => {
+  const headers = await getAuthHeaders({ contentType: true });
+  try {
+    const response = await fetch(buildUrl(`${AREA_FINDINGS_PATH}/mute`), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        data: {
+          type: "mute-rules",
+          attributes: {
+            finding_uids: input.findingUids,
+            name: input.name,
+            reason: input.reason,
+          },
+        },
+      }),
+    });
+    const result = await handleApiResponse(response);
+    revalidateAreaPages();
+    revalidatePath("/mutelist");
+    revalidatePath("/application-security", "layout");
+    return result;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};

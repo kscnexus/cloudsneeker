@@ -6,6 +6,7 @@ import {
   getAppSecFindingsSummary,
   listAppSecFindings,
 } from "@/cloudsneeker/actions/appsec";
+import { newAlertHref } from "@/cloudsneeker/lib/alert-areas";
 import {
   APPSEC_DOWNLOAD_KIND,
   APPSEC_FINDING_PARAM,
@@ -49,6 +50,7 @@ import {
   type AppSecFindingsSummary,
   type AppSecResource,
 } from "@/cloudsneeker/types/appsec";
+import { FINDING_AREA } from "@/cloudsneeker/types/area-findings";
 import { Button, Input, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { cn } from "@/lib/utils";
@@ -118,6 +120,11 @@ export const AppSecFindingsWorkspace = ({
                 <Download aria-hidden="true" />
                 JSON
               </a>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href={newAlertHref(FINDING_AREA.APPLICATION_SECURITY)}>
+                Create alert
+              </Link>
             </Button>
           </>
         }

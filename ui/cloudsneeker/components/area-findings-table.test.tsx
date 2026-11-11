@@ -127,7 +127,7 @@ describe("AreaFindingsTable", () => {
         name: "Select all findings on this page",
       }),
     );
-    expect(screen.getByText("2 selected")).toBeInTheDocument();
+    expect(screen.getByText("2 selected on this page")).toBeInTheDocument();
     await user.selectOptions(
       screen.getByLabelText("Triage status for the selected findings"),
       "false_positive",

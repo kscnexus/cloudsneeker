@@ -9,6 +9,7 @@ import { AlertsLighthouseContext } from "@/app/(prowler)/alerts/_components/aler
 import { AlertsManager } from "@/app/(prowler)/alerts/_components/alerts-manager";
 import { AlertsSummary } from "@/cloudsneeker/components/alerts-summary"; // cloudsneeker-hook
 import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
+import { requestedNewAlertArea } from "@/cloudsneeker/lib/alert-areas"; // cloudsneeker-hook
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { createScanDetailsMapping } from "@/lib";
 import { isCloud } from "@/lib/shared/env";
@@ -130,6 +131,7 @@ export default async function AlertsPage({ searchParams }: AlertsPageProps) {
         uniqueCategories={uniqueCategories}
         uniqueGroups={uniqueGroups}
         initialEditingAlert={editingAlert}
+        initialNewArea={requestedNewAlertArea(resolvedSearchParams)}
       />
     </ContentLayout>
   );

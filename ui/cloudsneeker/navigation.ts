@@ -33,6 +33,7 @@ import {
 import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import { BRAND } from "./brand";
+import { SINGLE_SCAN_COMPLIANCE_HREF } from "./compliance/single-scan-scope";
 import { isCloudsneekerFeatureEnabled } from "./features";
 import {
   APPSEC_RESERVED_SEGMENTS,
@@ -437,6 +438,12 @@ export const filterNavigationByPlan = (
   return result;
 };
 
+/** Compliance opens on Single Scan: provider, account, scan, frameworks. */
+const singleScanCompliance = (
+  item: NavigationLink | undefined,
+): NavigationLink | undefined =>
+  item ? { ...item, href: SINGLE_SCAN_COMPLIANCE_HREF } : undefined;
+
 const regroupNavigation = (
   sections: NavigationSection[],
   pathname: string,
@@ -498,7 +505,7 @@ const regroupNavigation = (
     // --- End finding triage (EB-010) ---
     takeLink("/resources"),
     takeLink("/attack-paths"),
-    takeLink("/compliance"),
+    singleScanCompliance(takeLink("/compliance")),
   ];
 
   const applicationSecurity = isCloudsneekerFeatureEnabled("trivy")

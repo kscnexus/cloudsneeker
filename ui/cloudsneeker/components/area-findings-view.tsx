@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { auth } from "@/auth.config";
 import { listAreaFindings } from "@/cloudsneeker/actions/finding-triage";
 import { listTrivyTargets } from "@/cloudsneeker/actions/trivy";
+import { newAlertHref } from "@/cloudsneeker/lib/alert-areas";
 import { securityCategoryTabs } from "@/cloudsneeker/lib/app-security-categories";
 import {
   AREA_CONFIG,
@@ -91,9 +92,14 @@ export const AreaFindingsView = ({
       <PageHeader
         description={`Open findings from the latest scan of each ${config.sourceLabel.toLowerCase()}. Set a triage status on one finding or many; it follows the finding across rescans.`}
         actions={
-          <Button asChild size="sm" variant="outline">
-            <Link href={config.triageHref}>Triage</Link>
-          </Button>
+          <>
+            <Button asChild size="sm" variant="outline">
+              <Link href={config.triageHref}>Triage</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href={newAlertHref(area)}>Create alert</Link>
+            </Button>
+          </>
         }
       />
       <Suspense

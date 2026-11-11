@@ -36,6 +36,7 @@ export const ALERT_FILTER_FIELDS = {
   RESOURCE_GROUPS: "resource_groups",
   PROVIDER_ID: "provider_id",
   PROVIDER_TYPE: "provider_type",
+  AREA: "area", // cloudsneeker-hook: product area (module) of the findings
 } as const;
 export type AlertFilterField =
   (typeof ALERT_FILTER_FIELDS)[keyof typeof ALERT_FILTER_FIELDS];
