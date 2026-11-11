@@ -42,6 +42,16 @@ Rules created with "Daily" before this release start sending once the beat task 
 | Migrations | `manage.py migrate cloudsneeker_api 0025` removes the beat task and the alert history table; not required for a code rollback (old code ignores both; the beat task name would then be unknown to the worker and logged) |
 | Mute rules created through the new endpoint | They are ordinary upstream mute rules; disable or delete them on the Mutelist page |
 
+## Monitoring
+
+| What | How | Alert |
+| --- | --- | --- |
+| API liveness, API authentication layer, web app sign-in page | "Cloudsneeker: Uptime" (`.github/workflows/cloudsneeker-uptime.yml`), every 30 minutes and on demand; each check retried three times, 20 seconds apart | Opens one GitHub issue labelled `uptime` (comments on it while failing) and closes it on the first passing run, so repository watchers are notified |
+| Deploys | "Cloudsneeker: Deploy to Azure" waits for `/health/live` after starting the stack | Failed run on the workflow |
+| VM power state | "Cloudsneeker: VM schedule" (hourly) | Failed run on the workflow |
+
+Hosts come from the repository variables `CLOUDSNEEKER_API_HOST` and `CLOUDSNEEKER_UI_URL`, with the current hosts as defaults. Nothing here uses a paid service.
+
 ## Backups
 
 The VM takes a nightly `pg_dump` to Blob Storage. Take a manual dump before merging a release that carries schema changes. Migration `0027` only adds a new table, so no existing data is at risk; a dump is still taken nightly.

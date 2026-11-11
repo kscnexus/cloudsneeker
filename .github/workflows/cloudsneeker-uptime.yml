@@ -1,0 +1,105 @@
+name: 'Cloudsneeker: Uptime'
+run-name: "Uptime check"
+# Post-deploy monitoring for the deployed site. Every 30 minutes (GitHub may
+# start scheduled runs late) it checks:
+#
+#   * the API liveness endpoint answers "pass";
+#   * an authenticated API route answers 401 without a token (routing and
+#     the auth layer are up, not only the health view);
+#   * the web app's sign-in page answers 200.
+#
+# A failing check opens one issue labelled `uptime` (or comments on the open
+# one), so repository watchers get a notification; the first passing run
+# afterwards closes it. Each check is retried three times, 20 seconds apart,
+# so a deploy restart does not raise an alert. Uses only GITHUB_TOKEN; no
+# paid service.
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: cloudsneeker-uptime
+  cancel-in-progress: false
+
+env:
+  API_HOST: ${{ vars.CLOUDSNEEKER_API_HOST || 'cloudsneeker-api.southindia.cloudapp.azure.com' }}
+  UI_URL: ${{ vars.CLOUDSNEEKER_UI_URL || 'https://cloudsneeker.vercel.app' }}
+  ISSUE_LABEL: uptime
+  ISSUE_TITLE: 'Uptime: the deployed site is failing its checks'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Check the API and the web app
+        id: checks
+        shell: bash
+        run: |
+          set -uo pipefail
+          failures=()
+
+          probe() {
+            # probe <name> <url> <expected status> [<body substring>]
+            local name="$1" url="$2" want="$3" text="${4:-}" status body
+            for attempt in 1 2 3; do
+              body="$(curl -sS -m 20 -o - -w '\n%{http_code}' "$url" 2>/dev/null || true)"
+              status="${body##*$'\n'}"
+              body="${body%$'\n'*}"
+              if [ "$status" = "$want" ] && { [ -z "$text" ] || grep -q "$text" <<<"$body"; }; then
+                echo "ok: $name ($status)"
+                return 0
+              fi
+              [ "$attempt" -lt 3 ] && sleep 20
+            done
+            echo "::error::$name: expected $want${text:+ with \"$text\"}, got ${status:-no answer} from $url"
+            failures+=("$name answered ${status:-nothing} (expected $want) at $url")
+            return 1
+          }
+
+          probe "API liveness" "https://$API_HOST/health/live" 200 '"pass"'
+          probe "API authentication" "https://$API_HOST/api/v1/providers" 401
+          probe "Web app sign-in" "$UI_URL/sign-in" 200
+
+          {
+            echo "failed=${#failures[@]}"
+            echo "summary<<EOF"
+            for failure in "${failures[@]}"; do echo "- $failure"; done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the uptime issue
+        if: steps.checks.outputs.failed != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SUMMARY: ${{ steps.checks.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create "$ISSUE_LABEL" --color B60205 --description "Deployed site checks" >/dev/null 2>&1 || true
+          body="$(printf 'Checks failed at %s UTC:\n\n%s\n\nRun: %s' "$(date -u '+%Y-%m-%d %H:%M')" "$SUMMARY" "$RUN_URL")"
+          open="$(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --title "$ISSUE_TITLE" --label "$ISSUE_LABEL" --body "$body"
+          fi
+          exit 1
+
+      - name: Close the uptime issue after recovery
+        if: steps.checks.outputs.failed == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for number in $(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[].number'); do
+            gh issue close "$number" --comment "Recovered: every check passed at $(date -u '+%Y-%m-%d %H:%M') UTC."
+          done
