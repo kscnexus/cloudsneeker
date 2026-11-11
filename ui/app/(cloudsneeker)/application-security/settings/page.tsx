@@ -57,6 +57,7 @@ const LIMIT_LABEL: Record<string, string> = {
   default_timeout_seconds: "Default scan timeout (seconds)",
   max_active_runs_per_target: "Concurrent scans per asset",
   max_active_runs_per_tenant: "Concurrent scans per organization",
+  max_queued_runs_per_tenant: "Queued scans per organization",
   max_attempts: "Attempts per scan (with retries)",
   max_report_bytes: "Largest scan report (bytes)",
   max_archive_bytes: "Largest uploaded archive (bytes)",

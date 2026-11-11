@@ -846,15 +846,17 @@ def enqueue_trivy_run(
             raise TrivyHubError(
                 f"Target already has {active} active run(s); limit is {max_concurrent}."
             )
-        tenant_limit = int(os.environ.get("APPSEC_MAX_ACTIVE_RUNS_PER_TENANT", "10"))
+        # Scans past the organization's running limit wait in the queue
+        # (``appsec.engine.execute_run``); this only caps the backlog.
+        queue_limit = int(os.environ.get("APPSEC_MAX_QUEUED_RUNS_PER_TENANT", "1000"))
         tenant_active = TrivyRun.objects.filter(
             tenant_id=tenant_id,
             status__in=[TrivyRun.Status.PENDING, TrivyRun.Status.RUNNING],
         ).count()
-        if tenant_active >= tenant_limit:
+        if tenant_active >= queue_limit:
             raise TrivyHubError(
                 f"{tenant_active} scans are already queued or running; the "
-                f"limit is {tenant_limit}. Wait for one to finish."
+                f"limit is {queue_limit}. Wait for some to finish."
             )
         run = TrivyRun.objects.create(
             tenant_id=tenant_id,

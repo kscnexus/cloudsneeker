@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from api.db_router import MainRouter
@@ -682,3 +683,72 @@ class TestRunActions:
         url = reverse("trivy-runs-export", kwargs={"pk": run.id})
         assert authenticated_client.get(url, {"format": "json"}).status_code == 404
         assert authenticated_client.get(url, {"format": "pdf"}).status_code == 400
+
+
+@pytest.mark.django_db
+class TestTenantScanLimit:
+    """The organization limit caps scans running at once, not scans queued."""
+
+    def _second_target(self, target):
+        return TrivyTarget.objects.create(
+            tenant_id=target.tenant_id,
+            provider=target.provider,
+            name="shop repo two",
+            mode="repo",
+            config={"repository_url": target.provider.uid},
+        )
+
+    def test_scans_queue_past_the_running_limit(self, target, monkeypatch):
+        from cloudsneeker_api.services.trivy import enqueue_trivy_run
+
+        monkeypatch.setenv("APPSEC_MAX_ACTIVE_RUNS_PER_TENANT", "1")
+        other = self._second_target(target)
+        with patch("cloudsneeker_api.tasks.trivy_scan_task"):
+            first = enqueue_trivy_run(
+                tenant_id=str(target.tenant_id), target_id=str(target.id)
+            )
+            second = enqueue_trivy_run(
+                tenant_id=str(target.tenant_id), target_id=str(other.id)
+            )
+        assert first.status == second.status == TrivyRun.Status.PENDING
+
+    def test_the_queue_has_a_ceiling(self, target, monkeypatch):
+        from cloudsneeker_api.services.trivy import TrivyHubError, enqueue_trivy_run
+
+        monkeypatch.setenv("APPSEC_MAX_QUEUED_RUNS_PER_TENANT", "1")
+        other = self._second_target(target)
+        with patch("cloudsneeker_api.tasks.trivy_scan_task"):
+            enqueue_trivy_run(tenant_id=str(target.tenant_id), target_id=str(target.id))
+            with pytest.raises(TrivyHubError, match="queued or running"):
+                enqueue_trivy_run(
+                    tenant_id=str(target.tenant_id), target_id=str(other.id)
+                )
+
+    def test_a_run_waits_while_the_organization_is_at_its_limit(
+        self, target, monkeypatch
+    ):
+        monkeypatch.setenv("APPSEC_MAX_ACTIVE_RUNS_PER_TENANT", "1")
+        _run(self._second_target(target))
+        pending = TrivyRun.objects.create(
+            tenant_id=target.tenant_id,
+            target=target,
+            provider=target.provider,
+            status=TrivyRun.Status.PENDING,
+        )
+        with patch("cloudsneeker_api.tasks.trivy_scan_task") as task:
+            result = engine.execute_run(
+                tenant_id=str(target.tenant_id), run_id=str(pending.id)
+            )
+        assert result["status"] == "deferred"
+        pending.refresh_from_db()
+        assert pending.status == TrivyRun.Status.PENDING
+        task.apply_async.assert_called_once()
+        assert task.apply_async.call_args.kwargs["countdown"] > 0
+
+    def test_a_stale_running_row_does_not_hold_the_slot(self, target, monkeypatch):
+        monkeypatch.setenv("APPSEC_MAX_ACTIVE_RUNS_PER_TENANT", "1")
+        other = self._second_target(target)
+        _run(other, at=timezone.now() - timedelta(days=1))
+        assert engine.running_slots_full(str(target.tenant_id)) is False
+        _run(other)
+        assert engine.running_slots_full(str(target.tenant_id)) is True

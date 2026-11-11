@@ -101,6 +101,9 @@ def engine_limits() -> dict[str, int]:
         "max_active_runs_per_tenant": _env_int(
             "APPSEC_MAX_ACTIVE_RUNS_PER_TENANT", 10, 1
         ),
+        "max_queued_runs_per_tenant": _env_int(
+            "APPSEC_MAX_QUEUED_RUNS_PER_TENANT", 1000, 1
+        ),
         "max_attempts": _env_int("APPSEC_ENGINE_MAX_ATTEMPTS", 3, 1),
         "max_report_bytes": _env_int(
             "APPSEC_MAX_REPORT_BYTES", 512 * 1024 * 1024, 1024
@@ -1040,8 +1043,39 @@ def _fail(run, using: str, failure: failures.Failure, **fields: Any) -> dict[str
     return {"status": status, "run_id": str(run.id)}
 
 
+# Seconds a run waits before checking for a free slot again.
+DEFER_SECONDS = 30
+
+
+def running_slots_full(tenant_id: str, *, using: str | None = None) -> bool:
+    """Whether the organization already runs as many scans as it may.
+
+    A run still marked running after the longest a scan can take (timeout
+    times attempts, plus a margin) is treated as dead: a worker restart can
+    leave one behind, and it must not hold a slot forever.
+    """
+    from datetime import timedelta
+
+    from cloudsneeker_api.models import TrivyRun
+    from django.utils import timezone
+
+    limits = engine_limits()
+    longest = limits["default_timeout_seconds"] * limits["max_attempts"] + 600
+    manager = TrivyRun.objects.using(using) if using else TrivyRun.objects
+    running = manager.filter(
+        tenant_id=tenant_id,
+        status=TrivyRun.Status.RUNNING,
+        started_at__gte=timezone.now() - timedelta(seconds=longest),
+    ).count()
+    return running >= limits["max_active_runs_per_tenant"]
+
+
 def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
-    """Execute one pending run. Never raises for a scan failure."""
+    """Execute one pending run. Never raises for a scan failure.
+
+    While the organization runs as many scans as it may, the run stays
+    pending and is dispatched again after ``DEFER_SECONDS``.
+    """
     from api.db_router import MainRouter
     from cloudsneeker_api.models import TrivyRun
     from cloudsneeker_api.services import trivy as hub
@@ -1060,6 +1094,14 @@ def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
         return {"status": run.status, "run_id": str(run_id)}
     if run.cancel_requested_at is not None:
         return _fail(run, using, failures.failure(failures.FAILURE_CANCELLED))
+    if running_slots_full(tenant_id, using=using):
+        from cloudsneeker_api.tasks import trivy_scan_task
+
+        trivy_scan_task.apply_async(
+            kwargs={"tenant_id": tenant_id, "run_id": str(run_id)},
+            countdown=DEFER_SECONDS,
+        )
+        return {"status": "deferred", "run_id": str(run_id)}
 
     target, provider, mode = run.target, run.provider, run.target.mode
     started = timezone.now()

@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import {
   planRepositoryScans,
   type RepositoryScanItem,
@@ -10,7 +8,6 @@ import {
   scanAllTargetConfig,
 } from "@/cloudsneeker/lib/app-security-scan-all";
 import { firstErrorDetail } from "@/cloudsneeker/lib/bitbucket-import";
-import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { handleApiError } from "@/lib/server-actions-helper";
@@ -184,7 +181,9 @@ export const scanRepositoryBatch = async (
         ...(failure ? { message: failure } : {}),
       });
     }
-    revalidatePath(PRODUCT_ROUTE.APPLICATION_SECURITY);
+    // No revalidatePath here: it re-renders the whole page into every batch
+    // response, and the browser aborted those responses mid-run, which left
+    // the dialog waiting forever. The dialog refreshes once at the end.
     return results;
   } catch (error) {
     return handleApiError(error);
