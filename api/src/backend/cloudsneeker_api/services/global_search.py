@@ -106,7 +106,18 @@ def _finding_group(tenant_id: str, role, area: str, kind: str, text: str):
             SearchHit(
                 id=row["uid"],
                 title=row.get("title") or row.get("check_id") or row["uid"],
-                subtitle=row.get("source_name") or "",
+                # Same check on many resources: the resource tells them apart.
+                subtitle=" · ".join(
+                    part
+                    for part in (
+                        row.get("resource_name")
+                        or row.get("location")
+                        or row.get("resource_id")
+                        or "",
+                        row.get("source_name") or "",
+                    )
+                    if part
+                ),
                 attributes={
                     "area": area,
                     "severity": row.get("severity") or "",

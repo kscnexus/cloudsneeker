@@ -34,6 +34,10 @@ Run on https://cloudsneeker.vercel.app on 2026-11-11 after the merge, signed in 
 | Multiple Scans | `/compliance` (Multiple Scans) | Verified 2026-11-12 after #5, #6, #8: compares two AWS scans with results, no "Removed" rows, no notice |
 | Compliance, failed scan | `/compliance?tab=per-scan&scanId=01a1c06a-…` | Verified after #5: the "Compliance results are not available for this scan" notice instead of the error page; the default opens a scan with frameworks |
 | Alert history | `/alerts?tab=history`, filters Status = Open, Module = Cloud Governance, search | Verified 2026-11-12: Rules and History tabs; filters reach the API; empty state (the tenant has no alert rules, so no event exists yet) |
+| Global search (#12) | `/search?q=bucket` | Verified 2026-11-12: 1188 Cloud Security findings, 1 Application Security finding, 2 targets, links and "See all"; the first try showed "Token is invalid" while the session token refreshed, a reload worked |
+| Governance finding detail (#11) | `/governance/findings/custodian-…-averytestdb` | Verified: resource, policy, rule, run link, dates, triage link, Mute, raw resource record |
+| Frameworks across accounts (#13) | `/compliance?tab=cross-provider&view=accounts` | Verified: AWS · 1 account, 49 frameworks, 25% of 5895 requirements passed, most failed first |
+| Select all matching (#9) | `/governance/findings`, select the page | Verified the bar ("1 selected on this page"); "Select all matching" is not offered because every governance finding fits on one page; the cross-page path is covered by component tests |
 | Alerts | `/alerts` → New alert → Modules = Application Security → Test shows only application counts; rule list shows the module | Verified: New alert, Modules selector, Test returned 8,597 findings. No rule saved (tenant has no alert rules) |
 | Application Security alert | Rescan a target with an Application Security rule enabled; notification links to the scan run | Needs a confirmed recipient or Slack channel on the tenant |
 | Governance alert | Run a policy dry run with a governance rule enabled | Needs a confirmed recipient or Slack channel |
