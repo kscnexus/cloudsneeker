@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from api.models import Finding, Scan, StateChoices
@@ -211,7 +212,10 @@ def _finding(scan, uid, *, severity="high", status="FAIL", muted=False):
 
 def _rule(tenant_id, condition, trigger=AlertRule.Trigger.AFTER_SCAN):
     return AlertRule.objects.create(
-        tenant_id=tenant_id, name="rule-x", condition=condition, trigger=trigger
+        tenant_id=tenant_id,
+        name=f"rule-{uuid4().hex[:8]}",
+        condition=condition,
+        trigger=trigger,
     )
 
 

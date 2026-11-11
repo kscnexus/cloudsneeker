@@ -7,6 +7,7 @@ untouched.
 from __future__ import annotations
 
 from django.db import transaction
+from django.db.transaction import on_commit as _on_commit
 from django.db.models.signals import post_delete, post_save
 
 
@@ -51,7 +52,9 @@ def _mute_rule_changed(sender, instance, using=None, **kwargs):
         with rls_transaction(tenant_id):
             sync_rule(tenant_id)
 
-    transaction.on_commit(_sync, using=using, robust=True)
+    # Bound at import: upstream tests patch transaction.on_commit with a
+    # one-argument stand-in, which this hook must not reach.
+    _on_commit(_sync, using=using, robust=True)
 
 
 def connect() -> None:

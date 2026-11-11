@@ -75,6 +75,7 @@ class AreaFindingsTools(BaseTool):
     async def search_area_findings(
         self,
         area: Area = Field(
+            default="cloud",
             description=(
                 "Product area: cloud (cloud posture checks), application_security "
                 "(code, dependency, image, secret, license and IaC findings) or "
