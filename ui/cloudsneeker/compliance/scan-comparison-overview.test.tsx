@@ -218,6 +218,63 @@ describe("ScanComparisonOverview", () => {
     ).toBeInTheDocument();
   });
 
+  it("skips a default scan without compliance results", async () => {
+    // Given - three scans of one provider; the newest has no results
+    const scanMid = {
+      ...scans[0],
+      id: "scan-mid",
+      attributes: { name: "Mid", completed_at: "2026-01-15T00:00:00Z" },
+    };
+    getCompliancesOverviewMock.mockImplementation(
+      async ({ scanId }: { scanId: string }) => {
+        if (scanId === "scan-new") {
+          throw new Error("Task failed to generate compliance overview data.");
+        }
+        return { data: [] };
+      },
+    );
+
+    // When
+    render(
+      await ScanComparisonOverview({
+        searchParams: {},
+        scans: [scans[0], scanMid, scans[1]] as never,
+      }),
+    );
+
+    // Then
+    expect(screen.getByText("filters:scan-old->scan-mid")).toBeInTheDocument();
+    expect(screen.queryByText(/has no compliance results/i)).toBeNull();
+    expect(screen.getByText("Compare scans")).toBeInTheDocument();
+  });
+
+  it("keeps a chosen scan without results and hides the table", async () => {
+    // Given
+    getCompliancesOverviewMock.mockImplementation(
+      async ({ scanId }: { scanId: string }) => {
+        if (scanId === "scan-new") {
+          throw new Error("Task failed to generate compliance overview data.");
+        }
+        return { data: [] };
+      },
+    );
+
+    // When
+    render(
+      await ScanComparisonOverview({
+        searchParams: { baselineScanId: "scan-old", compareScanId: "scan-new" },
+        scans: scans as never,
+      }),
+    );
+
+    // Then
+    expect(screen.getByText("filters:scan-old->scan-new")).toBeInTheDocument();
+    expect(
+      screen.getByText(/compare scan has no compliance results/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Compare scans")).toBeNull();
+  });
+
   it("asks for a second scan when fewer than two exist", async () => {
     render(
       await ScanComparisonOverview({

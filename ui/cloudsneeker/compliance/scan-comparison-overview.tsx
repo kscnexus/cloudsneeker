@@ -52,6 +52,10 @@ const loadTrivyHubScanIds = async (): Promise<Set<string>> => {
 
 // Null when the API reports a server error: the scan's compliance task
 // failed, so it has no results (the endpoint answers 500 by design).
+const MAX_DEFAULT_ATTEMPTS = 3;
+
+type ComplianceSnapshots = Awaited<ReturnType<typeof loadSnapshots>>;
+
 const loadSnapshots = async (scanId: string) => {
   let response: Awaited<ReturnType<typeof getCompliancesOverview>>;
   try {
@@ -110,7 +114,44 @@ export const ScanComparisonOverview = async ({
     return <NoScansAvailable />;
   }
 
-  const selected = resolveSelectedScanIds(searchParams, scans);
+  // A default scan without compliance results (its task failed) is skipped
+  // for the next one of the same provider; a scan the user chose is kept.
+  const chosen = parseScanComparisonParams(searchParams);
+  const snapshots = new Map<string, ComplianceSnapshots>();
+  const snapshotsOf = async (scanId: string) => {
+    if (!snapshots.has(scanId))
+      snapshots.set(scanId, await loadSnapshots(scanId));
+    return snapshots.get(scanId) ?? null;
+  };
+  const skipped = new Set<string>();
+  let selected = resolveSelectedScanIds(searchParams, scans);
+  for (
+    let attempt = 0;
+    selected && attempt < MAX_DEFAULT_ATTEMPTS;
+    attempt += 1
+  ) {
+    const [baseline, compare] = await Promise.all([
+      snapshotsOf(selected.baselineScanId),
+      snapshotsOf(selected.compareScanId),
+    ]);
+    const failedDefaults = [
+      baseline === null && selected.baselineScanId !== chosen.baselineScanId
+        ? selected.baselineScanId
+        : null,
+      compare === null && selected.compareScanId !== chosen.compareScanId
+        ? selected.compareScanId
+        : null,
+    ].filter((scanId): scanId is string => scanId !== null);
+    if (failedDefaults.length === 0) break;
+    failedDefaults.forEach((scanId) => skipped.add(scanId));
+    const next = resolveSelectedScanIds(
+      searchParams,
+      scans.filter((scan) => !skipped.has(scan.id)),
+    );
+    if (!next) break;
+    selected = next;
+  }
+
   if (!selected) {
     return (
       <Alert variant="info">
@@ -124,8 +165,8 @@ export const ScanComparisonOverview = async ({
 
   const { baselineScanId, compareScanId } = selected;
   const [baselineSnapshots, compareSnapshots] = await Promise.all([
-    loadSnapshots(baselineScanId),
-    loadSnapshots(compareScanId),
+    snapshotsOf(baselineScanId),
+    snapshotsOf(compareScanId),
   ]);
 
   const rows = compareFrameworks(
@@ -165,23 +206,25 @@ export const ScanComparisonOverview = async ({
         </Alert>
       )}
 
-      <Section>
-        <SectionHeader>
-          <SectionTitle>Compare scans</SectionTitle>
-          <SectionDescription>
-            Framework pass rates for the baseline scan versus the compare scan.
-            Positive change means the compare scan passed a larger share of
-            requirements.
-          </SectionDescription>
-        </SectionHeader>
-        <SectionContent>
-          <Card variant="base" padding="none" className="w-full shadow-sm">
-            <CardContent className="p-4">
-              <ScanComparisonTable rows={rows} />
-            </CardContent>
-          </Card>
-        </SectionContent>
-      </Section>
+      {unavailable.length === 0 && (
+        <Section>
+          <SectionHeader>
+            <SectionTitle>Compare scans</SectionTitle>
+            <SectionDescription>
+              Framework pass rates for the baseline scan versus the compare
+              scan. Positive change means the compare scan passed a larger share
+              of requirements.
+            </SectionDescription>
+          </SectionHeader>
+          <SectionContent>
+            <Card variant="base" padding="none" className="w-full shadow-sm">
+              <CardContent className="p-4">
+                <ScanComparisonTable rows={rows} />
+              </CardContent>
+            </Card>
+          </SectionContent>
+        </Section>
+      )}
     </div>
   );
 };
