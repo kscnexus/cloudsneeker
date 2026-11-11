@@ -14,11 +14,16 @@ import { CustodianPolicyList } from "@/cloudsneeker/components/custodian-policy-
 import { CustodianReportsTable } from "@/cloudsneeker/components/custodian-reports-table";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { GovernanceInsights } from "@/cloudsneeker/components/governance-insights";
+import {
+  ListFilterBar,
+  ListPager,
+} from "@/cloudsneeker/components/list-filter-bar";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
   buildCustodianDashboard,
   buildCustodianReportRows,
+  CUSTODIAN_TAB,
   getCustodianTab,
   type CustodianFindingSuggestion,
 } from "@/cloudsneeker/lib/custodian-dashboard";
@@ -41,11 +46,21 @@ import {
   buildRemediationProgress,
   summarizeCompliance,
 } from "@/cloudsneeker/lib/dashboards";
-import { governanceHref } from "@/cloudsneeker/routes";
+import {
+  hasListFilters,
+  LIST_PARAM,
+  type ListFilters,
+  paginationOf,
+  parseListFilters,
+  policyListQuery,
+  runListQuery,
+} from "@/cloudsneeker/lib/list-filters";
+import { governanceHref, PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import { FINDING_AREA } from "@/cloudsneeker/types/area-findings";
-import type {
-  CustodianPolicyResource,
-  CustodianRunResource,
+import {
+  CUSTODIAN_RUN_STATUS,
+  type CustodianPolicyResource,
+  type CustodianRunResource,
 } from "@/cloudsneeker/types/custodian";
 import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
@@ -60,12 +75,16 @@ export default async function CustodianPage({
 }: CustodianPageProps) {
   const resolvedSearchParams = await searchParams;
   const activeTab = getCustodianTab(resolvedSearchParams.tab);
+  const listFilters = parseListFilters(resolvedSearchParams);
 
   return (
     <ContentLayout title={BRAND.governanceName} icon={<Shield />}>
       <PageHeader description="Compliance across frameworks, cloud policy violations and audit readiness in one place. Policies run as dry-runs; apply mode is disabled." />
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
-        <SSRCustodianWorkspace activeTab={activeTab} />
+        <SSRCustodianWorkspace
+          activeTab={activeTab}
+          listFilters={listFilters}
+        />
       </Suspense>
     </ContentLayout>
   );
@@ -73,8 +92,10 @@ export default async function CustodianPage({
 
 const SSRCustodianWorkspace = async ({
   activeTab,
+  listFilters,
 }: {
   activeTab: ReturnType<typeof getCustodianTab>;
+  listFilters: ListFilters;
 }) => {
   const mappedChecks = allMappedProwlerCheckIds();
   const [
@@ -108,6 +129,16 @@ const SSRCustodianWorkspace = async ({
     loadProviderFindings(),
     loadProviderCounts(),
     loadAreaTriageCounts(FINDING_AREA.CLOUD),
+  ]);
+  // Policies and Reports tabs: one filtered page from the API (the dashboard
+  // above keeps its newest-100 sample for the charts).
+  const [policyPage, runPage] = await Promise.all([
+    activeTab === CUSTODIAN_TAB.POLICIES
+      ? listCustodianPolicies(policyListQuery(listFilters))
+      : Promise.resolve(null),
+    activeTab === CUSTODIAN_TAB.REPORTS
+      ? listCustodianRuns(runListQuery(listFilters))
+      : Promise.resolve(null),
   ]);
 
   const policyError =
@@ -164,7 +195,34 @@ const SSRCustodianWorkspace = async ({
     runs,
     findingSuggestions,
   });
-  const reportRows = buildCustodianReportRows({ policies, runs });
+  const pagedPolicies = (
+    policyPage && "data" in policyPage ? policyPage.data : []
+  ) as CustodianPolicyResource[];
+  const pagedRuns = (
+    runPage && "data" in runPage ? runPage.data : []
+  ) as CustodianRunResource[];
+  const reportRows = buildCustodianReportRows({
+    policies,
+    runs: pagedRuns,
+  });
+  const providerOptions = new Map<string, string>();
+  for (const policy of policies) {
+    providerOptions.set(
+      policy.attributes.provider_id,
+      policy.attributes.provider_alias ||
+        policy.attributes.provider_uid ||
+        policy.attributes.provider_id,
+    );
+  }
+  const providerSelect = {
+    name: LIST_PARAM.PROVIDER,
+    label: "Cloud account",
+    allLabel: "All accounts",
+    options: Array.from(providerOptions, ([value, label]) => ({
+      value,
+      label,
+    })).sort((left, right) => left.label.localeCompare(right.label)),
+  } as const;
 
   return (
     <CustodianPageTabs
@@ -214,13 +272,61 @@ const SSRCustodianWorkspace = async ({
           </section>
         </div>
       }
-      policiesContent={<CustodianPolicyList policies={policies} />}
+      policiesContent={
+        <div className="flex flex-col gap-4">
+          <ListFilterBar
+            path={PRODUCT_ROUTE.GOVERNANCE}
+            keep={{ tab: CUSTODIAN_TAB.POLICIES }}
+            filters={listFilters}
+            searchPlaceholder="Policy name or description"
+            selects={[providerSelect]}
+          />
+          <CustodianPolicyList
+            policies={pagedPolicies}
+            filtered={hasListFilters(listFilters)}
+          />
+          <ListPager
+            path={PRODUCT_ROUTE.GOVERNANCE}
+            keep={{ tab: CUSTODIAN_TAB.POLICIES }}
+            filters={listFilters}
+            pagination={paginationOf(policyPage, listFilters.page)}
+            noun="policies"
+          />
+        </div>
+      }
       reportsContent={
         <SectionCard
           title="Dry-run reports"
           description="Every dry-run with its policy, provider, duration and matched resources."
         >
-          <CustodianReportsTable rows={reportRows} />
+          <div className="flex flex-col gap-4">
+            <ListFilterBar
+              path={PRODUCT_ROUTE.GOVERNANCE}
+              keep={{ tab: CUSTODIAN_TAB.REPORTS }}
+              filters={listFilters}
+              searchPlaceholder="Policy name"
+              selects={[
+                providerSelect,
+                {
+                  name: LIST_PARAM.STATUS,
+                  label: "Status",
+                  allLabel: "All statuses",
+                  options: Object.values(CUSTODIAN_RUN_STATUS).map((value) => ({
+                    value,
+                    label: value.charAt(0).toUpperCase() + value.slice(1),
+                  })),
+                },
+              ]}
+            />
+            <CustodianReportsTable rows={reportRows} />
+            <ListPager
+              path={PRODUCT_ROUTE.GOVERNANCE}
+              keep={{ tab: CUSTODIAN_TAB.REPORTS }}
+              filters={listFilters}
+              pagination={paginationOf(runPage, listFilters.page)}
+              noun="dry-runs"
+            />
+          </div>
         </SectionCard>
       }
     />

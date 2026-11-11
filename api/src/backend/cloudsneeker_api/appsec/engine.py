@@ -1047,6 +1047,16 @@ def persist_results(
             started_at=run.started_at,
             rows=rows,
         )
+    from cloudsneeker_api.services.alert_dispatch import enqueue_after_scan
+    from cloudsneeker_api.services.area_mute import reconcile_scan
+
+    # The provider scan applies the mutelist itself; application scans do it
+    # here, before alerts read the rows.
+    try:
+        reconcile_scan(tenant_id, str(scan.id), str(target.id))
+    except Exception:  # noqa: BLE001 - muting must not fail a finished scan
+        logger.exception("Mute rules not applied to scan %s", scan.id)
+    enqueue_after_scan(tenant_id, scan_id=str(scan.id), using=using)
     return {
         "lifecycle": outcome.to_dict(),
         "scan_id": str(scan.id),

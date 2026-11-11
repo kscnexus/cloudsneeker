@@ -81,6 +81,24 @@ def _delta(run: CustodianRun) -> dict[str, int]:
     }
 
 
+def _muted_governance_uids(tenant_id: str) -> set[str]:
+    from cloudsneeker_api.services.area_mute import muted_uid_map
+    from cloudsneeker_api.services.governance_findings import is_governance_uid
+
+    return {uid for uid in muted_uid_map(tenant_id) if is_governance_uid(uid)}
+
+
+def _muted_in_run(run: CustodianRun, muted_uids: set[str]) -> int:
+    """Resources of the run whose governance finding is muted."""
+    if not muted_uids:
+        return 0
+    from cloudsneeker_api.services.governance_findings import findings_for_run
+
+    return sum(
+        1 for finding in findings_for_run(run, run.policy) if finding.uid in muted_uids
+    )
+
+
 def governance_score(policies: int, policies_matched: int) -> float | None:
     """Share of policies with no matched resources (higher is better)."""
     if policies == 0:
@@ -113,8 +131,11 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     policy_rows: list[dict[str, Any]] = []
     resource_rows: list[dict[str, Any]] = []
     providers: dict[str, dict[str, Any]] = {}
+    muted_uids = _muted_governance_uids(tenant_id)
+    muted_resources = 0
     for run in runs:
         count = _resource_count(run)
+        muted_resources += _muted_in_run(run, muted_uids)
         delta = _delta(run)
         label = provider_label(run.provider)
         policy_rows.append(
@@ -172,6 +193,8 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
         "policies_evaluated": len(policy_rows),
         "policies_with_matches": matched,
         "matched_resources": total_resources,
+        # Matched resources suppressed through the mutelist (still listed).
+        "muted_resources": muted_resources,
         "new_since_last_run": new,
         "resolved_since_last_run": resolved,
     }

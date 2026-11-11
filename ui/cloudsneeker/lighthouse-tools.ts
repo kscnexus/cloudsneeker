@@ -18,3 +18,16 @@ export const canonicalToolName = (name: string): string => {
 
 export const isSameToolName = (left: string, right: string): boolean =>
   canonicalToolName(left) === canonicalToolName(right);
+
+/**
+ * Read-only tools the Cloudsneeker MCP server adds for Application Security
+ * and Cloud Governance (`mcp_server/prowler_mcp_server/cloudsneeker/tools`),
+ * in their canonical names.
+ */
+export const CLOUDSNEEKER_AREA_TOOLS = [
+  "prowler_search_area_findings",
+  "prowler_get_platform_posture_summary",
+  "prowler_get_application_security_finding",
+  "prowler_get_application_security_overview",
+  "prowler_list_governance_policies",
+] as const;

@@ -2,6 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 
+import {
+  ComplianceScopeSelectors,
+  RunComplianceScanLink,
+  scansInScope,
+} from "@/cloudsneeker/compliance/compliance-scope-filters"; // cloudsneeker-hook
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { ClearFiltersButton } from "@/components/filters/clear-filters-button";
 import {
   MultiSelect,
@@ -40,11 +46,20 @@ export const ComplianceFilters = ({
   const regionValues =
     searchParams.get("filter[region__in]")?.split(",").filter(Boolean) ?? [];
 
+  // cloudsneeker-hook: provider and account narrow the scan list.
+  const scoped = isCloudsneekerFeatureEnabled("complianceScope");
+
   return (
-    <div className="flex max-w-4xl flex-wrap items-center gap-4">
+    <div className="flex max-w-6xl flex-wrap items-end gap-4">
+      {scoped && (
+        <ComplianceScopeSelectors
+          scans={scans}
+          selectedScanId={selectedScanId}
+        />
+      )}
       <div className="w-full sm:max-w-[380px] sm:min-w-[200px] sm:flex-1">
         <ScanSelector
-          scans={scans}
+          scans={scoped ? scansInScope(scans, selectedScanId) : scans}
           selectedScanId={selectedScanId}
           onSelectionChange={handleScanChange}
         />
@@ -71,6 +86,7 @@ export const ComplianceFilters = ({
         </div>
       )}
       <ClearFiltersButton showCount />
+      {scoped && <RunComplianceScanLink />}
     </div>
   );
 };

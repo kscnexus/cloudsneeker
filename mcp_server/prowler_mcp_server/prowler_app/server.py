@@ -10,3 +10,5 @@ app_mcp_server = FastMCP(
 
 # Auto-discover and load all tools from the tools package
 load_all_tools(app_mcp_server)
+# cloudsneeker-hook: Application Security and Governance tools
+load_all_tools(app_mcp_server, tools_package="prowler_mcp_server.cloudsneeker.tools")

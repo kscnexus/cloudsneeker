@@ -417,6 +417,7 @@ class TestGovernanceAndExecutive:
             "policies_evaluated": 2,
             "policies_with_matches": 1,
             "matched_resources": 2,
+            "muted_resources": 0,
             "new_since_last_run": 1,
             "resolved_since_last_run": 3,
         }

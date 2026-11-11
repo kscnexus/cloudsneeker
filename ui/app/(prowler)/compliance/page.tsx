@@ -10,6 +10,10 @@ import { getThreatScore } from "@/actions/overview";
 import { getScan, getScans, getScansByState } from "@/actions/scans";
 import { defaultComplianceScanId } from "@/cloudsneeker/compliance/default-scan"; // cloudsneeker-hook
 import { ScanComparisonOverview } from "@/cloudsneeker/compliance/scan-comparison-overview"; // cloudsneeker-hook
+import {
+  complianceScanFilters,
+  eligibleComplianceScans,
+} from "@/cloudsneeker/compliance/single-scan-scope"; // cloudsneeker-hook
 import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import {
   ComplianceSkeletonGrid,
@@ -221,23 +225,37 @@ export default async function Compliance({
     );
   }
 
-  const [subscriptionOnly, scansData] = await Promise.all([
-    isReportDownloadLocked(),
-    getScans({
-      filters: {
-        "filter[state]": "completed",
-        // Partial scans compute no compliance. Exclude them at the API so the
-        // page below never fills up with them; the filter is Cloud-only.
-        ...(isCloud() ? { "filter[is_partial]": "false" } : {}),
-      },
-      pageSize: 50,
-      fields: {
-        // is_partial is Cloud-only; the OSS API ignores unknown sparse fields.
-        scans: "name,completed_at,provider,is_partial",
-      },
-      include: "provider",
-    }),
-  ]);
+  const [subscriptionOnly, upstreamScansData, providerScansData] =
+    await Promise.all([
+      isReportDownloadLocked(),
+      getScans({
+        filters: {
+          "filter[state]": "completed",
+          // Partial scans compute no compliance. Exclude them at the API so the
+          // page below never fills up with them; the filter is Cloud-only.
+          ...(isCloud() ? { "filter[is_partial]": "false" } : {}),
+        },
+        pageSize: 50,
+        fields: {
+          // is_partial is Cloud-only; the OSS API ignores unknown sparse fields.
+          scans: "name,completed_at,provider,is_partial",
+        },
+        include: "provider",
+      }),
+      // cloudsneeker-hook: ask only for providers with compliance frameworks,
+      // so application (code and image) scans cannot crowd the list out.
+      isCloud()
+        ? Promise.resolve(null)
+        : getScans({
+            filters: complianceScanFilters(),
+            pageSize: 100,
+            fields: { scans: "name,completed_at,provider,is_partial" },
+            include: "provider",
+          }),
+    ]);
+  const scansData = providerScansData?.data
+    ? providerScansData
+    : upstreamScansData;
 
   if (!scansData?.data) {
     return (
@@ -263,7 +281,7 @@ export default async function Compliance({
 
   // Belt and braces for an API without the filter: partial scans never
   // compute compliance, so they have nothing to show or download here.
-  const expandedScansData: ExpandedScanData[] = scansData.data
+  const allExpandedScans: ExpandedScanData[] = scansData.data
     .filter((scan: ScanProps) => !scan.attributes?.is_partial)
     .filter((scan: ScanProps) => scan.relationships?.provider?.data?.id)
     .map((scan: ScanProps) => {
@@ -288,6 +306,10 @@ export default async function Compliance({
       };
     })
     .filter(Boolean) as ExpandedScanData[];
+  // cloudsneeker-hook: only scans with compliance frameworks are offered.
+  const expandedScansData: ExpandedScanData[] = isCloud()
+    ? allExpandedScans
+    : eligibleComplianceScans(allExpandedScans);
 
   const scanIdParam = resolvedSearchParams.scanId;
   const scanIdFromUrl = Array.isArray(scanIdParam)

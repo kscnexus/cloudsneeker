@@ -19,6 +19,11 @@ filter control.
 
 Reading follows provider visibility. Each area also needs its plan feature.
 Triage changes use the ``finding-triages`` routes.
+
+``POST /api/v1/area-findings/mute`` (``manage_scans``) creates one shared
+mute rule from finding UIDs of any area: ``finding_uids``, ``name``,
+``reason``. Governance findings have no ``Finding`` row, so the upstream
+``mute-rules`` endpoint (which takes ``Finding`` ids) cannot mute them.
 """
 
 from __future__ import annotations
@@ -26,6 +31,8 @@ from __future__ import annotations
 import math
 
 from api.base_views import BaseRLSViewSet
+from api.rbac.permissions import Permissions
+from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.models import JSON_API_TYPE_PREFIX, FindingTriage
 from cloudsneeker_api.serializers_triage import FindingTriageSerializer
 from cloudsneeker_api.services import entitlements
@@ -35,8 +42,12 @@ from cloudsneeker_api.services.area_findings import (
     list_area_findings,
     parse_query,
 )
+from cloudsneeker_api.services.area_mute import AreaMuteError, create_area_mute_rule
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 
 AREA_FINDING_RESOURCE = f"{JSON_API_TYPE_PREFIX}area-findings"
@@ -51,12 +62,61 @@ class AreaFindingViewSet(BaseRLSViewSet):
 
     queryset = FindingTriage.objects.none()
     serializer_class = FindingTriageSerializer
-    http_method_names = ["get", "head", "options"]
+    http_method_names = ["get", "post", "head", "options"]
     pagination_class = None
     filter_backends = []
+    parser_classes = [LenientJSONAPIParser, JSONParser]
 
     def set_required_permissions(self):
-        self.required_permissions = []
+        if self.action == "mute":
+            self.required_permissions = [Permissions.MANAGE_SCANS]
+        else:
+            self.required_permissions = []
+
+    @extend_schema(
+        tags=["Finding triage"],
+        summary="Mute findings of any product area",
+        request=None,
+        responses={201: OpenApiResponse(description="Mute rule created")},
+    )
+    @action(detail=False, methods=["post"], url_path="mute")
+    def mute(self, request, *args, **kwargs):
+        self.resource_name = False
+        payload = request.data or {}
+        if isinstance(payload.get("attributes"), dict):
+            payload = payload["attributes"]
+        uids = payload.get("finding_uids") or []
+        if not isinstance(uids, list):
+            raise ValidationError({"finding_uids": "Send a list of finding UIDs."})
+        try:
+            result = create_area_mute_rule(
+                tenant_id=str(request.tenant_id),
+                role=self.user_role,
+                user=request.user,
+                finding_uids=[str(uid) for uid in uids],
+                name=str(payload.get("name") or ""),
+                reason=str(payload.get("reason") or ""),
+            )
+        except AreaMuteError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        rule = result.rule
+        return Response(
+            {
+                "data": {
+                    "type": "mute-rules",
+                    "id": str(rule.id),
+                    "attributes": {
+                        "name": rule.name,
+                        "reason": rule.reason,
+                        "enabled": rule.enabled,
+                        "finding_uids": rule.finding_uids,
+                        "inserted_at": _iso(rule.inserted_at),
+                    },
+                },
+                "meta": {"skipped_uids": result.skipped_uids},
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         tags=["Finding triage"],

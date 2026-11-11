@@ -47,6 +47,11 @@ export const CLOUDSNEEKER_FEATURES = {
    * cloud widgets move to `/cloud-security`.
    */
   executiveOverview: true,
+  /**
+   * Single Scan compliance picks a provider, then an account, then a scan;
+   * the frameworks shown are the ones assessed for that provider.
+   */
+  complianceScope: true,
 } as const;
 
 export type CloudsneekerFeature = keyof typeof CLOUDSNEEKER_FEATURES;

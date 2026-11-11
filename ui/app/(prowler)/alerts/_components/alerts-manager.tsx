@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
+  createAlert, // cloudsneeker-hook
   deleteAlert,
   disableAlert,
   enableAlert,
@@ -15,9 +16,14 @@ import {
   ALERT_TRIGGER_KINDS,
   type AlertRule,
 } from "@/app/(prowler)/alerts/_types";
+import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
+import {
+  NEW_ALERT_AREA_PARAM,
+  NEW_ALERT_PARAM,
+} from "@/cloudsneeker/lib/alert-areas"; // cloudsneeker-hook
+import type { FindingArea } from "@/cloudsneeker/types/area-findings"; // cloudsneeker-hook
 import { Button, useToast } from "@/components/shadcn";
 import { Modal } from "@/components/shadcn/modal";
-import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { DOCS_URLS } from "@/lib/external-urls";
 import type { MetaDataProps, ScanEntity } from "@/types";
 import type { ProviderProps } from "@/types/providers";
@@ -46,6 +52,8 @@ interface AlertsManagerProps {
   uniqueCategories: string[];
   uniqueGroups: string[];
   initialEditingAlert?: AlertRule | null;
+  /** cloudsneeker-hook: `/alerts?new=1&area=...` opens a new rule. */
+  initialNewArea?: FindingArea | null;
 }
 
 const ALERTS_FINDINGS_HREF =
@@ -64,13 +72,20 @@ export const AlertsManager = ({
   uniqueCategories,
   uniqueGroups,
   initialEditingAlert = null,
+  initialNewArea = null,
 }: AlertsManagerProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [, startTransition] = useTransition();
-  const [modalOpen, setModalOpen] = useState(Boolean(initialEditingAlert));
+  const [modalOpen, setModalOpen] = useState(
+    Boolean(initialEditingAlert) || Boolean(initialNewArea),
+  );
+  // cloudsneeker-hook: areas of a rule created on this page (null = editing).
+  const [newAlertAreas, setNewAlertAreas] = useState<FindingArea[] | null>(
+    !initialEditingAlert && initialNewArea ? [initialNewArea] : null,
+  );
   const [editingAlert, setEditingRule] = useState<AlertRule | null>(
     initialEditingAlert,
   );
@@ -86,6 +101,8 @@ export const AlertsManager = ({
     } else {
       params.delete("edit");
     }
+    params.delete(NEW_ALERT_PARAM); // cloudsneeker-hook
+    params.delete(NEW_ALERT_AREA_PARAM);
 
     const queryString = params.toString();
     router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
@@ -97,6 +114,7 @@ export const AlertsManager = ({
     setModalOpen(open);
     if (!open) {
       setEditingRule(null);
+      setNewAlertAreas(null);
       replaceEditParam(null);
     }
   };
@@ -105,7 +123,20 @@ export const AlertsManager = ({
     values: AlertFormValues,
   ): Promise<AlertFormSubmitResult> => {
     if (!editingAlert) {
-      return { ok: false, error: "Create alerts from Findings." };
+      // cloudsneeker-hook: new rules can be created here for any module.
+      if (!newAlertAreas) {
+        return { ok: false, error: "Create alerts from Findings." };
+      }
+      const created = await createAlert(toAlertPayload(values));
+      if (created?.error) {
+        return { ok: false, error: getAlertMutationError(created) };
+      }
+      toast({
+        title: "Alert created",
+        description: created.data.attributes.name,
+      });
+      refresh();
+      return { ok: true, alertId: created.data.id };
     }
     const payload = toAlertPayload(values);
     const result = await updateAlert(editingAlert.id, payload);
@@ -179,7 +210,7 @@ export const AlertsManager = ({
             >
               <Link href={ALERTS_FINDINGS_HREF}>Findings</Link>
             </Button>
-            <span>.</span>
+            <span>, or create one here for any module.</span>
             {showDocumentationLinks() && (
               <>
                 <span>Learn more about configuring the Alerts</span>
@@ -201,6 +232,19 @@ export const AlertsManager = ({
             )}
           </div>
         </div>
+      </div>
+
+      {/* cloudsneeker-hook: new rule for Cloud Security, Application Security or Governance */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => {
+            setEditingRule(null);
+            setNewAlertAreas([]);
+            setModalOpen(true);
+          }}
+        >
+          New alert
+        </Button>
       </div>
 
       {loadError && (
@@ -227,7 +271,7 @@ export const AlertsManager = ({
       )}
 
       <AlertFormModal
-        key={editingAlert?.id ?? "edit"}
+        key={editingAlert?.id ?? (newAlertAreas ? "new" : "edit")}
         open={modalOpen}
         defaultFrequency={ALERT_TRIGGER_KINDS.AFTER_SCAN}
         providers={providers}
@@ -239,6 +283,9 @@ export const AlertsManager = ({
         uniqueCategories={uniqueCategories}
         uniqueGroups={uniqueGroups}
         editingAlert={editingAlert}
+        editableFilters={Boolean(newAlertAreas)}
+        initialAreas={newAlertAreas ?? []}
+        defaultName={newAlertAreas ? "New alert" : undefined}
         onOpenChange={closeModal}
         onSubmit={submitAlert}
       />

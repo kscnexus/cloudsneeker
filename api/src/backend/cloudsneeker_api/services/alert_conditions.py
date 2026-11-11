@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from api.models import Finding
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
+
+AREA_CLOUD = "cloud"
+AREA_APPLICATION_SECURITY = "application_security"
+AREA_GOVERNANCE = "governance"
+APP_SECURITY_SCAN_SOURCE = "trivy_hub"
 
 BOOLEAN_OPS = {"and", "or", "not"}
 AGGREGATE_OPS = {"count_gte", "count_lte", "any", "none"}
@@ -26,9 +31,28 @@ FILTER_FIELD_MAP = {
 }
 
 
+def area_q(areas: Any) -> Q:
+    """``Finding`` filter for product areas (governance has no rows)."""
+    if isinstance(areas, str):
+        areas = [areas]
+    wanted = {str(item) for item in (areas or [])}
+    app = Q(scan__scanner_args__source=APP_SECURITY_SCAN_SOURCE)
+    if not wanted or {AREA_CLOUD, AREA_APPLICATION_SECURITY} <= wanted:
+        return Q()
+    if AREA_APPLICATION_SECURITY in wanted:
+        return app
+    if AREA_CLOUD in wanted:
+        return Q(scan__scanner_args__source__isnull=True) | ~app
+    return Q(pk__in=[])
+
+
 def apply_leaf_filter(queryset: QuerySet[Finding], leaf: dict[str, Any]) -> QuerySet[Finding]:
     """Apply a leaf filter mapping to a Finding queryset."""
     for field, value in leaf.items():
+        if field == "area":
+            if value not in (None, [], ""):
+                queryset = queryset.filter(area_q(value))
+            continue
         mapped = FILTER_FIELD_MAP.get(field)
         if not mapped or value in (None, [], ""):
             continue

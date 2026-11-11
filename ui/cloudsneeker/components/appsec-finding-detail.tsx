@@ -31,6 +31,7 @@ import {
   ROW_LINK_CLASS,
 } from "./appsec-ui";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
+import { MuteFindingsButton } from "./mute-findings-button";
 import { RunStatusBadge } from "./run-status-badge";
 import { SectionCard } from "./section-card";
 
@@ -234,7 +235,17 @@ export const AppSecFindingDetail = ({
         <p className="text-text-neutral-primary text-base font-medium">
           {finding.title}
         </p>
-        {finding.suppressed ? (
+        {finding.suppressed && finding.suppression.source === "mute_rule" ? (
+          <p className="border-border-neutral-secondary text-text-neutral-secondary rounded-lg border px-3 py-2 text-sm">
+            Muted by the mutelist rule{" "}
+            <Link href="/mutelist" className="underline">
+              {String(finding.suppression.rule_name ?? "")}
+            </Link>
+            {finding.suppression.reason
+              ? `: ${String(finding.suppression.reason)}`
+              : "."}
+          </p>
+        ) : finding.suppressed ? (
           <p className="border-border-neutral-secondary text-text-neutral-secondary rounded-lg border px-3 py-2 text-sm">
             Suppressed by a scan rule
             {finding.suppression.source
@@ -531,10 +542,24 @@ export const AppSecFindingDetail = ({
             description="Status, notes and exceptions follow the finding across scans."
           >
             {canTriage ? (
-              <AppSecTriageControl
-                findingUid={finding.uid}
-                status={finding.triage_status}
-              />
+              <div className="flex flex-col gap-3">
+                <AppSecTriageControl
+                  findingUid={finding.uid}
+                  status={finding.triage_status}
+                />
+                {finding.suppressed ? null : (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-text-neutral-secondary text-xs">
+                      Muting hides the finding from active views, reports count
+                      it as suppressed, and it stops raising alerts.
+                    </span>
+                    <MuteFindingsButton
+                      findingUids={[finding.uid]}
+                      label="Application Security finding"
+                    />
+                  </div>
+                )}
+              </div>
             ) : (
               <p className="text-text-neutral-secondary text-sm">
                 Your role can read findings. Changing triage needs the manage

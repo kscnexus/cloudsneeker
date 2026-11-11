@@ -34,9 +34,7 @@ describe("brandSystemPrompt", () => {
   });
 
   it("renames the assistant", () => {
-    const prompt = brandSystemPrompt(
-      "Ask Lighthouse AI. Lighthouse can help.",
-    );
+    const prompt = brandSystemPrompt("Ask Lighthouse AI. Lighthouse can help.");
 
     expect(prompt).toContain(`Ask ${BRAND.assistantName}.`);
     expect(prompt).toContain(`${BRAND.assistantName} can help.`);
@@ -48,5 +46,17 @@ describe("brandSystemPrompt", () => {
 
     expect(prompt.startsWith(`Hello from ${BRAND.name}.`)).toBe(true);
     expect(prompt).toContain(BRAND.websiteUrl);
+  });
+});
+
+describe("modules section", () => {
+  it("covers all three modules and the accuracy rules", () => {
+    const prompt = brandSystemPrompt(TEMPLATE);
+    expect(prompt).toContain("## Product Modules");
+    expect(prompt).toContain(BRAND.appSecurityName);
+    expect(prompt).toContain(BRAND.governanceName);
+    expect(prompt).toContain("get_platform_posture_summary");
+    expect(prompt).toContain("/application-security/findings/<id>");
+    expect(prompt).not.toMatch(/prowler/i);
   });
 });

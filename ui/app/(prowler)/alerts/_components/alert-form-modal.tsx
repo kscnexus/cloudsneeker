@@ -15,7 +15,10 @@ import {
   type AlertRule,
   type AlertTriggerKind,
 } from "@/app/(prowler)/alerts/_types";
+import { AlertAreaField } from "@/cloudsneeker/components/alert-area-field"; // cloudsneeker-hook
 import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
+import { ALERT_AREA_FILTER_KEY } from "@/cloudsneeker/lib/alert-areas"; // cloudsneeker-hook
+import type { FindingArea } from "@/cloudsneeker/types/area-findings"; // cloudsneeker-hook
 import type { FilterChip } from "@/components/filters/filter-summary-strip";
 import { FilterSummaryStrip } from "@/components/filters/filter-summary-strip";
 import { FindingsFilterBatchControls } from "@/components/findings/findings-filters";
@@ -78,6 +81,9 @@ interface AlertFormModalProps {
   uniqueGroups?: string[];
   editingAlert?: AlertRule | null;
   seededCondition?: AlertCondition | null;
+  /** cloudsneeker-hook: a new rule built on the Alerts page edits filters too. */
+  editableFilters?: boolean;
+  initialAreas?: FindingArea[];
   selectedFindingsFilterChips?: FilterChip[];
   defaultName?: string;
   onOpenChange: (open: boolean) => void;
@@ -416,6 +422,8 @@ const AlertFormModalContent = ({
   uniqueGroups = [],
   editingAlert = null,
   seededCondition = null,
+  editableFilters = false,
+  initialAreas = [],
   selectedFindingsFilterChips = [],
   defaultName = "Findings filter alert",
   onOpenChange,
@@ -424,6 +432,7 @@ const AlertFormModalContent = ({
   const defaults = editingAlert
     ? getAlertFormDefaults(editingAlert)
     : getEmptyAlertFormDefaults(defaultFrequency, seededCondition ?? undefined);
+  const filtersEditable = Boolean(editingAlert) || editableFilters; // cloudsneeker-hook
   const initialName = editingAlert
     ? defaults.name
     : defaults.name || defaultName;
@@ -439,7 +448,9 @@ const AlertFormModalContent = ({
   >(
     editingAlert
       ? getFindingsFiltersFromAlertCondition(editingAlert.attributes.condition)
-      : {},
+      : initialAreas.length > 0 // cloudsneeker-hook
+        ? { [ALERT_AREA_FILTER_KEY]: [...initialAreas] }
+        : {},
   );
   const [selectedRecipientEmails, setSelectedRecipientEmails] = useState(
     () => new Set(defaults.recipientEmails.map(normalizeEmail)),
@@ -481,7 +492,7 @@ const AlertFormModalContent = ({
   });
 
   const handlePreview = async () => {
-    if (!editingAlert) return;
+    if (!filtersEditable) return;
 
     const seedResult = await seedAlertRule(pendingFilters);
     if (seedResult?.error) {
@@ -526,7 +537,7 @@ const AlertFormModalContent = ({
   };
 
   const handleSubmit = async () => {
-    const seedResult = editingAlert
+    const seedResult = filtersEditable
       ? await seedAlertRule(pendingFilters)
       : null;
     // cloudsneeker-hook: edits may keep the stored condition; 403 still blocks.
@@ -582,12 +593,14 @@ const AlertFormModalContent = ({
       description={
         editingAlert
           ? "Update recipients, frequency, and finding filters for this alert."
-          : "Create an alert from the current Findings filters."
+          : editableFilters // cloudsneeker-hook
+            ? "Choose the modules and findings this alert watches."
+            : "Create an alert from the current Findings filters."
       }
       onOpenAutoFocus={allowInitialDialogFocus}
-      size={editingAlert ? "5xl" : "xl"}
+      size={filtersEditable ? "5xl" : "xl"}
       className={
-        editingAlert
+        filtersEditable
           ? "minimal-scrollbar max-h-[calc(100vh-2rem)] overflow-y-auto"
           : undefined
       }
@@ -655,13 +668,20 @@ const AlertFormModalContent = ({
             <FieldError>{errors.slackChannels}</FieldError>
           )}
         </Field>
-        {editingAlert && (
+        {filtersEditable && (
           <div className="flex flex-col gap-3">
             <Card variant="inner" padding="sm">
               <CardContent className="flex flex-col gap-3">
                 <h3 className="text-text-neutral-primary text-sm font-medium">
                   Filters
                 </h3>
+                {/* cloudsneeker-hook: modules the rule watches */}
+                <AlertAreaField
+                  values={getPendingFilterValue(ALERT_AREA_FILTER_KEY)}
+                  onValuesChange={(areas) =>
+                    setPendingFilter(ALERT_AREA_FILTER_KEY, areas)
+                  }
+                />
                 <FindingsFilterBatchControls
                   providers={providers}
                   completedScanIds={completedScanIds}
@@ -706,7 +726,7 @@ const AlertFormModalContent = ({
             Cancel
           </Button>
           <div className="flex gap-4">
-            {editingAlert && (
+            {filtersEditable && (
               <Button
                 variant="outline"
                 size="lg"

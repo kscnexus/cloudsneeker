@@ -6,11 +6,22 @@ import type { CustodianPolicyResource } from "@/cloudsneeker/types/custodian";
 
 interface CustodianPolicyListProps {
   policies: CustodianPolicyResource[];
+  /** Filters are active: an empty list means no match, not no policies. */
+  filtered?: boolean;
 }
 
-export const CustodianPolicyList = ({ policies }: CustodianPolicyListProps) => {
+export const CustodianPolicyList = ({
+  policies,
+  filtered = false,
+}: CustodianPolicyListProps) => {
   if (policies.length === 0) {
-    return <CustodianEmptyState />;
+    return filtered ? (
+      <p className="text-text-neutral-secondary text-sm">
+        No policies match these filters. Clear them to see every policy.
+      </p>
+    ) : (
+      <CustodianEmptyState />
+    );
   }
 
   return (

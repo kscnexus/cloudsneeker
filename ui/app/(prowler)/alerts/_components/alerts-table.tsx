@@ -6,6 +6,11 @@ import { PencilIcon, PowerIcon, TrashIcon } from "lucide-react";
 import type { AlertRule } from "@/app/(prowler)/alerts/_types";
 import { AlertStatusBadge } from "@/cloudsneeker/components/alert-status-badge"; // cloudsneeker-hook
 import {
+  alertAreaLabel,
+  alertConditionAreas,
+} from "@/cloudsneeker/lib/alert-areas"; // cloudsneeker-hook
+import { Badge } from "@/components/shadcn/badge/badge";
+import {
   ActionDropdown,
   ActionDropdownDangerZone,
   ActionDropdownItem,
@@ -146,6 +151,29 @@ const getAlertsTableColumns = ({
     cell: ({ row }) => (
       // cloudsneeker-hook: status pill instead of plain text
       <AlertStatusBadge enabled={row.original.attributes.enabled} />
+    ),
+  },
+  // cloudsneeker-hook: the modules whose findings the rule watches
+  {
+    id: "areas",
+    size: 220,
+    minSize: 180,
+    enableSorting: false,
+    accessorFn: (alert) =>
+      alertConditionAreas(alert.attributes.condition)
+        .map(alertAreaLabel)
+        .join(", "),
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Modules" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {alertConditionAreas(row.original.attributes.condition).map((area) => (
+          <Badge key={area} variant="tag">
+            {alertAreaLabel(area)}
+          </Badge>
+        ))}
+      </div>
     ),
   },
   {

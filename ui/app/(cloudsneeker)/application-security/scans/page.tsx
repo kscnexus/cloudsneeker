@@ -9,6 +9,10 @@ import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-security-dashboard-panel";
 import { AppSecurityScanHistory } from "@/cloudsneeker/components/app-security-scan-history";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
+import {
+  ListFilterBar,
+  ListPager,
+} from "@/cloudsneeker/components/list-filter-bar";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { ScanAllRepositoriesButton } from "@/cloudsneeker/components/scan-all-repositories-button";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
@@ -34,21 +38,29 @@ import {
 } from "@/cloudsneeker/lib/app-security-scan-history";
 import { APPSEC_SEGMENT } from "@/cloudsneeker/lib/appsec";
 import {
-  
   openFindingsHref,
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
-import { labelForProviderType } from "@/cloudsneeker/lib/trivy-modes";
+import {
+  filterInMemory,
+  LIST_PARAM,
+  type ListFilters,
+  pageOf,
+  parseListFilters,
+} from "@/cloudsneeker/lib/list-filters";
+import {
+  labelForProviderType,
+  labelForTrivyMode,
+  TRIVY_MODE_OPTIONS,
+} from "@/cloudsneeker/lib/trivy-modes";
 import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import {
   REPORT_SEVERITY_ORDER,
   type ReportSeverity,
 } from "@/cloudsneeker/types/reports";
-import type {
-  TrivyRunResource,
-} from "@/cloudsneeker/types/trivy";
+import type { TrivyRunResource } from "@/cloudsneeker/types/trivy";
 import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { FAIL_FILTER_VALUE, MUTED_FILTER } from "@/lib/findings-filters";
@@ -95,6 +107,7 @@ export default async function ApplicationSecurityPage({
             resolvedSearchParams[SCAN_HISTORY_PARAM],
           )}
           historyPage={resolvedSearchParams[SCAN_HISTORY_PAGE_PARAM]}
+          listFilters={parseListFilters(resolvedSearchParams)}
         />
       </Suspense>
     </ContentLayout>
@@ -145,14 +158,19 @@ const loadSources = async (): Promise<AppSecuritySource[]> => {
   }));
 };
 
+/** Connected repositories shown before "and N more". */
+const UNSCANNED_PREVIEW = 10;
+
 const SSRAppSecurityWorkspace = async ({
   activeCategory,
   historyView,
   historyPage,
+  listFilters,
 }: {
   activeCategory: AppSecurityCategory | null;
   historyView: ScanHistoryView;
   historyPage: string | string[] | undefined;
+  listFilters: ListFilters;
 }) => {
   const [loadedTargets, runsResponse, sources] = await Promise.all([
     loadAllTargets(),
@@ -191,7 +209,23 @@ const SSRAppSecurityWorkspace = async ({
     targets,
   );
 
-  const visibleTargets = filterTargetsByCategory(targets, activeCategory);
+  const categoryTargets = filterTargetsByCategory(targets, activeCategory);
+  // Search, type and paging over the category (the API returns targets whole).
+  const matchingTargets = filterInMemory(categoryTargets, listFilters, {
+    text: (target) => [
+      target.attributes.name,
+      target.attributes.description ?? "",
+      target.attributes.provider_alias ?? "",
+      target.attributes.provider_uid ?? "",
+    ],
+    type: (target) => target.attributes.mode,
+  });
+  const targetPage = pageOf(matchingTargets, listFilters.page);
+  const visibleTargets = categoryTargets;
+  const listKeep: Record<string, string> = activeCategory
+    ? { [APP_SECURITY_CATEGORY_PARAM]: activeCategory }
+    : {};
+  const presentModes = new Set(categoryTargets.map((t) => t.attributes.mode));
   const activeDefinition = activeCategory
     ? categoryDefinition(activeCategory)
     : undefined;
@@ -212,7 +246,7 @@ const SSRAppSecurityWorkspace = async ({
           description="These repositories are connected but not scanned here yet. Create a target to scan their dependencies, secrets and code."
         >
           <ul className="divide-border-neutral-secondary flex flex-col divide-y">
-            {unscannedRepositories.map((source) => (
+            {unscannedRepositories.slice(0, UNSCANNED_PREVIEW).map((source) => (
               <li
                 key={source.id}
                 className="flex items-center justify-between gap-4 py-3"
@@ -229,6 +263,12 @@ const SSRAppSecurityWorkspace = async ({
               </li>
             ))}
           </ul>
+          {unscannedRepositories.length > UNSCANNED_PREVIEW ? (
+            <p className="text-text-neutral-secondary pt-2 text-xs">
+              And {unscannedRepositories.length - UNSCANNED_PREVIEW} more. Use
+              Scan all repositories to create their targets at once.
+            </p>
+          ) : null}
         </SectionCard>
       ) : null}
 
@@ -260,7 +300,47 @@ const SSRAppSecurityWorkspace = async ({
             }
           />
         ) : (
-          <TrivyTargetList targets={visibleTargets} />
+          <div className="flex flex-col gap-4">
+            {loadedTargets.truncated ? (
+              <p role="status" className="text-text-warning-primary text-sm">
+                Only the first {targets.length} targets were loaded. Narrow the
+                list with search or a category.
+              </p>
+            ) : null}
+            <ListFilterBar
+              path={appSecurityHref(APPSEC_SEGMENT.SCANS)}
+              keep={listKeep}
+              filters={listFilters}
+              searchPlaceholder="Target, description or source"
+              selects={[
+                {
+                  name: LIST_PARAM.TYPE,
+                  label: "Target type",
+                  allLabel: "All target types",
+                  options: TRIVY_MODE_OPTIONS.filter((option) =>
+                    presentModes.has(option.value),
+                  ).map((option) => ({
+                    value: option.value,
+                    label: labelForTrivyMode(option.value),
+                  })),
+                },
+              ]}
+            />
+            {matchingTargets.length === 0 && categoryTargets.length > 0 ? (
+              <p className="text-text-neutral-secondary text-sm">
+                No targets match these filters. Clear them to see every target.
+              </p>
+            ) : (
+              <TrivyTargetList targets={targetPage.rows} />
+            )}
+            <ListPager
+              path={appSecurityHref(APPSEC_SEGMENT.SCANS)}
+              keep={listKeep}
+              filters={listFilters}
+              pagination={targetPage.pagination}
+              noun="targets"
+            />
+          </div>
         )}
       </SectionCard>
 
