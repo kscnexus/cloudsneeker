@@ -7,13 +7,11 @@ import {
   type RepositoryScanItem,
   type RepositoryScanResult,
   type RepositorySource,
+  scanAllTargetConfig,
 } from "@/cloudsneeker/lib/app-security-scan-all";
 import { firstErrorDetail } from "@/cloudsneeker/lib/bitbucket-import";
 import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
-import {
-  TRIVY_MODE,
-  type TrivyTargetResource,
-} from "@/cloudsneeker/types/trivy";
+import type { TrivyTargetResource } from "@/cloudsneeker/types/trivy";
 import { apiBaseUrl, getAuthHeaders } from "@/lib";
 import { handleApiError } from "@/lib/server-actions-helper";
 
@@ -104,7 +102,7 @@ export const planScanAllRepositories = async (): Promise<
   }
 };
 
-const createRepoTarget = async (
+const createTarget = async (
   item: RepositoryScanItem,
   headers: Record<string, string>,
 ): Promise<{ targetId: string } | { error: string }> => {
@@ -117,10 +115,9 @@ const createRepoTarget = async (
         attributes: {
           name: item.name,
           description: "Added by Scan all repositories.",
-          mode: TRIVY_MODE.REPO,
+          mode: item.mode,
           provider_id: item.providerId,
-          // Scanners stay empty so the mode's defaults apply.
-          config: { repository_url: item.repositoryUrl },
+          config: scanAllTargetConfig(item),
           schedule_enabled: false,
           schedule_cron: "",
           schedule_timezone: "UTC",
@@ -155,7 +152,7 @@ const startScan = async (
   );
 };
 
-/** Creates missing targets and starts one code repository scan per item. */
+/** Creates missing targets and starts one scan per item. */
 export const scanRepositoryBatch = async (
   items: RepositoryScanItem[],
 ): Promise<RepositoryScanResult[] | { error: string }> => {
@@ -165,11 +162,12 @@ export const scanRepositoryBatch = async (
     for (const item of items) {
       let targetId = item.targetId;
       if (!targetId) {
-        const created = await createRepoTarget(item, headers);
+        const created = await createTarget(item, headers);
         if ("error" in created) {
           results.push({
             providerId: item.providerId,
             name: item.name,
+            mode: item.mode,
             started: false,
             message: created.error,
           });
@@ -181,6 +179,7 @@ export const scanRepositoryBatch = async (
       results.push({
         providerId: item.providerId,
         name: item.name,
+        mode: item.mode,
         started: failure === null,
         ...(failure ? { message: failure } : {}),
       });

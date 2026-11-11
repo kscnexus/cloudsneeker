@@ -25,14 +25,18 @@ import {
   DialogTitle,
 } from "@/components/shadcn/dialog";
 
-const WORD_PLURALS = { repository: "repositories", scan: "scans" } as const;
+const WORD_PLURALS = {
+  repository: "repositories",
+  scan: "scans",
+  target: "targets",
+} as const;
 
 const plural = (count: number, word: keyof typeof WORD_PLURALS) =>
   `${count} ${count === 1 ? word : WORD_PLURALS[word]}`;
 
 /**
- * Starts a code repository scan on every connected repository, creating a
- * code repository target first for each one that has none.
+ * Scans every connected repository for every category: a code repository
+ * scan and a static analysis scan each, creating any target that is missing.
  */
 export const ScanAllRepositoriesButton = () => {
   const router = useRouter();
@@ -48,6 +52,7 @@ export const ScanAllRepositoriesButton = () => {
 
   const running = progress !== null && results === null;
   const toCreate = items?.filter((item) => !item.targetId).length ?? 0;
+  const repositoryCount = new Set(items?.map((item) => item.providerId)).size;
 
   const onOpen = async () => {
     setOpen(true);
@@ -103,8 +108,9 @@ export const ScanAllRepositoriesButton = () => {
           <DialogHeader>
             <DialogTitle>Scan all repositories</DialogTitle>
             <DialogDescription>
-              Checks every connected repository for vulnerable dependencies,
-              secrets, misconfigurations and licenses.
+              Checks every connected repository for every category: vulnerable
+              dependencies, misconfigurations, secrets and licenses, plus
+              weaknesses in the source code.
             </DialogDescription>
           </DialogHeader>
 
@@ -120,9 +126,9 @@ export const ScanAllRepositoriesButton = () => {
 
             {items && items.length > 0 && !progress ? (
               <p>
-                {`This will start a code scan on ${plural(items.length, "repository")}.`}
+                {`This will start ${plural(items.length, "scan")} on ${plural(repositoryCount, "repository")}: a code repository scan with every scanner and a static analysis scan of the source code for each.`}
                 {toCreate > 0
-                  ? ` ${toCreate} of them get a new code repository target first.`
+                  ? ` ${plural(toCreate, "target")} will be created first.`
                   : ""}{" "}
                 Scans queue up and run a few at a time, so large batches take a
                 while to finish.
@@ -141,7 +147,7 @@ export const ScanAllRepositoriesButton = () => {
                   {`${plural(summary.started, "scan")} started.`}
                   {summary.failed > 0
                     ? ` ${summary.failed} could not start.`
-                    : " Results appear under Recent scans as each one finishes."}
+                    : " Results appear under scan history as each one finishes."}
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -149,7 +155,7 @@ export const ScanAllRepositoriesButton = () => {
             {failures.length > 0 ? (
               <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
                 {failures.map((failure) => (
-                  <li key={failure.providerId}>
+                  <li key={`${failure.mode}:${failure.providerId}`}>
                     <span className="font-medium">{failure.name}</span>
                     {failure.message ? (
                       <span className="text-text-neutral-tertiary block text-xs">

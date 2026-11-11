@@ -19,10 +19,15 @@ vi.mock("next/navigation", () => ({
 
 import { ScanAllRepositoriesButton } from "./scan-all-repositories-button";
 
-const item = (index: number, targetId?: string) => ({
+const item = (
+  index: number,
+  targetId?: string,
+  mode: "repo" | "sast" = "repo",
+) => ({
   providerId: `p${index}`,
   repositoryUrl: `git@bitbucket.org:acme/r${index}.git`,
   name: `acme/r${index}`,
+  mode,
   ...(targetId ? { targetId } : {}),
 });
 
@@ -32,7 +37,14 @@ describe("ScanAllRepositoriesButton", () => {
   });
 
   it("asks before starting and says how many targets it creates", async () => {
-    planMock.mockResolvedValue({ items: [item(1, "t1"), item(2), item(3)] });
+    planMock.mockResolvedValue({
+      items: [
+        item(1, "t1"),
+        item(1, undefined, "sast"),
+        item(2),
+        item(2, undefined, "sast"),
+      ],
+    });
     const user = userEvent.setup();
     render(<ScanAllRepositoriesButton />);
 
@@ -41,9 +53,10 @@ describe("ScanAllRepositoriesButton", () => {
     );
 
     expect(
-      await screen.findByText(/start a code scan on 3 repositories/i),
+      await screen.findByText(/start 4 scans on 2 repositories/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/2 of them get a new/i)).toBeInTheDocument();
+    expect(screen.getByText(/static analysis scan/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 targets will be created/i)).toBeInTheDocument();
     expect(batchMock).not.toHaveBeenCalled();
   });
 

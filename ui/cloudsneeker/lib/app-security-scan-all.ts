@@ -1,4 +1,5 @@
 import {
+  SAST_RULESET,
   TRIVY_MODE,
   type TrivyTargetResource,
 } from "@/cloudsneeker/types/trivy";
@@ -17,20 +18,45 @@ export interface RepositorySource {
   alias?: string | null;
 }
 
-/** One repository to scan; without `targetId` a code repository target is created first. */
+/** Target types "Scan all repositories" runs on every repository. */
+export const SCAN_ALL_MODES = [TRIVY_MODE.REPO, TRIVY_MODE.SAST] as const;
+
+export type ScanAllMode = (typeof SCAN_ALL_MODES)[number];
+
+/** Profile of new code repository targets: every scanner the type supports. */
+export const SCAN_ALL_REPO_PROFILE = "builtin:full";
+
+/** Name suffix of the static analysis target created for a repository. */
+const SAST_NAME_SUFFIX = " (SAST)";
+
+/** One scan to start; without `targetId` the target is created first. */
 export interface RepositoryScanItem {
   providerId: string;
   repositoryUrl: string;
   name: string;
+  mode: ScanAllMode;
   targetId?: string;
 }
 
 export interface RepositoryScanResult {
   providerId: string;
   name: string;
+  mode: ScanAllMode;
   started: boolean;
   message?: string;
 }
+
+/** Config of a target created by "Scan all repositories". */
+export const scanAllTargetConfig = (
+  item: RepositoryScanItem,
+): Record<string, unknown> =>
+  item.mode === TRIVY_MODE.SAST
+    ? {
+        repository_url: item.repositoryUrl,
+        rulesets: [SAST_RULESET.AUTO],
+        exclude: [],
+      }
+    : { repository_url: item.repositoryUrl, profile: SCAN_ALL_REPO_PROFILE };
 
 /** `owner/repo` from an SSH or HTTPS clone URL; the input when it is neither. */
 export const repositoryNameFromUrl = (url: string): string => {
@@ -68,42 +94,46 @@ const uniqueName = (base: string, used: Set<string>): string => {
 };
 
 /**
- * What "Scan all repositories" does for each connected repository: rescan
- * its code repository target, or create one (named after the repository)
- * and scan it.
+ * What "Scan all repositories" does for each connected repository: one code
+ * repository scan (dependencies, misconfigurations, secrets, licenses) and
+ * one static analysis scan (code weaknesses). An existing target of each
+ * type is rescanned; a missing one is created, named after the repository.
  */
 export const planRepositoryScans = (
   repositories: RepositorySource[],
   targets: TrivyTargetResource[],
 ): RepositoryScanItem[] => {
   const usedNames = new Set(targets.map((target) => target.attributes.name));
-  const repoTargets = new Map<string, TrivyTargetResource>();
+  const existing = new Map<string, TrivyTargetResource>();
   for (const target of targets) {
-    if (
-      target.attributes.mode === TRIVY_MODE.REPO &&
-      !repoTargets.has(target.attributes.provider_id)
-    ) {
-      repoTargets.set(target.attributes.provider_id, target);
-    }
+    const key = `${target.attributes.mode}:${target.attributes.provider_id}`;
+    if (!existing.has(key)) existing.set(key, target);
   }
 
-  return repositories.map((repository) => {
-    const existing = repoTargets.get(repository.id);
-    if (existing) {
+  return repositories.flatMap((repository) => {
+    const base =
+      repository.alias?.trim() || repositoryNameFromUrl(repository.uid);
+    return SCAN_ALL_MODES.map((mode): RepositoryScanItem => {
+      const target = existing.get(`${mode}:${repository.id}`);
+      if (target) {
+        return {
+          providerId: repository.id,
+          repositoryUrl: repository.uid,
+          name: target.attributes.name,
+          mode,
+          targetId: target.id,
+        };
+      }
       return {
         providerId: repository.id,
         repositoryUrl: repository.uid,
-        name: existing.attributes.name,
-        targetId: existing.id,
+        name: uniqueName(
+          mode === TRIVY_MODE.SAST ? `${base}${SAST_NAME_SUFFIX}` : base,
+          usedNames,
+        ),
+        mode,
       };
-    }
-    const base =
-      repository.alias?.trim() || repositoryNameFromUrl(repository.uid);
-    return {
-      providerId: repository.id,
-      repositoryUrl: repository.uid,
-      name: uniqueName(base, usedNames),
-    };
+    });
   });
 };
 
