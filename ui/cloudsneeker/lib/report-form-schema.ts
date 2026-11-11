@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isFindingsReportType } from "@/cloudsneeker/lib/report-catalog";
 import {
   DEFAULT_REPORT_CADENCE,
   REPORT_SCHEDULE_PRESET,
@@ -10,6 +11,8 @@ import {
   REPORT_FORMAT,
   REPORT_RESOURCE_TYPE,
   REPORT_SEVERITY_ORDER,
+  REPORT_STATUS_SCOPE,
+  REPORT_STATUS_SCOPES,
   REPORT_TYPE_ID,
   SELECTABLE_REPORT_FORMATS,
   type ReportParams,
@@ -50,6 +53,7 @@ const reportParamsShape = {
   dateTo: optionalDay,
   severityFloor: severityFloorSchema,
   complianceId: z.string().trim().default(""),
+  statusScope: z.enum(REPORT_STATUS_SCOPES).default(REPORT_STATUS_SCOPE.ACTIVE),
   formats: z
     .array(z.enum(SELECTABLE_REPORT_FORMATS))
     .min(1, "Pick at least one format."),
@@ -148,7 +152,9 @@ export const reportScheduleFormSchema = z
         message: "At most 50 recipients are allowed.",
       });
     }
-    const invalid = emails.filter((email) => !z.email().safeParse(email).success);
+    const invalid = emails.filter(
+      (email) => !z.email().safeParse(email).success,
+    );
     if (invalid.length > 0) {
       ctx.addIssue({
         code: "custom",
@@ -187,7 +193,8 @@ type ParamsSource = Pick<
   | "dateTo"
   | "severityFloor"
   | "complianceId"
->;
+> &
+  Partial<Pick<ReportGenerateFormValues, "statusScope">>;
 
 /** API `params` for a report: only keys the report type accepts. */
 export const buildReportParams = (values: ParamsSource): ReportParams => {
@@ -199,6 +206,9 @@ export const buildReportParams = (values: ParamsSource): ReportParams => {
   }
   if (values.reportType === REPORT_TYPE_ID.COMPLIANCE) {
     params.compliance_id = values.complianceId;
+  }
+  if (isFindingsReportType(values.reportType) && values.statusScope) {
+    params.status_scope = values.statusScope;
   }
   return params;
 };
@@ -296,6 +306,7 @@ export const defaultScheduleFormInput = (
   dateTo: "",
   severityFloor: "",
   complianceId: "",
+  statusScope: REPORT_STATUS_SCOPE.ACTIVE,
   formats: [REPORT_FORMAT.PDF],
   schedulePreset: DEFAULT_REPORT_CADENCE.preset,
   scheduleHour: DEFAULT_REPORT_CADENCE.hour,
@@ -321,6 +332,7 @@ export const scheduleFormInputFromResource = (
     dateTo: toDayInput(attributes.params?.date_to),
     severityFloor: attributes.params?.severity_floor ?? "",
     complianceId: attributes.params?.compliance_id ?? "",
+    statusScope: attributes.params?.status_scope ?? REPORT_STATUS_SCOPE.ACTIVE,
     formats: formats.length > 0 ? formats : [REPORT_FORMAT.PDF],
     schedulePreset: cadence.preset,
     scheduleHour: cadence.hour,

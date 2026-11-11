@@ -4,11 +4,17 @@
 
 import { type UseFormReturn, useWatch } from "react-hook-form";
 
+import {
+  isFindingsReportType,
+  STATUS_SCOPE_LABEL,
+} from "@/cloudsneeker/lib/report-catalog";
 import { severityLabel } from "@/cloudsneeker/lib/report-view";
 import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
   REPORT_SEVERITY_ORDER,
+  REPORT_STATUS_SCOPES,
   REPORT_TYPE_ID,
+  type ReportStatusScope,
   SELECTABLE_REPORT_FORMATS,
   type SelectableReportFormat,
 } from "@/cloudsneeker/types/reports";
@@ -26,6 +32,7 @@ export interface ReportParamsFieldValues {
   dateTo: string;
   severityFloor: string;
   complianceId: string;
+  statusScope: ReportStatusScope;
   formats: SelectableReportFormat[];
 }
 
@@ -159,6 +166,26 @@ export function ReportParamsFields({
           ))}
         </select>
       </div>
+
+      {isFindingsReportType(reportType) ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${idPrefix}-status-scope`}>Finding status</Label>
+          <select
+            id={`${idPrefix}-status-scope`}
+            className={SELECT_CLASS}
+            {...form.register("statusScope")}
+          >
+            {REPORT_STATUS_SCOPES.map((scope) => (
+              <option key={scope} value={scope}>
+                {STATUS_SCOPE_LABEL[scope]}
+              </option>
+            ))}
+          </select>
+          <p className="text-text-neutral-secondary text-xs">
+            Active findings leave out muted and risk-accepted findings.
+          </p>
+        </div>
+      ) : null}
 
       {reportType === REPORT_TYPE_ID.COMPLIANCE ? (
         <div className="flex flex-col gap-1.5">

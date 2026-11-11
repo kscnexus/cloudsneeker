@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
@@ -20,6 +20,7 @@ from cloudsneeker_api.reports.catalog import (
 from cloudsneeker_api.reports.data.common import (
     FindingStats,
     business_impact,
+    exception_label,
     grade_for,
     metadata_text,
     remediation_text,
@@ -27,14 +28,18 @@ from cloudsneeker_api.reports.data.common import (
     security_score,
     stream_mode,
 )
+from cloudsneeker_api.reports.data.exceptions import acceptance_state
 from cloudsneeker_api.reports.data.executive import (
     executive_headline,
     next_actions,
     overall_score,
 )
-from cloudsneeker_api.reports.data.findings_report import headline_for
+from cloudsneeker_api.reports.data.findings_report import headline_for, scoped_headline
 from cloudsneeker_api.reports.data.governance import governance_score
+from cloudsneeker_api.reports.data.remediation import report_period
 from cloudsneeker_api.reports.schema import (
+    STATUS_SCOPE_LABELS,
+    STATUS_SCOPES,
     ReportData,
     ReportFilters,
     ReportTable,
@@ -58,6 +63,10 @@ class TestCatalog:
             "appsec_assessment",
             "cloud_assessment",
             "governance_assessment",
+            "exceptions",
+            "remediation",
+            "licenses",
+            "sbom",
         }
 
     def test_compliance_requires_framework(self):
@@ -162,6 +171,54 @@ class TestValidateParams:
     def test_compliance_without_framework_fails(self):
         with pytest.raises(ReportParamsError, match="compliance_id is required"):
             validate_params("compliance", {})
+
+    def test_status_scope_absent_keeps_params_unchanged(self):
+        params = validate_params("cloud_posture", {})
+        assert "status_scope" not in params
+        assert filters_from_params(params).status_scope is None
+        assert "status_scope" not in filters_from_params(params).to_dict()
+
+    @pytest.mark.parametrize("scope", ["active", "muted", "accepted", "all"])
+    @pytest.mark.parametrize("report_type", sorted(catalog.FINDINGS_TYPES))
+    def test_status_scope_on_findings_reports(self, report_type, scope):
+        params = validate_params(report_type, {"status_scope": scope.upper()})
+        assert params["status_scope"] == scope
+        filters = filters_from_params(params)
+        assert filters.status_scope == scope
+        assert filters.to_dict()["status_scope"] == scope
+        assert validate_params(report_type, params) == params
+        assert "status_scope" in get_report_type(report_type).to_dict()["parameters"][
+            "optional"
+        ]
+
+    def test_status_scope_rejects_unknown_value(self):
+        with pytest.raises(ReportParamsError, match="status_scope must be one of"):
+            validate_params("sca", {"status_scope": "suppressed"})
+
+    @pytest.mark.parametrize(
+        "report_type", ["executive", "compliance", "governance", "exceptions", "sbom"]
+    )
+    def test_status_scope_only_for_findings_reports(self, report_type):
+        params = {"status_scope": "muted"}
+        if report_type == "compliance":
+            params["compliance_id"] = "cis_2.0_aws"
+        with pytest.raises(ReportParamsError, match="Unknown parameter"):
+            validate_params(report_type, params)
+
+    @pytest.mark.parametrize(
+        "report_type,category",
+        [
+            ("exceptions", "overview"),
+            ("remediation", "overview"),
+            ("licenses", "application"),
+            ("sbom", "application"),
+        ],
+    )
+    def test_coverage_report_types(self, report_type, category):
+        spec = get_report_type(report_type)
+        assert spec.category == category
+        assert spec.required_params == ()
+        assert validate_params(report_type, None)["trend_points"] == 10
 
     def test_scan_id_only_for_compliance(self):
         with pytest.raises(ReportParamsError, match="Unknown parameter"):
@@ -375,3 +432,38 @@ class TestNextActions:
                 "why": "No urgent issues are open; continuous coverage keeps it that way.",
             }
         ]
+
+
+class TestCoverageHelpers:
+    def test_scoped_headlines(self):
+        assert scoped_headline("cloud findings", "muted", 0, 0, 0) == (
+            "No muted cloud findings in scope."
+        )
+        text = scoped_headline("code weaknesses", "accepted", 4, 1, 2)
+        assert text.startswith("4 risk-accepted code weaknesses")
+        assert "3 of them critical or high (1 critical)" in text
+        assert "Grade" not in scoped_headline("x", "all", 2, 0, 0)
+
+    def test_exception_label(self):
+        assert exception_label(False, False) == "Active"
+        assert exception_label(True, False) == "Muted"
+        assert exception_label(False, True) == "Risk accepted"
+        assert exception_label(True, True) == "Muted, Risk accepted"
+
+    def test_acceptance_state(self):
+        today = date(2026, 11, 12)
+        assert acceptance_state(None, today) == "Active (no expiry)"
+        assert acceptance_state(date(2026, 11, 11), today) == "Expired"
+        assert acceptance_state(today, today) == "Expires in 0 day(s)"
+        assert acceptance_state(date(2026, 12, 12), today) == "Expires in 30 day(s)"
+        assert acceptance_state(date(2026, 12, 13), today) == "Active"
+
+    def test_remediation_period_defaults_to_30_days(self):
+        now = datetime(2026, 11, 12, tzinfo=UTC)
+        start, end = report_period(ReportFilters(), now)
+        assert (end - start).days == 30 and end == now
+        window = ReportFilters(date_from=datetime(2026, 1, 1, tzinfo=UTC))
+        assert report_period(window, now)[0] == datetime(2026, 1, 1, tzinfo=UTC)
+
+    def test_status_scope_labels_cover_every_scope(self):
+        assert set(STATUS_SCOPE_LABELS) == set(STATUS_SCOPES)

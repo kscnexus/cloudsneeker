@@ -5,7 +5,10 @@
 
 import type { ReactNode } from "react";
 
-import { reportTitle } from "@/cloudsneeker/lib/report-catalog";
+import {
+  reportTitle,
+  STATUS_SCOPE_LABEL,
+} from "@/cloudsneeker/lib/report-catalog";
 import {
   formatCell,
   formatKpi,
@@ -86,6 +89,11 @@ const filterSummary = (report: ReportPayload): string[] => {
   }
   if (filters.compliance_id) {
     parts.push(frameworkLabel(filters.compliance_id));
+  }
+  if (filters.status_scope) {
+    parts.push(
+      STATUS_SCOPE_LABEL[filters.status_scope] ?? filters.status_scope,
+    );
   }
   return parts;
 };

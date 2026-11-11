@@ -104,6 +104,86 @@ describe("buildReportParams", () => {
       }),
     ).toEqual({ provider_ids: [] });
   });
+
+  it("sends the finding status only for findings reports", () => {
+    const base = {
+      providerIds: [],
+      dateFrom: "",
+      dateTo: "",
+      severityFloor: "" as const,
+      complianceId: "",
+      statusScope: "muted" as const,
+    };
+    expect(buildReportParams({ ...base, reportType: "sca" })).toEqual({
+      provider_ids: [],
+      status_scope: "muted",
+    });
+    expect(buildReportParams({ ...base, reportType: "exceptions" })).toEqual({
+      provider_ids: [],
+    });
+    expect(buildReportParams({ ...base, reportType: "executive" })).toEqual({
+      provider_ids: [],
+    });
+  });
+});
+
+describe("finding status scope", () => {
+  it("defaults to active findings", () => {
+    const values = reportGenerateFormSchema.parse({
+      reportType: "cloud_posture",
+      formats: ["pdf"],
+    });
+    expect(values.statusScope).toBe("active");
+    expect(reportRunPayloadFromForm(values).params).toEqual({
+      provider_ids: [],
+      status_scope: "active",
+    });
+  });
+
+  it("accepts every scope and rejects unknown ones", () => {
+    for (const scope of ["active", "muted", "accepted", "all"]) {
+      expect(
+        reportGenerateFormSchema.safeParse({
+          reportType: "secrets",
+          statusScope: scope,
+          formats: ["csv"],
+        }).success,
+      ).toBe(true);
+    }
+    expect(
+      reportGenerateFormSchema.safeParse({
+        reportType: "secrets",
+        statusScope: "hidden",
+        formats: ["csv"],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("reads the stored scope of a schedule and defaults it", () => {
+    const schedule = (params: Record<string, unknown>) =>
+      ({
+        type: "cloudsneeker-report-schedules",
+        id: "s1",
+        attributes: {
+          name: "Weekly",
+          report_type: "iac",
+          params,
+          formats: ["pdf"],
+          schedule_cron: "0 8 * * 1",
+          schedule_timezone: "UTC",
+          recipients: ["a@x.io"],
+          enabled: true,
+        },
+      }) as unknown as ReportScheduleResource;
+    expect(
+      scheduleFormInputFromResource(schedule({ status_scope: "accepted" }))
+        .statusScope,
+    ).toBe("accepted");
+    expect(scheduleFormInputFromResource(schedule({})).statusScope).toBe(
+      "active",
+    );
+    expect(defaultScheduleFormInput("iac").statusScope).toBe("active");
+  });
 });
 
 describe("reportScheduleFormSchema", () => {

@@ -15,6 +15,26 @@ SEVERITY_ORDER: tuple[str, ...] = (
 )
 
 
+# Which failed findings a findings report counts (RC-002). ``None`` (the
+# parameter was not sent) keeps the original rule: failed and not muted.
+STATUS_SCOPE_ACTIVE = "active"
+STATUS_SCOPE_MUTED = "muted"
+STATUS_SCOPE_ACCEPTED = "accepted"
+STATUS_SCOPE_ALL = "all"
+STATUS_SCOPES: tuple[str, ...] = (
+    STATUS_SCOPE_ACTIVE,
+    STATUS_SCOPE_MUTED,
+    STATUS_SCOPE_ACCEPTED,
+    STATUS_SCOPE_ALL,
+)
+STATUS_SCOPE_LABELS: dict[str, str] = {
+    STATUS_SCOPE_ACTIVE: "Active (failed, not muted, not risk-accepted)",
+    STATUS_SCOPE_MUTED: "Muted",
+    STATUS_SCOPE_ACCEPTED: "Risk accepted",
+    STATUS_SCOPE_ALL: "All failed findings",
+}
+
+
 def empty_severity_counts() -> dict[str, int]:
     """Return a zeroed counter keyed by every severity, most severe first."""
     return {severity: 0 for severity in SEVERITY_ORDER}
@@ -32,6 +52,8 @@ class ReportFilters:
         compliance_id: Framework id, required by the compliance report.
         scan_id: Optional scan pinned by the compliance report.
         trend_points: How many points the trend series keeps.
+        status_scope: Finding status scope of findings reports
+            (``STATUS_SCOPES``); ``None`` counts failed, unmuted findings.
         options: Report-specific options (assessment period, sections,
             frameworks, stale threshold).
     """
@@ -44,6 +66,7 @@ class ReportFilters:
     scan_id: str | None = None
     trend_points: int = 10
     options: dict[str, Any] = field(default_factory=dict)
+    status_scope: str | None = None
 
     def severities(self) -> list[str]:
         """Return the severities kept by ``severity_floor``, most severe first."""
@@ -54,7 +77,7 @@ class ReportFilters:
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe representation for payloads and rendering."""
-        return {
+        payload = {
             "provider_ids": list(self.provider_ids),
             "date_from": self.date_from.isoformat() if self.date_from else None,
             "date_to": self.date_to.isoformat() if self.date_to else None,
@@ -64,6 +87,9 @@ class ReportFilters:
             "trend_points": self.trend_points,
             "options": dict(self.options),
         }
+        if self.status_scope:
+            payload["status_scope"] = self.status_scope
+        return payload
 
 
 @dataclass

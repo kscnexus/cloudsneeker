@@ -33,10 +33,14 @@ def get_assembler(report_type: str) -> Assembler:
         cloud_posture,
         compliance,
         container,
+        exceptions,
         executive,
         governance,
         iac,
+        licenses,
+        remediation,
         sast,
+        sbom,
         sca,
         secrets,
     )
@@ -51,6 +55,10 @@ def get_assembler(report_type: str) -> Assembler:
         catalog.IAC: iac,
         catalog.SECRETS: secrets,
         catalog.GOVERNANCE: governance,
+        catalog.EXCEPTIONS: exceptions,
+        catalog.REMEDIATION: remediation,
+        catalog.LICENSES: licenses,
+        catalog.SBOM: sbom,
     }
     return modules[report_type].assemble
 

@@ -35,8 +35,13 @@ from api.models import (
     Scan,
     StateChoices,
 )
+from cloudsneeker_api.models import FindingTriage
 from cloudsneeker_api.reports.schema import (
     SEVERITY_ORDER,
+    STATUS_SCOPE_ACCEPTED,
+    STATUS_SCOPE_ACTIVE,
+    STATUS_SCOPE_ALL,
+    STATUS_SCOPE_MUTED,
     ReportFilters,
     ReportTable,
     empty_severity_counts,
@@ -389,6 +394,64 @@ def aggregate_findings(queryset: QuerySet) -> FindingStats:
     return stats
 
 
+OPEN_FAILING_Q = Q(status="FAIL", muted=False)
+
+
+def accepted_uids_q(tenant_id: str) -> Q:
+    """Findings whose UID has a ``risk_accepted`` triage row."""
+    return Q(
+        uid__in=FindingTriage.objects.filter(
+            tenant_id=tenant_id, status=FindingTriage.Status.RISK_ACCEPTED
+        ).values("finding_uid")
+    )
+
+
+def failing_condition(tenant_id: str, status_scope: str | None) -> Q:
+    """Return the condition of the failed findings a report counts (RC-002).
+
+    Args:
+        tenant_id: Tenant UUID string.
+        status_scope: ``active``, ``muted``, ``accepted``, ``all`` or ``None``.
+            ``None`` keeps the original rule (failed and not muted).
+
+    Returns:
+        A ``Q`` over ``Finding``.
+    """
+    if status_scope == STATUS_SCOPE_ACTIVE:
+        return OPEN_FAILING_Q & ~accepted_uids_q(tenant_id)
+    if status_scope == STATUS_SCOPE_MUTED:
+        return Q(status="FAIL", muted=True)
+    if status_scope == STATUS_SCOPE_ACCEPTED:
+        return Q(status="FAIL") & accepted_uids_q(tenant_id)
+    if status_scope == STATUS_SCOPE_ALL:
+        return Q(status="FAIL")
+    return OPEN_FAILING_Q
+
+
+def scoped_stats(queryset: QuerySet, failing: Q) -> FindingStats:
+    """``aggregate_findings`` with the failed counts taken from ``failing``.
+
+    Pass, muted and manual totals are unchanged; ``fail`` and the per-severity
+    failures count the findings matching ``failing``.
+    """
+    stats = aggregate_findings(queryset)
+    counts = empty_severity_counts()
+    for row in queryset.filter(failing).values("severity").annotate(count=Count("id")):
+        severity = str(row["severity"])
+        if severity in counts:
+            counts[severity] += int(row["count"] or 0)
+    stats.fail_by_severity = counts
+    stats.status["fail"] = sum(counts.values())
+    return stats
+
+
+def _scored_q(failing: Q | None) -> Q | None:
+    """Passed, unmuted findings plus the failed findings in scope."""
+    if failing is None:
+        return None
+    return Q(status="PASS", muted=False) | failing
+
+
 def merge_stats(items: Iterable[FindingStats]) -> FindingStats:
     """Sum several ``FindingStats``."""
     merged = FindingStats()
@@ -517,19 +580,22 @@ def business_impact(severity: str, metadata: dict) -> str:
     return BUSINESS_IMPACT.get(severity, BUSINESS_IMPACT["medium"])
 
 
-def top_risks(queryset: QuerySet, *, limit: int = 10) -> list[dict[str, Any]]:
+def top_risks(
+    queryset: QuerySet, *, limit: int = 10, failing: Q | None = None
+) -> list[dict[str, Any]]:
     """Rank failing checks by severity, impacted resources, and findings.
 
     Args:
         queryset: Finding queryset (already scoped).
         limit: Maximum risks returned.
+        failing: Failed findings to rank (default: failed and not muted).
 
     Returns:
         Risk rows ``{"check_id", "title", "severity", "findings", "resources",
         "service", "impact", "remediation"}``.
     """
     rows = (
-        queryset.filter(status="FAIL", muted=False)
+        queryset.filter(OPEN_FAILING_Q if failing is None else failing)
         .values("check_id", "severity")
         .annotate(
             findings=Count("id"),
@@ -585,20 +651,25 @@ def _severity_index(severity: str) -> int:
 
 
 def breakdown_by_scan(
-    queryset: QuerySet, streams: list[dict[str, Any]]
+    queryset: QuerySet,
+    streams: list[dict[str, Any]],
+    *,
+    failing: Q | None = None,
 ) -> list[dict[str, Any]]:
     """Return per-source rows (one per scan) with failure counts.
 
     Args:
         queryset: Finding queryset over the streams' scans.
         streams: Output of ``scan_streams``.
+        failing: Failed findings to count (default: failed and not muted).
 
     Returns:
         Rows sorted by failed findings, most first.
     """
     counts: dict[str, dict[str, int]] = {}
+    scored = _scored_q(failing)
     rows = (
-        queryset.filter(muted=False)
+        queryset.filter(Q(muted=False) if scored is None else scored)
         .values("scan_id", "status", "severity")
         .annotate(count=Count("id"))
     )
@@ -624,10 +695,12 @@ def breakdown_by_scan(
     return sorted(result, key=lambda item: (-item["fail"], item["provider"]))
 
 
-def breakdown_by_service(queryset: QuerySet, *, limit: int = 15) -> list[dict[str, Any]]:
+def breakdown_by_service(
+    queryset: QuerySet, *, limit: int = 15, failing: Q | None = None
+) -> list[dict[str, Any]]:
     """Return failed findings per service (first ``resource_services`` entry)."""
     rows = (
-        queryset.filter(status="FAIL", muted=False)
+        queryset.filter(OPEN_FAILING_Q if failing is None else failing)
         .values("resource_services")
         .annotate(count=Count("id"))
     )
@@ -647,6 +720,7 @@ def trend(
     *,
     extra_q: Q | None = None,
     exclude_q: Iterable[Q] = (),
+    failing: Q | None = None,
 ) -> list[dict[str, Any]]:
     """Return failed / passed findings for the last N days with scans.
 
@@ -659,6 +733,7 @@ def trend(
         scope: Scan scope.
         extra_q: Finding condition (same as the report's).
         exclude_q: Finding exclusions (same as the report's).
+        failing: Failed findings to count (default: failed and not muted).
 
     Returns:
         Points ordered oldest first:
@@ -682,13 +757,14 @@ def trend(
     day_of_scan = {
         str(scan_id): day for day, scan_ids in by_day.items() for scan_id in scan_ids
     }
+    scored = _scored_q(failing)
     queryset = findings_for(
         tenant_id,
         list(day_of_scan),
         filters,
         include_q=extra_q,
         exclude_q=exclude_q,
-    ).filter(muted=False)
+    ).filter(Q(muted=False) if scored is None else scored)
     points = {
         day: {"date": day, "fail": 0, "pass": 0, "critical": 0, "high": 0}
         for day in by_day
@@ -812,6 +888,8 @@ def finding_rows(
     *,
     limit: int | None = None,
     row_builder=None,
+    failing: Q | None = None,
+    exception_tenant_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Return failed, unmuted findings as table rows (critical first).
 
@@ -820,15 +898,18 @@ def finding_rows(
         limit: Row bound (defaults to ``max_detail_rows()``).
         row_builder: ``callable(finding_values, resource, provider) -> dict``;
             defaults to ``default_finding_row``.
+        failing: Failed findings to list (default: failed and not muted).
+        exception_tenant_id: When set, each row gets an ``exception`` label
+            (``Muted``, ``Risk accepted``, both, or ``Active``).
 
     Returns:
         ``(rows, total)`` where ``total`` counts every matching finding.
     """
     bound = limit or max_detail_rows()
-    failing = queryset.filter(status="FAIL", muted=False)
-    total = failing.count()
+    rows_qs = queryset.filter(OPEN_FAILING_Q if failing is None else failing)
+    total = rows_qs.count()
     values = list(
-        failing.annotate(cs_severity_rank=severity_rank_expression())
+        rows_qs.annotate(cs_severity_rank=severity_rank_expression())
         .order_by("cs_severity_rank", "check_id", "id")
         .values(
             "id",
@@ -836,6 +917,7 @@ def finding_rows(
             "check_id",
             "severity",
             "status",
+            "muted",
             "status_extended",
             "check_metadata",
             "raw_result",
@@ -852,7 +934,27 @@ def finding_rows(
     resources = _resources_for([item["id"] for item in values])
     builder = row_builder or default_finding_row
     rows = [builder(item, resources.get(str(item["id"]), {})) for item in values]
+    if exception_tenant_id is not None:
+        accepted = set(
+            FindingTriage.objects.filter(
+                tenant_id=exception_tenant_id,
+                status=FindingTriage.Status.RISK_ACCEPTED,
+                finding_uid__in=[item["uid"] for item in values],
+            ).values_list("finding_uid", flat=True)
+        )
+        for item, row in zip(values, rows):
+            row["exception"] = exception_label(
+                bool(item.get("muted")), item["uid"] in accepted
+            )
     return rows, total
+
+
+def exception_label(muted: bool, accepted: bool) -> str:
+    """Label of a finding's exception state in findings tables."""
+    labels = [
+        label for flag, label in ((muted, "Muted"), (accepted, "Risk accepted")) if flag
+    ]
+    return ", ".join(labels) or "Active"
 
 
 def _resources_for(finding_ids: list[UUID]) -> dict[str, dict[str, str]]:
@@ -915,14 +1017,32 @@ def default_finding_row(item: dict[str, Any], resource: dict[str, str]) -> dict[
 
 
 def findings_table(
-    key: str, title: str, queryset: QuerySet, *, columns=None, row_builder=None
+    key: str,
+    title: str,
+    queryset: QuerySet,
+    *,
+    columns=None,
+    row_builder=None,
+    failing: Q | None = None,
+    exception_tenant_id: str | None = None,
 ) -> ReportTable:
-    """Build a bounded findings ``ReportTable``."""
-    rows, total = finding_rows(queryset, row_builder=row_builder)
+    """Build a bounded findings ``ReportTable``.
+
+    With ``exception_tenant_id`` the table gains an ``Exception`` column.
+    """
+    rows, total = finding_rows(
+        queryset,
+        row_builder=row_builder,
+        failing=failing,
+        exception_tenant_id=exception_tenant_id,
+    )
+    table_columns = list(columns or FINDING_COLUMNS)
+    if exception_tenant_id is not None:
+        table_columns.append(("exception", "Exception"))
     return ReportTable(
         key=key,
         title=title,
-        columns=list(columns or FINDING_COLUMNS),
+        columns=table_columns,
         rows=rows,
         total=total,
         truncated=len(rows) < total,
