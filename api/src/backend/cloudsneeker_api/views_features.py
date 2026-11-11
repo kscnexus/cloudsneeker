@@ -122,6 +122,11 @@ class ScanConfigurationViewSet(BaseRLSViewSet):
 
 
 class CustodianPolicyFilter(filters.FilterSet):
+    provider__in = filters.BaseInFilter(field_name="provider_id")
+    provider_type = filters.CharFilter(field_name="provider__provider")
+    provider_type__in = filters.BaseInFilter(field_name="provider__provider")
+    schedule_enabled = filters.BooleanFilter()
+
     class Meta:
         model = CustodianPolicy
         fields = {
@@ -132,11 +137,29 @@ class CustodianPolicyFilter(filters.FilterSet):
 
 class CustodianRunFilter(filters.FilterSet):
     status = filters.CharFilter()
+    status__in = filters.BaseInFilter(field_name="status")
     policy = filters.UUIDFilter(field_name="policy_id")
+    provider = filters.UUIDFilter(field_name="provider_id")
+    provider__in = filters.BaseInFilter(field_name="provider_id")
+    finished_at__gte = filters.DateTimeFilter(field_name="finished_at", lookup_expr="gte")
+    finished_at__lte = filters.DateTimeFilter(field_name="finished_at", lookup_expr="lte")
 
     class Meta:
         model = CustodianRun
         fields = ["status", "policy"]
+
+
+def _custodian_visible(queryset, role):
+    """Governance follows provider visibility, like findings and triage."""
+    from cloudsneeker_api.reports.access import visible_provider_ids
+
+    visible = visible_provider_ids(role) if role is not None else None
+    if visible is None:
+        return queryset
+    return queryset.filter(provider_id__in=list(visible))
+
+
+_CUSTODIAN_READ_ACTIONS = {"list", "retrieve"}
 
 
 @extend_schema_view(
@@ -158,12 +181,18 @@ class CustodianPolicyViewSet(BaseRLSViewSet):
     ordering_fields = ["name", "inserted_at", "updated_at"]
     required_permissions = [Permissions.MANAGE_SCANS]
 
+    def set_required_permissions(self):
+        # Reading policies follows provider visibility; changes need manage_scans.
+        if self.action in _CUSTODIAN_READ_ACTIONS:
+            self.required_permissions = []
+        else:
+            self.required_permissions = [Permissions.MANAGE_SCANS]
+
     def get_queryset(self):
-        return (
-            CustodianPolicy.objects.filter(tenant_id=self.request.tenant_id)
-            .select_related("provider")
-            .all()
-        )
+        return _custodian_visible(
+            CustodianPolicy.objects.filter(tenant_id=self.request.tenant_id),
+            getattr(self, "user_role", None),
+        ).select_related("provider")
 
     def get_serializer_class(self):
         if self.action in ("create", "partial_update"):
@@ -387,16 +416,22 @@ class CustodianRunViewSet(BaseRLSViewSet):
     serializer_class = CustodianRunSerializer
     filterset_class = CustodianRunFilter
     http_method_names = ["get", "post", "head", "options"]
+    search_fields = ["policy__name"]
     ordering = ["-inserted_at"]
     ordering_fields = ["inserted_at", "status", "finished_at"]
     required_permissions = [Permissions.MANAGE_SCANS]
 
+    def set_required_permissions(self):
+        if self.action in _CUSTODIAN_READ_ACTIONS:
+            self.required_permissions = []
+        else:
+            self.required_permissions = [Permissions.MANAGE_SCANS]
+
     def get_queryset(self):
-        return (
-            CustodianRun.objects.filter(tenant_id=self.request.tenant_id)
-            .select_related("policy", "provider", "triggered_by")
-            .all()
-        )
+        return _custodian_visible(
+            CustodianRun.objects.filter(tenant_id=self.request.tenant_id),
+            getattr(self, "user_role", None),
+        ).select_related("policy", "provider", "triggered_by")
 
     @action(
         detail=True,
