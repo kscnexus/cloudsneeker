@@ -109,6 +109,9 @@ class TestGlobalSearchApi:
         assert hit["id"] == "cloud-1"
         assert hit["area"] == "cloud"
         assert hit["check_id"] == "s3_bucket_public_access"
+        assert groups["governance_findings"]["hits"][0]["subtitle"].startswith(
+            "payroll-bucket"
+        )
         assert groups["governance_findings"]["count"] == 1
         assert groups["governance_policies"]["hits"][0]["title"] == (
             "Public payroll bucket"
