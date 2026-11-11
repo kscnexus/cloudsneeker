@@ -27,9 +27,7 @@ vi.mock("./scan-comparison-filters", () => ({
   }: {
     baselineScanId: string;
     compareScanId: string;
-  }) => (
-    <div>{`filters:${baselineScanId}->${compareScanId}`}</div>
-  ),
+  }) => <div>{`filters:${baselineScanId}->${compareScanId}`}</div>,
 }));
 
 vi.mock("./scan-comparison-table", () => ({
@@ -85,8 +83,26 @@ describe("ScanComparisonOverview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listTrivyRunsMock.mockResolvedValue({ data: [] });
-    getCompliancesOverviewMock.mockImplementation(({ scanId }: { scanId: string }) => {
-      if (scanId === "scan-old") {
+    getCompliancesOverviewMock.mockImplementation(
+      ({ scanId }: { scanId: string }) => {
+        if (scanId === "scan-old") {
+          return {
+            data: [
+              {
+                id: "cis",
+                type: "compliance-overviews",
+                attributes: {
+                  framework: "CIS",
+                  version: "3.0",
+                  requirements_passed: 70,
+                  requirements_failed: 30,
+                  requirements_manual: 0,
+                  total_requirements: 100,
+                },
+              },
+            ],
+          };
+        }
         return {
           data: [
             {
@@ -95,32 +111,16 @@ describe("ScanComparisonOverview", () => {
               attributes: {
                 framework: "CIS",
                 version: "3.0",
-                requirements_passed: 70,
-                requirements_failed: 30,
+                requirements_passed: 85,
+                requirements_failed: 15,
                 requirements_manual: 0,
                 total_requirements: 100,
               },
             },
           ],
         };
-      }
-      return {
-        data: [
-          {
-            id: "cis",
-            type: "compliance-overviews",
-            attributes: {
-              framework: "CIS",
-              version: "3.0",
-              requirements_passed: 85,
-              requirements_failed: 15,
-              requirements_manual: 0,
-              total_requirements: 100,
-            },
-          },
-        ],
-      };
-    });
+      },
+    );
   });
 
   it("compares the two newest same-provider scans by default", async () => {
@@ -190,6 +190,32 @@ describe("ScanComparisonOverview", () => {
     );
 
     expect(screen.getByText("filters:scan-old->scan-new")).toBeInTheDocument();
+  });
+
+  it("names a scan whose compliance results failed instead of throwing", async () => {
+    // Given - the API answers 500 for a scan whose compliance task failed
+    getCompliancesOverviewMock.mockImplementation(
+      async ({ scanId }: { scanId: string }) => {
+        if (scanId === "scan-new") {
+          throw new Error("Task failed to generate compliance overview data.");
+        }
+        return { data: [] };
+      },
+    );
+
+    // When
+    render(
+      await ScanComparisonOverview({
+        searchParams: {},
+        scans: scans as never,
+      }),
+    );
+
+    // Then
+    expect(screen.getByText("filters:scan-old->scan-new")).toBeInTheDocument();
+    expect(
+      screen.getByText(/compare scan has no compliance results/i),
+    ).toBeInTheDocument();
   });
 
   it("asks for a second scan when fewer than two exist", async () => {
