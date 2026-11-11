@@ -6,6 +6,7 @@ export const TRIVY_MODE = {
   SBOM: "sbom",
   K8S: "k8s",
   SAST: "sast",
+  ROOTFS: "rootfs",
 } as const;
 
 /** Trivy scanners accepted by `normalize_scanners` (`services/trivy.py`). */
@@ -40,6 +41,7 @@ export const TRIVY_RUN_STATUS = {
   RUNNING: "running",
   COMPLETED: "completed",
   FAILED: "failed",
+  CANCELLED: "cancelled",
 } as const;
 
 export type TrivyRunStatus =
@@ -67,6 +69,10 @@ export interface TrivyTargetConfig {
   context?: string;
   rulesets?: string[];
   exclude?: string[];
+  /** `builtin:<key>` or a scan profile id. */
+  profile?: string;
+  /** Scan options that override the profile. */
+  options?: Record<string, unknown>;
 }
 
 export interface TrivyTargetAttributes {
@@ -84,6 +90,8 @@ export interface TrivyTargetAttributes {
   next_run_at?: string | null;
   inserted_at?: string;
   updated_at?: string;
+  application_id?: string | null;
+  application_name?: string | null;
 }
 
 export interface TrivyTargetResource {
@@ -97,6 +105,35 @@ export interface TrivyRunSummary {
   path?: string;
   scan_id?: string;
   finding_count?: number | null;
+  sbom_id?: string | null;
+  partial?: boolean;
+}
+
+export interface TrivyRunCoverage {
+  categories?: string[];
+  severities?: string[] | null;
+  fixed_only?: boolean;
+  complete?: boolean;
+  reasons?: string[];
+}
+
+export interface TrivyRunLifecycle {
+  new?: number;
+  reopened?: number;
+  open?: number;
+  fixed?: number;
+  suppressed?: number;
+}
+
+export interface TrivyRunStats {
+  total?: number;
+  suppressed?: number;
+  by_category?: Record<string, Record<string, number>>;
+  lifecycle?: TrivyRunLifecycle;
+  components?: number;
+  passed_checks?: number;
+  units?: number;
+  failed_units?: number;
 }
 
 export interface TrivyRunAttributes {
@@ -116,6 +153,20 @@ export interface TrivyRunAttributes {
   error_class?: string;
   inserted_at?: string;
   updated_at?: string;
+  engine?: string;
+  engine_version?: string;
+  profile_ref?: string;
+  options?: Record<string, unknown>;
+  command?: string[];
+  exit_code?: number | null;
+  stderr_tail?: string;
+  duration_ms?: number | null;
+  attempts?: number;
+  database?: Record<string, unknown>;
+  coverage?: TrivyRunCoverage;
+  stats?: TrivyRunStats;
+  cancel_requested_at?: string | null;
+  has_artifact?: boolean;
 }
 
 export interface TrivyRunResource {

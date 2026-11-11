@@ -74,11 +74,11 @@ describe("getAppSecurityCategory", () => {
 });
 
 describe("appSecurityCategoryHref", () => {
-  it("adds the category to the hub route", () => {
+  it("adds the category to the scans route, where targets are listed", () => {
     expect(appSecurityCategoryHref(APP_SECURITY_CATEGORY.SECRETS)).toBe(
-      "/application-security?category=secrets",
+      "/application-security/scans?category=secrets",
     );
-    expect(appSecurityCategoryHref(null)).toBe("/application-security");
+    expect(appSecurityCategoryHref(null)).toBe("/application-security/scans");
   });
 });
 

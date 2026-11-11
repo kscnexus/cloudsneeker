@@ -51,7 +51,7 @@ describe("Application Security page workspace", () => {
   });
 
   it("uses the product name and product routes", () => {
-    expect(source).toContain("title={BRAND.appSecurityName}");
+    expect(source).toContain("title={`${BRAND.appSecurityName} scans`}");
     expect(source).toContain("appSecurityHref(");
     expect(source).not.toMatch(/"\/trivy|`\/trivy/);
     // Engine names only appear inside identifiers, never as words.

@@ -1,5 +1,7 @@
 """ViewSets for the Cloudsneeker Trivy Hub."""
 
+import json
+
 from api.base_views import BaseRLSViewSet
 from api.models import Scan
 from api.rbac.permissions import Permissions
@@ -11,13 +13,19 @@ from cloudsneeker_api.serializers_trivy import (
     TrivyTargetWriteSerializer,
 )
 from cloudsneeker_api.services.brand_text import scrub_engine_text
-from cloudsneeker_api.services.trivy import TrivyHubError, enqueue_trivy_run
+from cloudsneeker_api.services.trivy import (
+    TrivyHubError,
+    enqueue_trivy_run,
+    request_run_cancel,
+)
 from cloudsneeker_api.services.trivy_schedule import delete_target_schedule
 from django.db.models import OuterRef, Subquery
+from django.http import HttpResponse
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 
@@ -26,10 +34,12 @@ class TrivyTargetFilter(filters.FilterSet):
     mode = filters.CharFilter()
     provider = filters.UUIDFilter(field_name="provider_id")
     schedule_enabled = filters.BooleanFilter()
+    application = filters.UUIDFilter(field_name="application_id")
+    unassigned = filters.BooleanFilter(field_name="application", lookup_expr="isnull")
 
     class Meta:
         model = TrivyTarget
-        fields = ["mode", "provider", "schedule_enabled"]
+        fields = ["mode", "provider", "schedule_enabled", "application", "unassigned"]
 
 
 class TrivyRunFilter(filters.FilterSet):
@@ -65,7 +75,7 @@ class TrivyTargetViewSet(BaseRLSViewSet):
     def get_queryset(self):
         return (
             TrivyTarget.objects.filter(tenant_id=self.request.tenant_id)
-            .select_related("provider")
+            .select_related("provider", "application")
             .all()
         )
 
@@ -153,10 +163,91 @@ class TrivyRunViewSet(BaseRLSViewSet):
     queryset = TrivyRun.objects.all()
     serializer_class = TrivyRunSerializer
     filterset_class = TrivyRunFilter
-    http_method_names = ["get", "head", "options"]
+    http_method_names = ["get", "post", "head", "options"]
     ordering = ["-inserted_at"]
     ordering_fields = ["inserted_at", "status", "finished_at"]
     required_permissions = [Permissions.MANAGE_SCANS]
+
+    def create(self, request, *args, **kwargs):
+        # Runs start from a target (``trivy-targets/{id}/scan``).
+        raise MethodNotAllowed("POST")
+
+    def perform_content_negotiation(self, request, force=False):
+        # ``?format=sarif`` names a file format on the export action.
+        if self.action == "export":
+            force = True
+        return super().perform_content_negotiation(request, force=force)
+
+    @extend_schema(tags=["Trivy"], summary="Cancel a queued or running scan")
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="cancel",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
+    def cancel(self, request, pk=None):
+        run = self.get_object()
+        try:
+            request_run_cancel(tenant_id=str(request.tenant_id), run_id=str(run.id))
+        except TrivyHubError as exc:
+            return Response(
+                {"errors": [{"detail": str(exc), "code": "scan_not_cancellable"}]},
+                status=status.HTTP_409_CONFLICT,
+            )
+        run = self.get_queryset().get(pk=run.pk)
+        return Response(
+            TrivyRunSerializer(run, context=self.get_serializer_context()).data,
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @extend_schema(
+        tags=["Trivy"],
+        summary="Download the stored scan report (json, sarif, cyclonedx, spdx-json)",
+    )
+    @action(detail=True, methods=["get"], url_path="export")
+    def export(self, request, pk=None):
+        from cloudsneeker_api.appsec import capabilities as caps
+        from cloudsneeker_api.appsec import engine
+
+        run = self.get_object()
+        fmt = str(request.query_params.get("format") or "json").lower()
+        allowed = caps.TARGETS.get(run.target.mode, {}).get("export_formats", ())
+        if fmt not in allowed:
+            return Response(
+                {"errors": [{"detail": "This format is not available for the scan.",
+                             "code": "invalid_format"}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            index = int(request.query_params.get("index") or 0)
+        except ValueError:
+            index = 0
+        report = engine.load_report(run, index)
+        if report is None:
+            return Response(
+                {"errors": [{"detail": "The scan report is no longer stored.",
+                             "code": "artifact_gone"}]},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if fmt == "json":
+            body, content_type, extension = (
+                json.dumps(report).encode("utf-8"), "application/json", "json",
+            )
+        else:
+            try:
+                body = engine.convert_report(report, fmt)
+            except engine.EngineError as exc:
+                return Response(
+                    {"errors": [{"detail": scrub_engine_text(str(exc)),
+                                 "code": "conversion_failed"}]},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            _, content_type, extension = engine.CONVERT_FORMATS[fmt]
+        response = HttpResponse(body, content_type=content_type)
+        response["Content-Disposition"] = (
+            f'attachment; filename="cloudsneeker-scan-{run.id}.{extension}"'
+        )
+        return response
 
     def get_queryset(self):
         return (

@@ -21,6 +21,8 @@ export interface TrivyTargetPayload {
   scheduleEnabled?: boolean;
   scheduleCron?: string;
   scheduleTimezone?: string;
+  /** Application id; `null` unassigns, `undefined` leaves it unchanged. */
+  applicationId?: string | null;
 }
 
 const buildTargetEnvelope = (
@@ -39,6 +41,9 @@ const buildTargetEnvelope = (
       schedule_enabled: payload.scheduleEnabled ?? false,
       schedule_cron: payload.scheduleCron ?? "",
       schedule_timezone: payload.scheduleTimezone ?? "UTC",
+      ...(payload.applicationId !== undefined
+        ? { application_id: payload.applicationId }
+        : {}),
     },
   },
 });

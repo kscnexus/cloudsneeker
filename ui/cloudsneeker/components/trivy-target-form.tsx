@@ -21,6 +21,7 @@ import {
   buildTrivyConfig,
   CODE_ARCHIVE_ACCEPT,
   CODE_ARCHIVE_HELP,
+  isArchiveMode,
   isSupportedCodeArchive,
   SAST_SOURCE,
   toggleSastRuleset,
@@ -75,8 +76,19 @@ interface ProviderOption {
   providerType?: string;
 }
 
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 interface TrivyTargetFormProps {
   providers: ProviderOption[];
+  /** Scan profiles to choose from (`value` is the profile reference). */
+  profiles?: SelectOption[];
+  /** Applications the target can belong to. */
+  applications?: SelectOption[];
+  /** Saved config keys the form does not edit; kept on save. */
+  preservedConfig?: Record<string, unknown>;
   initialValues?: TrivyTargetFormInput;
   targetId?: string;
   /** Source to preselect on a new target when it fits the default mode. */
@@ -101,6 +113,9 @@ export const TrivyTargetForm = ({
   initialValues,
   targetId,
   defaultProviderId,
+  profiles = [],
+  applications = [],
+  preservedConfig,
 }: TrivyTargetFormProps) => {
   const repositoryProviders = providersForMode(providers, TRIVY_MODE.REPO);
   const router = useRouter();
@@ -125,6 +140,8 @@ export const TrivyTargetForm = ({
       archiveB64: "",
       sbom: "",
       namespace: "",
+      profile: "",
+      applicationId: "",
       sastSource: SAST_SOURCE.REPOSITORY,
       rulesets: [SAST_RULESET.AUTO],
       exclude: "",
@@ -143,6 +160,7 @@ export const TrivyTargetForm = ({
   const sbom = useWatch({ control: form.control, name: "sbom" }) ?? "";
   const scanners: TrivyScanner[] =
     useWatch({ control: form.control, name: "scanners" }) ?? [];
+  const profile = useWatch({ control: form.control, name: "profile" }) ?? "";
   const availableScanners = scannersForMode(mode);
   const fixedScanners = hasFixedScanners(mode);
   const setScanners = (values: string[]) =>
@@ -169,7 +187,8 @@ export const TrivyTargetForm = ({
       description: values.description,
       mode: values.mode,
       providerId: values.providerId,
-      config: buildTrivyConfig(values),
+      config: buildTrivyConfig(values, preservedConfig),
+      applicationId: values.applicationId || null,
       scheduleEnabled: values.scheduleEnabled,
       scheduleCron: values.scheduleEnabled ? values.scheduleCron : "",
       scheduleTimezone: values.scheduleTimezone || "UTC",
@@ -311,7 +330,51 @@ export const TrivyTargetForm = ({
           </select>
         </FormField>
 
-        {availableScanners.length > 0 ? (
+        {applications.length > 0 ? (
+          <FormField
+            id="trivy-application"
+            label="Application"
+            optional
+            help="Groups this target with the other assets of the same product. Its criticality and environment feed finding priority."
+          >
+            <select
+              id="trivy-application"
+              className={FORM_SELECT_CLASS}
+              {...form.register("applicationId")}
+            >
+              <option value="">Not assigned</option>
+              {applications.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        ) : null}
+
+        {availableScanners.length > 0 && profiles.length > 0 ? (
+          <FormField
+            id="trivy-profile"
+            label="Scan profile"
+            optional
+            help="A profile sets the scan types and options. Without one, the application's or organization's default applies and the scan types below are used."
+          >
+            <select
+              id="trivy-profile"
+              className={FORM_SELECT_CLASS}
+              {...form.register("profile")}
+            >
+              <option value="">Default</option>
+              {profiles.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        ) : null}
+
+        {availableScanners.length > 0 && !profile ? (
           <FormField
             id="trivy-scanners"
             label="Scan types"
@@ -382,7 +445,7 @@ export const TrivyTargetForm = ({
           </FormField>
         ) : null}
 
-        {mode === TRIVY_MODE.FS ? (
+        {isArchiveMode(mode) ? (
           <FormField
             id="trivy-archive"
             label="Code archive"

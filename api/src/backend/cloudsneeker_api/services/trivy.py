@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import yaml
 from api.db_utils import rls_transaction
@@ -36,8 +36,9 @@ from cloudsneeker.git_auth import (
 )
 from cloudsneeker.git_ssh import GitSshError, is_ssh_url, ssh_secret_args
 from cloudsneeker.git_ssh import clone as git_clone
+from cloudsneeker_api.appsec import capabilities as appsec_caps
+from cloudsneeker_api.appsec.options import OptionError, validate_options
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
-from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.vuln_db import scan_cache_env
 from django.db import transaction
 from django.utils import timezone
@@ -51,8 +52,12 @@ TRIVY_MODES = frozenset(
         TrivyTarget.Mode.SBOM,
         TrivyTarget.Mode.K8S,
         TrivyTarget.Mode.SAST,
+        TrivyTarget.Mode.ROOTFS,
     }
 )
+
+# Modes that take an uploaded archive.
+ARCHIVE_MODES = frozenset({TrivyTarget.Mode.FS, TrivyTarget.Mode.ROOTFS})
 
 PROWLER_SCAN_MODES = frozenset({TrivyTarget.Mode.IAC, TrivyTarget.Mode.IMAGE})
 
@@ -67,6 +72,7 @@ MODE_PROVIDER_TYPES: dict[str, frozenset[str]] = {
     TrivyTarget.Mode.REPO: frozenset({Provider.ProviderChoices.IAC.value}),
     TrivyTarget.Mode.SBOM: frozenset({Provider.ProviderChoices.IAC.value}),
     TrivyTarget.Mode.SAST: frozenset({Provider.ProviderChoices.IAC.value}),
+    TrivyTarget.Mode.ROOTFS: frozenset({Provider.ProviderChoices.IAC.value}),
 }
 
 # Modes whose ``repository_url`` must be the linked provider's repository.
@@ -74,20 +80,17 @@ REPOSITORY_URL_MODES = frozenset({TrivyTarget.Mode.REPO, TrivyTarget.Mode.SAST})
 
 DEFAULT_SCANNERS = ("vuln", "misconfig", "secret")
 
-# Trivy ``--scanners`` values each mode accepts. IaC and image runs go through
-# the provider scan, which runs this fixed set whatever the target lists.
+# Scanners each mode accepts, from the engine capability matrix
+# (``appsec.capabilities``), which follows the engine's CLI reference.
 MODE_SCANNERS: dict[str, tuple[str, ...]] = {
-    TrivyTarget.Mode.IAC: DEFAULT_SCANNERS,
-    TrivyTarget.Mode.IMAGE: DEFAULT_SCANNERS,
-    TrivyTarget.Mode.FS: ("vuln", "misconfig", "secret", "license"),
-    TrivyTarget.Mode.REPO: ("vuln", "misconfig", "secret", "license"),
-    TrivyTarget.Mode.SBOM: ("vuln", "license"),
-    TrivyTarget.Mode.K8S: ("vuln", "misconfig", "secret", "rbac"),
+    mode: tuple(spec["scanners"]) for mode, spec in appsec_caps.TARGETS.items()
 }
 
-# Scanners a target runs when its config lists none.
+# Scanners a target runs when its config lists none and names no profile.
 MODE_DEFAULT_SCANNERS: dict[str, tuple[str, ...]] = {
     **MODE_SCANNERS,
+    TrivyTarget.Mode.IAC: DEFAULT_SCANNERS,
+    TrivyTarget.Mode.IMAGE: DEFAULT_SCANNERS,
     TrivyTarget.Mode.SBOM: ("vuln",),
     TrivyTarget.Mode.K8S: DEFAULT_SCANNERS,
 }
@@ -304,6 +307,7 @@ def validate_target_config(
     cfg = dict(config or {})
 
     cfg["scanners"] = normalize_scanners(mode, cfg.get("scanners"), strict=strict)
+    _validate_profile_and_options(mode, cfg, strict=strict)
 
     if mode == TrivyTarget.Mode.IMAGE:
         images = cfg.get("images") or cfg.get("image")
@@ -328,7 +332,7 @@ def validate_target_config(
             )
         cfg["repository_url"] = url
 
-    if mode == TrivyTarget.Mode.FS:
+    if mode in ARCHIVE_MODES:
         # Scanning a worker path would let a tenant read the worker's disk;
         # only an uploaded archive is scanned.
         if str(cfg.get("path") or "").strip():
@@ -339,7 +343,7 @@ def validate_target_config(
         cfg.pop("path", None)
         archive = str(cfg.get("archive_b64") or "")
         if not archive:
-            raise TrivyHubError("config.archive_b64 is required for fs mode.")
+            raise TrivyHubError(f"config.archive_b64 is required for {mode} mode.")
         # Rough decoded size check without full decode for huge strings.
         if len(archive) > MAX_ARCHIVE_BYTES * 2:
             raise TrivyHubError("Filesystem archive exceeds the size limit.")
@@ -363,6 +367,55 @@ def validate_target_config(
         cfg = validate_sast_config(cfg)
 
     return cfg
+
+
+def _validate_profile_and_options(
+    mode: str, cfg: dict[str, Any], *, strict: bool
+) -> None:
+    """Validate ``config.profile`` and ``config.options`` in place.
+
+    ``profile`` is ``builtin:<key>`` or a scan profile id (its existence is
+    checked when the scan starts). ``options`` are engine options for the
+    mode; with ``strict`` off, unsupported ones are dropped.
+
+    Raises:
+        TrivyHubError: Malformed profile reference or invalid options.
+    """
+    profile = cfg.get("profile")
+    if profile in (None, ""):
+        cfg.pop("profile", None)
+    else:
+        ref = str(profile).strip()
+        prefix = appsec_caps.BUILTIN_PROFILE_PREFIX
+        if ref.startswith(prefix):
+            if ref[len(prefix) :] not in appsec_caps.BUILTIN_PROFILES:
+                raise TrivyHubError(f"Unknown scan profile: {ref}.")
+        else:
+            try:
+                UUID(ref)
+            except ValueError:
+                raise TrivyHubError("config.profile is not a profile id.") from None
+        cfg["profile"] = ref
+
+    options = cfg.get("options")
+    if options in (None, {}):
+        cfg.pop("options", None)
+        return
+    if mode not in appsec_caps.TARGETS:
+        raise TrivyHubError(f"Mode '{mode}' takes no scan options.")
+    if not isinstance(options, dict):
+        raise TrivyHubError("config.options must be an object.")
+    try:
+        cleaned = validate_options(
+            mode,
+            {"scanners": cfg.get("scanners"), **options},
+            strict=strict,
+        )
+    except OptionError as exc:
+        raise TrivyHubError(str(exc)) from None
+    if "scanners" not in options:
+        cleaned.pop("scanners", None)
+    cfg["options"] = cleaned
 
 
 def _resolve_trivy_bin() -> str:
@@ -793,6 +846,16 @@ def enqueue_trivy_run(
             raise TrivyHubError(
                 f"Target already has {active} active run(s); limit is {max_concurrent}."
             )
+        tenant_limit = int(os.environ.get("APPSEC_MAX_ACTIVE_RUNS_PER_TENANT", "10"))
+        tenant_active = TrivyRun.objects.filter(
+            tenant_id=tenant_id,
+            status__in=[TrivyRun.Status.PENDING, TrivyRun.Status.RUNNING],
+        ).count()
+        if tenant_active >= tenant_limit:
+            raise TrivyHubError(
+                f"{tenant_active} scans are already queued or running; the "
+                f"limit is {tenant_limit}. Wait for one to finish."
+            )
         run = TrivyRun.objects.create(
             tenant_id=tenant_id,
             target=target,
@@ -809,143 +872,41 @@ def enqueue_trivy_run(
     return run
 
 
-def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
-    """Execute a pending Trivy Hub run and persist status / scan link."""
-    from cloudsneeker_api.services.trivy_import import import_trivy_report
+def request_run_cancel(*, tenant_id: str, run_id: str) -> TrivyRun:
+    """Ask a pending or running scan to stop.
 
+    A pending run is cancelled at once. A running one is flagged; the worker
+    polls the flag, stops the scan process and marks the run cancelled.
+
+    Raises:
+        TrivyHubError: The run is unknown or already finished.
+    """
     with rls_transaction(tenant_id):
         run = (
-            TrivyRun.objects.select_related("target", "provider", "provider__secret")
+            TrivyRun.objects.select_for_update()
             .filter(tenant_id=tenant_id, id=run_id)
             .first()
         )
         if run is None:
-            raise TrivyHubError(f"Trivy run {run_id} was not found.")
-        if run.status == TrivyRun.Status.FAILED and run.error_class == "cancelled":
-            return {"status": TrivyRun.Status.FAILED, "run_id": str(run_id)}
+            raise TrivyHubError("Scan not found.")
+        if run.status not in (TrivyRun.Status.PENDING, TrivyRun.Status.RUNNING):
+            raise TrivyHubError("Only a queued or running scan can be cancelled.")
+        now = timezone.now()
+        run.cancel_requested_at = now
+        fields = ["cancel_requested_at", "updated_at"]
+        if run.status == TrivyRun.Status.PENDING:
+            run.status = TrivyRun.Status.CANCELLED
+            run.finished_at = now
+            run.error = "The scan was cancelled before it started."
+            run.error_class = "cancelled"
+            fields += ["status", "finished_at", "error", "error_class"]
+        run.save(update_fields=fields)
+    return run
 
-        run.status = TrivyRun.Status.RUNNING
-        run.started_at = timezone.now()
-        run.error = ""
-        run.error_class = ""
-        run.save(
-            update_fields=[
-                "status",
-                "started_at",
-                "error",
-                "error_class",
-                "updated_at",
-            ]
-        )
 
-        target = run.target
-        provider = run.provider
-        mode = target.mode
-        try:
-            # Inside the try so a target edited after enqueue fails the run
-            # instead of leaving it running.
-            config = validate_target_config(mode, target.config, strict=False)
-            assert_provider_matches_mode(provider, mode, config)
-            if mode in PROWLER_SCAN_MODES:
-                scan = _enqueue_provider_scan(
-                    tenant_id=tenant_id,
-                    provider=provider,
-                    run=run,
-                    scan_name=f"Trivy {mode}: {target.name}",
-                )
-                run.scan_id = scan.id
-                run.status = TrivyRun.Status.COMPLETED
-                run.finished_at = timezone.now()
-                run.summary = {
-                    "mode": mode,
-                    "path": PROVIDER_SCAN_PATH,
-                    "scan_id": str(scan.id),
-                    "finding_count": None,
-                }
-                run.output = {"enqueued": True}
-                run.save(
-                    update_fields=[
-                        "scan_id",
-                        "status",
-                        "finished_at",
-                        "summary",
-                        "output",
-                        "updated_at",
-                    ]
-                )
-                return {
-                    "status": TrivyRun.Status.COMPLETED,
-                    "run_id": str(run_id),
-                    "scan_id": str(scan.id),
-                }
+def process_trivy_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
+    """Execute a pending scan run (``appsec.engine``)."""
+    from cloudsneeker_api.appsec.engine import execute_run
 
-            from cloudsneeker_api.services.trivy_import import (
-                compact_report_output,
-                report_to_finding_rows,
-            )
+    return execute_run(tenant_id=tenant_id, run_id=run_id)
 
-            if mode == TrivyTarget.Mode.SAST:
-                from cloudsneeker_api.services.sast import run_opengrep_scan
-
-                report = run_opengrep_scan(config=config, provider=provider)
-            else:
-                report = run_trivy_cli(mode=mode, config=config, provider=provider)
-            finding_rows = report_to_finding_rows(report, mode=mode)
-            scan = import_trivy_report(
-                tenant_id=tenant_id,
-                provider=provider,
-                report=report,
-                mode=mode,
-                scan_name=(
-                    f"SAST: {target.name}"
-                    if mode == TrivyTarget.Mode.SAST
-                    else f"Trivy {mode}: {target.name}"
-                ),
-                started_at=run.started_at,
-                rows=finding_rows,
-            )
-            run.scan_id = scan.id
-            run.status = TrivyRun.Status.COMPLETED
-            run.finished_at = timezone.now()
-            run.summary = {
-                "mode": mode,
-                "path": "trivy_cli",
-                "scan_id": str(scan.id),
-                "finding_count": len(finding_rows),
-            }
-            # Keep only compact metadata in output (not the full report).
-            run.output = compact_report_output(report, mode=mode)
-            run.save(
-                update_fields=[
-                    "scan_id",
-                    "status",
-                    "finished_at",
-                    "summary",
-                    "output",
-                    "updated_at",
-                ]
-            )
-            return {
-                "status": TrivyRun.Status.COMPLETED,
-                "run_id": str(run_id),
-                "scan_id": str(scan.id),
-            }
-        except Exception as exc:  # noqa: BLE001
-            run.status = TrivyRun.Status.FAILED
-            run.finished_at = timezone.now()
-            run.error = scrub_engine_text(str(exc))[:4000]
-            run.error_class = (
-                "trivy_hub" if isinstance(exc, TrivyHubError) else "internal"
-            )
-            run.save(
-                update_fields=[
-                    "status",
-                    "finished_at",
-                    "error",
-                    "error_class",
-                    "updated_at",
-                ]
-            )
-            if isinstance(exc, TrivyHubError):
-                return {"status": TrivyRun.Status.FAILED, "run_id": str(run_id)}
-            raise

@@ -160,7 +160,14 @@ describe("withCloudsneekerNavigation", () => {
       },
       {
         label: NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
-        items: [BRAND.appSecurityName, "Findings", "Triage"],
+        items: [
+          BRAND.appSecurityName,
+          "Applications",
+          "Scans",
+          "Findings",
+          "Software inventory",
+          "Scan setup",
+        ],
       },
       {
         label: NAVIGATION_SECTION_LABEL.GOVERNANCE,
@@ -271,11 +278,20 @@ describe("withCloudsneekerNavigation", () => {
   it("marks the product areas active on their routes", () => {
     const appSecurity = withCloudsneekerNavigation(
       upstreamSections(),
-      "/application-security/abc/runs/def",
+      "/application-security",
     );
     expect(findItem(appSecurity, BRAND.appSecurityName)).toMatchObject({
       active: true,
     });
+    // Target and scan pages belong to Scans.
+    const scanPage = withCloudsneekerNavigation(
+      upstreamSections(),
+      "/application-security/abc/runs/def",
+    );
+    expect(findItem(scanPage, BRAND.appSecurityName)).toMatchObject({
+      active: false,
+    });
+    expect(findItem(scanPage, "Scans")).toMatchObject({ active: true });
     expect(findItem(appSecurity, BRAND.governanceName)).toMatchObject({
       active: false,
     });
@@ -477,8 +493,39 @@ describe("withCloudsneekerNavigation area findings", () => {
 
     expect(hrefs(NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY)).toEqual([
       "/application-security",
+      "/application-security/applications",
+      "/application-security/scans",
+      "Findings",
+      "Software inventory",
+      "Scan setup",
+    ]);
+    const children = (label: string) => {
+      const item = sectionItems(
+        sections,
+        NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
+      ).find((entry) => entry.label === label);
+      return item?.kind === NAVIGATION_ITEM_KIND.COLLAPSIBLE
+        ? item.children.map((child) =>
+            child.kind === NAVIGATION_ITEM_KIND.LINK ? child.href : child.label,
+          )
+        : [];
+    };
+    expect(children("Findings")).toEqual([
+      "/application-security/vulnerabilities",
+      "/application-security/misconfigurations",
+      "/application-security/secrets",
+      "/application-security/licenses",
+      "/application-security/code",
       "/application-security/findings",
       "/application-security/triage",
+    ]);
+    expect(children("Software inventory")).toEqual([
+      "/application-security/components",
+      "/application-security/sboms",
+    ]);
+    expect(children("Scan setup")).toEqual([
+      "/application-security/profiles",
+      "/application-security/settings",
     ]);
     expect(hrefs(NAVIGATION_SECTION_LABEL.GOVERNANCE)).toEqual([
       "/governance",
@@ -492,17 +539,32 @@ describe("withCloudsneekerNavigation area findings", () => {
       sectionItems(
         withCloudsneekerNavigation(upstreamSections(), pathname),
         NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
-      )
-        .filter(
-          (item) => item.kind === NAVIGATION_ITEM_KIND.LINK && item.active,
-        )
-        .map((item) => item.label);
+      ).flatMap((item) =>
+        item.kind === NAVIGATION_ITEM_KIND.LINK
+          ? item.active
+            ? [item.label]
+            : []
+          : item.children
+              .filter(
+                (child) =>
+                  child.kind === NAVIGATION_ITEM_KIND.LINK && child.active,
+              )
+              .map((child) => child.label),
+      );
 
-    expect(active("/application-security/findings")).toEqual(["Findings"]);
-    expect(active("/application-security/triage")).toEqual(["Triage"]);
-    expect(active("/application-security/abc/runs/1")).toEqual([
-      BRAND.appSecurityName,
+    expect(active("/application-security")).toEqual([BRAND.appSecurityName]);
+    expect(active("/application-security/findings")).toEqual(["All findings"]);
+    expect(active("/application-security/findings/abc")).toEqual([
+      "All findings",
     ]);
+    expect(active("/application-security/secrets")).toEqual(["Secrets"]);
+    expect(active("/application-security/triage")).toEqual(["Triage"]);
+    expect(active("/application-security/sboms/abc")).toEqual(["SBOMs"]);
+    expect(active("/application-security/applications/abc")).toEqual([
+      "Applications",
+    ]);
+    expect(active("/application-security/abc/runs/1")).toEqual(["Scans"]);
+    expect(active("/application-security/new")).toEqual(["Scans"]);
   });
 });
 

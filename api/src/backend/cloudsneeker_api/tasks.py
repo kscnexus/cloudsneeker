@@ -173,6 +173,32 @@ def trivy_scheduled_scan_task(tenant_id: str, target_id: str):
     }
 
 
+@shared_task(base=RLSTask, name="cloudsneeker-appsec-rescore", queue="scans")
+@set_tenant(keep_tenant=True)
+def appsec_rescore_task(
+    tenant_id: str,
+    application_id: str | None = None,
+    target_ids: list[str] | None = None,
+):
+    """Recompute finding priority and deadlines after a settings or
+    application change."""
+    from cloudsneeker_api.appsec.maintenance import rescore
+
+    return {
+        "rescored": rescore(
+            tenant_id=tenant_id, application_id=application_id, target_ids=target_ids
+        )
+    }
+
+
+@shared_task(name="cloudsneeker-appsec-retention", queue="celery")
+def appsec_retention_task():
+    """Celery Beat entrypoint: apply raw report and fixed finding retention."""
+    from cloudsneeker_api.appsec.maintenance import apply_retention_all_tenants
+
+    return apply_retention_all_tenants()
+
+
 @shared_task(base=RLSTask, name="cloudsneeker-generate-report", queue="scans")
 @set_tenant(keep_tenant=True)
 def generate_report_task(tenant_id: str, run_id: str):

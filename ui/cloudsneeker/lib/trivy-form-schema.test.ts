@@ -86,8 +86,9 @@ describe("scan types per mode", () => {
     [TRIVY_MODE.FS, ["vuln", "misconfig", "secret", "license"]],
     [TRIVY_MODE.SBOM, ["vuln", "license"]],
     [TRIVY_MODE.K8S, ["vuln", "misconfig", "secret", "rbac"]],
-    [TRIVY_MODE.IAC, ["vuln", "misconfig", "secret"]],
-    [TRIVY_MODE.IMAGE, ["vuln", "misconfig", "secret"]],
+    [TRIVY_MODE.IAC, ["vuln", "misconfig", "secret", "license"]],
+    [TRIVY_MODE.IMAGE, ["vuln", "misconfig", "secret", "license"]],
+    [TRIVY_MODE.ROOTFS, ["vuln", "misconfig", "secret", "license"]],
     [TRIVY_MODE.SAST, []],
   ] as const)("%s supports %j", (mode, scanners) => {
     expect(scannersForMode(mode)).toEqual(scanners);
@@ -122,16 +123,65 @@ describe("scan types per mode", () => {
     expect(result.error?.issues[0]?.path).toEqual(["scanners"]);
   });
 
-  it("always saves the full set for provider-scan modes", () => {
-    const values = trivyTargetFormSchema.parse({
-      name: "iac-scan",
-      mode: TRIVY_MODE.IAC,
+  it("saves the selected scan types for repository policy and image modes", () => {
+    // Every mode runs on the scan engine, which honours the selection.
+    for (const mode of [TRIVY_MODE.IAC, TRIVY_MODE.IMAGE]) {
+      const values = trivyTargetFormSchema.parse({
+        name: "scan",
+        mode,
+        providerId,
+        scanners: ["vuln"],
+      });
+      expect(buildTrivyConfig(values)).toEqual({ scanners: ["vuln"] });
+    }
+    expect(defaultScannersForMode(TRIVY_MODE.IAC)).toEqual([
+      "vuln",
+      "misconfig",
+      "secret",
+    ]);
+  });
+
+  it("requires an archive for the root filesystem mode", () => {
+    const missing = trivyTargetFormSchema.safeParse({
+      name: "rootfs-scan",
+      mode: TRIVY_MODE.ROOTFS,
       providerId,
-      scanners: ["vuln"],
     });
-    expect(buildTrivyConfig(values)).toEqual({
-      scanners: ["vuln", "misconfig", "secret"],
+    expect(missing.success).toBe(false);
+    const values = trivyTargetFormSchema.parse({
+      name: "rootfs-scan",
+      mode: TRIVY_MODE.ROOTFS,
+      providerId,
+      archiveB64: "UEsDBA==",
     });
+    expect(buildTrivyConfig(values).archive_b64).toBe("UEsDBA==");
+  });
+
+  it("saves the scan profile and keeps option overrides on edit", () => {
+    const values = trivyTargetFormSchema.parse({
+      name: "repo-scan",
+      mode: TRIVY_MODE.REPO,
+      providerId,
+      repositoryUrl: "https://git.example.com/acme/shop",
+      profile: "builtin:full",
+      // A profile decides the scan types, so an empty list is accepted.
+      scanners: [],
+    });
+    expect(
+      buildTrivyConfig(values, { options: { skip_dirs: ["vendor"] } }),
+    ).toEqual({
+      options: { skip_dirs: ["vendor"] },
+      scanners: [],
+      profile: "builtin:full",
+      repository_url: "https://git.example.com/acme/shop",
+    });
+    const without = trivyTargetFormSchema.parse({
+      name: "repo-scan",
+      mode: TRIVY_MODE.REPO,
+      providerId,
+      repositoryUrl: "https://git.example.com/acme/shop",
+    });
+    expect(buildTrivyConfig(without)).not.toHaveProperty("profile");
   });
 
   it("drops scanners saved before each mode had its own list", () => {

@@ -113,7 +113,8 @@ export const categoryDefinition = (
 export const appSecurityCategoryHref = (
   category: AppSecurityCategory | null,
 ): string => {
-  const base = appSecurityHref();
+  // The target list lives on the Scans page.
+  const base = appSecurityHref("scans");
   return category
     ? `${base}?${APP_SECURITY_CATEGORY_PARAM}=${encodeURIComponent(category)}`
     : base;

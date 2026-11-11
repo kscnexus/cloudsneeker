@@ -10,11 +10,20 @@ Mounted under ``/api/v1/`` by a single hook in ``config/urls.py``.
 """
 
 from cloudsneeker_api.views import BrandView
+from cloudsneeker_api.views_appsec import (  # ASPM
+    AppSecApplicationViewSet,
+    AppSecComponentViewSet,
+    AppSecFindingViewSet,
+    AppSecPlatformViewSet,
+    AppSecPolicyViewSet,
+    AppSecSbomViewSet,
+    AppSecScanProfileViewSet,
+)
 from cloudsneeker_api.views_area_findings import AreaFindingViewSet  # Area findings
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
-from cloudsneeker_api.views_content_versions import ContentVersionsView  # EB-048
 from cloudsneeker_api.views_content_releases import ContentReleasesView  # EB-049
+from cloudsneeker_api.views_content_versions import ContentVersionsView  # EB-048
 from cloudsneeker_api.views_custodian_library import CustodianLibraryViewSet
 from cloudsneeker_api.views_email import EmailDeliveryConfigViewSet
 from cloudsneeker_api.views_features import (
@@ -94,6 +103,21 @@ router.register(
 )
 router.register(r"trivy-targets", TrivyTargetViewSet, basename="trivy-targets")
 router.register(r"trivy-runs", TrivyRunViewSet, basename="trivy-runs")
+# --- Application security posture management (ASPM) ---
+router.register(
+    r"appsec-applications", AppSecApplicationViewSet, basename="appsec-applications"
+)
+router.register(
+    r"appsec-scan-profiles", AppSecScanProfileViewSet, basename="appsec-scan-profiles"
+)
+router.register(r"appsec-policies", AppSecPolicyViewSet, basename="appsec-policies")
+router.register(r"appsec-findings", AppSecFindingViewSet, basename="appsec-findings")
+router.register(r"appsec-sboms", AppSecSbomViewSet, basename="appsec-sboms")
+router.register(
+    r"appsec-components", AppSecComponentViewSet, basename="appsec-components"
+)
+router.register(r"appsec", AppSecPlatformViewSet, basename="appsec")
+# --- End ASPM ---
 router.register(r"report-types", ReportTypeViewSet, basename="report-types")
 router.register(r"report-runs", ReportRunViewSet, basename="report-runs")
 router.register(

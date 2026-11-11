@@ -53,11 +53,6 @@ describe("Area pages", () => {
 
   it.each([
     [
-      ["application-security", "findings"],
-      "AreaFindingsView",
-      "APPLICATION_SECURITY",
-    ],
-    [
       ["application-security", "triage"],
       "AreaTriageView",
       "APPLICATION_SECURITY",
@@ -69,5 +64,12 @@ describe("Area pages", () => {
     expect(source).toContain(`<${view}`);
     expect(source).toContain(`FINDING_AREA.${area}`);
     expect(source).not.toMatch(/\bProwler\b/);
+  });
+
+  it("application-security findings uses the persistent findings workspace", () => {
+    const source = page("application-security", "findings");
+    expect(source).toContain("<AppSecFindingsWorkspace");
+    expect(source).toContain("APPSEC_SEGMENT.FINDINGS");
+    expect(source).not.toMatch(/\b(Prowler|Trivy)\b/);
   });
 });

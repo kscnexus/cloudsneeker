@@ -2,7 +2,12 @@
 
 from api.models import Provider
 from api.v1.serializers import BaseWriteSerializer, RLSSerializer
-from cloudsneeker_api.models import JSON_API_TYPE_PREFIX, TrivyRun, TrivyTarget
+from cloudsneeker_api.models import (
+    JSON_API_TYPE_PREFIX,
+    AppSecApplication,
+    TrivyRun,
+    TrivyTarget,
+)
 from cloudsneeker_api.services.brand_text import scrub_engine_text
 from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
@@ -51,16 +56,26 @@ class TrivyTargetSerializer(RLSSerializer):
             "schedule_cron",
             "schedule_timezone",
             "next_run_at",
+            "application_id",
+            "application_name",
         ]
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-targets"
+
+    application_id = serializers.UUIDField(read_only=True, allow_null=True)
+    application_name = serializers.CharField(
+        source="application.name", read_only=True, allow_null=True, default=None
+    )
 
 
 class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
     """Create/update serializer for Trivy Hub targets."""
 
     provider_id = serializers.UUIDField(write_only=True, required=False)
+    application_id = serializers.UUIDField(
+        write_only=True, required=False, allow_null=True
+    )
 
     class Meta:
         model = TrivyTarget
@@ -73,6 +88,7 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
             "mode",
             "config",
             "provider_id",
+            "application_id",
             "schedule_enabled",
             "schedule_cron",
             "schedule_timezone",
@@ -107,7 +123,7 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
     def validate_mode(self, value):
         if not is_valid_trivy_mode(value):
             raise ValidationError(
-                "mode must be one of: iac, image, fs, repo, sbom, k8s, sast."
+                "mode must be one of: iac, image, fs, rootfs, repo, sbom, k8s, sast."
             )
         return value
 
@@ -116,6 +132,14 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
         provider = Provider.objects.filter(tenant_id=tenant_id, id=value).first()
         if provider is None:
             raise ValidationError("Unknown provider ID for this tenant.")
+        return value
+
+    def validate_application_id(self, value):
+        if value is None:
+            return value
+        tenant_id = self.context.get("tenant_id")
+        if not AppSecApplication.objects.filter(tenant_id=tenant_id, id=value).exists():
+            raise ValidationError("Unknown application ID for this tenant.")
         return value
 
     def validate_schedule_timezone(self, value):
@@ -216,6 +240,9 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
             raise ValidationError({"schedule_cron": str(exc)}) from exc
 
 
+ENGINE_LABELS = {"trivy": "scanner", "opengrep": "code analyzer"}
+
+
 class TrivyRunSerializer(RLSSerializer):
     """Read serializer for Trivy Hub runs."""
 
@@ -246,14 +273,39 @@ class TrivyRunSerializer(RLSSerializer):
             "output",
             "error",
             "error_class",
+            "engine",
+            "engine_version",
+            "profile_ref",
+            "options",
+            "command",
+            "exit_code",
+            "stderr_tail",
+            "duration_ms",
+            "attempts",
+            "database",
+            "coverage",
+            "stats",
+            "cancel_requested_at",
+            "has_artifact",
         ]
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
 
+    has_artifact = serializers.SerializerMethodField()
+
+    def get_has_artifact(self, obj: TrivyRun) -> bool:
+        return bool(obj.artifact_path)
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["error"] = scrub_engine_text(data.get("error"))
+        # Engine names stay out of client-visible text (brand rule).
+        data["stderr_tail"] = scrub_engine_text(data.get("stderr_tail"))
+        data["command"] = [
+            scrub_engine_text(str(item)) for item in (data.get("command") or [])
+        ]
+        data["engine"] = ENGINE_LABELS.get(data.get("engine") or "", "")
         return data
 
     def get_status(self, obj: TrivyRun) -> str:

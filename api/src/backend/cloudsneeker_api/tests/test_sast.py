@@ -590,43 +590,96 @@ class TestOpengrepMapping:
 
 class TestProcessSastRun:
     def test_sast_run_uses_opengrep_and_imports(self):
+        from cloudsneeker_api.appsec import engine
+
         run = MagicMock()
+        run.id = "r-1"
+        run.tenant_id = "t-1"
         run.status = "pending"
+        run.cancel_requested_at = None
         run.target.mode = "sast"
         run.target.name = "app"
         run.target.config = {"archive_b64": "UEsDBA=="}
         run.provider = _iac_provider()
-        scan = MagicMock()
-        scan.id = "scan-1"
         report = {"results": [_result()], "errors": [], "cloudsneeker_rulesets": ["go"]}
 
         mock_runs = MagicMock()
-        mock_runs.select_related.return_value.filter.return_value.first.return_value = (
-            run
-        )
-        rls = MagicMock()
-        rls.return_value.__exit__.return_value = False
+        chain = mock_runs.using.return_value.select_related.return_value
+        chain.filter.return_value.first.return_value = run
+
+        def update(target_run, _using, **fields):
+            for name, value in fields.items():
+                setattr(target_run, name, value)
+
+        stored = {
+            "lifecycle": {"new": 1, "reopened": 0, "open": 0, "fixed": 0, "suppressed": 0},
+            "scan_id": "scan-1",
+            "sbom_id": None,
+            "finding_count": 1,
+        }
         with (
-            patch("cloudsneeker_api.services.trivy.rls_transaction", rls),
-            patch("cloudsneeker_api.services.trivy.TrivyRun.objects", mock_runs),
+            patch("cloudsneeker_api.models.TrivyRun.objects", mock_runs),
+            patch.object(engine, "_update_run", side_effect=update),
             patch(
                 "cloudsneeker_api.services.sast.run_opengrep_scan",
                 return_value=report,
             ) as mock_scan,
             patch("cloudsneeker_api.services.trivy.run_trivy_cli") as mock_trivy,
-            patch(
-                "cloudsneeker_api.services.trivy_import.import_trivy_report",
-                return_value=scan,
-            ) as mock_import,
+            patch.object(engine, "run_unit") as mock_unit,
+            patch.object(engine, "persist_results", return_value=stored) as mock_persist,
         ):
             result = process_trivy_run(tenant_id="t-1", run_id="r-1")
 
         assert result == {"status": "completed", "run_id": "r-1", "scan_id": "scan-1"}
         mock_scan.assert_called_once()
         mock_trivy.assert_not_called()
-        kwargs = mock_import.call_args.kwargs
-        assert kwargs["mode"] == "sast"
+        mock_unit.assert_not_called()
+        kwargs = mock_persist.call_args.kwargs
         assert kwargs["scan_name"] == "SAST: app"
-        assert len(kwargs["rows"]) == 1
+        (finding,) = kwargs["findings"]
+        assert finding.category == "code"
+        assert kwargs["coverage"].categories == {"code"}
+        rows = kwargs["shared_rows_for"]({finding.fingerprint: "assigned-uid"})
+        assert [row["uid"] for row in rows] == ["assigned-uid"]
+        assert run.engine == "opengrep"
+        assert run.status == "completed"
         assert run.summary["finding_count"] == 1
+        assert run.summary["mode"] == "sast"
         assert run.output["rulesets"] == ["go"]
+        assert run.stats["lifecycle"]["new"] == 1
+
+    def test_failed_code_scan_fails_the_run_without_raising(self):
+        from cloudsneeker_api.appsec import engine
+        from cloudsneeker_api.services.trivy import TrivyHubError
+
+        run = MagicMock()
+        run.id = "r-1"
+        run.tenant_id = "t-1"
+        run.status = "pending"
+        run.cancel_requested_at = None
+        run.target.mode = "sast"
+        run.target.config = {"archive_b64": "UEsDBA=="}
+        run.provider = _iac_provider()
+        mock_runs = MagicMock()
+        chain = mock_runs.using.return_value.select_related.return_value
+        chain.filter.return_value.first.return_value = run
+
+        def update(target_run, _using, **fields):
+            for name, value in fields.items():
+                setattr(target_run, name, value)
+
+        with (
+            patch("cloudsneeker_api.models.TrivyRun.objects", mock_runs),
+            patch.object(engine, "_update_run", side_effect=update),
+            patch(
+                "cloudsneeker_api.services.sast.run_opengrep_scan",
+                side_effect=TrivyHubError("Repository clone failed: denied"),
+            ),
+            patch.object(engine, "persist_results") as mock_persist,
+        ):
+            result = process_trivy_run(tenant_id="t-1", run_id="r-1")
+
+        assert result == {"status": "failed", "run_id": "r-1"}
+        mock_persist.assert_not_called()
+        assert "clone failed" in run.error
+        assert run.error_class == "engine"

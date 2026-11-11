@@ -2,9 +2,12 @@ import { ScanSearch } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { getProviders } from "@/actions/providers/providers";
+import { listAppSecApplications } from "@/cloudsneeker/actions/appsec";
 import { getTrivyTarget } from "@/cloudsneeker/actions/trivy";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
+import { loadProfileOptions } from "@/cloudsneeker/lib/appsec-server";
+import { responseList } from "@/cloudsneeker/lib/findings-links";
 import {
   SAST_SOURCE,
   type TrivyTargetFormInput,
@@ -13,6 +16,10 @@ import {
   labelForProviderType,
   scannersForModeFrom,
 } from "@/cloudsneeker/lib/trivy-modes";
+import type {
+  AppSecApplicationAttributes,
+  AppSecResource,
+} from "@/cloudsneeker/types/appsec";
 import {
   SAST_RULESET,
   type SastRuleset,
@@ -47,7 +54,19 @@ export default async function EditTrivyTargetPage({
 
   const target = targetResponse.data as TrivyTargetResource;
   const config = target.attributes.config ?? {};
-  const providersResponse = await getProviders({ pageSize: 100 });
+  const [providersResponse, profiles, applicationsResponse] = await Promise.all(
+    [
+      getProviders({ pageSize: 100 }),
+      loadProfileOptions(),
+      listAppSecApplications({ "page[size]": "100" }),
+    ],
+  );
+  const applications = responseList<
+    AppSecResource<AppSecApplicationAttributes>
+  >(applicationsResponse).map((application) => ({
+    value: application.id,
+    label: application.attributes.name,
+  }));
   const providers = (providersResponse?.data ?? []).map((provider) => ({
     id: provider.id,
     providerType: provider.attributes.provider,
@@ -75,6 +94,8 @@ export default async function EditTrivyTargetPage({
     archiveB64: "",
     sbom: typeof config.sbom === "string" ? config.sbom : "",
     namespace: typeof config.namespace === "string" ? config.namespace : "",
+    profile: typeof config.profile === "string" ? config.profile : "",
+    applicationId: target.attributes.application_id ?? "",
     // The API never returns uploaded archives; a repository URL means the
     // target reads from Git, otherwise it was created from an archive.
     sastSource:
@@ -100,6 +121,14 @@ export default async function EditTrivyTargetPage({
       <PageHeader description="Changes apply from the next scan. Earlier scan results stay as they were." />
       <TrivyTargetForm
         providers={providers}
+        profiles={profiles.map((item) => ({
+          value: item.ref,
+          label: item.name,
+        }))}
+        applications={applications}
+        preservedConfig={
+          config.options ? { options: config.options } : undefined
+        }
         initialValues={initialValues}
         targetId={targetId}
       />

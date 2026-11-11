@@ -495,6 +495,7 @@ class TrivyTarget(CloudsneekerRLSModel):
         SBOM = "sbom", "SBOM"
         K8S = "k8s", "Kubernetes"
         SAST = "sast", "Static analysis (SAST)"
+        ROOTFS = "rootfs", "Root filesystem"
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
@@ -519,6 +520,14 @@ class TrivyTarget(CloudsneekerRLSModel):
         related_name="cloudsneeker_trivy_targets",
     )
     next_run_at = models.DateTimeField(null=True, blank=True)
+    # ASPM: the application this asset belongs to (``models_appsec``).
+    application = models.ForeignKey(
+        "cloudsneeker_api.AppSecApplication",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="targets",
+    )
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}trivy_targets"
@@ -546,6 +555,7 @@ class TrivyRun(CloudsneekerRLSModel):
         RUNNING = "running", "Running"
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
 
     class Trigger(models.TextChoices):
         MANUAL = "manual", "Manual"
@@ -584,6 +594,29 @@ class TrivyRun(CloudsneekerRLSModel):
         blank=True,
         related_name="cloudsneeker_trivy_runs",
     )
+    # --- ASPM engine record (``appsec/engine.py``) ---
+    # Engine that produced the run and its exact version at scan time.
+    engine = models.CharField(max_length=32, blank=True, default="")
+    engine_version = models.CharField(max_length=64, blank=True, default="")
+    # Scan profile reference (``builtin:<key>`` or a profile id) and the
+    # options the run resolved to.
+    profile_ref = models.CharField(max_length=64, blank=True, default="")
+    options = models.JSONField(default=dict, blank=True)
+    # Redacted argv, for diagnosis. Never holds a credential.
+    command = models.JSONField(default=list, blank=True)
+    exit_code = models.IntegerField(null=True, blank=True)
+    stderr_tail = models.TextField(blank=True, default="")
+    duration_ms = models.BigIntegerField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    # Vulnerability database the scan used (version, updated_at, next_update).
+    database = models.JSONField(default=dict, blank=True)
+    # Scanners that ran and whether each produced a complete result.
+    coverage = models.JSONField(default=dict, blank=True)
+    # Finding and component counts by category and severity.
+    stats = models.JSONField(default=dict, blank=True)
+    # Masked raw report on shared storage, relative to the artifact root.
+    artifact_path = models.CharField(max_length=500, blank=True, default="")
+    cancel_requested_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(CloudsneekerRLSModel.Meta):
         db_table = f"{TABLE_PREFIX}trivy_runs"
@@ -1254,3 +1287,19 @@ class TenantSsoPolicy(models.Model):
 
 
 # --- End multi-factor authentication ------------------------------------------
+
+
+# --- Application security posture management (ASPM) ---------------------------
+# Applications, persistent findings, SBOMs, scan profiles and policies live in
+# ``models_appsec``. Imported here so Django registers them with this app.
+from cloudsneeker_api.models_appsec import (  # noqa: E402, F401
+    AppSecApplication,
+    AppSecComponent,
+    AppSecFinding,
+    AppSecFindingEvent,
+    AppSecPolicy,
+    AppSecPolicyVersion,
+    AppSecSbom,
+    AppSecScanProfile,
+    AppSecSettings,
+)

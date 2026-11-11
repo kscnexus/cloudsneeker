@@ -48,6 +48,7 @@ class TestTrivyModes:
             "sbom",
             "k8s",
             "sast",
+            "rootfs",
         }
         assert PROWLER_SCAN_MODES == {"iac", "image"}
         assert is_valid_trivy_mode("sbom")
@@ -63,6 +64,7 @@ class TestTrivyModes:
         assert MODE_PROVIDER_TYPES["repo"] == {"iac"}
         assert MODE_PROVIDER_TYPES["sbom"] == {"iac"}
         assert MODE_PROVIDER_TYPES["sast"] == {"iac"}
+        assert MODE_PROVIDER_TYPES["rootfs"] == {"iac"}
 
 
 class TestValidateTargetConfig:

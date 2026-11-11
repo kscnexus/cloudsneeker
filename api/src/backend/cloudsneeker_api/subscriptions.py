@@ -61,6 +61,7 @@ FEATURE_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
     ("report-schedules", catalog.FEATURE_REPORT_SCHEDULES),
     ("report-", catalog.FEATURE_REPORTS),
     ("trivy-", catalog.FEATURE_APPLICATION_SECURITY),
+    ("appsec", catalog.FEATURE_APPLICATION_SECURITY),
     ("custodian-", catalog.FEATURE_GOVERNANCE),
     ("attack-paths", catalog.FEATURE_ATTACK_PATHS),
     ("compliance-overviews", catalog.FEATURE_COMPLIANCE),

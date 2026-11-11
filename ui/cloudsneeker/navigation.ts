@@ -12,7 +12,11 @@ import {
   FileBarChart,
   ListChecks,
   type LucideIcon,
+  Package,
   Scale,
+  ScanSearch,
+  ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Upload,
 } from "lucide-react";
@@ -30,6 +34,11 @@ import { CLOUD_UPGRADE_FEATURE } from "@/types/cloud-upgrade";
 
 import { BRAND } from "./brand";
 import { isCloudsneekerFeatureEnabled } from "./features";
+import {
+  APPSEC_RESERVED_SEGMENTS,
+  APPSEC_SEGMENT,
+  APPSEC_WORKSPACES,
+} from "./lib/appsec";
 import { isHrefInPlan } from "./lib/entitlements";
 import {
   AREA_PAGE_SEGMENT,
@@ -254,6 +263,101 @@ const areaLinks = (
   return [hub, findings, ...(triage ? [triage] : [])];
 };
 
+const childLink = (
+  href: string,
+  label: string,
+  pathname: string,
+): NavigationChildLink => ({
+  kind: NAVIGATION_ITEM_KIND.LINK,
+  href,
+  label,
+  active: isRouteActive(pathname, href),
+});
+
+const collapsible = (
+  label: string,
+  icon: LucideIcon,
+  children: NavigationChildLink[],
+  open = false,
+): NavigationCollapsible => ({
+  kind: NAVIGATION_ITEM_KIND.COLLAPSIBLE,
+  label,
+  icon,
+  children,
+  defaultOpen: open || children.some((child) => child.active),
+});
+
+/**
+ * Application Security: overview, application inventory, scans, then the
+ * finding workspaces, the software inventory and scan setup as groups.
+ * Target and scan pages (`/application-security/<id>/...`) belong to Scans.
+ */
+const appSecurityItems = (pathname: string): NavigationItem[] => {
+  const hubHref = PRODUCT_ROUTE.APPLICATION_SECURITY;
+  const segment = pathname.startsWith(`${hubHref}/`)
+    ? (pathname.slice(hubHref.length + 1).split("/")[0] ?? "")
+    : "";
+  const onTargetPage =
+    segment !== "" &&
+    (segment === "new" || !APPSEC_RESERVED_SEGMENTS.includes(segment));
+
+  const overview = productLink(
+    hubHref,
+    BRAND.appSecurityName,
+    ShieldCheck,
+    pathname,
+  );
+  overview.active = pathname === hubHref;
+  const scans = productLink(
+    appSecurityHref(APPSEC_SEGMENT.SCANS),
+    "Scans",
+    ScanSearch,
+    pathname,
+  );
+  scans.active = scans.active || onTargetPage;
+
+  const findings = APPSEC_WORKSPACES.map((workspace) =>
+    childLink(appSecurityHref(workspace.segment), workspace.title, pathname),
+  );
+  if (isCloudsneekerFeatureEnabled("findingTriage")) {
+    findings.push(
+      childLink(appSecurityHref(AREA_PAGE_SEGMENT.TRIAGE), "Triage", pathname),
+    );
+  }
+
+  return [
+    overview,
+    productLink(
+      appSecurityHref(APPSEC_SEGMENT.APPLICATIONS),
+      "Applications",
+      Boxes,
+      pathname,
+    ),
+    scans,
+    collapsible("Findings", ShieldAlert, findings, true),
+    collapsible("Software inventory", Package, [
+      childLink(
+        appSecurityHref(APPSEC_SEGMENT.COMPONENTS),
+        "Components",
+        pathname,
+      ),
+      childLink(appSecurityHref(APPSEC_SEGMENT.SBOMS), "SBOMs", pathname),
+    ]),
+    collapsible("Scan setup", SlidersHorizontal, [
+      childLink(
+        appSecurityHref(APPSEC_SEGMENT.PROFILES),
+        "Scan profiles",
+        pathname,
+      ),
+      childLink(
+        appSecurityHref(APPSEC_SEGMENT.SETTINGS),
+        "Engine and policies",
+        pathname,
+      ),
+    ]),
+  ];
+};
+
 const sectionOrNull = (
   label: string | undefined,
   items: (NavigationItem | undefined)[],
@@ -400,13 +504,7 @@ const regroupNavigation = (
   const applicationSecurity = isCloudsneekerFeatureEnabled("trivy")
     ? sectionOrNull(
         NAVIGATION_SECTION_LABEL.APPLICATION_SECURITY,
-        areaLinks(
-          PRODUCT_ROUTE.APPLICATION_SECURITY,
-          BRAND.appSecurityName,
-          Boxes,
-          appSecurityHref,
-          pathname,
-        ),
+        appSecurityItems(pathname),
       )
     : null;
 

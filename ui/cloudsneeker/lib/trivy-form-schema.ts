@@ -60,6 +60,10 @@ export const parseExcludePatterns = (value: string): string[] =>
     ),
   );
 
+/** Modes that scan an uploaded archive. */
+export const isArchiveMode = (mode: TrivyMode): boolean =>
+  mode === TRIVY_MODE.FS || mode === TRIVY_MODE.ROOTFS;
+
 export const trivyTargetFormSchema = z
   .object({
     name: z.string().trim().min(3).max(100),
@@ -72,6 +76,7 @@ export const trivyTargetFormSchema = z
       TRIVY_MODE.SBOM,
       TRIVY_MODE.K8S,
       TRIVY_MODE.SAST,
+      TRIVY_MODE.ROOTFS,
     ]),
     providerId: z.uuid(),
     scanners: z
@@ -83,6 +88,10 @@ export const trivyTargetFormSchema = z
     archiveB64: z.string().optional().default(""),
     sbom: z.string().optional().default(""),
     namespace: z.string().optional().default(""),
+    /** `builtin:<key>` or a scan profile id; empty uses the defaults. */
+    profile: z.string().optional().default(""),
+    /** Application the target belongs to; empty leaves it unassigned. */
+    applicationId: z.string().optional().default(""),
     sastSource: z
       .enum([SAST_SOURCE.REPOSITORY, SAST_SOURCE.ARCHIVE])
       .optional()
@@ -97,7 +106,12 @@ export const trivyTargetFormSchema = z
     scheduleTimezone: z.string().optional().default("UTC"),
   })
   .superRefine((values, ctx) => {
-    if (values.mode !== TRIVY_MODE.SAST && !hasFixedScanners(values.mode)) {
+    // A scan profile decides the scanners; the list is then not used.
+    if (
+      values.mode !== TRIVY_MODE.SAST &&
+      !hasFixedScanners(values.mode) &&
+      !values.profile
+    ) {
       const allowed = scannersForMode(values.mode);
       const unsupported = values.scanners.filter(
         (name) => !allowed.includes(name),
@@ -123,7 +137,7 @@ export const trivyTargetFormSchema = z
         message: "Repository URL is required for repo mode.",
       });
     }
-    if (values.mode === TRIVY_MODE.FS && !values.archiveB64.trim()) {
+    if (isArchiveMode(values.mode) && !values.archiveB64.trim()) {
       ctx.addIssue({
         code: "custom",
         path: ["archiveB64"],
@@ -211,8 +225,13 @@ const scannersToSave = (
   return scannersForMode(mode).filter((name) => selected.includes(name));
 };
 
+/**
+ * Target config from the form. `preserved` holds saved keys the form does
+ * not edit (scan option overrides), so an edit does not drop them.
+ */
 export const buildTrivyConfig = (
   values: TrivyTargetFormValues,
+  preserved: Record<string, unknown> = {},
 ): Record<string, unknown> => {
   if (values.mode === TRIVY_MODE.SAST) {
     // The static analysis engine has no scanner list; sending one is ignored.
@@ -228,8 +247,10 @@ export const buildTrivyConfig = (
     };
   }
   const config: Record<string, unknown> = {
+    ...preserved,
     scanners: scannersToSave(values.mode, values.scanners),
   };
+  if (values.profile) config.profile = values.profile;
 
   if (values.mode === TRIVY_MODE.IMAGE) {
     const images = values.images
@@ -243,7 +264,7 @@ export const buildTrivyConfig = (
   if (values.mode === TRIVY_MODE.REPO) {
     config.repository_url = values.repositoryUrl.trim();
   }
-  if (values.mode === TRIVY_MODE.FS) {
+  if (isArchiveMode(values.mode)) {
     if (values.archiveB64.trim()) {
       config.archive_b64 = values.archiveB64.trim();
     }

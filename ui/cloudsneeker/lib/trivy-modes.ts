@@ -35,6 +35,13 @@ export const TRIVY_MODE_OPTIONS = [
     providerTypes: ["iac"] as const,
   },
   {
+    value: TRIVY_MODE.ROOTFS,
+    label: "Root filesystem archive",
+    description:
+      "Scan an uploaded archive of an unpacked root filesystem for installed OS and language packages, secrets, misconfigurations and licenses.",
+    providerTypes: ["iac"] as const,
+  },
+  {
     value: TRIVY_MODE.SBOM,
     label: "SBOM",
     description:
@@ -87,10 +94,12 @@ export const TRIVY_SCANNER_OPTIONS = [
 
 const { VULN, MISCONFIG, SECRET, LICENSE, RBAC } = TRIVY_SCANNER;
 
-// Mirrors `MODE_SCANNERS` / `MODE_DEFAULT_SCANNERS` (`services/trivy.py`).
+// Mirrors `MODE_SCANNERS` / `MODE_DEFAULT_SCANNERS` (`services/trivy.py`),
+// which follow the scan engine capability matrix (`appsec/capabilities.py`).
 const MODE_SCANNERS: Partial<Record<TrivyMode, readonly TrivyScanner[]>> = {
-  [TRIVY_MODE.IAC]: [VULN, MISCONFIG, SECRET],
-  [TRIVY_MODE.IMAGE]: [VULN, MISCONFIG, SECRET],
+  [TRIVY_MODE.IAC]: [VULN, MISCONFIG, SECRET, LICENSE],
+  [TRIVY_MODE.IMAGE]: [VULN, MISCONFIG, SECRET, LICENSE],
+  [TRIVY_MODE.ROOTFS]: [VULN, MISCONFIG, SECRET, LICENSE],
   [TRIVY_MODE.FS]: [VULN, MISCONFIG, SECRET, LICENSE],
   [TRIVY_MODE.REPO]: [VULN, MISCONFIG, SECRET, LICENSE],
   [TRIVY_MODE.SBOM]: [VULN, LICENSE],
@@ -101,15 +110,17 @@ const MODE_DEFAULT_SCANNERS: Partial<
   Record<TrivyMode, readonly TrivyScanner[]>
 > = {
   ...MODE_SCANNERS,
+  [TRIVY_MODE.IAC]: [VULN, MISCONFIG, SECRET],
+  [TRIVY_MODE.IMAGE]: [VULN, MISCONFIG, SECRET],
   [TRIVY_MODE.SBOM]: [VULN],
   [TRIVY_MODE.K8S]: [VULN, MISCONFIG, SECRET],
 };
 
-/** Modes whose provider scan runs every listed scanner regardless of choice. */
-const FIXED_SCANNER_MODES: readonly TrivyMode[] = [
-  TRIVY_MODE.IAC,
-  TRIVY_MODE.IMAGE,
-];
+/**
+ * Modes whose scan runs a fixed scanner set regardless of choice. Empty since
+ * every mode runs on the scan engine, which honours the selected scanners.
+ */
+const FIXED_SCANNER_MODES: readonly TrivyMode[] = [];
 
 /** Scanners a mode supports; empty for static analysis. */
 export const scannersForMode = (mode: TrivyMode): readonly TrivyScanner[] =>
