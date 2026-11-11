@@ -20,7 +20,12 @@ from cloudsneeker_api.brand import (
     report_logo_path,
 )
 from cloudsneeker_api.reports.data.common import GRADE_BANDS, SEVERITY_WEIGHTS
-from cloudsneeker_api.reports.schema import SEVERITY_ORDER, ReportData, ReportTable
+from cloudsneeker_api.reports.schema import (
+    SEVERITY_ORDER,
+    STATUS_SCOPE_LABELS,
+    ReportData,
+    ReportTable,
+)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
@@ -232,6 +237,13 @@ def _cover(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
     ]
     if filters.compliance_id:
         rows.append(("Framework", filters.compliance_id))
+    if filters.status_scope:
+        rows.append(
+            (
+                "Finding status",
+                STATUS_SCOPE_LABELS.get(filters.status_scope, filters.status_scope),
+            )
+        )
     elements.append(
         create_info_table(rows, normal_style=styles["normal_center"])
     )
@@ -398,6 +410,17 @@ def _actions(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
 def _appendix(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
     weights = ", ".join(f"{sev} {SEVERITY_WEIGHTS[sev]:g}" for sev in SEVERITY_ORDER)
     bands = ", ".join(f"{grade} at {floor:.0f}+" for floor, grade in GRADE_BANDS)
+    scope_note = []
+    if data.filters.status_scope:
+        label = STATUS_SCOPE_LABELS.get(data.filters.status_scope, data.filters.status_scope)
+        scope_note = [
+            Paragraph(
+                f"Finding status scope: {escape_html(label)}. Failed-finding counts, "
+                "risks, and detail tables only include findings in this scope; a "
+                "grade is given for active findings only.",
+                styles["normal"],
+            )
+        ]
     return [
         Paragraph("Appendix: methodology", styles["h1"]),
         Paragraph(
@@ -406,6 +429,7 @@ def _appendix(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
             "findings are excluded from open counts.",
             styles["normal"],
         ),
+        *scope_note,
         Paragraph(
             f"The security score weights findings by severity ({weights}). With "
             "pass/fail results it is the weighted share of passing checks; for "

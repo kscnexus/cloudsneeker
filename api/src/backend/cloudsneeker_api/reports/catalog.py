@@ -7,7 +7,11 @@ from datetime import UTC, datetime, time
 from typing import Any
 from uuid import UUID
 
-from cloudsneeker_api.reports.schema import SEVERITY_ORDER, ReportFilters
+from cloudsneeker_api.reports.schema import (
+    SEVERITY_ORDER,
+    STATUS_SCOPES,
+    ReportFilters,
+)
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 
@@ -86,6 +90,13 @@ CONTAINER = "container"
 IAC = "iac"
 SECRETS = "secrets"
 GOVERNANCE = "governance"
+EXCEPTIONS = "exceptions"
+REMEDIATION = "remediation"
+LICENSES = "licenses"
+SBOM = "sbom"
+# Findings reports accept ``status_scope`` (RC-002).
+FINDINGS_TYPES: tuple[str, ...] = (CLOUD_POSTURE, SCA, SAST, CONTAINER, IAC, SECRETS)
+FINDINGS_PARAMS: tuple[str, ...] = ("status_scope",)
 SECURITY_ASSESSMENT = "security_assessment"
 APPSEC_ASSESSMENT = "appsec_assessment"
 CLOUD_ASSESSMENT = "cloud_assessment"
@@ -131,6 +142,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="cloud",
+            optional_params=FINDINGS_PARAMS,
         ),
         ReportType(
             id=COMPLIANCE,
@@ -154,6 +166,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="application",
+            optional_params=FINDINGS_PARAMS,
         ),
         ReportType(
             id=SAST,
@@ -161,6 +174,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             description="Source code weaknesses found by static analysis scans.",
             audience="engineering",
             category="application",
+            optional_params=FINDINGS_PARAMS,
         ),
         ReportType(
             id=CONTAINER,
@@ -171,6 +185,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="application",
+            optional_params=FINDINGS_PARAMS,
         ),
         ReportType(
             id=IAC,
@@ -181,6 +196,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="application",
+            optional_params=FINDINGS_PARAMS,
         ),
         ReportType(
             id=SECRETS,
@@ -191,6 +207,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="application",
+            optional_params=FINDINGS_PARAMS,
         ),
         ReportType(
             id=GOVERNANCE,
@@ -201,6 +218,49 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="governance",
+        ),
+        ReportType(
+            id=EXCEPTIONS,
+            name="Exceptions",
+            description=(
+                "Every active exception: mute rules and accepted risks with who "
+                "approved them, why, and until when, plus expired and expiring "
+                "acceptances."
+            ),
+            audience="management",
+            category="overview",
+        ),
+        ReportType(
+            id=REMEDIATION,
+            name="Remediation tracking",
+            description=(
+                "Open application findings by priority, overdue items, fixes and "
+                "mean time to remediate in the period, reopened findings, and "
+                "triage status per area."
+            ),
+            audience="management",
+            category="overview",
+        ),
+        ReportType(
+            id=LICENSES,
+            name="Licenses",
+            description=(
+                "Open-source licenses in use: components and targets per "
+                "license, and license policy violations."
+            ),
+            audience="engineering",
+            category="application",
+        ),
+        ReportType(
+            id=SBOM,
+            name="Software bill of materials",
+            description=(
+                "Latest software inventory per target with component, vulnerable "
+                "component, and vulnerability counts, and the most vulnerable "
+                "components."
+            ),
+            audience="engineering",
+            category="application",
         ),
         ReportType(
             id=SECURITY_ASSESSMENT,
@@ -406,6 +466,15 @@ def validate_params(report_type: str, params: Any) -> dict[str, Any]:
     if "scan_id" in allowed:
         scan_id = params.get("scan_id")
         normalized["scan_id"] = _parse_uuid(scan_id, "scan_id") if scan_id else None
+    if "status_scope" in allowed:
+        status_scope = params.get("status_scope")
+        if status_scope not in (None, ""):
+            status_scope = str(status_scope).lower()
+            if status_scope not in STATUS_SCOPES:
+                raise ReportParamsError(
+                    f"status_scope must be one of: {', '.join(STATUS_SCOPES)}."
+                )
+            normalized["status_scope"] = status_scope
     if spec.id in ASSESSMENT_TYPES:
         normalized.update(_assessment_options(params, allowed, date_from, date_to))
     return normalized
@@ -481,6 +550,7 @@ def filters_from_params(params: dict[str, Any]) -> ReportFilters:
         compliance_id=params.get("compliance_id"),
         scan_id=params.get("scan_id"),
         trend_points=int(params.get("trend_points") or 10),
+        status_scope=params.get("status_scope") or None,
         options={
             key: params[key]
             for key in (*ASSESSMENT_PARAMS, "frameworks")

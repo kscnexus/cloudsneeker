@@ -8,12 +8,16 @@ import {
   Code2,
   Container,
   FileCode2,
+  FileBadge,
   KeyRound,
+  ListChecks,
   type LucideIcon,
   Package,
+  PackageSearch,
   Presentation,
   Scale,
   ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -32,6 +36,7 @@ import {
 } from "@/cloudsneeker/lib/report-form-schema";
 import {
   REPORT_FORMAT,
+  REPORT_STATUS_SCOPE,
   REPORT_TYPE_ID,
   type ReportTypeId,
 } from "@/cloudsneeker/types/reports";
@@ -66,6 +71,10 @@ export const REPORT_TYPE_ICON: Record<ReportTypeId, LucideIcon> = {
   [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: Code2,
   [REPORT_TYPE_ID.CLOUD_ASSESSMENT]: Cloud,
   [REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT]: Scale,
+  [REPORT_TYPE_ID.EXCEPTIONS]: ShieldOff,
+  [REPORT_TYPE_ID.REMEDIATION]: ListChecks,
+  [REPORT_TYPE_ID.LICENSES]: FileBadge,
+  [REPORT_TYPE_ID.SBOM]: PackageSearch,
 };
 
 export const reportTypeIcon = (id: string): LucideIcon =>
@@ -84,6 +93,7 @@ const defaultValues = (reportType: string): ReportGenerateFormInput => ({
   dateTo: "",
   severityFloor: "",
   complianceId: "",
+  statusScope: REPORT_STATUS_SCOPE.ACTIVE,
   formats: [REPORT_FORMAT.PDF],
 });
 

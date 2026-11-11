@@ -2,7 +2,7 @@
 
 Started 2026-11-09. Cloudsneeker has two report families on one run pipeline (`ReportRun`, Celery task `generate_report_task`, artifacts on the shared output volume, share links, schedules, email delivery):
 
-* **Focused reports** (`executive`, `cloud_posture`, `compliance`, `sca`, `sast`, `container`, `iac`, `secrets`, `governance`), in `cloudsneeker_api/reports/data/` and `reports/render/`. Unchanged.
+* **Focused reports** (`executive`, `cloud_posture`, `compliance`, `sca`, `sast`, `container`, `iac`, `secrets`, `governance`, `exceptions`, `remediation`, `licenses`, `sbom`), in `cloudsneeker_api/reports/data/` and `reports/render/`. The findings reports take an optional `status_scope`; see [Report Coverage Audit](platform-integration/REPORT_COVERAGE_AUDIT.md).
 * **Security assessments** (`security_assessment`, `appsec_assessment`, `cloud_assessment`, `governance_assessment`), in `cloudsneeker_api/reports/assessment/`. This page describes them.
 
 The UI wizard is `/reports/assessments` (`ui/app/(cloudsneeker)/reports/assessments/`). The Reports page links to it and keeps the focused reports in its catalog.

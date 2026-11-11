@@ -8,8 +8,10 @@ from cloudsneeker_api.reports.data.common import (
     VULNERABILITY_Q,
     ScanScope,
     aggregate_findings,
+    failing_condition,
     findings_for,
     latest_scan_ids,
+    scoped_stats,
 )
 from cloudsneeker_api.reports.data.findings_report import (
     FindingsReportSpec,
@@ -49,12 +51,17 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     if data.is_empty:
         return data
     scan_ids = latest_scan_ids(tenant_id, filters, SCOPE)
-    vulns = aggregate_findings(
-        findings_for(tenant_id, scan_ids, filters, include_q=VULNERABILITY_Q)
-    )
-    secrets = aggregate_findings(
-        findings_for(tenant_id, scan_ids, filters, include_q=SECRET_Q)
-    )
+
+    def _stats(include_q):
+        queryset = findings_for(tenant_id, scan_ids, filters, include_q=include_q)
+        if not filters.status_scope:
+            return aggregate_findings(queryset)
+        return scoped_stats(
+            queryset, failing_condition(tenant_id, filters.status_scope)
+        )
+
+    vulns = _stats(VULNERABILITY_Q)
+    secrets = _stats(SECRET_Q)
     data.kpis["vulnerabilities"] = vulns.status["fail"]
     data.kpis["secrets"] = secrets.status["fail"]
     data.kpis["misconfigurations"] = max(

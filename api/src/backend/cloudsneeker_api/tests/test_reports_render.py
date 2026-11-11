@@ -228,6 +228,57 @@ class TestJsonRenderer:
         assert payload["sources"][0]["completed_at"].startswith("2026-10-28")
 
 
+def _exceptions_report() -> ReportData:
+    data = ReportData(
+        report_type="exceptions",
+        title="Exceptions Report",
+        generated_at=datetime(2026, 11, 12, 12, 0, tzinfo=UTC),
+        filters=ReportFilters(),
+    )
+    data.headline = "1 active mute rule(s) and 1 accepted risk(s)."
+    data.kpis = {"mute_rules": 1, "accepted_risks": 1, "expired": 0}
+    data.remediation = [{"priority": 1, "action": "Review expiring acceptances."}]
+    data.tables = [
+        ReportTable(
+            key="accepted_risks",
+            title="Accepted risks",
+            columns=[("check_id", "Finding"), ("reason", "Reason")],
+            rows=[{"check_id": "s3_public", "reason": "Static site"}],
+            total=1,
+        ),
+        ReportTable(
+            key="mute_rules",
+            title="Mute rules",
+            columns=[("name", "Rule"), ("findings", "Findings")],
+            rows=[{"name": "Lab accounts", "findings": 3}],
+            total=1,
+        ),
+    ]
+    return data
+
+
+class TestCoverageReports:
+    def test_status_scope_reaches_every_format(self):
+        data = _report()
+        data.filters = ReportFilters(status_scope="muted")
+        assert get_renderer("pdf")(data).startswith(b"%PDF")
+        payload = json.loads(render_json(data))
+        assert payload["filters"]["status_scope"] == "muted"
+        with zipfile.ZipFile(io.BytesIO(render_xlsx(data))) as archive:
+            strings = archive.read("xl/sharedStrings.xml").decode()
+        assert "Filter: status_scope" in strings
+
+    def test_exceptions_report_renders_every_format(self):
+        data = _exceptions_report()
+        assert get_renderer("pdf")(data).startswith(b"%PDF")
+        assert render_xlsx(data).startswith(b"PK")
+        csv_text = render_csv(data).decode("utf-8-sig")
+        assert csv_text.splitlines()[0] == "Finding,Reason"
+        assert "Static site" in csv_text
+        payload = json.loads(render_json(data))
+        assert [t["key"] for t in payload["tables"]] == ["accepted_risks", "mute_rules"]
+
+
 class TestRendererRegistry:
     def test_known_formats(self):
         assert get_renderer("csv") is render_csv

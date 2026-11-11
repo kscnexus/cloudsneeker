@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildReportCatalog } from "@/cloudsneeker/lib/report-catalog";
+import {
+  buildReportCatalog,
+  isFindingsReportType,
+  reportTitle,
+  STATUS_SCOPE_LABEL,
+} from "@/cloudsneeker/lib/report-catalog";
 import {
   frameworkOptions,
   latestScanPerProvider,
@@ -136,6 +141,50 @@ describe("report catalog", () => {
         /prowler|trivy|custodian|opengrep|semgrep/i,
       );
     }
+  });
+
+  it("has product copy for the coverage reports", () => {
+    const ids = ["exceptions", "remediation", "licenses", "sbom"];
+    const types = ids.map((id) => ({
+      type: "cloudsneeker-report-types" as const,
+      id,
+      attributes: {
+        name: "api copy",
+        description: "api copy",
+        audience: "engineering",
+        category: "application",
+        formats: [],
+        parameters: { required: [], optional: [] },
+      },
+    }));
+    const catalog = buildReportCatalog(types);
+    expect(catalog.map((entry) => entry.title)).toEqual([
+      "Exceptions",
+      "Remediation tracking",
+      "Open-source licenses",
+      "Software bill of materials",
+    ]);
+    for (const entry of catalog) {
+      expect(entry.description).not.toBe("api copy");
+      expect(entry.requiresFramework).toBe(false);
+      expect(`${entry.title} ${entry.description}`).not.toMatch(
+        /prowler|trivy|custodian|opengrep|semgrep/i,
+      );
+    }
+    expect(reportTitle("sbom")).toBe("Software bill of materials");
+  });
+
+  it("knows which reports take a finding status", () => {
+    expect(isFindingsReportType("cloud_posture")).toBe(true);
+    expect(isFindingsReportType("secrets")).toBe(true);
+    expect(isFindingsReportType("exceptions")).toBe(false);
+    expect(isFindingsReportType("executive")).toBe(false);
+    expect(Object.keys(STATUS_SCOPE_LABEL)).toEqual([
+      "active",
+      "muted",
+      "accepted",
+      "all",
+    ]);
   });
 });
 

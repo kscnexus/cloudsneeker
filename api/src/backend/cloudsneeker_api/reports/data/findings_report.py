@@ -9,9 +9,11 @@ from typing import Any, Iterable
 from cloudsneeker_api.reports.data.common import (
     FINDING_COLUMNS,
     ScanScope,
+    accepted_uids_q,
     aggregate_findings,
     breakdown_by_scan,
     breakdown_by_service,
+    failing_condition,
     findings_for,
     findings_table,
     grade_for,
@@ -19,12 +21,21 @@ from cloudsneeker_api.reports.data.common import (
     remediation_priorities,
     risk_table,
     scan_streams,
+    scoped_stats,
     security_score,
     severity_kpis,
     top_risks,
     trend,
 )
-from cloudsneeker_api.reports.schema import ReportData, ReportFilters
+from cloudsneeker_api.reports.schema import (
+    STATUS_SCOPE_ACCEPTED,
+    STATUS_SCOPE_ACTIVE,
+    STATUS_SCOPE_ALL,
+    STATUS_SCOPE_LABELS,
+    STATUS_SCOPE_MUTED,
+    ReportData,
+    ReportFilters,
+)
 from django.db.models import Q
 from django.utils import timezone
 
@@ -71,6 +82,26 @@ def headline_for(noun: str, stats_fail: int, critical: int, high: int, grade: st
     return f"{stats_fail} open {noun}, none critical or high. Grade {grade}."
 
 
+SCOPE_STATE: dict[str, str] = {
+    STATUS_SCOPE_MUTED: "muted",
+    STATUS_SCOPE_ACCEPTED: "risk-accepted",
+    STATUS_SCOPE_ALL: "failed (active, muted, or accepted)",
+}
+
+
+def scoped_headline(
+    noun: str, status_scope: str, stats_fail: int, critical: int, high: int
+) -> str:
+    """Headline of a findings report listing muted, accepted, or all findings."""
+    state = SCOPE_STATE[status_scope]
+    if stats_fail == 0:
+        return f"No {state} {noun} in scope."
+    return (
+        f"{stats_fail} {state} {noun}, {critical + high} of them critical or "
+        f"high ({critical} critical)."
+    )
+
+
 def assemble_findings_report(
     tenant_id: str, filters: ReportFilters, spec: FindingsReportSpec
 ) -> ReportData:
@@ -103,34 +134,60 @@ def assemble_findings_report(
         include_q=spec.include_q,
         exclude_q=spec.exclude_q,
     )
-    stats = aggregate_findings(queryset)
+    # RC-002: without ``status_scope`` the original rule applies unchanged.
+    status_scope = filters.status_scope
+    failing = (
+        failing_condition(tenant_id, status_scope) if status_scope else None
+    )
+    stats = (
+        aggregate_findings(queryset)
+        if failing is None
+        else scoped_stats(queryset, failing)
+    )
+    graded = status_scope in (None, STATUS_SCOPE_ACTIVE)
     data.severity_totals = dict(stats.fail_by_severity)
     data.status_totals = dict(stats.status)
-    data.score = security_score(stats.fail_by_severity, stats.pass_by_severity)
-    data.grade = grade_for(data.score)
+    if graded:
+        data.score = security_score(stats.fail_by_severity, stats.pass_by_severity)
+        data.grade = grade_for(data.score)
     streams = scan_streams(scan_ids)
     data.kpis = {
         **severity_kpis(stats),
         "scans_in_scope": len(scan_ids),
         "providers_in_scope": len({stream["provider_id"] for stream in streams}),
     }
-    data.headline = headline_for(
-        spec.noun,
-        stats.status["fail"],
-        stats.fail_by_severity["critical"],
-        stats.fail_by_severity["high"],
-        data.grade,
-    )
-    data.sources = breakdown_by_scan(queryset, streams)
-    data.extra["services"] = breakdown_by_service(queryset)
+    if status_scope:
+        data.kpis["status_scope"] = STATUS_SCOPE_LABELS[status_scope]
+        data.kpis["risk_accepted_findings"] = queryset.filter(
+            Q(status="FAIL") & accepted_uids_q(tenant_id)
+        ).count()
+    if graded:
+        data.headline = headline_for(
+            spec.noun,
+            stats.status["fail"],
+            stats.fail_by_severity["critical"],
+            stats.fail_by_severity["high"],
+            data.grade,
+        )
+    else:
+        data.headline = scoped_headline(
+            spec.noun,
+            status_scope,
+            stats.status["fail"],
+            stats.fail_by_severity["critical"],
+            stats.fail_by_severity["high"],
+        )
+    data.sources = breakdown_by_scan(queryset, streams, failing=failing)
+    data.extra["services"] = breakdown_by_service(queryset, failing=failing)
     data.trend = trend(
         tenant_id,
         filters,
         spec.scope,
         extra_q=spec.include_q,
         exclude_q=spec.exclude_q,
+        failing=failing,
     )
-    data.top_risks = top_risks(queryset, limit=10)
+    data.top_risks = top_risks(queryset, limit=10, failing=failing)
     data.remediation = remediation_priorities(data.top_risks)
     data.tables = [
         risk_table(data.top_risks),
@@ -140,6 +197,8 @@ def assemble_findings_report(
             queryset,
             columns=spec.columns,
             row_builder=spec.row_builder,
+            failing=failing,
+            exception_tenant_id=tenant_id if status_scope else None,
         ),
     ]
     return data

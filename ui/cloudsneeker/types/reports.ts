@@ -15,9 +15,41 @@ export const REPORT_TYPE_ID = {
   APPSEC_ASSESSMENT: "appsec_assessment",
   CLOUD_ASSESSMENT: "cloud_assessment",
   GOVERNANCE_ASSESSMENT: "governance_assessment",
+  EXCEPTIONS: "exceptions",
+  REMEDIATION: "remediation",
+  LICENSES: "licenses",
+  SBOM: "sbom",
 } as const;
 
 export type ReportTypeId = (typeof REPORT_TYPE_ID)[keyof typeof REPORT_TYPE_ID];
+
+/** Findings reports, which accept the `status_scope` parameter. */
+export const FINDINGS_REPORT_TYPES: readonly ReportTypeId[] = [
+  REPORT_TYPE_ID.CLOUD_POSTURE,
+  REPORT_TYPE_ID.SCA,
+  REPORT_TYPE_ID.SAST,
+  REPORT_TYPE_ID.CONTAINER,
+  REPORT_TYPE_ID.IAC,
+  REPORT_TYPE_ID.SECRETS,
+];
+
+/** Which failed findings a findings report counts (API `status_scope`). */
+export const REPORT_STATUS_SCOPE = {
+  ACTIVE: "active",
+  MUTED: "muted",
+  ACCEPTED: "accepted",
+  ALL: "all",
+} as const;
+
+export type ReportStatusScope =
+  (typeof REPORT_STATUS_SCOPE)[keyof typeof REPORT_STATUS_SCOPE];
+
+export const REPORT_STATUS_SCOPES = [
+  REPORT_STATUS_SCOPE.ACTIVE,
+  REPORT_STATUS_SCOPE.MUTED,
+  REPORT_STATUS_SCOPE.ACCEPTED,
+  REPORT_STATUS_SCOPE.ALL,
+] as const;
 
 export const REPORT_FORMAT = {
   PDF: "pdf",
@@ -91,6 +123,8 @@ export interface ReportParams {
   compliance_id?: string | null;
   scan_id?: string | null;
   trend_points?: number;
+  /** Findings reports only; absent counts failed, unmuted findings. */
+  status_scope?: ReportStatusScope;
   /** Assessment reports only. */
   period?: string;
   sections?: string[];

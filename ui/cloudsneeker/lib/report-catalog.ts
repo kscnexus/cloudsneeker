@@ -3,7 +3,10 @@
 // name a scanning engine.
 
 import {
+  FINDINGS_REPORT_TYPES,
+  REPORT_STATUS_SCOPE,
   REPORT_TYPE_ID,
+  type ReportStatusScope,
   type ReportTypeId,
   type ReportTypeResource,
 } from "@/cloudsneeker/types/reports";
@@ -93,7 +96,38 @@ const REPORT_COPY: Record<
     description:
       "Resources that break your governance policies and how that changed since the last check.",
   },
+  [REPORT_TYPE_ID.EXCEPTIONS]: {
+    title: "Exceptions",
+    description:
+      "Every muted finding rule and accepted risk: who approved it, why, and until when, with expired and expiring acceptances.",
+  },
+  [REPORT_TYPE_ID.REMEDIATION]: {
+    title: "Remediation tracking",
+    description:
+      "Open findings by priority, overdue items, fixes and mean time to remediate in the period, and triage status per area.",
+  },
+  [REPORT_TYPE_ID.LICENSES]: {
+    title: "Open-source licenses",
+    description:
+      "Licenses in use across your software, the components and targets behind each, and license policy violations.",
+  },
+  [REPORT_TYPE_ID.SBOM]: {
+    title: "Software bill of materials",
+    description:
+      "Latest component inventory per target with vulnerable components and the versions that fix them.",
+  },
 };
+
+export const STATUS_SCOPE_LABEL: Record<ReportStatusScope, string> = {
+  [REPORT_STATUS_SCOPE.ACTIVE]: "Active findings",
+  [REPORT_STATUS_SCOPE.MUTED]: "Muted findings",
+  [REPORT_STATUS_SCOPE.ACCEPTED]: "Risk-accepted findings",
+  [REPORT_STATUS_SCOPE.ALL]: "All failed findings",
+};
+
+/** True for the findings reports that accept a finding status scope. */
+export const isFindingsReportType = (id: string): boolean =>
+  (FINDINGS_REPORT_TYPES as readonly string[]).includes(id);
 
 const isKnownReportType = (id: string): id is ReportTypeId =>
   Object.values(REPORT_TYPE_ID).includes(id as ReportTypeId);
