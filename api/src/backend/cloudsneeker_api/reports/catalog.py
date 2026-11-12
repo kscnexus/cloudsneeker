@@ -311,6 +311,113 @@ REPORT_TYPES: dict[str, ReportType] = {
 }
 
 
+# Sources each report reads (provider types). The data assemblers in
+# ``reports/data`` and ``reports/assessment`` decide this; the table mirrors
+# them so the forms and the API offer only sources that can contribute.
+# ``ui/cloudsneeker/lib/report-sources.ts`` holds the same table.
+POSTURE_PROVIDER_TYPES: frozenset[str] = frozenset(
+    {
+        "aws",
+        "azure",
+        "gcp",
+        "kubernetes",
+        "oraclecloud",
+        "alibabacloud",
+        "openstack",
+        "m365",
+        "googleworkspace",
+        "github",
+        "mongodbatlas",
+        "cloudflare",
+        "vercel",
+        "okta",
+    }
+)
+REPOSITORY_PROVIDER_TYPES: frozenset[str] = frozenset({"iac"})
+IMAGE_PROVIDER_TYPES: frozenset[str] = frozenset({"image"})
+# Kubernetes clusters hold the cluster (``k8s``) Application Security targets.
+CLUSTER_PROVIDER_TYPES: frozenset[str] = frozenset({"kubernetes"})
+APPSEC_PROVIDER_TYPES: frozenset[str] = (
+    REPOSITORY_PROVIDER_TYPES | IMAGE_PROVIDER_TYPES | CLUSTER_PROVIDER_TYPES
+)
+# Cloud Governance (Cloud Custodian) runs on these provider types.
+GOVERNANCE_PROVIDER_TYPES: frozenset[str] = frozenset(
+    {"aws", "azure", "gcp", "kubernetes"}
+)
+
+# ``None``: every source (the report reads cloud and application results).
+SOURCE_PROVIDER_TYPES: dict[str, frozenset[str] | None] = {
+    EXECUTIVE: None,
+    EXCEPTIONS: None,
+    # Secrets come from cloud scans as well as code, image, and cluster scans.
+    SECRETS: None,
+    SECURITY_ASSESSMENT: None,
+    CLOUD_POSTURE: POSTURE_PROVIDER_TYPES,
+    COMPLIANCE: POSTURE_PROVIDER_TYPES,
+    CLOUD_ASSESSMENT: POSTURE_PROVIDER_TYPES,
+    # Governance policies plus compliance of the cloud scans.
+    GOVERNANCE_ASSESSMENT: POSTURE_PROVIDER_TYPES,
+    GOVERNANCE: GOVERNANCE_PROVIDER_TYPES,
+    SCA: APPSEC_PROVIDER_TYPES,
+    REMEDIATION: APPSEC_PROVIDER_TYPES,
+    LICENSES: APPSEC_PROVIDER_TYPES,
+    SBOM: APPSEC_PROVIDER_TYPES,
+    APPSEC_ASSESSMENT: APPSEC_PROVIDER_TYPES,
+    SAST: REPOSITORY_PROVIDER_TYPES,
+    IAC: REPOSITORY_PROVIDER_TYPES,
+    CONTAINER: IMAGE_PROVIDER_TYPES | CLUSTER_PROVIDER_TYPES,
+}
+
+_SOURCE_KINDS: dict[frozenset[str], str] = {
+    POSTURE_PROVIDER_TYPES: "cloud and SaaS accounts",
+    GOVERNANCE_PROVIDER_TYPES: "AWS, Azure, GCP, and Kubernetes accounts",
+    APPSEC_PROVIDER_TYPES: "Application Security repositories, images, and clusters",
+    REPOSITORY_PROVIDER_TYPES: "Application Security repositories and code",
+    IMAGE_PROVIDER_TYPES | CLUSTER_PROVIDER_TYPES: (
+        "Application Security images and clusters"
+    ),
+}
+
+
+def applicable_provider_types(report_type: str) -> frozenset[str] | None:
+    """Return the provider types a report reads, or ``None`` for every type."""
+    return SOURCE_PROVIDER_TYPES.get(report_type)
+
+
+def inapplicable_provider_ids(
+    report_type: str, provider_types: dict[str, str]
+) -> list[str]:
+    """Return the providers whose type the report does not read.
+
+    Args:
+        report_type: Catalog key.
+        provider_types: Provider id to provider type.
+
+    Returns:
+        Sorted provider ids outside the report's sources.
+    """
+    allowed = applicable_provider_types(report_type)
+    if allowed is None:
+        return []
+    return sorted(
+        provider_id
+        for provider_id, provider_type in provider_types.items()
+        if provider_type not in allowed
+    )
+
+
+def source_scope_message(report_type: str, rejected: dict[str, str]) -> str:
+    """Return the 400 message for providers a report does not read."""
+    spec = get_report_type(report_type)
+    allowed = applicable_provider_types(report_type) or frozenset()
+    kinds = _SOURCE_KINDS.get(allowed, ", ".join(sorted(allowed)))
+    types = ", ".join(sorted(set(rejected.values())))
+    return (
+        f"The {spec.name} report reads {kinds} only; remove the {types} "
+        f"source(s) from provider_ids: {', '.join(sorted(rejected))}."
+    )
+
+
 def get_report_type(report_type: str) -> ReportType:
     """Return a catalog entry.
 

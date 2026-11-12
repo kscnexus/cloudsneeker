@@ -27,6 +27,10 @@ import {
   WEEKDAY_OPTIONS,
 } from "@/cloudsneeker/lib/report-schedule";
 import {
+  providerTypeMap,
+  type ReportSource,
+} from "@/cloudsneeker/lib/report-sources";
+import {
   FORM_CHECK_CLASS,
   FORM_CHOICE_CLASS,
   FORM_SELECT_CLASS,
@@ -41,7 +45,7 @@ import {
 
 interface ReportScheduleFormProps {
   catalog: ReportCatalogEntry[];
-  providers: ReportOption[];
+  providers: ReportSource[];
   frameworks: ReportOption[];
   initialValues: ReportScheduleFormInput;
   scheduleId?: string;
@@ -74,7 +78,10 @@ export const ReportScheduleForm = ({
   const onSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
     setError(null);
-    const payload = reportSchedulePayloadFromForm(values);
+    const payload = reportSchedulePayloadFromForm(
+      values,
+      providerTypeMap(providers),
+    );
     const result = scheduleId
       ? await updateReportSchedule(scheduleId, payload)
       : await createReportSchedule(payload);

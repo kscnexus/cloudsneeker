@@ -16,6 +16,7 @@ from cloudsneeker_api.reports.catalog import (
     validate_params,
 )
 from cloudsneeker_api.reports.share import MAX_TTL_HOURS, link_state
+from cloudsneeker_api.reports.sources import check_source_scope
 from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
     parse_cron_fields,
@@ -118,6 +119,7 @@ class ReportRunCreateSerializer(RLSSerializer, BaseWriteSerializer):
         report_type = attrs.get("report_type")
         try:
             attrs["params"] = validate_params(report_type, attrs.get("params") or {})
+            check_source_scope(self.context.get("tenant_id"), report_type, attrs["params"])
             attrs["formats"] = validate_formats(attrs.get("formats"))
         except ReportParamsError as exc:
             raise ValidationError({"params": str(exc)}) from exc
@@ -244,10 +246,17 @@ class ReportScheduleWriteSerializer(RLSSerializer, BaseWriteSerializer):
                     raise ValidationError({name: "This field is required."})
         report_type = attrs.get("report_type") or (instance.report_type if instance else None)
         params = attrs.get("params")
+        # Only a changed type or source list is checked, so an old schedule
+        # can still be paused or renamed (runs drop what does not apply).
+        sources_changed = instance is None or "params" in attrs or "report_type" in attrs
         if params is None and instance is not None:
             params = instance.params
         try:
             attrs["params"] = validate_params(report_type, params or {})
+            if sources_changed:
+                check_source_scope(
+                    self.context.get("tenant_id"), report_type, attrs["params"]
+                )
             if "formats" in attrs or instance is None:
                 attrs["formats"] = validate_formats(attrs.get("formats"))
         except ReportParamsError as exc:

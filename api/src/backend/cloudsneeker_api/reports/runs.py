@@ -27,6 +27,7 @@ from cloudsneeker_api.reports.catalog import (
 from cloudsneeker_api.reports.data import assemble_report
 from cloudsneeker_api.reports.render import get_renderer
 from cloudsneeker_api.reports.schema import ReportData
+from cloudsneeker_api.reports.sources import drop_inapplicable_sources
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -81,7 +82,9 @@ def enqueue_report_run(
         ReportParamsError: Invalid type, parameters, or formats.
     """
     get_report_type(report_type)
-    normalized = validate_params(report_type, params)
+    normalized = drop_inapplicable_sources(
+        tenant_id, report_type, validate_params(report_type, params)
+    )
     selected = validate_formats(formats)
     with rls_transaction(tenant_id):
         run = ReportRun.objects.create(

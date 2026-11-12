@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { getCompliancesOverview } from "@/actions/compliances";
-import { getProviders } from "@/actions/providers/providers";
+import { getAllProviders } from "@/actions/providers/providers";
 import { getScans } from "@/actions/scans";
 import { auth } from "@/auth.config";
 import {
@@ -69,7 +69,7 @@ const asList = <T,>(response: unknown): T[] => {
 };
 
 const loadFrameworks = async (
-  providers: Promise<Awaited<ReturnType<typeof getProviders>>>,
+  providers: Promise<Awaited<ReturnType<typeof getAllProviders>>>,
 ) => {
   const [scans, providerList] = await Promise.all([
     getScans({
@@ -107,7 +107,8 @@ const SSRReportsWorkspace = async ({
   const session = await auth();
   const canManage = Boolean(session?.user?.permissions?.manage_scans);
 
-  const providersRequest = getProviders({ pageSize: 100 });
+  // Every page: Application Security targets alone can exceed one page.
+  const providersRequest = getAllProviders();
   const [
     typesResponse,
     runsResponse,

@@ -25,6 +25,24 @@ Defects found in the earlier Executive Security Summary and shared helpers (`rep
 | Staleness | The latest scan of a provider could be months old with no warning. |
 | PDF | US Letter, portrait only: nine-column tables were squeezed into 7 inches; no bookmarks; no Confidential marking; tables cut at 500 rows. |
 
+## Report Sources
+
+Each report reads certain provider types only. `SOURCE_PROVIDER_TYPES` in `reports/catalog.py` holds the rule, and `ui/cloudsneeker/lib/report-sources.ts` mirrors it. It follows the scan scopes in `reports/data/*.py` and `reports/assessment/collect.py`:
+
+| Report | Sources |
+| --- | --- |
+| `executive`, `exceptions`, `security_assessment` | Every source |
+| `secrets` | Every source (secrets are also read from cloud scans) |
+| `cloud_posture`, `compliance`, `cloud_assessment`, `governance_assessment` | Cloud and SaaS accounts: every type except `iac` and `image` |
+| `governance` | `aws`, `azure`, `gcp`, `kubernetes` (Cloud Governance provider types) |
+| `sca`, `licenses`, `sbom`, `remediation`, `appsec_assessment` | `iac` (repositories, filesystems, SBOMs, code), `image`, `kubernetes` (cluster targets) |
+| `sast`, `iac` | `iac` |
+| `container` | `image`, `kubernetes` |
+
+In the UI, the Generate dialog, the schedule form, and the assessment wizard share `ReportSourcePicker`. It lists only the sources that apply to the report, grouped (cloud and SaaS, or repositories, images, and clusters), with a search box for long lists and a line that says which kinds are shown. For `compliance`, the list is narrowed to the provider in the framework id suffix (`cis_2.0_aws`). If a selection includes a source that does not apply (for example, after the report type changed), the picker flags it and leaves it out of the payload. The report pages load every provider page (`getAllProviders`). The providers API already applies role visibility.
+
+In the API, run and schedule requests that name a provider of another type get a 400 (`reports/sources.check_source_scope`). For a schedule update, the check runs only when `report_type` or `params` changes, so an older schedule can still be paused or renamed. At run time, `enqueue_report_run` drops inapplicable providers from stored schedules and from role-pinned lists, and logs a warning. If no applicable provider would remain, the list is kept as it is. An empty list means every provider and would widen a role-pinned scope, so the report is empty instead.
+
 ## Pipeline
 
 `reports/assessment/`:

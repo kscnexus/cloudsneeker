@@ -52,6 +52,7 @@ import { Badge, Button, Input, Label } from "@/components/shadcn";
 
 import { FormAlert } from "./form-layout";
 import { ReportDownloadLinks } from "./report-download-links";
+import { ReportSourcePicker } from "./report-source-picker";
 
 const POLL_MS = 3000;
 
@@ -248,46 +249,16 @@ export const AssessmentWizard = ({
 
       {step === WIZARD_STEP.SCOPE ? (
         <div className="flex flex-col gap-4">
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-text-neutral-primary mb-1 text-sm font-medium">
-              Sources
-            </legend>
-            <p className="text-text-neutral-secondary text-xs">
-              {state.providerIds.length === 0
-                ? `All ${available.length} relevant source(s) you can see are included.`
-                : `${state.providerIds.length} of ${available.length} selected.`}
-            </p>
-            {available.length > 0 ? (
-              <div className="border-border-neutral-secondary grid max-h-56 gap-1 overflow-y-auto rounded-lg border p-2 sm:grid-cols-2">
-                {available.map((source) => (
-                  <label key={source.id} className={FORM_CHOICE_CLASS}>
-                    <input
-                      type="checkbox"
-                      className={FORM_CHECK_CLASS}
-                      checked={state.providerIds.includes(source.id)}
-                      onChange={() =>
-                        update({
-                          providerIds: toggle(state.providerIds, source.id),
-                        })
-                      }
-                    />
-                    <span className="min-w-0 truncate">
-                      {source.label}
-                      <span className="text-text-neutral-tertiary">
-                        {" "}
-                        · {source.providerType}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-text-neutral-secondary text-sm">
-                No relevant source is connected. The report will mark every area
-                as not assessed.
-              </p>
-            )}
-          </fieldset>
+          <ReportSourcePicker
+            reportType={state.reportType}
+            sources={sources}
+            selected={state.providerIds}
+            onToggle={(id) =>
+              update({ providerIds: toggle(state.providerIds, id) })
+            }
+            onClear={() => update({ providerIds: [] })}
+            idPrefix="assessment"
+          />
           {supportsFrameworks(state.reportType) && frameworks.length > 0 ? (
             <fieldset className="flex flex-col gap-2">
               <legend className="text-text-neutral-primary mb-1 text-sm font-medium">

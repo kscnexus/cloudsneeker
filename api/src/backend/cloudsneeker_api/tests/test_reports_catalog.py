@@ -467,3 +467,55 @@ class TestCoverageHelpers:
 
     def test_status_scope_labels_cover_every_scope(self):
         assert set(STATUS_SCOPE_LABELS) == set(STATUS_SCOPES)
+
+
+class TestSourceScope:
+    def test_every_report_type_has_a_source_rule(self):
+        assert set(catalog.SOURCE_PROVIDER_TYPES) == set(REPORT_TYPES)
+
+    def test_posture_types_match_the_provider_choices(self):
+        from api.models import Provider
+
+        every_type = {choice.value for choice in Provider.ProviderChoices}
+        assert catalog.POSTURE_PROVIDER_TYPES == every_type - {"iac", "image"}
+        assert catalog.APPSEC_PROVIDER_TYPES == {"iac", "image", "kubernetes"}
+
+    @pytest.mark.parametrize(
+        "report_type, allowed, refused",
+        [
+            ("cloud_posture", "aws", "iac"),
+            ("compliance", "okta", "image"),
+            ("cloud_assessment", "m365", "iac"),
+            ("governance_assessment", "gcp", "image"),
+            ("governance", "azure", "m365"),
+            ("sca", "image", "aws"),
+            ("sca", "iac", "m365"),
+            ("sast", "iac", "image"),
+            ("iac", "iac", "kubernetes"),
+            ("container", "image", "iac"),
+            ("container", "kubernetes", "aws"),
+            ("licenses", "iac", "gcp"),
+            ("sbom", "image", "azure"),
+            ("remediation", "iac", "aws"),
+            ("appsec_assessment", "image", "github"),
+        ],
+    )
+    def test_inapplicable_types_are_reported(self, report_type, allowed, refused):
+        types = {"a": allowed, "b": refused}
+        assert catalog.inapplicable_provider_ids(report_type, types) == ["b"]
+
+    @pytest.mark.parametrize(
+        "report_type", ["executive", "exceptions", "secrets", "security_assessment"]
+    )
+    def test_reports_over_every_source_accept_any_type(self, report_type):
+        assert catalog.applicable_provider_types(report_type) is None
+        types = {"a": "aws", "b": "iac", "c": "image"}
+        assert catalog.inapplicable_provider_ids(report_type, types) == []
+
+    def test_message_names_the_kind_and_the_ids(self):
+        message = catalog.source_scope_message("cloud_posture", {"p1": "iac"})
+        assert "Cloud posture" in message
+        assert "cloud and SaaS accounts only" in message
+        assert "iac" in message and "p1" in message
+        container = catalog.source_scope_message("container", {"p2": "aws"})
+        assert "images and clusters" in container

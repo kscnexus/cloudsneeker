@@ -17,6 +17,7 @@ import {
   scheduleFormInputFromResource,
 } from "@/cloudsneeker/lib/report-form-schema";
 import { describeReportCron } from "@/cloudsneeker/lib/report-schedule";
+import type { ReportSource } from "@/cloudsneeker/lib/report-sources";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
 import type { ReportScheduleResource } from "@/cloudsneeker/types/reports";
 import { Button, Switch } from "@/components/shadcn";
@@ -36,7 +37,7 @@ import { ReportScheduleForm } from "./report-schedule-form";
 interface ReportSchedulesPanelProps {
   schedules: ReportScheduleResource[];
   catalog: ReportCatalogEntry[];
-  providers: ReportOption[];
+  providers: ReportSource[];
   frameworks: ReportOption[];
   canManage: boolean;
 }

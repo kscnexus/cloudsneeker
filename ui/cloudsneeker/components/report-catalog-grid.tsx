@@ -35,6 +35,10 @@ import {
   type ReportGenerateFormValues,
 } from "@/cloudsneeker/lib/report-form-schema";
 import {
+  providerTypeMap,
+  type ReportSource,
+} from "@/cloudsneeker/lib/report-sources";
+import {
   REPORT_FORMAT,
   REPORT_STATUS_SCOPE,
   REPORT_TYPE_ID,
@@ -82,7 +86,7 @@ export const reportTypeIcon = (id: string): LucideIcon =>
 
 interface ReportCatalogGridProps {
   catalog: ReportCatalogEntry[];
-  providers: ReportOption[];
+  providers: ReportSource[];
   frameworks: ReportOption[];
 }
 
@@ -125,7 +129,9 @@ export const ReportCatalogGrid = ({
   const onSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
     setError(null);
-    const result = await createReportRun(reportRunPayloadFromForm(values));
+    const result = await createReportRun(
+      reportRunPayloadFromForm(values, providerTypeMap(providers)),
+    );
     setSaving(false);
     if (result && "error" in result && result.error) {
       setError(
