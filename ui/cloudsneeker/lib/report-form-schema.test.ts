@@ -127,6 +127,60 @@ describe("buildReportParams", () => {
   });
 });
 
+describe("report sources in the payload", () => {
+  const AWS = PROVIDER_ID;
+  const AZURE = "33333333-3333-4333-8333-333333333333";
+  const REPO = "22222222-2222-4222-8222-222222222222";
+  const types = { [AWS]: "aws", [AZURE]: "azure", [REPO]: "iac" };
+
+  it("drops selected sources the report does not read", () => {
+    const values = reportGenerateFormSchema.parse({
+      reportType: "cloud_posture",
+      providerIds: [AWS, REPO],
+      formats: ["pdf"],
+    });
+    expect(reportRunPayloadFromForm(values, types).params.provider_ids).toEqual(
+      [AWS],
+    );
+    expect(
+      reportRunPayloadFromForm({ ...values, reportType: "iac" }, types).params
+        .provider_ids,
+    ).toEqual([REPO]);
+    expect(
+      reportRunPayloadFromForm({ ...values, reportType: "executive" }, types)
+        .params.provider_ids,
+    ).toEqual([AWS, REPO]);
+  });
+
+  it("keeps compliance to the framework's provider", () => {
+    expect(
+      buildReportParams(
+        {
+          reportType: "compliance",
+          providerIds: [AWS, AZURE, REPO],
+          dateFrom: "",
+          dateTo: "",
+          severityFloor: "",
+          complianceId: "cis_2.0_azure",
+        },
+        types,
+      ).provider_ids,
+    ).toEqual([AZURE]);
+  });
+
+  it("prunes a schedule switched to another report type", () => {
+    const values = reportScheduleFormSchema.parse({
+      ...defaultScheduleFormInput("sast"),
+      name: "Weekly code",
+      providerIds: [AWS, REPO],
+      recipients: "dev@example.com",
+    });
+    expect(
+      reportSchedulePayloadFromForm(values, types).params.provider_ids,
+    ).toEqual([REPO]);
+  });
+});
+
 describe("finding status scope", () => {
   it("defaults to active findings", () => {
     const values = reportGenerateFormSchema.parse({

@@ -22,7 +22,7 @@ import {
 import type { ReportTypeResource } from "@/cloudsneeker/types/reports";
 
 describe("report options", () => {
-  it("labels providers by type and alias", () => {
+  it("labels providers by alias and keeps their type", () => {
     expect(
       providerOptions([
         {
@@ -32,8 +32,8 @@ describe("report options", () => {
         { id: "p2", attributes: { provider: "iac", alias: null, uid: "repo" } },
       ]),
     ).toEqual([
-      { id: "p1", label: "aws · Prod" },
-      { id: "p2", label: "iac · repo" },
+      { id: "p1", label: "Prod", providerType: "aws" },
+      { id: "p2", label: "repo", providerType: "iac" },
     ]);
   });
 

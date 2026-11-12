@@ -7,6 +7,8 @@ import {
   withoutEngineName,
 } from "@/cloudsneeker/lib/report-view";
 
+import type { ReportSource } from "./report-sources";
+
 const PROVIDER_SUFFIX: Record<string, string> = {
   aws: "AWS",
   azure: "Azure",
@@ -40,17 +42,12 @@ interface ScanLike {
   relationships?: { provider?: { data?: { id?: string } | null } };
 }
 
-export const providerOptions = (
-  providers: ProviderLike[],
-): ReportSelectOption[] =>
+/** Report sources: alias (or uid) and provider type of every provider. */
+export const providerOptions = (providers: ProviderLike[]): ReportSource[] =>
   providers.map((provider) => ({
     id: provider.id,
-    label: [
-      provider.attributes.provider,
-      provider.attributes.alias || provider.attributes.uid || provider.id,
-    ]
-      .filter(Boolean)
-      .join(" · "),
+    label: provider.attributes.alias || provider.attributes.uid || provider.id,
+    providerType: provider.attributes.provider ?? "",
   }));
 
 /** Provider types whose scans carry no compliance frameworks (code and images). */

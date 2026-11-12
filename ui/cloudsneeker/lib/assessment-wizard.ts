@@ -10,6 +10,8 @@ import {
 } from "@/cloudsneeker/types/reports";
 
 import type { ReportRunPayload } from "./report-form-schema";
+import { providerOptions } from "./report-options";
+import { type ReportSource, sourcesForReport } from "./report-sources";
 
 export const ASSESSMENT_TYPE_IDS = [
   REPORT_TYPE_ID.SECURITY_ASSESSMENT,
@@ -131,17 +133,6 @@ export const SECTION_LABELS: Record<
   },
 };
 
-/** Areas a report reads; drives which sources the scope step offers. */
-const TYPE_AREAS: Record<
-  AssessmentTypeId,
-  readonly ("cloud" | "appsec" | "governance")[]
-> = {
-  [REPORT_TYPE_ID.SECURITY_ASSESSMENT]: ["cloud", "appsec", "governance"],
-  [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: ["appsec"],
-  [REPORT_TYPE_ID.CLOUD_ASSESSMENT]: ["cloud"],
-  [REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT]: ["governance"],
-};
-
 const TYPE_SECTIONS: Record<AssessmentTypeId, readonly AssessmentSection[]> = {
   [REPORT_TYPE_ID.SECURITY_ASSESSMENT]: Object.values(ASSESSMENT_SECTION),
   [REPORT_TYPE_ID.APPSEC_ASSESSMENT]: Object.values(ASSESSMENT_SECTION).filter(
@@ -168,42 +159,16 @@ export const supportsFrameworks = (type: AssessmentTypeId): boolean =>
   type === REPORT_TYPE_ID.SECURITY_ASSESSMENT ||
   type === REPORT_TYPE_ID.GOVERNANCE_ASSESSMENT;
 
-const APPSEC_PROVIDER_TYPES = new Set(["iac", "image", "kubernetes"]);
+export type ScopeSource = ReportSource;
 
-export interface ScopeSource {
-  id: string;
-  label: string;
-  providerType: string;
-}
+/** Alias (or uid) and provider type of every provider. */
+export const scopeSources = providerOptions;
 
-interface ProviderLike {
-  id: string;
-  attributes: { provider?: string; alias?: string | null; uid?: string };
-}
-
-export const scopeSources = (providers: ProviderLike[]): ScopeSource[] =>
-  providers.map((provider) => ({
-    id: provider.id,
-    label: provider.attributes.alias || provider.attributes.uid || provider.id,
-    providerType: provider.attributes.provider ?? "",
-  }));
-
-/** Sources relevant to a report type (cloud accounts, code targets, or both). */
+/** Sources the report type reads (see `report-sources.ts`). */
 export const sourcesFor = (
   type: AssessmentTypeId,
   sources: ScopeSource[],
-): ScopeSource[] => {
-  const areas = TYPE_AREAS[type];
-  return sources.filter((source) => {
-    const appsec = APPSEC_PROVIDER_TYPES.has(source.providerType);
-    if (areas.includes("appsec") && appsec) return true;
-    if ((areas.includes("cloud") || areas.includes("governance")) && !appsec) {
-      return true;
-    }
-    // Kubernetes clusters are both a cloud and an application source.
-    return source.providerType === "kubernetes" && areas.includes("cloud");
-  });
-};
+): ScopeSource[] => sourcesForReport(type, sources);
 
 export interface WizardState {
   reportType: AssessmentTypeId;

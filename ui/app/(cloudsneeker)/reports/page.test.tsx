@@ -23,7 +23,7 @@ describe("Reports pages", () => {
   });
 
   it("reads providers and frameworks from the existing APIs", () => {
-    expect(listSource).toContain("getProviders");
+    expect(listSource).toContain("getAllProviders");
     expect(listSource).toContain("getCompliancesOverview");
   });
 

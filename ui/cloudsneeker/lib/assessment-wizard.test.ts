@@ -46,7 +46,7 @@ describe("assessment wizard", () => {
     ]);
     expect(
       sourcesFor("governance_assessment", sources).map((s) => s.id),
-    ).toEqual(["a"]);
+    ).toEqual(["a", "c"]);
     expect(sourcesFor("security_assessment", sources)).toHaveLength(3);
   });
 

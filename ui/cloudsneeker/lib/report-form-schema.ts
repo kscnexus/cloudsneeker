@@ -7,6 +7,7 @@ import {
   reportCadenceFromCron,
   reportCronFromCadence,
 } from "@/cloudsneeker/lib/report-schedule";
+import { applicableProviderIds } from "@/cloudsneeker/lib/report-sources";
 import {
   REPORT_FORMAT,
   REPORT_RESOURCE_TYPE,
@@ -196,9 +197,25 @@ type ParamsSource = Pick<
 > &
   Partial<Pick<ReportGenerateFormValues, "statusScope">>;
 
-/** API `params` for a report: only keys the report type accepts. */
-export const buildReportParams = (values: ParamsSource): ReportParams => {
-  const params: ReportParams = { provider_ids: values.providerIds };
+/**
+ * API `params` for a report: only keys the report type accepts, and only
+ * sources the report reads (`providerTypes` maps provider id to type; a
+ * selection left over from another report type is dropped).
+ */
+export const buildReportParams = (
+  values: ParamsSource,
+  providerTypes: Readonly<Record<string, string>> = {},
+): ReportParams => {
+  const params: ReportParams = {
+    provider_ids: applicableProviderIds(
+      values.reportType,
+      values.providerIds,
+      providerTypes,
+      values.reportType === REPORT_TYPE_ID.COMPLIANCE
+        ? values.complianceId
+        : null,
+    ),
+  };
   if (values.dateFrom) params.date_from = values.dateFrom;
   if (values.dateTo) params.date_to = values.dateTo;
   if (values.severityFloor) {
@@ -215,17 +232,19 @@ export const buildReportParams = (values: ParamsSource): ReportParams => {
 
 export const reportRunPayloadFromForm = (
   values: ReportGenerateFormValues,
+  providerTypes: Readonly<Record<string, string>> = {},
 ): ReportRunPayload => ({
   reportType: values.reportType,
-  params: buildReportParams(values),
+  params: buildReportParams(values, providerTypes),
   formats: values.formats,
 });
 
 export const reportSchedulePayloadFromForm = (
   values: ReportScheduleFormValues,
+  providerTypes: Readonly<Record<string, string>> = {},
 ): ReportSchedulePayload => ({
   reportType: values.reportType,
-  params: buildReportParams(values),
+  params: buildReportParams(values, providerTypes),
   formats: values.formats,
   name: values.name,
   scheduleCron: reportCronFromCadence({

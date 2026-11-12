@@ -8,6 +8,7 @@ import {
   isFindingsReportType,
   STATUS_SCOPE_LABEL,
 } from "@/cloudsneeker/lib/report-catalog";
+import { type ReportSource } from "@/cloudsneeker/lib/report-sources";
 import { severityLabel } from "@/cloudsneeker/lib/report-view";
 import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
@@ -19,6 +20,8 @@ import {
   type SelectableReportFormat,
 } from "@/cloudsneeker/types/reports";
 import { Input, Label } from "@/components/shadcn";
+
+import { ReportSourcePicker } from "./report-source-picker";
 
 export interface ReportOption {
   id: string;
@@ -60,7 +63,7 @@ export const asReportParamsForm = (form: object): ReportParamsForm =>
 interface ReportParamsFieldsProps {
   form: ReportParamsForm;
   idPrefix: string;
-  providers: ReportOption[];
+  providers: ReportSource[];
   frameworks: ReportOption[];
 }
 
@@ -71,6 +74,10 @@ export function ReportParamsFields({
   frameworks,
 }: ReportParamsFieldsProps) {
   const reportType = useWatch({ control: form.control, name: "reportType" });
+  const complianceId = useWatch({
+    control: form.control,
+    name: "complianceId",
+  });
   const selectedProviders: string[] =
     useWatch({ control: form.control, name: "providerIds" }) ?? [];
   const selectedFormats: string[] =
@@ -95,41 +102,20 @@ export function ReportParamsFields({
 
   return (
     <>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-text-neutral-primary mb-1 text-sm font-medium">
-          Sources
-        </legend>
-        <p className="text-text-neutral-secondary text-xs">
-          {selectedProviders.length === 0
-            ? "All sources you can see are included."
-            : `${selectedProviders.length} selected.`}
-        </p>
-        {providers.length > 0 ? (
-          <div className="border-border-neutral-secondary flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border p-2">
-            {providers.map((provider) => {
-              const id = `${idPrefix}-provider-${provider.id}`;
-              return (
-                <label
-                  key={provider.id}
-                  htmlFor={id}
-                  className="text-text-neutral-primary flex items-center gap-2 text-sm"
-                >
-                  <input
-                    id={id}
-                    type="checkbox"
-                    className="size-4"
-                    checked={selectedProviders.includes(provider.id)}
-                    onChange={() =>
-                      toggle("providerIds", selectedProviders, provider.id)
-                    }
-                  />
-                  {provider.label}
-                </label>
-              );
-            })}
-          </div>
-        ) : null}
-      </fieldset>
+      <ReportSourcePicker
+        reportType={reportType}
+        complianceId={complianceId}
+        sources={providers}
+        selected={selectedProviders}
+        onToggle={(id) => toggle("providerIds", selectedProviders, id)}
+        onClear={() =>
+          form.setValue("providerIds", [], {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
+        }
+        idPrefix={idPrefix}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">

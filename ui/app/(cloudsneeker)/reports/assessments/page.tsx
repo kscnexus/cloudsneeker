@@ -2,7 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { Suspense } from "react";
 
 import { getCompliancesOverview } from "@/actions/compliances";
-import { getProviders } from "@/actions/providers/providers";
+import { getAllProviders } from "@/actions/providers/providers";
 import { getScans } from "@/actions/scans";
 import { listReportRuns } from "@/cloudsneeker/actions/reports";
 import { AssessmentHistoryTable } from "@/cloudsneeker/components/assessment-history-table";
@@ -31,7 +31,7 @@ const asList = <T,>(response: unknown): T[] => {
 };
 
 const loadFrameworks = async (
-  providers: Promise<Awaited<ReturnType<typeof getProviders>>>,
+  providers: Promise<Awaited<ReturnType<typeof getAllProviders>>>,
 ) => {
   const [scans, providerList] = await Promise.all([
     getScans({
@@ -73,7 +73,8 @@ export default async function SecurityAssessmentsPage() {
 }
 
 const SSRAssessments = async () => {
-  const providersRequest = getProviders({ pageSize: 100 });
+  // Every page: Application Security targets alone can exceed one page.
+  const providersRequest = getAllProviders();
   const [providersResponse, frameworks, runsResponse] = await Promise.all([
     providersRequest,
     loadFrameworks(providersRequest).catch(() => []),
