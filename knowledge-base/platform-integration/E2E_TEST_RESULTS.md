@@ -49,3 +49,21 @@ Run on https://cloudsneeker.vercel.app on 2026-11-11 after the merge, signed in 
 | Targets list | Search, target type, paging over the tenant's 318 targets | Verified: "318 targets · Page 1 of 13" with Next |
 | Seeker AI | The questions in [Seeker AI Cross-Module Audit](SEEKER_AI_CROSS_MODULE_AUDIT.md) | Needs a working model key on the tenant (credits were exhausted on 2026-10-29) |
 | RBAC | Read-only role sees governance policies of its provider groups only | Needs a second user; not created on the public site (security rule) |
+
+## Governance Policy Run (2026-11-12)
+
+All test records are kept (policies, runs, the alert rule "Governance policy test alert", the mute rule, reports).
+
+| Step | Result |
+| --- | --- |
+| Policies | 17 Critical and High library policies added; 46 AWS policies on account 466920982015 |
+| Dry runs | All 46 run: 43 completed (385 findings before fixes), 1 failed on AWS permissions (`lambda:GetFunctionUrlConfig` missing from the scan role for "Lambda function URLs without auth"), 2 S3 policies timed out after 900 s |
+| Fixes (PR #18) | Library severity carried into findings; security group, VPC, Elastic IP and other findings no longer dropped (453 findings: 36 Critical, 349 High, 132 Medium, 58 Low by report); global resources (S3, IAM, CloudFront, Route 53) run in one region, S3 now 1 minute and 28 public buckets; failed runs show the cloud API error |
+| Select all matching (#9) | "Select all 385 matching" selected 385 across pages; no bulk change applied |
+| Search | "deprecated" 136 governance findings |
+| Detail page | Resource, policy, run link, raw resource, Mute |
+| Mute | Muted one Lambda finding with a reason; open count 136 to 135; rule on the Mutelist page; Exceptions report lists it |
+| Alert history | Rule "Governance policy test alert" (Cloud Governance, Critical and High by default): events for SSH open (59 High) and Public S3 buckets (28 Critical), "not delivered" (no destination); Acknowledge with a note recorded who and when; status filter works |
+| Governance report (PR #20) | Severity breakdown and severity-ranked top risks; muted resources KPI 1 |
+| Alert form (PR #19) | Says that no severity means Critical and High |
+| Sessions (PR #21, #22) | Users were signed out mid-session (68 failed token refreshes beside 2 good ones); refresh grace window deployed (`CLOUDSNEEKER_REFRESH_GRACE_SECONDS=60` on the VM); 8 parallel page loads after the deploy all 200. The VM build hang at BuildKit export (twice) now times out after 10 minutes and retries |
