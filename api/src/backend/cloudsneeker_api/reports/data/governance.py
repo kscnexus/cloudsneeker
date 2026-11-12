@@ -15,6 +15,7 @@ POLICY_COLUMNS: list[tuple[str, str]] = [
     ("provider", "Provider"),
     ("provider_type", "Type"),
     ("resources", "Matched resources"),
+    ("severity", "Severity"),
     ("new", "New since last run"),
     ("resolved", "Resolved since last run"),
     ("finished_at", "Last run"),
@@ -88,6 +89,49 @@ def _muted_governance_uids(tenant_id: str) -> set[str]:
     return {uid for uid in muted_uid_map(tenant_id) if is_governance_uid(uid)}
 
 
+_SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "informational": 4}
+
+
+def _run_severities(
+    run: CustodianRun, muted_uids: set[str]
+) -> tuple[str, dict[str, int], int]:
+    """Severity of a run's policy, open matches per severity, muted matches.
+
+    Findings come from the run's stored resources. A run whose resources were
+    trimmed falls back to the policy's most severe rule for its count.
+    """
+    from cloudsneeker_api.services.governance_findings import (
+        DEFAULT_SEVERITY,
+        findings_for_run,
+        policy_rules,
+    )
+
+    findings = findings_for_run(run, run.policy)
+    rules = policy_rules(run.policy.policy_yaml)
+    rule_severity = min(
+        (rule.severity for rule in rules.values()),
+        key=lambda value: _SEVERITY_RANK.get(value, 9),
+        default=DEFAULT_SEVERITY,
+    )
+    counts: dict[str, int] = {}
+    muted = 0
+    for finding in findings:
+        if finding.uid in muted_uids:
+            muted += 1
+            continue
+        counts[finding.severity] = counts.get(finding.severity, 0) + 1
+    if not findings:
+        count = _resource_count(run)
+        if count:
+            counts[rule_severity] = count
+    severities = [*counts] or [finding.severity for finding in findings]
+    severity = min(
+        severities or [rule_severity],
+        key=lambda value: _SEVERITY_RANK.get(value, 9),
+    )
+    return severity, counts, muted
+
+
 def _muted_in_run(run: CustodianRun, muted_uids: set[str]) -> int:
     """Resources of the run whose governance finding is muted."""
     if not muted_uids:
@@ -133,9 +177,16 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     providers: dict[str, dict[str, Any]] = {}
     muted_uids = _muted_governance_uids(tenant_id)
     muted_resources = 0
+    severity_totals = dict.fromkeys(data.severity_totals, 0)
+    fully_muted = 0
     for run in runs:
         count = _resource_count(run)
-        muted_resources += _muted_in_run(run, muted_uids)
+        severity, open_counts, muted = _run_severities(run, muted_uids)
+        muted_resources += muted
+        if count and muted >= count:
+            fully_muted += 1
+        for key, value in open_counts.items():
+            severity_totals[key] = severity_totals.get(key, 0) + value
         delta = _delta(run)
         label = provider_label(run.provider)
         policy_rows.append(
@@ -144,6 +195,7 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
                 "provider": label,
                 "provider_type": run.provider.provider,
                 "resources": count,
+                "severity": severity,
                 "new": delta["new"],
                 "resolved": delta["resolved"],
                 "finished_at": run.finished_at.isoformat() if run.finished_at else "",
@@ -183,12 +235,15 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     resolved = sum(row["resolved"] for row in policy_rows)
     data.score = governance_score(len(policy_rows), matched)
     data.grade = grade_for(data.score)
+    # Policy counts: a policy whose every match is muted counts as muted.
     data.status_totals = {
         "pass": len(policy_rows) - matched,
-        "fail": matched,
-        "muted": 0,
+        "fail": matched - fully_muted,
+        "muted": fully_muted,
         "manual": 0,
     }
+    # Open (unmuted) matched resources per severity.
+    data.severity_totals = severity_totals
     data.kpis = {
         "policies_evaluated": len(policy_rows),
         "policies_with_matches": matched,
@@ -208,7 +263,7 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
         {
             "check_id": row["policy"],
             "title": row["policy"],
-            "severity": "medium",
+            "severity": row["severity"],
             "findings": row["resources"],
             "resources": row["resources"],
             "service": row["provider_type"],
@@ -221,7 +276,13 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
                 f"'{row['policy']}' and remediate or document an exception."
             ),
         }
-        for row in policy_rows
+        for row in sorted(
+            policy_rows,
+            key=lambda item: (
+                _SEVERITY_RANK.get(item["severity"], 9),
+                -item["resources"],
+            ),
+        )
         if row["resources"]
     ][:10]
     data.remediation = [
