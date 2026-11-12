@@ -1,69 +1,108 @@
-"""Branded PDF renderer.
+"""Branded PDF renderer for every report type.
 
-Reuses the upstream report building blocks in ``tasks.jobs.reports`` (fonts,
-paragraph styles, tables, charts, and the brand logo / footer hooks) so
-Cloudsneeker reports look like the compliance reports already shipped.
+The four security assessments have their own story in
+``reports/assessment/render_pdf.py``. Every other report type (executive,
+cloud posture, compliance, the Application Security reports, governance,
+exceptions, remediation, licenses, SBOM) is laid out here with the same
+design from ``reports/render/pdf_style.py``: dark cover, clickable contents,
+bookmarks, brand header with the Confidential label, "Page X of Y" footer,
+KPI tiles, severity colours, long tables with a repeating header row, and
+vector charts.
 """
 
 from __future__ import annotations
 
-import gc
 import io
 import os
 from typing import Any
+from xml.sax.saxutils import escape
 
-from cloudsneeker_api.brand import (
-    brand,
-    pdf_author,
-    pdf_creator,
-    pdf_footer,
-    report_logo_path,
-)
+from cloudsneeker_api.brand import brand, pdf_author, pdf_creator
 from cloudsneeker_api.reports.data.common import GRADE_BANDS, SEVERITY_WEIGHTS
+from cloudsneeker_api.reports.render.pdf_style import (
+    BRAND,
+    BRAND_DARK,
+    GRADE_COLORS,
+    LANDSCAPE_WIDTH,
+    MARGIN_BOTTOM,
+    MARGIN_TOP,
+    MARGIN_X,
+    MUTED,
+    PORTRAIT_WIDTH,
+    PRIORITY_COLORS,
+    SEVERITY_COLORS,
+    TEAL,
+    BrandedDoc,
+    Builder,
+    Gap,
+    contents_block,
+    cover_block,
+    grade_markup,
+    hbar_chart,
+    priority_markup,
+    register_fonts,
+    ring_head,
+    score_ring,
+    severity_markup,
+    severity_strip,
+    text,
+    trend_chart,
+)
 from cloudsneeker_api.reports.schema import (
     SEVERITY_ORDER,
     STATUS_SCOPE_LABELS,
     ReportData,
+    ReportFilters,
     ReportTable,
 )
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer
-from tasks.jobs.reports import base as upstream_base
-from tasks.jobs.reports.base import create_pdf_styles
-from tasks.jobs.reports.charts import (
-    create_horizontal_bar_chart,
-    create_vertical_bar_chart,
-    get_chart_color_for_percentage,
-)
-from tasks.jobs.reports.components import (
-    ColumnConfig,
-    create_data_table,
-    create_info_table,
-    create_summary_table,
-    escape_html,
-    get_color_for_compliance,
-    truncate_text,
-)
-from tasks.jobs.reports.config import COLOR_BLUE
+from reportlab.lib.units import mm
+from reportlab.platypus import CondPageBreak, Paragraph
+from reportlab.platypus.flowables import PageBreak, PageBreakIfNotEmpty
 
-SEVERITY_HEX: dict[str, str] = {
-    "critical": "#B71C1C",
-    "high": "#E53935",
-    "medium": "#FB8C00",
-    "low": "#FDD835",
-    "informational": "#90A4AE",
-}
-
+NOT_SCORED = "Not scored"
 WIDE_FIELDS = frozenset(
     {"title", "detail", "description", "remediation", "action", "impact", "why"}
 )
-CONTENT_WIDTH = 7.0 * inch
-ASSETS_IMG_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(upstream_base.__file__), "../../assets/img")
-)
+# Longest text kept in one detail-table cell.
+DETAIL_CELL_LIMIT = 300
+
+REPORT_KICKERS: dict[str, str] = {
+    "executive": "Executive security report",
+    "cloud_posture": "Cloud security report",
+    "compliance": "Compliance report",
+    "sca": "Application security report",
+    "sast": "Application security report",
+    "container": "Application security report",
+    "iac": "Application security report",
+    "secrets": "Application security report",
+    "governance": "Governance report",
+    "exceptions": "Risk exceptions report",
+    "remediation": "Remediation report",
+    "licenses": "License compliance report",
+    "sbom": "Software inventory report",
+}
+STATUS_LABELS: dict[str, str] = {
+    "fail": "Failed",
+    "pass": "Passed",
+    "muted": "Muted",
+    "manual": "Manual review",
+}
+SOURCE_COLUMNS: list[tuple[str, str]] = [
+    ("label", "Area"),
+    ("provider", "Source"),
+    ("mode", "Type"),
+    ("provider_type", "Provider type"),
+    ("grade", "Grade"),
+    ("score", "Score"),
+    ("open_issues", "Open issues"),
+    ("fail", "Failed"),
+    ("pass", "Passed"),
+    ("critical", "Critical"),
+    ("high", "High"),
+    ("policies", "Policies"),
+    ("resources", "Resources"),
+    ("coverage", "Coverage"),
+]
 
 
 def pdf_max_rows() -> int:
@@ -74,477 +113,508 @@ def pdf_max_rows() -> int:
         return 500
 
 
-class _BrandedDocTemplate(SimpleDocTemplate):
-    """Document template that records the page of every H1 heading."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.headings: list[tuple[str, int]] = []
-
-    def afterFlowable(self, flowable: Any) -> None:  # noqa: N802 - reportlab API
-        if isinstance(flowable, Paragraph) and flowable.style.name == "CustomH1":
-            self.headings.append((flowable.getPlainText(), self.page))
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
-def _cell_style(styles: dict[str, ParagraphStyle]) -> ParagraphStyle:
-    return ParagraphStyle(
-        "CloudsneekerCell",
-        parent=styles["normal_center"],
-        fontSize=8,
-        leading=10,
-    )
+def _window(filters: ReportFilters) -> str:
+    if not (filters.date_from or filters.date_to):
+        return "All time"
+    start = filters.date_from.date().isoformat() if filters.date_from else "start"
+    end = filters.date_to.date().isoformat() if filters.date_to else "today"
+    return f"{start} to {end}"
 
 
-def _score_color(score: float | None) -> colors.Color:
-    if score is None:
-        return colors.Color(0.5, 0.5, 0.5)
-    return get_color_for_compliance(score)
+def _generated(data: ReportData) -> str:
+    return data.generated_at.strftime("%d %b %Y %H:%M UTC")
 
 
-def _format_value(value: Any) -> str:
-    if value is None:
+def _kpi_value(value: Any) -> Any:
+    # Focused reports use None for "no value"; print a dash, as before.
+    return "-" if value is None else value
+
+
+def _score_text(data: ReportData) -> str:
+    if data.score is not None:
+        return f"{data.score:.0f}/100  ·  Grade {data.grade}"
+    if data.grade and data.grade != "N/A":
+        return f"Grade {data.grade}"
+    return NOT_SCORED
+
+
+def _severity_cell(value: Any, row: dict[str, Any]) -> str:
+    if not value:
         return "-"
-    if isinstance(value, float):
-        return f"{value:.1f}"
-    return str(value)
+    return severity_markup(str(value).lower())
 
 
-def _column_widths(columns: list[tuple[str, str]]) -> list[float]:
-    weights = [2.0 if field in WIDE_FIELDS else 1.0 for field, _ in columns]
-    total = sum(weights) or 1.0
-    return [CONTENT_WIDTH * weight / total for weight in weights]
+def _grade_cell(value: Any, row: dict[str, Any]) -> str:
+    return grade_markup(value) if value else "-"
 
 
-def _table_flowables(
-    table: ReportTable, styles: dict[str, ParagraphStyle], cell_style: ParagraphStyle
+def _score_cell(value: Any, row: dict[str, Any]) -> str:
+    return text(value) if value is not None else "-"
+
+
+def _priority_cell(value: Any, row: dict[str, Any]) -> str:
+    if isinstance(value, str) and value in PRIORITY_COLORS:
+        return priority_markup(value)
+    return text(value)
+
+
+CELL_MARKUP = {
+    "severity": _severity_cell,
+    "grade": _grade_cell,
+    "priority": _priority_cell,
+}
+
+
+def _table(
+    b: Builder,
+    table: ReportTable,
+    *,
+    width: float,
+    bookmark: bool = True,
 ) -> list:
-    elements: list = [Paragraph(escape_html(table.title), styles["h2"])]
+    """Heading, bounded long table, and the truncation note."""
+    items = b.table_heading(table.title, bookmark=bookmark)
     if not table.rows:
-        elements.append(Paragraph("No rows.", styles["normal"]))
-        return elements
+        items.append(b.para("No rows."))
+        return items
     bound = pdf_max_rows()
-    rows = [
-        {
-            field: truncate_text(_format_value(row.get(field)), 300)
-            for field, _ in table.columns
-        }
-        for row in table.rows[:bound]
-    ]
-    widths = _column_widths(table.columns)
+    rows = table.rows[:bound]
     columns = [
-        ColumnConfig(header, width, field, align="LEFT")
-        for (field, header), width in zip(table.columns, widths, strict=True)
+        (field, header, 2.0 if field in WIDE_FIELDS else 1.0)
+        for field, header in table.columns
     ]
-    elements.append(
-        create_data_table(rows, columns, header_color=COLOR_BLUE, normal_style=cell_style)
+    markup = {
+        field: CELL_MARKUP[field] for field, _ in table.columns if field in CELL_MARKUP
+    }
+    items.append(
+        b.table(
+            columns,
+            rows,
+            markup=markup,
+            width=width,
+            cell_limit=DETAIL_CELL_LIMIT,
+        )
     )
     shown = len(rows)
-    if shown < table.total:
-        elements.append(
-            Paragraph(
-                f"Showing the first {shown} of {table.total} rows. The Excel and "
-                "CSV exports carry the full list.",
-                styles["normal"],
+    total = max(table.total, shown)
+    if shown < total:
+        items.append(
+            b.para(
+                f"Showing the first {shown:,} of {total:,} rows. The Excel and CSV "
+                "exports carry the full list.",
+                "small",
             )
         )
-    elements.append(Spacer(1, 0.2 * inch))
-    return elements
+    items.append(Gap(1, 4 * mm))
+    return items
 
 
-def _severity_chart(data: ReportData) -> bytes | None:
-    values = [data.severity_totals.get(severity, 0) for severity in SEVERITY_ORDER]
-    if not any(values):
-        return None
-    peak = max(values)
-    buffer = create_vertical_bar_chart(
-        labels=[severity.capitalize() for severity in SEVERITY_ORDER],
-        values=values,
-        ylabel="Open findings",
-        xlabel="Severity",
-        colors=[SEVERITY_HEX[severity] for severity in SEVERITY_ORDER],
-        y_limit=(0, peak * 1.15 if peak else 1),
-        show_labels=False,
-        rotation=0,
-        figsize=(8, 4),
-    )
-    return buffer.getvalue()
+# ---------------------------------------------------------------------------
+# Sections
+# ---------------------------------------------------------------------------
 
 
-def _trend_chart(points: list[dict[str, Any]]) -> bytes:
-    import matplotlib.pyplot as plt  # Agg backend set by tasks.jobs.reports.charts
-
-    fig, ax = plt.subplots(figsize=(8, 3.5))
-    dates = [point["date"] for point in points]
-    ax.plot(dates, [point["fail"] for point in points], marker="o", label="Open", color="#E53935")
-    ax.plot(
-        dates,
-        [point["critical"] + point["high"] for point in points],
-        marker="o",
-        label="Critical + high",
-        color="#B71C1C",
-    )
-    if any(point["pass"] for point in points):
-        ax.plot(dates, [point["pass"] for point in points], marker="o", label="Passed", color="#4CAF50")
-    ax.set_ylabel("Findings")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    plt.xticks(rotation=30, ha="right")
-    plt.tight_layout()
-    buffer = io.BytesIO()
-    try:
-        fig.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
-        buffer.seek(0)
-    finally:
-        plt.close(fig)
-        gc.collect()
-    return buffer.getvalue()
-
-
-def _compliance_chart(posture: list[dict[str, Any]]) -> bytes | None:
-    scored = [item for item in posture if item.get("pass_pct") is not None][:15]
-    if not scored:
-        return None
-    buffer = create_horizontal_bar_chart(
-        labels=[str(item["compliance_id"]) for item in scored],
-        values=[float(item["pass_pct"]) for item in scored],
-        xlabel="Requirements passing (%)",
-        color_func=get_chart_color_for_percentage,
-        label_fontsize=10,
-    )
-    return buffer.getvalue()
-
-
-def _cover(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
-    elements: list = []
-    logo_path = report_logo_path(ASSETS_IMG_DIR)
-    if os.path.exists(logo_path):
-        elements.append(Image(logo_path, width=5 * inch, height=1 * inch))
-    elements.append(Spacer(1, 0.5 * inch))
-    elements.append(Paragraph(escape_html(data.title), styles["title"]))
-    elements.append(Spacer(1, 0.3 * inch))
+def cover(b: Builder, data: ReportData) -> list:
     filters = data.filters
-    window = "All time"
-    if filters.date_from or filters.date_to:
-        start = filters.date_from.date().isoformat() if filters.date_from else "start"
-        end = filters.date_to.date().isoformat() if filters.date_to else "today"
-        window = f"{start} to {end}"
-    rows = [
-        ("Product", brand.name),
-        ("Generated", data.generated_at.strftime("%Y-%m-%d %H:%M UTC")),
-        ("Sources", f"{len(filters.provider_ids)} selected" if filters.provider_ids else "All visible"),
-        ("Period", window),
+    facts = [
+        ("Security score", _score_text(data)),
+        ("Period", _window(filters)),
+        (
+            "Sources",
+            f"{len(filters.provider_ids)} selected"
+            if filters.provider_ids
+            else "All visible",
+        ),
         ("Severity floor", (filters.severity_floor or "all").capitalize()),
     ]
     if filters.compliance_id:
-        rows.append(("Framework", filters.compliance_id))
+        facts.append(("Framework", filters.compliance_id))
     if filters.status_scope:
-        rows.append(
+        facts.append(
             (
                 "Finding status",
                 STATUS_SCOPE_LABELS.get(filters.status_scope, filters.status_scope),
             )
         )
-    elements.append(
-        create_info_table(rows, normal_style=styles["normal_center"])
+    facts += [
+        ("Generated", _generated(data)),
+        ("Classification", "Confidential"),
+    ]
+    subtitle = data.headline if len(data.headline) <= 240 else data.headline[:239] + "…"
+    return cover_block(
+        b,
+        REPORT_KICKERS.get(data.report_type, "Security report"),
+        data.title,
+        subtitle,
+        facts,
     )
-    elements.append(Spacer(1, 0.4 * inch))
-    grade_text = data.grade if data.score is None else f"{data.grade} ({data.score:.0f}/100)"
-    elements.append(
-        create_summary_table("Security grade:", grade_text, _score_color(data.score))
-    )
-    return elements
 
 
-def _image(png: bytes, width: float, height: float) -> Image:
-    return Image(io.BytesIO(png), width=width, height=height)
-
-
-def _summary(
-    data: ReportData, styles: dict[str, ParagraphStyle], charts: dict[str, bytes]
-) -> list:
-    elements: list = [Paragraph("Executive summary", styles["h1"])]
-    elements.append(Paragraph(escape_html(data.headline), styles["normal"]))
-    elements.append(Spacer(1, 0.2 * inch))
+def summary_section(b: Builder, data: ReportData) -> list:
+    items: list = b.h1("Executive summary", "Summary")
+    headline = Paragraph(escape(data.headline or "-"), b.s["body_ink"])
+    if data.score is not None:
+        grade = data.grade if data.grade in GRADE_COLORS else "N/A"
+        items += [ring_head(score_ring(data.score, grade), headline), Gap(1, 5 * mm)]
+    elif not data.is_empty:
+        items += [b.callout(escape(data.headline or "-")), Gap(1, 4 * mm)]
     if data.is_empty:
-        return elements
-    kpi_rows = [
-        (key.replace("_", " ").capitalize(), _format_value(value))
-        for key, value in data.kpis.items()
+        message = data.empty_state or ""
+        items.append(b.callout(f"<b>Nothing to report.</b> {escape(message)}", MUTED))
+        items.append(Gap(1, 2 * mm))
+        items.append(
+            b.para(
+                "No figure in this report is shown as zero for lack of data. Widen the "
+                "period or the sources, or run a scan, and generate the report again.",
+                "small",
+            )
+        )
+        return items
+    if data.kpis:
+        items.append(
+            b.kpis(
+                [
+                    (key.replace("_", " ").capitalize(), _kpi_value(value))
+                    for key, value in data.kpis.items()
+                ]
+            )
+        )
+    statuses = [
+        (STATUS_LABELS.get(key, key.replace("_", " ").capitalize()), value)
+        for key, value in data.status_totals.items()
     ]
-    if kpi_rows:
-        elements.append(create_info_table(kpi_rows, normal_style=styles["normal_center"]))
-        elements.append(Spacer(1, 0.2 * inch))
-    chart = charts.get("severity")
-    if chart is not None:
-        elements.append(Paragraph("Open findings by severity", styles["h2"]))
-        elements.append(_image(chart, 6 * inch, 3 * inch))
-    return elements
+    if any(value for _, value in statuses):
+        items.append(b.h2("Results by status", bookmark=False))
+        items.append(b.kpis(statuses))
+    return items
 
 
-def _risks(data: ReportData, styles: dict[str, ParagraphStyle], cell: ParagraphStyle) -> list:
-    if not data.top_risks:
+def distribution_section(b: Builder, data: ReportData) -> list:
+    totals = {sev: int(data.severity_totals.get(sev, 0) or 0) for sev in SEVERITY_ORDER}
+    if not any(totals.values()):
         return []
-    elements: list = [Paragraph("Top risks", styles["h1"])]
-    for index, risk in enumerate(data.top_risks, start=1):
-        severity = str(risk.get("severity", "medium"))
-        color = SEVERITY_HEX.get(severity, "#FB8C00")
-        title = escape_html(str(risk.get("title") or risk.get("check_id")))
-        elements.append(
-            Paragraph(
-                f'{index}. <font color="{color}">[{severity.upper()}]</font> {title}',
-                styles["h3"],
-            )
+    items: list = [CondPageBreak(80 * mm), *b.h1("Risk distribution", "Risk")]
+    items.append(severity_strip(totals, PORTRAIT_WIDTH))
+    items.append(b.h2("Open findings by severity", bookmark=False))
+    items.append(
+        hbar_chart(
+            [
+                (sev.capitalize(), totals[sev], SEVERITY_COLORS[sev])
+                for sev in SEVERITY_ORDER
+            ],
+            PORTRAIT_WIDTH,
         )
-        elements.append(
-            Paragraph(
-                f"<b>Affected:</b> {risk.get('resources', 0)} resource(s), "
-                f"{risk.get('findings', 0)} finding(s). "
-                f"<b>Business impact:</b> {escape_html(str(risk.get('impact') or ''))}",
-                styles["normal"],
-            )
-        )
-        elements.append(
-            Paragraph(
-                f"<b>Recommended fix:</b> {escape_html(truncate_text(str(risk.get('remediation') or ''), 600))}",
-                styles["normal"],
-            )
-        )
-    return elements
-
-
-def _sources(data: ReportData, styles: dict[str, ParagraphStyle], cell: ParagraphStyle) -> list:
-    if not data.sources:
-        return []
-    sample = data.sources[0]
-    preferred = [
-        ("label", "Area"),
-        ("provider", "Source"),
-        ("mode", "Type"),
-        ("provider_type", "Provider type"),
-        ("grade", "Grade"),
-        ("score", "Score"),
-        ("open_issues", "Open issues"),
-        ("fail", "Failed"),
-        ("pass", "Passed"),
-        ("critical", "Critical"),
-        ("high", "High"),
-        ("policies", "Policies"),
-        ("resources", "Resources"),
-        ("coverage", "Coverage"),
-    ]
-    columns = [(field, header) for field, header in preferred if field in sample][:8]
-    table = ReportTable(
-        key="sources",
-        title="Breakdown by source",
-        columns=columns,
-        rows=data.sources,
-        total=len(data.sources),
     )
-    return [Paragraph("Coverage and sources", styles["h1"]), *_table_flowables(table, styles, cell)]
+    return items
 
 
-def _trend(
-    data: ReportData, styles: dict[str, ParagraphStyle], charts: dict[str, bytes]
-) -> list:
+def trend_section(b: Builder, data: ReportData) -> list:
     if not data.trend:
         return []
-    elements: list = [Paragraph("Trend", styles["h1"])]
+    items: list = [CondPageBreak(95 * mm), *b.h1("Trend", "Trend")]
     if len(data.trend) < 2:
         point = data.trend[0]
-        elements.append(
-            Paragraph(
-                f"Only one scan day in range ({point['date']}): {point['fail']} open, "
-                f"{point['pass']} passed. Trends appear after more scans.",
-                styles["normal"],
+        items.append(
+            b.para(
+                f"Only one scan day in range ({text(point.get('date'))}): "
+                f"{point.get('fail', 0)} open, {point.get('pass', 0)} passed. "
+                "Trends appear after more scans."
             )
         )
-        return elements
+        return items
+    points = [
+        {
+            "date": str(point.get("date", "")),
+            "total": int(point.get("fail", 0) or 0),
+            "critical": int(point.get("critical", 0) or 0),
+            "high": int(point.get("high", 0) or 0),
+            "comparable": True,
+        }
+        for point in data.trend
+    ]
+    items.append(trend_chart(points, PORTRAIT_WIDTH, comparable_note=False))
     first, last = data.trend[0], data.trend[-1]
     change = last["fail"] - first["fail"]
     direction = "down" if change < 0 else "up" if change > 0 else "flat"
-    elements.append(
-        Paragraph(
-            f"Open findings went {direction} from {first['fail']} on {first['date']} "
-            f"to {last['fail']} on {last['date']}.",
-            styles["normal"],
+    sentence = (
+        f"Open findings went {direction} from {first['fail']:,} on {escape(str(first['date']))} "
+        f"to {last['fail']:,} on {escape(str(last['date']))}."
+    )
+    if any(point.get("pass") for point in data.trend):
+        sentence += (
+            f" Passed results: {first.get('pass', 0):,} → {last.get('pass', 0):,}."
+        )
+    items.append(b.callout(sentence, TEAL if change <= 0 else SEVERITY_COLORS["high"]))
+    return items
+
+
+def _risk_card(b: Builder, index: int, risk: dict[str, Any]) -> list:
+    severity = str(risk.get("severity") or "medium").lower()
+    title = str(risk.get("title") or risk.get("check_id") or "-")
+    facts = [
+        {"k": "Check / rule", "v": risk.get("check_id")},
+        {
+            "k": "Affected",
+            "v": f"{risk.get('resources', 0)} resource(s), {risk.get('findings', 0)} finding(s)",
+        },
+    ]
+    if risk.get("service"):
+        facts.append({"k": "Service", "v": risk["service"]})
+    block: list = [
+        CondPageBreak(60 * mm),
+        b.h2(f"{index}. {title}"),
+        b.para(severity_markup(severity), "body_ink"),
+        Gap(1, 1.5 * mm),
+        b.table(
+            [("k", "Item", 1), ("v", "Detail", 3.2)], facts, header_color=BRAND_DARK
+        ),
+        Gap(1, 2 * mm),
+        b.h3("Business impact"),
+        b.para(text(risk.get("impact"))),
+        b.h3("Recommended fix"),
+        b.para(text(risk.get("remediation"), 600)),
+        Gap(1, 4 * mm),
+    ]
+    return block
+
+
+def top_risks_section(b: Builder, data: ReportData) -> list:
+    if not data.top_risks:
+        return []
+    items: list = [PageBreakIfNotEmpty(), *b.h1("Top risks", "Risks")]
+    items.append(
+        b.para(
+            "Ranked by severity and spread. The detail tables and the exports hold "
+            "every finding.",
+            "small",
         )
     )
-    chart = charts.get("trend")
-    if chart is not None:
-        elements.append(_image(chart, 6.5 * inch, 2.8 * inch))
-    return elements
+    for index, risk in enumerate(data.top_risks, start=1):
+        items += _risk_card(b, index, risk)
+    return items
 
 
-def _compliance(
-    data: ReportData, styles: dict[str, ParagraphStyle], charts: dict[str, bytes]
-) -> list:
+def sources_section(b: Builder, data: ReportData) -> list:
+    if not data.sources:
+        return []
+    sample = data.sources[0]
+    columns = [(field, header) for field, header in SOURCE_COLUMNS if field in sample][
+        :8
+    ]
+    items: list = [CondPageBreak(60 * mm), *b.h1("Coverage and sources", "Coverage")]
+    if not columns:
+        items.append(b.para(f"{len(data.sources)} source(s) in scope."))
+        return items
+    weights = [
+        (field, header, 1.6 if field in ("label", "provider") else 1.0)
+        for field, header in columns
+    ]
+    items.append(b.h2("Breakdown by source", bookmark=False))
+    items.append(
+        b.table(
+            weights,
+            data.sources[: pdf_max_rows()],
+            markup={"grade": _grade_cell, "score": _score_cell},
+        )
+    )
+    return items
+
+
+def compliance_section(b: Builder, data: ReportData) -> list:
     if not data.compliance:
         return []
-    elements: list = [Paragraph("Compliance posture", styles["h1"])]
-    chart = charts.get("compliance")
-    if chart is not None:
-        scored = sum(1 for item in data.compliance if item.get("pass_pct") is not None)
-        height = min(8.0, 0.4 * min(scored, 15) + 1.2)
-        elements.append(_image(chart, 6.5 * inch, height * inch))
-    return elements
-
-
-def _actions(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
-    if not data.remediation:
-        return []
-    elements: list = [Paragraph("Recommended next actions", styles["h1"])]
-    for item in data.remediation:
-        why = item.get("why")
-        suffix = f" <i>{escape_html(str(why))}</i>" if why else ""
-        title = item.get("title")
-        prefix = f"<b>{escape_html(str(title))}:</b> " if title and not why else ""
-        elements.append(
-            Paragraph(
-                f"{item['priority']}. {prefix}{escape_html(str(item.get('action') or ''))}{suffix}",
-                styles["normal"],
+    items: list = [CondPageBreak(70 * mm), *b.h1("Compliance posture", "Compliance")]
+    scored = [item for item in data.compliance if item.get("pass_pct") is not None]
+    if scored:
+        items.append(b.h2("Requirements passing (%)", bookmark=False))
+        items.append(
+            hbar_chart(
+                [
+                    (
+                        str(item.get("compliance_id")),
+                        round(float(item["pass_pct"])),
+                        TEAL
+                        if item["pass_pct"] >= 80
+                        else BRAND
+                        if item["pass_pct"] >= 60
+                        else SEVERITY_COLORS["medium"],
+                    )
+                    for item in scored[:15]
+                ],
+                PORTRAIT_WIDTH,
             )
         )
-    return elements
+        items.append(Gap(1, 3 * mm))
+    table = ReportTable(
+        key="compliance_posture",
+        title="Frameworks",
+        columns=[
+            ("compliance_id", "Framework"),
+            ("pass_pct", "Passing %"),
+            ("passed", "Passed"),
+            ("failed", "Failed"),
+            ("manual", "Manual"),
+        ],
+        rows=[
+            {
+                **item,
+                "pass_pct": item.get("pass_pct")
+                if item.get("pass_pct") is not None
+                else "Not assessed",
+            }
+            for item in data.compliance
+        ],
+        total=len(data.compliance),
+    )
+    items += _table(b, table, width=PORTRAIT_WIDTH, bookmark=False)
+    return items
 
 
-def _appendix(data: ReportData, styles: dict[str, ParagraphStyle]) -> list:
+def actions_section(b: Builder, data: ReportData) -> list:
+    if not data.remediation:
+        return []
+    items: list = [CondPageBreak(50 * mm), *b.h1("Recommended next actions", "Actions")]
+    for item in data.remediation:
+        why = item.get("why")
+        suffix = (
+            f' <font color="#64748B"><i>{escape(str(why))}</i></font>' if why else ""
+        )
+        title = item.get("title")
+        prefix = f"<b>{escape(str(title))}:</b> " if title and not why else ""
+        severity = item.get("severity")
+        tag = f"{severity_markup(str(severity).lower())}  ·  " if severity else ""
+        items.append(
+            Paragraph(
+                f"{tag}{prefix}{escape(str(item.get('action') or ''))}{suffix}",
+                b.s["body"],
+                bulletText=f"{item.get('priority', '')}.",
+            )
+        )
+    return items
+
+
+def details_section(b: Builder, data: ReportData) -> list:
+    tables = [table for table in data.tables if table.key != "top_risks"]
+    if not tables:
+        return []
+    items: list = [
+        PageBreakIfNotEmpty(nextTemplate="landscape"),
+        *b.h1("Detailed results", "Appendix"),
+    ]
+    for table in tables:
+        items += _table(b, table, width=LANDSCAPE_WIDTH)
+    return items
+
+
+def methodology_section(b: Builder, data: ReportData) -> list:
     weights = ", ".join(f"{sev} {SEVERITY_WEIGHTS[sev]:g}" for sev in SEVERITY_ORDER)
     bands = ", ".join(f"{grade} at {floor:.0f}+" for floor, grade in GRADE_BANDS)
-    scope_note = []
-    if data.filters.status_scope:
-        label = STATUS_SCOPE_LABELS.get(data.filters.status_scope, data.filters.status_scope)
-        scope_note = [
-            Paragraph(
-                f"Finding status scope: {escape_html(label)}. Failed-finding counts, "
-                "risks, and detail tables only include findings in this scope; a "
-                "grade is given for active findings only.",
-                styles["normal"],
-            )
-        ]
-    return [
-        Paragraph("Appendix: methodology", styles["h1"]),
-        Paragraph(
+    items: list = [
+        PageBreakIfNotEmpty(nextTemplate="portrait"),
+        *b.h1("Appendix: methodology", "Method"),
+        b.para(
             "Data comes from the latest completed scan of each source in scope "
             "(per provider, and per scan type for application security). Muted "
-            "findings are excluded from open counts.",
-            styles["normal"],
+            "findings are excluded from open counts."
         ),
-        *scope_note,
-        Paragraph(
+    ]
+    if data.filters.status_scope:
+        label = STATUS_SCOPE_LABELS.get(
+            data.filters.status_scope, data.filters.status_scope
+        )
+        items.append(
+            b.callout(
+                f"<b>Finding status scope: {escape(label)}.</b> Failed-finding counts, "
+                "risks, and detail tables only include findings in this scope; a "
+                "grade is given for active findings only.",
+                BRAND,
+            )
+        )
+        items.append(Gap(1, 2 * mm))
+    items += [
+        b.para(
             f"The security score weights findings by severity ({weights}). With "
             "pass/fail results it is the weighted share of passing checks; for "
             "vulnerability and secret scans, which report failures only, it "
             "decreases as weighted open findings grow. Grades: "
-            f"{bands}, F below.",
-            styles["normal"],
+            f"{bands}, F below."
         ),
-        Paragraph(
-            f"Generated by {escape_html(brand.name)} on "
-            f"{data.generated_at.strftime('%Y-%m-%d %H:%M UTC')}.",
-            styles["normal"],
+        b.para(
+            f"Generated by {escape(brand.name)} on {_generated(data)}.",
+            "small",
         ),
     ]
+    return items
 
 
-def _charts(data: ReportData) -> dict[str, bytes]:
-    """Render every chart once; story passes wrap the PNG bytes in new Images."""
-    if data.is_empty:
-        return {}
-    charts: dict[str, bytes] = {}
-    severity = _severity_chart(data)
-    if severity is not None:
-        charts["severity"] = severity
-    if len(data.trend) >= 2:
-        charts["trend"] = _trend_chart(data.trend)
-    compliance = _compliance_chart(data.compliance)
-    if compliance is not None:
-        charts["compliance"] = compliance
-    return charts
-
-
-def _toc(
-    entries: list[tuple[str, int]], styles: dict[str, ParagraphStyle], cell: ParagraphStyle
-) -> list:
-    rows = [{"section": title, "page": str(page) if page else ""} for title, page in entries]
-    columns = [
-        ColumnConfig("Section", 5.5 * inch, "section", align="LEFT"),
-        ColumnConfig("Page", 1.0 * inch, "page", align="RIGHT"),
-    ]
-    return [
-        Paragraph("Contents", styles["title"]),
-        create_data_table(rows, columns, header_color=COLOR_BLUE, normal_style=cell),
-    ]
-
-
-def _story(
-    data: ReportData,
-    styles: dict[str, ParagraphStyle],
-    cell: ParagraphStyle,
-    charts: dict[str, bytes],
-    toc_entries: list[tuple[str, int]],
-) -> list:
-    elements: list = [*_cover(data, styles), PageBreak()]
-    elements += [*_toc(toc_entries, styles, cell), PageBreak()]
-    elements += _summary(data, styles, charts)
+def story(data: ReportData) -> list:
+    """Every flowable of a focused report, in order."""
+    b = Builder()
+    flow: list = []
+    flow += cover(b, data)
+    flow.append(PageBreak(nextTemplate="portrait"))
+    flow += contents_block(b)
+    flow.append(PageBreak())
+    flow += summary_section(b, data)
     if not data.is_empty:
-        elements += _trend(data, styles, charts)
-        elements += _risks(data, styles, cell)
-        elements += _sources(data, styles, cell)
-        elements += _compliance(data, styles, charts)
-        elements += _actions(data, styles)
-        detail_tables = [table for table in data.tables if table.key != "top_risks"]
-        if detail_tables:
-            elements += [PageBreak(), Paragraph("Detailed results", styles["h1"])]
-            for table in detail_tables:
-                elements += _table_flowables(table, styles, cell)
-    elements += [PageBreak(), *_appendix(data, styles)]
-    return elements
+        flow += distribution_section(b, data)
+        flow += trend_section(b, data)
+        flow += top_risks_section(b, data)
+        flow += sources_section(b, data)
+        flow += compliance_section(b, data)
+        flow += actions_section(b, data)
+        flow += details_section(b, data)
+    flow += methodology_section(b, data)
+    return flow
 
 
-def _heading_titles(story: list) -> list[str]:
-    return [
-        item.getPlainText()
-        for item in story
-        if isinstance(item, Paragraph) and item.style.name == "CustomH1"
-    ]
+def build_pdf(
+    data: ReportData, total_pages: int | None = None
+) -> tuple[bytes, dict[str, Any]]:
+    """Render a focused report and return ``(pdf bytes, layout statistics)``.
 
-
-def _add_footer(canvas_obj: Any, doc_template: Any) -> None:
-    canvas_obj.saveState()
-    width, _ = doc_template.pagesize
-    left_text = f"Page {doc_template.page}"
-    right_text = pdf_footer()
-    canvas_obj.setFont("PlusJakartaSans", 9)
-    canvas_obj.setFillColorRGB(0.4, 0.4, 0.4)
-    canvas_obj.drawString(30, 20, left_text)
-    text_width = canvas_obj.stringWidth(right_text, "PlusJakartaSans", 9)
-    canvas_obj.drawString(width - text_width - 30, 20, right_text)
-    canvas_obj.restoreState()
-
-
-def _build(data: ReportData, story: list) -> tuple[bytes, list[tuple[str, int]]]:
+    Args:
+        data: Assembled report data.
+        total_pages: Page count of a previous render, printed in footers
+            until this render measures its own.
+    """
+    register_fonts()
     buffer = io.BytesIO()
-    doc = _BrandedDocTemplate(
+    generated = _generated(data)
+    doc = BrandedDoc(
         buffer,
-        pagesize=letter,
-        leftMargin=0.75 * inch,
-        rightMargin=0.75 * inch,
+        {
+            "title": data.title,
+            "generated": generated,
+            "period": f"Period: {_window(data.filters)}",
+            "cover_note": f"{brand.name}  ·  Generated {generated}",
+            "total_pages": total_pages,
+        },
         title=f"{data.title} - {brand.name}",
         author=pdf_author(),
         subject=data.title,
         creator=pdf_creator(),
-        keywords=f"security,report,{data.report_type},{brand.slug}",
+        keywords=f"security, report, {data.report_type}, confidential, {brand.slug}",
+        leftMargin=MARGIN_X,
+        rightMargin=MARGIN_X,
+        topMargin=MARGIN_TOP,
+        bottomMargin=MARGIN_BOTTOM,
     )
-    doc.build(story, onFirstPage=_add_footer, onLaterPages=_add_footer)
-    return buffer.getvalue(), doc.headings
+    doc.multiBuild(story(data), maxPasses=6)
+    return buffer.getvalue(), dict(doc.layout)
 
 
 def render_pdf(data: ReportData) -> bytes:
     """Render a report to PDF bytes.
 
-    The document is built twice: the first pass records the page of every
-    section heading (the contents page holds one placeholder row per
-    heading, so pagination does not move), the second prints those pages.
+    Assessment reports go to their own renderer. Every other type is laid out
+    here; the document is rebuilt until the "Page X of Y" totals match the
+    final page count.
 
     Args:
         data: Assembled report data.
@@ -558,10 +628,9 @@ def render_pdf(data: ReportData) -> bytes:
         )
 
         return render_assessment_pdf(data)
-    styles = create_pdf_styles()
-    cell = _cell_style(styles)
-    charts = _charts(data)
-    titles = _heading_titles(_story(data, styles, cell, charts, []))
-    _, headings = _build(data, _story(data, styles, cell, charts, [(t, 0) for t in titles]))
-    pdf_bytes, _ = _build(data, _story(data, styles, cell, charts, headings))
+    pdf_bytes, layout = build_pdf(data)
+    for _ in range(3):
+        if layout.get("page_total_consistent"):
+            break
+        pdf_bytes, layout = build_pdf(data, layout["pages"])
     return pdf_bytes
