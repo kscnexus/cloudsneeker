@@ -15,8 +15,12 @@ vi.mock("@/cloudsneeker/actions/custodian-library", () => ({
   installCustodianLibraryPolicies: installMock,
 }));
 
+const searchParams = vi.hoisted(() => new URLSearchParams());
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: refreshMock }),
+  usePathname: () => "/governance/library",
+  useSearchParams: () => searchParams,
 }));
 
 const policy = (

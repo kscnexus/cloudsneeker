@@ -5,10 +5,8 @@ import { Suspense } from "react";
 import { listAppSecApplications } from "@/cloudsneeker/actions/appsec";
 import {
   LoadError,
-  Pager,
   ROW_LINK_CLASS,
   TABLE_CLASS,
-  TABLE_WRAPPER_CLASS,
   TD_CLASS,
   TD_PRIMARY_CLASS,
   TH_CLASS,
@@ -16,9 +14,13 @@ import {
 import { pagesOf } from "@/cloudsneeker/components/area-triage-view";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { PageNav } from "@/cloudsneeker/components/page-nav";
 import { RunStatusBadge } from "@/cloudsneeker/components/run-status-badge";
-import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { StandardFilters } from "@/cloudsneeker/components/standard/standard-filters";
+import { StandardTableCard } from "@/cloudsneeker/components/standard/standard-table-card";
 import {
+  APPSEC_CRITICALITIES,
+  APPSEC_ENVIRONMENTS,
   APPSEC_SEGMENT,
   appSecApplicationHref,
   formatAppSecDate,
@@ -29,13 +31,22 @@ import {
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
+import {
+  filterParam,
+  readFilterValue,
+  readPage,
+  readPageSize,
+  readSearch,
+  STANDARD_PARAM,
+} from "@/cloudsneeker/lib/standard-list";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
+import { TABLE_FRAME_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import type {
   AppSecApplicationAttributes,
   AppSecResource,
 } from "@/cloudsneeker/types/appsec";
-import { Button, Input, Skeleton } from "@/components/shadcn";
+import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { cn } from "@/lib/utils";
 import type { SearchParamsProps } from "@/types";
@@ -46,15 +57,30 @@ interface PageProps {
 
 const BASE = appSecurityHref(APPSEC_SEGMENT.APPLICATIONS);
 
-const one = (value: string | string[] | undefined): string =>
-  (Array.isArray(value) ? value[0] : value) ?? "";
+const PAGE_SIZE = 25;
+
+interface ApplicationListState {
+  search: string;
+  criticality: string;
+  environment: string;
+  page: number;
+  pageSize: number;
+}
+
+const capitalize = (value: string): string =>
+  value.charAt(0).toUpperCase() + value.slice(1);
 
 export default async function AppSecurityApplicationsPage({
   searchParams,
 }: PageProps) {
   const params = await searchParams;
-  const search = one(params.q).trim();
-  const page = Math.max(1, Number.parseInt(one(params.page), 10) || 1);
+  const state: ApplicationListState = {
+    search: readSearch(params, ["q"]),
+    criticality: readFilterValue(params, "criticality"),
+    environment: readFilterValue(params, "environment"),
+    page: readPage(params),
+    pageSize: readPageSize(params, PAGE_SIZE),
+  };
   const canManage = await canManageScans();
 
   return (
@@ -72,44 +98,79 @@ export default async function AppSecurityApplicationsPage({
           ) : null
         }
       />
-      <Suspense
-        key={`${search}-${page}`}
-        fallback={<Skeleton className="h-64 w-full rounded-xl" />}
-      >
-        <SSRApplications search={search} page={page} canManage={canManage} />
-      </Suspense>
+      <div className="flex flex-col gap-6">
+        <StandardFilters
+          testIdPrefix="applications"
+          filters={[
+            {
+              key: "criticality",
+              label: "Criticalities",
+              single: true,
+              options: APPSEC_CRITICALITIES.map((value) => ({
+                value,
+                label: capitalize(value),
+              })),
+            },
+            {
+              key: "environment",
+              label: "Environments",
+              single: true,
+              options: APPSEC_ENVIRONMENTS.map((value) => ({
+                value,
+                label: capitalize(value),
+              })),
+            },
+          ]}
+        />
+        <Suspense
+          key={JSON.stringify(state)}
+          fallback={<Skeleton className="h-64 w-full rounded-xl" />}
+        >
+          <SSRApplications state={state} canManage={canManage} />
+        </Suspense>
+      </div>
     </ContentLayout>
   );
 }
 
-const hrefFor = (search: string, page: number): string => {
+const hrefFor = (state: ApplicationListState, page: number): string => {
   const query = new URLSearchParams();
-  if (search) query.set("q", search);
-  if (page > 1) query.set("page", String(page));
+  if (state.search) query.set(STANDARD_PARAM.SEARCH, state.search);
+  if (state.criticality)
+    query.set(filterParam("criticality"), state.criticality);
+  if (state.environment)
+    query.set(filterParam("environment"), state.environment);
+  if (state.pageSize !== PAGE_SIZE)
+    query.set(STANDARD_PARAM.PAGE_SIZE, String(state.pageSize));
+  if (page > 1) query.set(STANDARD_PARAM.PAGE, String(page));
   const serialized = query.toString();
   return serialized ? `${BASE}?${serialized}` : BASE;
 };
 
 const SSRApplications = async ({
-  search,
-  page,
+  state,
   canManage,
 }: {
-  search: string;
-  page: number;
+  state: ApplicationListState;
   canManage: boolean;
 }) => {
+  const { search, page } = state;
+  const filtered = Boolean(
+    state.search || state.criticality || state.environment,
+  );
   const response = await listAppSecApplications({
     "filter[search]": search,
+    ...(state.criticality ? { "filter[criticality]": state.criticality } : {}),
+    ...(state.environment ? { "filter[environment]": state.environment } : {}),
     "page[number]": String(page),
-    "page[size]": "25",
+    "page[size]": String(state.pageSize),
   });
   if (!isListResponse(response)) {
     return (
       <LoadError
         title="Applications"
         what="Applications"
-        reloadHref={hrefFor(search, page)}
+        reloadHref={hrefFor(state, page)}
       />
     );
   }
@@ -118,28 +179,30 @@ const SSRApplications = async ({
   const total = responseCount(response) ?? applications.length;
 
   return (
-    <SectionCard title="Inventory" description={`${total} application(s).`}>
-      <form method="get" className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Search
-          </span>
-          <Input name="q" defaultValue={search} placeholder="Name or owner" />
-        </label>
-        <Button type="submit" size="sm">
-          Apply
-        </Button>
-      </form>
+    <StandardTableCard
+      searchPlaceholder="Search name or owner (press Enter)"
+      total={total}
+      footer={
+        <PageNav
+          page={page}
+          pages={pagesOf(response)}
+          count={total}
+          noun="applications"
+          pageSize={state.pageSize}
+          hrefFor={(next) => hrefFor(state, next)}
+        />
+      }
+    >
       {applications.length === 0 ? (
         <EmptyState
-          title={search ? "No applications match" : "No applications yet"}
+          title={filtered ? "No applications match" : "No applications yet"}
           description={
-            search
-              ? "Try another name."
+            filtered
+              ? "Clear a filter or try another name."
               : "Create an application and assign its assets to see posture per product instead of per scan target."
           }
           action={
-            canManage && !search ? (
+            canManage && !filtered ? (
               <Button asChild size="sm">
                 <Link href={`${BASE}/new`}>Create an application</Link>
               </Button>
@@ -147,7 +210,7 @@ const SSRApplications = async ({
           }
         />
       ) : (
-        <div className={TABLE_WRAPPER_CLASS}>
+        <div className={TABLE_FRAME_CLASS}>
           <table className={TABLE_CLASS}>
             <thead>
               <tr>
@@ -240,11 +303,6 @@ const SSRApplications = async ({
           </table>
         </div>
       )}
-      <Pager
-        page={page}
-        pages={pagesOf(response)}
-        hrefFor={(next) => hrefFor(search, next)}
-      />
-    </SectionCard>
+    </StandardTableCard>
   );
 };

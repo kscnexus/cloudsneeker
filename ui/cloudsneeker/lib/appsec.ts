@@ -65,6 +65,23 @@ export const APPSEC_STATES: readonly AppSecState[] = [
   APPSEC_STATE.FIXED,
 ];
 
+/** Business criticality of an application. */
+export const APPSEC_CRITICALITIES = [
+  "low",
+  "medium",
+  "high",
+  "critical",
+] as const;
+
+/** Environment of an application. */
+export const APPSEC_ENVIRONMENTS = [
+  "production",
+  "staging",
+  "development",
+  "test",
+  "unknown",
+] as const;
+
 export const APPSEC_PRIORITIES: readonly AppSecPriority[] = [
   APPSEC_PRIORITY.URGENT,
   APPSEC_PRIORITY.HIGH,

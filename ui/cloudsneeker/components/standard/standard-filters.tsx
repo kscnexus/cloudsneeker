@@ -33,6 +33,8 @@ interface StandardFiltersProps {
   primaryCount?: number;
   /** `filter[...]` key of a date filter shown under "More Filters". */
   dateKey?: string;
+  /** Chip label of the date filter. */
+  dateLabel?: string;
   /** Parameters kept when filters are applied or cleared. */
   defaultParams?: Record<string, string>;
   /** Extra controls after the dropdowns (for example a search box). */
@@ -53,6 +55,7 @@ export const StandardFilters = ({
   filters,
   primaryCount = 4,
   dateKey,
+  dateLabel = "Date",
   defaultParams,
   trailingControls,
 }: StandardFiltersProps) => {
@@ -79,13 +82,16 @@ export const StandardFilters = ({
   const more = options.slice(primaryCount);
   const hasMore = more.length > 0 || Boolean(dateKey);
 
+  const chipFilters: StandardFilter[] = dateKey
+    ? [...filters, { key: dateKey, label: dateLabel, options: [] }]
+    : filters;
   const appliedChips: FilterChip[] = buildStandardChips(
     appliedFilters,
-    filters,
+    chipFilters,
   );
   const pendingChips: FilterChip[] = buildStandardChips(
     changedFilters,
-    filters,
+    chipFilters,
   );
   const appliedCount = appliedChips.length;
 

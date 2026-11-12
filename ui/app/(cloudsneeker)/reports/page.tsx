@@ -13,12 +13,14 @@ import {
   listReportTypes,
 } from "@/cloudsneeker/actions/reports";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { PageNav } from "@/cloudsneeker/components/page-nav";
 import { ReportCatalogGrid } from "@/cloudsneeker/components/report-catalog-grid";
 import { ReportPageTabs } from "@/cloudsneeker/components/report-page-tabs";
 import { ReportRunsTable } from "@/cloudsneeker/components/report-runs-table";
 import { ReportSchedulesPanel } from "@/cloudsneeker/components/report-schedules-panel";
 import { ReportShareLinksTable } from "@/cloudsneeker/components/report-share-links-table";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { StandardFilters } from "@/cloudsneeker/components/standard/standard-filters";
 import { isAssessmentType } from "@/cloudsneeker/lib/assessment-wizard";
 import {
   buildReportCatalog,
@@ -31,12 +33,21 @@ import {
   providerOptions,
 } from "@/cloudsneeker/lib/report-options";
 import { getReportsTab, REPORTS_TAB } from "@/cloudsneeker/lib/report-tabs";
+import {
+  filterParam,
+  readFilterList,
+  readFilterValue,
+  readPage,
+  readPageSize,
+  STANDARD_PARAM,
+} from "@/cloudsneeker/lib/standard-list";
 import { reportsHref } from "@/cloudsneeker/routes";
-import type {
-  ReportRunResource,
-  ReportScheduleResource,
-  ReportShareLinkResource,
-  ReportTypeResource,
+import {
+  REPORT_RUN_STATUS,
+  type ReportRunResource,
+  type ReportScheduleResource,
+  type ReportShareLinkResource,
+  type ReportTypeResource,
 } from "@/cloudsneeker/types/reports";
 import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
@@ -45,6 +56,60 @@ import type { SearchParamsProps } from "@/types";
 /** Recent scans whose compliance overviews feed the framework list. */
 const FRAMEWORK_SCAN_LIMIT = 5;
 
+const RUNS_PAGE_SIZE = 20;
+
+const RUN_TRIGGER_OPTIONS = [
+  { value: "manual", label: "On demand" },
+  { value: "scheduled", label: "Scheduled" },
+];
+
+/** Recent reports list state (`filter[...]`, `page`, `pageSize`). */
+interface RunListState {
+  types: string[];
+  status: string;
+  trigger: string;
+  page: number;
+  pageSize: number;
+}
+
+const runListQuery = (state: RunListState): Record<string, string> => ({
+  "page[size]": String(state.pageSize),
+  "page[number]": String(state.page),
+  sort: "-inserted_at",
+  ...(state.types.length
+    ? { "filter[report_type__in]": state.types.join(",") }
+    : {}),
+  ...(state.status ? { "filter[status]": state.status } : {}),
+  ...(state.trigger ? { "filter[trigger]": state.trigger } : {}),
+});
+
+const runListHref = (state: RunListState, page: number): string => {
+  const query = new URLSearchParams();
+  if (state.types.length)
+    query.set(filterParam("report_type__in"), state.types.join(","));
+  if (state.status) query.set(filterParam("status"), state.status);
+  if (state.trigger) query.set(filterParam("trigger"), state.trigger);
+  if (state.pageSize !== RUNS_PAGE_SIZE)
+    query.set(STANDARD_PARAM.PAGE_SIZE, String(state.pageSize));
+  if (page > 1) query.set(STANDARD_PARAM.PAGE, String(page));
+  const serialized = query.toString();
+  return serialized ? `${reportsHref()}?${serialized}` : reportsHref();
+};
+
+const pagesOfResponse = (
+  response: unknown,
+): { pages: number; count: number } => {
+  const pagination = (
+    response as
+      | { meta?: { pagination?: { pages?: number; count?: number } } }
+      | undefined
+  )?.meta?.pagination;
+  return {
+    pages: pagination?.pages && pagination.pages > 0 ? pagination.pages : 1,
+    count: pagination?.count ?? 0,
+  };
+};
+
 interface ReportsPageProps {
   searchParams: Promise<SearchParamsProps>;
 }
@@ -52,12 +117,19 @@ interface ReportsPageProps {
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const resolvedSearchParams = await searchParams;
   const activeTab = getReportsTab(resolvedSearchParams.tab);
+  const runList: RunListState = {
+    types: readFilterList(resolvedSearchParams, "report_type__in"),
+    status: readFilterValue(resolvedSearchParams, "status"),
+    trigger: readFilterValue(resolvedSearchParams, "trigger"),
+    page: readPage(resolvedSearchParams),
+    pageSize: readPageSize(resolvedSearchParams, RUNS_PAGE_SIZE),
+  };
 
   return (
     <ContentLayout title="Reports" icon={<FileBarChart />}>
       <PageHeader description="Turn cloud, application, compliance, and governance results into reports for leadership, auditors, and engineering teams. Download them, share a secure link, or email them on a schedule." />
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
-        <SSRReportsWorkspace activeTab={activeTab} />
+        <SSRReportsWorkspace activeTab={activeTab} runList={runList} />
       </Suspense>
     </ContentLayout>
   );
@@ -101,8 +173,10 @@ const loadFrameworks = async (
 
 const SSRReportsWorkspace = async ({
   activeTab,
+  runList,
 }: {
   activeTab: ReturnType<typeof getReportsTab>;
+  runList: RunListState;
 }) => {
   const session = await auth();
   const canManage = Boolean(session?.user?.permissions?.manage_scans);
@@ -118,7 +192,7 @@ const SSRReportsWorkspace = async ({
     frameworks,
   ] = await Promise.all([
     listReportTypes(),
-    listReportRuns({ "page[size]": "50", sort: "-inserted_at" }),
+    listReportRuns(runListQuery(runList)),
     canManage && activeTab === REPORTS_TAB.SCHEDULES
       ? listReportSchedules({ "page[size]": "100" })
       : Promise.resolve(undefined),
@@ -133,6 +207,7 @@ const SSRReportsWorkspace = async ({
   // Assessments have their own wizard; the catalog keeps the focused reports.
   const focusedCatalog = catalog.filter((entry) => !isAssessmentType(entry.id));
   const runs = asList<ReportRunResource>(runsResponse);
+  const runPages = pagesOfResponse(runsResponse);
   const schedules = asList<ReportScheduleResource>(schedulesResponse);
   const links = asList<ReportShareLinkResource>(linksResponse);
   const providers = providerOptions(providersResponse?.data ?? []);
@@ -180,7 +255,46 @@ const SSRReportsWorkspace = async ({
             title="Recent reports"
             description="Open, download, or share a generated report."
           >
-            <ReportRunsTable runs={runs} canShare={canManage} />
+            <div className="flex flex-col gap-4">
+              <StandardFilters
+                testIdPrefix="report-runs"
+                filters={[
+                  {
+                    key: "report_type__in",
+                    label: "Report Types",
+                    wide: true,
+                    options: catalog.map((entry) => ({
+                      value: entry.id,
+                      label: entry.title,
+                    })),
+                  },
+                  {
+                    key: "status",
+                    label: "Statuses",
+                    single: true,
+                    options: Object.values(REPORT_RUN_STATUS).map((value) => ({
+                      value,
+                      label: value.charAt(0).toUpperCase() + value.slice(1),
+                    })),
+                  },
+                  {
+                    key: "trigger",
+                    label: "Triggers",
+                    single: true,
+                    options: RUN_TRIGGER_OPTIONS,
+                  },
+                ]}
+              />
+              <ReportRunsTable runs={runs} canShare={canManage} />
+              <PageNav
+                page={runList.page}
+                pages={runPages.pages}
+                count={runPages.count}
+                noun="reports"
+                pageSize={runList.pageSize}
+                hrefFor={(page) => runListHref(runList, page)}
+              />
+            </div>
           </SectionCard>
         </div>
       }

@@ -12,6 +12,8 @@ import {
   actionError,
   APPSEC_SEGMENT,
   appSecApplicationHref,
+  APPSEC_CRITICALITIES,
+  APPSEC_ENVIRONMENTS,
 } from "@/cloudsneeker/lib/appsec";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
 import {
@@ -52,14 +54,8 @@ interface AppSecApplicationFormProps {
   profiles: AppSecProfileOption[];
 }
 
-const CRITICALITY = ["low", "medium", "high", "critical"] as const;
-const ENVIRONMENT = [
-  "production",
-  "staging",
-  "development",
-  "test",
-  "unknown",
-] as const;
+const CRITICALITY = APPSEC_CRITICALITIES;
+const ENVIRONMENT = APPSEC_ENVIRONMENTS;
 const EXPOSURE = {
   UNKNOWN: "unknown",
   YES: "yes",

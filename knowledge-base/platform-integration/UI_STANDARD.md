@@ -63,12 +63,13 @@ The statuses are:
 | Cloud Security | Alert history | `/alerts?tab=history` | Standard filters |
 | Application Security | Findings, Vulnerabilities, Code, Misconfigurations, Secrets, Licenses | `/application-security/<segment>` | Done |
 | Application Security | Scan history | `/application-security/scans` | Standard filters |
-| Application Security | Applications, Components (SCA), SBOMs | `/application-security/applications`, `/components`, `/sboms` | Shared look |
+| Application Security | Applications, SBOMs | `/application-security/applications`, `/sboms` | Done |
+| Application Security | Components (SCA) and SBOM detail components | `/application-security/components`, `/sboms/<id>` | Standard filters |
 | Cloud Governance | Findings | `/governance/findings` | Done |
 | Cloud Governance | Policies, Reports (dry runs) | `/governance?tab=policies`, `?tab=reports` | Standard filters |
-| Cloud Governance | Library | `/governance/library` | Shared look |
-| All | Reports | `/reports` | Shared look |
-| All | Audit log | `/settings/audit-log` | Shared look |
+| Cloud Governance | Library | `/governance/library` | Standard dropdowns (filtered in the browser) |
+| All | Reports (recent reports) | `/reports` | Standard filters, with paging |
+| All | Audit log | `/settings/audit-log` | Standard filters |
 
 ### Filters per Page
 
@@ -80,5 +81,20 @@ The statuses are:
 | Governance dry runs | Accounts, Statuses, search |
 | Application Security scan history | Target types, search |
 | Alert history | Statuses, Modules, search |
+| Applications | Criticalities, Environments, search in the toolbar |
+| Components and SBOM components | Ecosystems, Relationships, Vulnerability states, Licenses, License statements, search, sort |
+| SBOMs | Versions (newest per asset or all), Applications; asset scope from links |
+| Governance library | Categories, Severities, search, starter pack and installed toggles |
+| Recent reports | Report Types, Statuses, Triggers, rows per page |
+| Audit log | Actions, Outcomes, From date, actor search, Export CSV |
 
-The pages marked `Shared look` are the next ones to move to `StandardFilters` (see [Platform Issues](PLATFORM_INTEGRATION_AUDIT.md)).
+Detail pages (finding, policy, run, application, SBOM) keep their own sections; see the detail page notes below.
+
+## Detail Pages
+
+The Cloud Security finding drawer has a header (severity, status, title and actions) and tabs: Overview, Remediation, Evidence, Other findings, Scans and Events. Detail pages follow it as far as their data allows, and keep their module-specific information:
+
+| Page | Layout |
+| --- | --- |
+| Governance finding (`/governance/findings/<uid>`) | Header with severity, triage or muted status, and Mute. Tabs: Overview (resource, type, region, policy, rule, first and last seen, finding ID), Remediation (policy, the dry run that reported it, triage) and Evidence (the resource as the run reported it). |
+| Application Security finding (`/application-security/findings/<id>`) | Header with priority, severity, state and triage, then cards for Technical details (CVE, package, versions, file and line), Remediation, References, History and Recent scans. Tabs would only rearrange this, so it keeps its cards. |

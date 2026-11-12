@@ -1,17 +1,15 @@
 import Link from "next/link";
 
 import { APPSEC_SEGMENT, appSecFindingsHref } from "@/cloudsneeker/lib/appsec";
-import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import type {
   AppSecComponentAttributes,
   AppSecResource,
 } from "@/cloudsneeker/types/appsec";
-import { Button, Input } from "@/components/shadcn";
+import { DataTableSearch } from "@/components/shadcn/table/data-table-search";
 import { cn } from "@/lib/utils";
 
 import {
   AppSecSeverityBadge,
-  ChipLink,
   ROW_LINK_CLASS,
   TABLE_CLASS,
   TABLE_WRAPPER_CLASS,
@@ -19,17 +17,30 @@ import {
   TD_PRIMARY_CLASS,
   TH_CLASS,
 } from "./appsec-ui";
+import { SortSelect } from "./standard/sort-select";
+import { StandardFilters } from "./standard/standard-filters";
+import type { StandardFilter } from "./standard/standard-filters.utils";
 
 export const COMPONENT_PARAM = {
-  SEARCH: "q",
-  ECOSYSTEM: "ecosystem",
-  RELATIONSHIP: "relationship",
-  VULNERABLE: "vulnerable",
-  UNLICENSED: "unlicensed",
-  LICENSE: "license",
+  SEARCH: "filter[search]",
+  ECOSYSTEM: "filter[ecosystem]",
+  RELATIONSHIP: "filter[relationship]",
+  VULNERABLE: "filter[vulnerable]",
+  UNLICENSED: "filter[unlicensed]",
+  LICENSE: "filter[license]",
   SORT: "sort",
   PAGE: "page",
 } as const;
+
+/** Names used before the standard filter bar; still read for old links. */
+const LEGACY_COMPONENT_PARAM: Record<string, string> = {
+  [COMPONENT_PARAM.SEARCH]: "q",
+  [COMPONENT_PARAM.ECOSYSTEM]: "ecosystem",
+  [COMPONENT_PARAM.RELATIONSHIP]: "relationship",
+  [COMPONENT_PARAM.VULNERABLE]: "vulnerable",
+  [COMPONENT_PARAM.UNLICENSED]: "unlicensed",
+  [COMPONENT_PARAM.LICENSE]: "license",
+};
 
 export interface ComponentFilters {
   search: string;
@@ -42,28 +53,40 @@ export interface ComponentFilters {
   page: number;
 }
 
+const DEFAULT_SORT = "-vulnerability_count";
+
 const SORTS: Record<string, string> = {
-  "-vulnerability_count": "Most vulnerabilities",
+  [DEFAULT_SORT]: "Most vulnerabilities",
   name: "Name",
   ecosystem: "Ecosystem",
   relationship: "Relationship",
 };
 
+const RELATIONSHIP_FILTERS = ["direct", "indirect"] as const;
+
 const one = (value: string | string[] | undefined): string =>
   ((Array.isArray(value) ? value[0] : value) ?? "").trim();
 
-export const parseComponentFilters = (
-  params: Record<string, string | string[] | undefined>,
-): ComponentFilters => {
+type Params = Record<string, string | string[] | undefined>;
+
+const read = (params: Params, name: string): string =>
+  one(params[name]) ||
+  (LEGACY_COMPONENT_PARAM[name]
+    ? one(params[LEGACY_COMPONENT_PARAM[name]])
+    : "");
+
+const truthy = (value: string): boolean => value === "1" || value === "true";
+
+export const parseComponentFilters = (params: Params): ComponentFilters => {
   const sort = one(params[COMPONENT_PARAM.SORT]);
   return {
-    search: one(params[COMPONENT_PARAM.SEARCH]),
-    ecosystem: one(params[COMPONENT_PARAM.ECOSYSTEM]),
-    relationship: one(params[COMPONENT_PARAM.RELATIONSHIP]),
-    vulnerable: one(params[COMPONENT_PARAM.VULNERABLE]) === "1",
-    unlicensed: one(params[COMPONENT_PARAM.UNLICENSED]) === "1",
-    license: one(params[COMPONENT_PARAM.LICENSE]),
-    sort: sort in SORTS ? sort : "-vulnerability_count",
+    search: read(params, COMPONENT_PARAM.SEARCH),
+    ecosystem: read(params, COMPONENT_PARAM.ECOSYSTEM),
+    relationship: read(params, COMPONENT_PARAM.RELATIONSHIP),
+    vulnerable: truthy(read(params, COMPONENT_PARAM.VULNERABLE)),
+    unlicensed: truthy(read(params, COMPONENT_PARAM.UNLICENSED)),
+    license: read(params, COMPONENT_PARAM.LICENSE),
+    sort: sort in SORTS ? sort : DEFAULT_SORT,
     page: Math.max(
       1,
       Number.parseInt(one(params[COMPONENT_PARAM.PAGE]), 10) || 1,
@@ -83,10 +106,10 @@ export const componentsHref = (
     query.set(COMPONENT_PARAM.ECOSYSTEM, filters.ecosystem);
   if (filters.relationship)
     query.set(COMPONENT_PARAM.RELATIONSHIP, filters.relationship);
-  if (filters.vulnerable) query.set(COMPONENT_PARAM.VULNERABLE, "1");
-  if (filters.unlicensed) query.set(COMPONENT_PARAM.UNLICENSED, "1");
+  if (filters.vulnerable) query.set(COMPONENT_PARAM.VULNERABLE, "true");
+  if (filters.unlicensed) query.set(COMPONENT_PARAM.UNLICENSED, "true");
   if (filters.license) query.set(COMPONENT_PARAM.LICENSE, filters.license);
-  if (filters.sort && filters.sort !== "-vulnerability_count")
+  if (filters.sort && filters.sort !== DEFAULT_SORT)
     query.set(COMPONENT_PARAM.SORT, filters.sort);
   if (filters.page && filters.page > 1)
     query.set(COMPONENT_PARAM.PAGE, String(filters.page));
@@ -113,137 +136,87 @@ export const componentsQuery = (
   return query;
 };
 
-interface ComponentFiltersBarProps {
-  base: string;
-  filters: ComponentFilters;
+/** Filter bar of the component lists (Cloud Security Findings controls). */
+export const buildComponentFilters = ({
+  ecosystems,
+  licenses = [],
+}: {
   ecosystems: string[];
-  /** Query parameters to keep (target, application). */
-  extra?: Record<string, string>;
+  licenses?: string[];
+}): StandardFilter[] => [
+  {
+    key: COMPONENT_PARAM.ECOSYSTEM,
+    label: "Ecosystems",
+    single: true,
+    options: ecosystems.map((ecosystem) => ({
+      value: ecosystem,
+      label: ecosystem || "unknown",
+    })),
+  },
+  {
+    key: COMPONENT_PARAM.RELATIONSHIP,
+    label: "Relationships",
+    single: true,
+    options: RELATIONSHIP_FILTERS.map((relationship) => ({
+      value: relationship,
+      label: RELATIONSHIP_LABEL[relationship],
+    })),
+  },
+  {
+    key: COMPONENT_PARAM.VULNERABLE,
+    label: "Vulnerability states",
+    single: true,
+    options: [{ value: "true", label: "Vulnerable" }],
+  },
+  {
+    key: COMPONENT_PARAM.LICENSE,
+    label: "Licenses",
+    single: true,
+    wide: true,
+    options: licenses.map((license) => ({ value: license, label: license })),
+  },
+  {
+    key: COMPONENT_PARAM.UNLICENSED,
+    label: "License statements",
+    single: true,
+    options: [{ value: "true", label: "No license stated" }],
+  },
+];
+
+interface ComponentFiltersBarProps {
+  ecosystems: string[];
+  licenses?: string[];
+  sort: string;
 }
 
+/** Filters, search and sort above a component table. */
 export const ComponentFiltersBar = ({
-  base,
-  filters,
   ecosystems,
-  extra = {},
-}: ComponentFiltersBarProps) => {
-  const reset = { ...filters, page: 1 };
-  return (
-    <div className="flex flex-col gap-3">
-      <nav aria-label="Component filters" className="flex flex-wrap gap-2">
-        <ChipLink
-          href={componentsHref(
-            base,
-            { ...reset, vulnerable: !filters.vulnerable },
-            extra,
-          )}
-          active={filters.vulnerable}
-        >
-          Vulnerable
-        </ChipLink>
-        {(["direct", "indirect"] as const).map((relationship) => (
-          <ChipLink
-            key={relationship}
-            href={componentsHref(
-              base,
-              {
-                ...reset,
-                relationship:
-                  filters.relationship === relationship ? "" : relationship,
-              },
-              extra,
-            )}
-            active={filters.relationship === relationship}
-          >
-            {relationship === "direct" ? "Direct" : "Transitive"}
-          </ChipLink>
-        ))}
-        <ChipLink
-          href={componentsHref(
-            base,
-            { ...reset, unlicensed: !filters.unlicensed },
-            extra,
-          )}
-          active={filters.unlicensed}
-        >
-          No license stated
-        </ChipLink>
-        {filters.license ? (
-          <ChipLink
-            href={componentsHref(base, { ...reset, license: "" }, extra)}
-            active
-          >
-            License: {filters.license} ×
-          </ChipLink>
-        ) : null}
-      </nav>
-      <form method="get" className="flex flex-wrap items-end gap-2">
-        {Object.entries({
-          ...extra,
-          ...(filters.vulnerable ? { [COMPONENT_PARAM.VULNERABLE]: "1" } : {}),
-          ...(filters.unlicensed ? { [COMPONENT_PARAM.UNLICENSED]: "1" } : {}),
-          ...(filters.relationship
-            ? { [COMPONENT_PARAM.RELATIONSHIP]: filters.relationship }
-            : {}),
-          ...(filters.license
-            ? { [COMPONENT_PARAM.LICENSE]: filters.license }
-            : {}),
-        }).map(([name, value]) => (
-          <input key={name} type="hidden" name={name} value={value} />
-        ))}
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Search
-          </span>
-          <Input
-            name={COMPONENT_PARAM.SEARCH}
-            defaultValue={filters.search}
-            placeholder="Package name or package URL"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Ecosystem
-          </span>
-          <select
-            name={COMPONENT_PARAM.ECOSYSTEM}
-            defaultValue={filters.ecosystem}
-            className={cn(FORM_SELECT_CLASS, "w-40")}
-          >
-            <option value="">All</option>
-            {ecosystems.map((ecosystem) => (
-              <option key={ecosystem} value={ecosystem}>
-                {ecosystem}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Sort by
-          </span>
-          <select
-            name={COMPONENT_PARAM.SORT}
-            defaultValue={filters.sort}
-            className={cn(FORM_SELECT_CLASS, "w-48")}
-          >
-            {Object.entries(SORTS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button type="submit" size="sm">
-          Apply
-        </Button>
-        <Button asChild size="sm" variant="ghost">
-          <Link href={componentsHref(base, {}, extra)}>Reset</Link>
-        </Button>
-      </form>
+  licenses,
+  sort,
+}: ComponentFiltersBarProps) => (
+  <div className="flex flex-col gap-3">
+    <StandardFilters
+      testIdPrefix="components"
+      filters={buildComponentFilters({ ecosystems, licenses })}
+      trailingControls={
+        <div className="w-full md:w-80">
+          <DataTableSearch placeholder="Package name or URL (press Enter)" />
+        </div>
+      }
+    />
+    <div className="flex justify-end">
+      <SortSelect
+        value={sort}
+        defaultValue={DEFAULT_SORT}
+        options={Object.entries(SORTS).map(([value, label]) => ({
+          value,
+          label,
+        }))}
+      />
     </div>
-  );
-};
+  </div>
+);
 
 const RELATIONSHIP_LABEL: Record<string, string> = {
   direct: "Direct",
