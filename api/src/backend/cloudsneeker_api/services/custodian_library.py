@@ -114,6 +114,8 @@ def _build_entry(provider_type: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
     if raw.get("filters"):
         policy["filters"] = raw["filters"]
+    # Findings read their severity from the policy (governance_findings.py).
+    policy["metadata"] = {"severity": raw["severity"]}
 
     return {
         "id": raw["id"],
@@ -197,6 +199,14 @@ def get_library_policy(policy_id: str) -> dict[str, Any] | None:
     for entry in _load_library():
         if entry["id"] == policy_id:
             return _copy(entry)
+    return None
+
+
+def library_severity(policy_id: str) -> str | None:
+    """Severity of a library policy by id (the rule name it adds), or None."""
+    for entry in _load_library():
+        if entry["id"] == policy_id:
+            return entry["severity"]
     return None
 
 

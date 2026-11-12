@@ -149,7 +149,10 @@ export function buildCustodianDashboard({
     else if (ACTIVE_STATUSES.has(status)) activeRunCount += 1;
 
     const count = run.attributes.summary?.resource_count;
-    if (typeof count === "number" && status === CUSTODIAN_RUN_STATUS.COMPLETED) {
+    if (
+      typeof count === "number" &&
+      status === CUSTODIAN_RUN_STATUS.COMPLETED
+    ) {
       resourcesMatched += count;
       resourcesByPolicy.set(
         run.attributes.policy_id,
@@ -182,7 +185,7 @@ export function buildCustodianDashboard({
         ? run.attributes.summary.resource_count
         : null,
     insertedAt: run.attributes.inserted_at ?? null,
-    error: run.attributes.error ?? "",
+    error: summarizeRunError(run.attributes.error),
   }));
 
   const resourceTrends = sortedRuns
@@ -211,7 +214,8 @@ export function buildCustodianDashboard({
       const policy = policyById.get(policyId);
       return {
         policyId,
-        policyName: names.get(policyId) || policy?.attributes.name || "Unknown policy",
+        policyName:
+          names.get(policyId) || policy?.attributes.name || "Unknown policy",
         runCount: runsByPolicy.get(policyId) ?? 0,
         resourcesMatched: resourcesByPolicy.get(policyId) ?? 0,
         providerLabel: providerLabelFor(policy, {
@@ -291,10 +295,36 @@ export function buildCustodianReportRows({
           run.attributes.started_at,
           run.attributes.finished_at,
         ),
-        error: run.attributes.error ?? "",
+        error: summarizeRunError(run.attributes.error),
         insertedAt: run.attributes.inserted_at ?? null,
       };
     });
+}
+
+const ERROR_LINE_LIMIT = 240;
+
+/**
+ * One readable line for a failed dry-run. The stored error is the engine's
+ * log (per-region progress lines, then tracebacks); the useful part is the
+ * cloud API error near the end, for example
+ * "An error occurred (AccessDeniedException) when calling the
+ * GetFunctionUrlConfig operation: ...". The run page keeps the full text.
+ */
+export function summarizeRunError(raw: string | null | undefined): string {
+  const text = (raw ?? "").trim();
+  if (!text) return "";
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const apiError = lines.find((line) => /An error occurred \(/.test(line));
+  const pick =
+    apiError?.slice(apiError.indexOf("An error occurred")) ??
+    [...lines].reverse().find((line) => /(Error|Exception).*:/.test(line)) ??
+    lines[lines.length - 1];
+  return pick.length > ERROR_LINE_LIMIT
+    ? `${pick.slice(0, ERROR_LINE_LIMIT - 1)}…`
+    : pick;
 }
 
 export function getCustodianTab(

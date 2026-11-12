@@ -19,6 +19,7 @@ import yaml
 from api.models import Role
 from cloudsneeker_api.models import CustodianPolicy, CustodianRun
 from cloudsneeker_api.reports.access import visible_provider_ids
+from cloudsneeker_api.services.custodian_library import library_severity
 from cloudsneeker_api.services.trivy_import import bounded_uid
 
 GOVERNANCE_UID_PREFIX = "custodian-"
@@ -118,10 +119,15 @@ def policy_rules(policy_yaml: str) -> dict[str, PolicyRule]:
             entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
         )
         name = _text(entry["name"])
+        severity = _text(metadata.get("severity")).lower()
+        if severity not in SEVERITIES:
+            # Library policies added before the severity was written into the
+            # YAML keep the library's severity (the rule name is its id).
+            severity = library_severity(name) or DEFAULT_SEVERITY
         rules[name] = PolicyRule(
             name=name,
             resource_type=_text(entry.get("resource")),
-            severity=normalize_severity(metadata.get("severity")),
+            severity=severity,
             description=_text(entry.get("description")) or _text(entry.get("comment")),
         )
     return rules

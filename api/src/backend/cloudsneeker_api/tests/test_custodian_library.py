@@ -105,6 +105,8 @@ class TestLibraryCatalogue:
             assert policy["resource"] == item["resource"]
             assert "actions" not in policy
             assert item["severity"] in ("critical", "high", "medium", "low")
+            # The severity travels with the policy, so findings carry it.
+            assert policy["metadata"]["severity"] == item["severity"]
             assert item["category_name"] == LIBRARY_CATEGORIES[item["category"]]["name"]
 
     def test_filters_by_category_and_search(self):

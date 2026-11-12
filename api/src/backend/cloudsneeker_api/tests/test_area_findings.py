@@ -21,6 +21,7 @@ from cloudsneeker_api.services.area_findings import (
     app_security_location,
     parse_query,
 )
+from cloudsneeker_api.services.custodian_library import get_library_policy
 from cloudsneeker_api.services.governance_findings import (
     findings_for_run,
     governance_uid,
@@ -171,6 +172,28 @@ class TestGovernanceFindings:
         assert rules["unused-ebs"].resource_type == "aws.ebs"
         assert rules["no-severity"].severity == "medium"
         assert policy_rules("not: [valid") == {}
+
+    def test_library_rules_without_metadata_use_the_library_severity(self):
+        # Policies added from the library before the severity was written
+        # into the YAML: the rule name is the library id.
+        rules = policy_rules(
+            """
+policies:
+  - name: aws-sg-ssh-open
+    resource: aws.security-group
+  - name: aws-ec2-no-owner-tag
+    resource: aws.ec2
+    metadata:
+      severity: critical
+  - name: my-own-rule
+    resource: aws.ec2
+"""
+        )
+        library = get_library_policy("aws-sg-ssh-open")
+        assert rules["aws-sg-ssh-open"].severity == library["severity"]
+        assert rules["aws-sg-ssh-open"].severity != "medium"
+        assert rules["aws-ec2-no-owner-tag"].severity == "critical"
+        assert rules["my-own-rule"].severity == "medium"
 
     def test_resource_id_lookup_order(self):
         assert resource_id({"VolumeId": "vol-1", "Arn": "arn:x"}) == "vol-1"
