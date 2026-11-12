@@ -33,12 +33,29 @@ fi
 
 log() { printf '\n==> %s\n' "$*"; }
 
+# BuildKit's local exporter ("exporting to client directory / copying files")
+# sometimes hangs on the VM and held the deploy until its 2-hour timeout
+# (twice on 2026-11-12). The layers are cached, so a healthy export takes
+# seconds: give each export EXPORT_TIMEOUT seconds and try once more.
+EXPORT_TIMEOUT="${EXPORT_TIMEOUT:-600}"
+export_target() {
+  local target="$1" dest="$2" attempt
+  for attempt in 1 2; do
+    rm -rf "$dest"
+    if timeout --kill-after=30 "$EXPORT_TIMEOUT" docker build \
+      -f "$ROOT/cloudsneeker/deploy/docker/source.Dockerfile" \
+      --target "$target" --output "type=local,dest=$dest" "$ROOT"; then
+      return 0
+    fi
+    log "Export of $target failed or timed out (attempt $attempt)"
+  done
+  return 1
+}
+
 log "Exporting rebranded tree to $TREE"
 rm -rf "$TREE" "$WHEELS" "$ARTIFACTS"
-docker build -f "$ROOT/cloudsneeker/deploy/docker/source.Dockerfile" \
-  --target tree --output "type=local,dest=$TREE" "$ROOT"
-docker build -f "$ROOT/cloudsneeker/deploy/docker/source.Dockerfile" \
-  --target wheel --output "type=local,dest=$WHEELS" "$ROOT"
+export_target tree "$TREE"
+export_target wheel "$WHEELS"
 
 if [[ "${SKIP_AUDIT:-0}" != "1" ]]; then
   log "Auditing build tree"
