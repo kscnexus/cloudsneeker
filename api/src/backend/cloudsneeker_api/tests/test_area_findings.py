@@ -195,6 +195,22 @@ policies:
         assert rules["aws-ec2-no-owner-tag"].severity == "critical"
         assert rules["my-own-rule"].severity == "medium"
 
+    def test_resource_id_covers_network_and_account_resources(self):
+        # Security groups, VPCs, Elastic IPs and similar resources were
+        # dropped because none of their id fields was known.
+        group = {"GroupId": "sg-1", "GroupName": "web", "VpcId": "vpc-9"}
+        assert resource_id(group) == "sg-1"
+        assert resource_id({"VpcId": "vpc-9", "CidrBlock": "10.0.0.0/16"}) == "vpc-9"
+        assert resource_id({"AllocationId": "eipalloc-1", "PublicIp": "1.2.3.4"}) == (
+            "eipalloc-1"
+        )
+        assert resource_id({"SnapshotId": "snap-1", "VolumeId": "vol-1"}) == "vol-1"
+        assert resource_id({"ImageId": "ami-1"}) == "ami-1"
+        assert resource_id({"account_id": "123456789012"}) == "123456789012"
+        # Keys already in use keep their priority, so existing ids are stable.
+        assert resource_id({"InstanceId": "i-1", "VpcId": "vpc-9"}) == "i-1"
+        assert resource_id({"Arn": "arn:x", "GroupId": "sg-1"}) == "arn:x"
+
     def test_resource_id_lookup_order(self):
         assert resource_id({"VolumeId": "vol-1", "Arn": "arn:x"}) == "vol-1"
         assert resource_id({"metadata": {"namespace": "ns", "name": "pod"}}) == "ns/pod"
