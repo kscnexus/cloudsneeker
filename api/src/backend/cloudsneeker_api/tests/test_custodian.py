@@ -803,3 +803,31 @@ class TestCustodianScheduledEnqueue:
                 policy_id=str(policy.id),
             )
         assert skipped is None
+
+
+class TestRegionsForPolicy:
+    REGIONS = ["ap-south-1", "eu-west-1", "us-east-1"]
+
+    def test_global_resources_run_in_one_region(self):
+        from cloudsneeker_api.services.custodian import regions_for_policy
+
+        s3 = "policies:\n  - name: aws-s3-public\n    resource: aws.s3\n"
+        assert regions_for_policy(s3, self.REGIONS) == ["us-east-1"]
+        iam = (
+            "policies:\n  - name: a\n    resource: aws.iam-user\n"
+            "  - name: b\n    resource: aws.iam-policy\n"
+        )
+        assert regions_for_policy(iam, ["eu-west-1", "ap-south-1"]) == ["eu-west-1"]
+        assert regions_for_policy(s3, []) == ["us-east-1"]
+
+    def test_regional_and_mixed_policies_keep_every_region(self):
+        from cloudsneeker_api.services.custodian import regions_for_policy
+
+        ebs = "policies:\n  - name: a\n    resource: aws.ebs\n"
+        account = "policies:\n  - name: a\n    resource: aws.account\n"
+        mixed = (
+            "policies:\n  - name: a\n    resource: aws.s3\n"
+            "  - name: b\n    resource: aws.ec2\n"
+        )
+        for policy in (ebs, account, mixed, "not: [yaml", ""):
+            assert regions_for_policy(policy, self.REGIONS) == self.REGIONS
