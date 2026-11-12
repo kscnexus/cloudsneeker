@@ -5,7 +5,10 @@ import {
   DEFAULT_ALERT_AREAS,
   isFindingArea,
 } from "@/cloudsneeker/lib/alert-areas";
-import type { FindingArea } from "@/cloudsneeker/types/area-findings";
+import {
+  FINDING_AREA,
+  type FindingArea,
+} from "@/cloudsneeker/types/area-findings";
 import { Field, FieldLabel } from "@/components/shadcn";
 import {
   MultiSelect,
@@ -55,8 +58,13 @@ export const AlertAreaField = ({
       </MultiSelect>
       <p className="text-text-neutral-secondary text-xs">
         {selected.length === 0
-          ? `No module selected: the rule watches ${DEFAULT_ALERT_AREAS.length} modules (Cloud Security and Application Security).`
-          : "Governance findings are policy matches; resource filters below apply to cloud and application findings."}
+          ? `No module selected: the rule watches ${DEFAULT_ALERT_AREAS.length} modules (Cloud Security and Application Security). `
+          : selected.includes(FINDING_AREA.GOVERNANCE)
+            ? "Governance findings are policy matches; resource filters below apply to cloud and application findings. "
+            : ""}
+        {/* The API seeds critical and high when no severity is chosen. */}
+        With no severity selected below, the rule watches Critical and High
+        findings.
       </p>
     </Field>
   );
