@@ -72,7 +72,7 @@ describe("ReportView", () => {
     expect(screen.queryByText("Area 26")).not.toBeInTheDocument();
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Go to next page" }));
 
     expect(screen.getByText("Area 26")).toBeInTheDocument();
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
