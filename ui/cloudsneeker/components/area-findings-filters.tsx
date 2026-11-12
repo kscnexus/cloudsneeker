@@ -20,11 +20,15 @@ import type { StandardFilter } from "./standard/standard-filters.utils";
 interface AreaFindingsFiltersProps {
   area: FindingArea;
   sources: AreaFindingSource[];
-  /** Plural label of the area's sources, e.g. "Policies". */
+  /** Label of one source, e.g. "Policy" (shown as "Policies"). */
   sourceLabel: string;
   /** Governance: accounts, regions and resource types to offer. */
   facets?: AreaFindingFacets;
 }
+
+/** "Policy" -> "Policies": the dropdown placeholder reads "All <label>". */
+export const pluralLabel = (label: string): string =>
+  label.endsWith("y") ? `${label.slice(0, -1)}ies` : `${label}s`;
 
 /** The area's filters as Cloud Security Findings shows them: searchable
  * multi-selects, applied together, with chips and Clear Filters. */
@@ -52,7 +56,7 @@ export const buildAreaFilters = ({
     },
     {
       key: AREA_PARAM.SOURCE,
-      label: sourceLabel,
+      label: pluralLabel(sourceLabel),
       wide: true,
       options: sources.map((source) => ({
         value: source.id,

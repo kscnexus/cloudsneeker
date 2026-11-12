@@ -80,3 +80,24 @@ Deployed by "Cloudsneeker: Deploy to Azure" after PRs #24, #25 and #26 merged. C
 | Application Security filters (PR #24) | Priority, Past deadline, Application, Target, Rule, Package | All present; the Target list has the tenant's 318 targets |
 | PDF design (PR #25) | Generate Cloud posture (PDF) | 155 pages in the new layout: contents, executive summary, risk distribution, trend, top risks, coverage, next actions, methodology appendix |
 | Report sources (PR #26) | Generate dialog per report | Cloud posture lists only the AWS account ("Showing cloud and SaaS accounts only"); Container images lists images and clusters only (none on this tenant); Executive summary lists all 160 sources |
+
+## UI Standard (Cloud Security Findings as the reference), 2026-11-12
+
+PR #28 moved the lists onto the standard kit (see [UI Standard](UI_STANDARD.md)). Checked on https://cloudsneeker.vercel.app (UI on Vercel). The API part of PR #28 (`filter[target__in]`, `filter[application__in]`) waits for the VM deploy, which failed twice on a full disk (fixed in PR #29).
+
+| Page | Check | Result |
+| --- | --- | --- |
+| Governance findings | Severity multi-select → Apply | Chip "Severities: Critical", "Clear All (1)"; 575 → 36 findings |
+| Governance findings | Page 2, then rows per page 50 | Filter kept; page 2 shows the last 11; 50 per page shows all 36 on one page |
+| Governance findings | Old link `?severity=high&q=bucket` | Redirects to `filter[severity__in]=high&filter[search]=bucket` |
+| Application Security vulnerabilities | Default view | Severity, priority, state and triage dropdowns plus More Filters; "11,640 Total Entries"; sort Priority; 466 numbered pages |
+| Application Security vulnerabilities | Critical + code repository + fix available | 648 findings, all Critical, all repository assets; "Clear All (3)" |
+| Applications | Criticality and environment | Critical + production: 1; High or Medium: 0 (the tenant's one application is critical) |
+| Components | Vulnerable | 2,938 components over 59 pages; ecosystem, relationship, license dropdowns and search |
+| Governance policies | Schedule: scheduled | 1 policy; search box shown |
+| Reports | Report types cloud posture + governance | 4 reports; status and trigger dropdowns; rows per page |
+| Audit log | Outcome: success | 50 rows per page, no failures; 34 pages; Export CSV kept |
+| Governance library | Dropdowns | "All Categories", "All Severities"; 42 of 100 policies active |
+| Responsive | Vulnerabilities at 375 px | No horizontal page scroll |
+
+Issue found: the VM disk filled during image builds (deploys at 13:18 and 15:48 failed). PR #29 prunes build cache and unused images before each build.

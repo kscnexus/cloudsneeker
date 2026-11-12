@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAreaFilters } from "./area-findings-filters";
+import { buildAreaFilters, pluralLabel } from "./area-findings-filters";
+
+describe("pluralLabel", () => {
+  it("pluralises source labels", () => {
+    expect(pluralLabel("Policy")).toBe("Policies");
+    expect(pluralLabel("Target")).toBe("Targets");
+  });
+});
 
 describe("buildAreaFilters", () => {
   it("offers severity, status, source and muted; facets only when present", () => {
     const filters = buildAreaFilters({
       sources: [{ id: "p1", name: "Public buckets", kind: "policy" }],
-      sourceLabel: "Policies",
+      sourceLabel: "Policy",
     });
     expect(filters.map((filter) => filter.label)).toEqual([
       "Severities",
@@ -22,7 +29,7 @@ describe("buildAreaFilters", () => {
   it("adds account, region and resource type facets", () => {
     const filters = buildAreaFilters({
       sources: [],
-      sourceLabel: "Policies",
+      sourceLabel: "Policy",
       facets: {
         accounts: [{ id: "a1", name: "466920982015" }],
         regions: ["us-east-1"],
