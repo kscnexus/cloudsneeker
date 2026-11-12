@@ -11,6 +11,7 @@ import { Badge } from "@/components/shadcn/badge/badge";
 import { cn } from "@/lib/utils";
 
 import { EmptyState } from "./empty-state";
+import { PageNav } from "./page-nav";
 import { SectionCard } from "./section-card";
 
 const SEVERITY_CLASS: Record<string, string> = {
@@ -113,25 +114,20 @@ interface PagerProps {
   page: number;
   pages: number;
   hrefFor: (page: number) => string;
+  count?: number;
+  noun?: string;
 }
 
-export const Pager = ({ page, pages, hrefFor }: PagerProps) =>
+/** Numbered pagination (see `PageNav`). */
+export const Pager = ({ page, pages, hrefFor, count, noun }: PagerProps) =>
   pages > 1 ? (
-    <div className="flex items-center justify-end gap-2 text-sm">
-      <span className="text-text-neutral-tertiary">
-        Page {page} of {pages}
-      </span>
-      {page > 1 ? (
-        <Button asChild size="xs" variant="outline">
-          <Link href={hrefFor(page - 1)}>Previous</Link>
-        </Button>
-      ) : null}
-      {page < pages ? (
-        <Button asChild size="xs" variant="outline">
-          <Link href={hrefFor(page + 1)}>Next</Link>
-        </Button>
-      ) : null}
-    </div>
+    <PageNav
+      page={page}
+      pages={pages}
+      hrefFor={hrefFor}
+      count={count}
+      noun={noun}
+    />
   ) : null;
 
 interface LoadErrorProps {

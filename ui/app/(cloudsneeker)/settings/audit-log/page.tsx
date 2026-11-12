@@ -8,6 +8,7 @@ import { AuditLogFilters } from "@/cloudsneeker/components/audit-log-filters";
 import { AuditLogTable } from "@/cloudsneeker/components/audit-log-table";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { PageNav } from "@/cloudsneeker/components/page-nav";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import { StatTile, STAT_TILE_TONE } from "@/cloudsneeker/components/stat-tile";
 import {
@@ -31,7 +32,9 @@ interface AuditLogPageProps {
   searchParams: Promise<SearchParamsProps>;
 }
 
-export default async function AuditLogPage({ searchParams }: AuditLogPageProps) {
+export default async function AuditLogPage({
+  searchParams,
+}: AuditLogPageProps) {
   const filters = parseAuditLogFilters(await searchParams);
 
   return (
@@ -94,7 +97,11 @@ const SSRAuditLog = async ({ filters }: { filters: AuditLogFilterValues }) => {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <StatTile label="Matching events" value={count} tone={STAT_TILE_TONE.ACCENT} />
+        <StatTile
+          label="Matching events"
+          value={count}
+          tone={STAT_TILE_TONE.ACCENT}
+        />
         <StatTile
           label="Failures on this page"
           value={failures}
@@ -115,32 +122,12 @@ const SSRAuditLog = async ({ filters }: { filters: AuditLogFilterValues }) => {
         ) : (
           <AuditLogTable events={events} />
         )}
-        {pages > 1 ? (
-          <nav
-            aria-label="Audit log pages"
-            className="flex items-center justify-between gap-2 text-sm"
-          >
-            <span className="text-text-neutral-secondary">
-              Page {filters.page} of {pages}
-            </span>
-            <div className="flex gap-2">
-              {filters.page > 1 ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={auditPageHref(filters, filters.page - 1)}>
-                    Previous
-                  </Link>
-                </Button>
-              ) : null}
-              {filters.page < pages ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={auditPageHref(filters, filters.page + 1)}>
-                    Next
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-          </nav>
-        ) : null}
+        <PageNav
+          page={filters.page}
+          pages={pages}
+          noun="Audit log"
+          hrefFor={(page) => auditPageHref(filters, page)}
+        />
       </SectionCard>
     </div>
   );

@@ -157,5 +157,18 @@ export interface AreaFindingsResponse {
     priority_counts?: Partial<Record<RiskPriority, number>>;
     overdue_count?: number;
     applications?: AreaApplicationSummary[];
+    /** Governance: values present before the filters, for the selects. */
+    facets?: AreaFindingFacets;
   };
+}
+
+export interface AreaFindingFacetAccount {
+  id: string;
+  name: string;
+}
+
+export interface AreaFindingFacets {
+  accounts: AreaFindingFacetAccount[];
+  regions: string[];
+  resource_types: string[];
 }

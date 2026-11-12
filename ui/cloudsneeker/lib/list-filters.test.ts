@@ -7,6 +7,7 @@ import {
   pageOf,
   paginationOf,
   parseListFilters,
+  POLICY_SCHEDULE,
   policyListQuery,
   runListQuery,
 } from "./list-filters";
@@ -86,5 +87,23 @@ describe("in-memory lists", () => {
       count: 30,
     });
     expect(pageOf([], 1).pagination.pages).toBe(1);
+  });
+});
+
+describe("policy schedule filter", () => {
+  it("maps the schedule select to filter[schedule_enabled]", () => {
+    expect(
+      policyListQuery(parseListFilters({ type: POLICY_SCHEDULE.ON }))[
+        "filter[schedule_enabled]"
+      ],
+    ).toBe("true");
+    expect(
+      policyListQuery(parseListFilters({ type: POLICY_SCHEDULE.OFF }))[
+        "filter[schedule_enabled]"
+      ],
+    ).toBe("false");
+    expect(policyListQuery(parseListFilters({}))).not.toHaveProperty(
+      "filter[schedule_enabled]",
+    );
   });
 });

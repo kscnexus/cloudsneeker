@@ -169,6 +169,7 @@ class AreaFindingViewSet(BaseRLSViewSet):
                         {"id": source.id, "name": source.name, "kind": source.kind}
                         for source in page.sources
                     ],
+                    **({"facets": page.facets} if page.facets is not None else {}),
                     **(
                         {
                             "category_counts": page.category_counts,

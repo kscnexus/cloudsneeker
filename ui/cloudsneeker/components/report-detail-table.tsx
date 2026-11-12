@@ -16,9 +16,9 @@ import {
   TABLE_HEAD_CLASS,
 } from "@/cloudsneeker/lib/ui-classes";
 import type { ReportTable } from "@/cloudsneeker/types/reports";
-import { Button } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
 
+import { PageNav } from "./page-nav";
 import { ReportSeverityBadge } from "./report-severity-badge";
 
 interface ReportDetailTableProps {
@@ -90,28 +90,13 @@ export const ReportDetailTable = ({
         </div>
       )}
       {pages > 1 ? (
-        <div className="flex items-center justify-end gap-2 print:hidden">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={current <= 1}
-            onClick={() => setPage(current - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-text-neutral-secondary text-xs">
-            Page {current} of {pages}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={current >= pages}
-            onClick={() => setPage(current + 1)}
-          >
-            Next
-          </Button>
+        <div className="print:hidden">
+          <PageNav
+            page={current}
+            pages={pages}
+            noun="rows"
+            onSelect={setPage}
+          />
         </div>
       ) : null}
     </section>

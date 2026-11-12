@@ -19,6 +19,7 @@ import { severityLabel } from "@/cloudsneeker/lib/report-view";
 import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
   AREA_FIX_FILTER,
+  type AreaFindingFacets,
   type AreaFindingSource,
   type FindingArea,
 } from "@/cloudsneeker/types/area-findings";
@@ -30,6 +31,8 @@ interface AreaFindingsFiltersProps {
   filters: AreaFindingFilters;
   sources: AreaFindingSource[];
   sourceLabel: string;
+  /** Governance: accounts, regions and resource types to offer. */
+  facets?: AreaFindingFacets;
 }
 
 const chipClass = (active: boolean) =>
@@ -46,6 +49,7 @@ export const AreaFindingsFilters = ({
   filters,
   sources,
   sourceLabel,
+  facets,
 }: AreaFindingsFiltersProps) => {
   const reset = { ...filters, page: 1 };
   return (
@@ -109,7 +113,20 @@ export const AreaFindingsFilters = ({
           </Link>
         </nav>
       ) : null}
+      <nav aria-label="Muted findings" className="flex flex-wrap gap-2">
+        <Link
+          href={areaFindingsPageHref(area, { ...reset, muted: !filters.muted })}
+          aria-current={filters.muted ? "page" : undefined}
+          className={chipClass(Boolean(filters.muted))}
+          title="Include findings muted by a mutelist rule"
+        >
+          Show muted
+        </Link>
+      </nav>
       <form method="get" className="flex flex-wrap items-end gap-2">
+        {filters.muted ? (
+          <input type="hidden" name={AREA_PARAM.MUTED} value="1" />
+        ) : null}
         {filters.exploited ? (
           <input type="hidden" name={AREA_PARAM.EXPLOITED} value="1" />
         ) : null}
@@ -157,6 +174,39 @@ export const AreaFindingsFilters = ({
             ))}
           </select>
         </label>
+        {facets && facets.accounts.length > 0 ? (
+          <FacetSelect
+            label="Account"
+            name={AREA_PARAM.ACCOUNT}
+            value={filters.account}
+            options={facets.accounts.map((account) => ({
+              value: account.id,
+              label: account.name,
+            }))}
+          />
+        ) : null}
+        {facets && facets.regions.length > 0 ? (
+          <FacetSelect
+            label="Region"
+            name={AREA_PARAM.REGION}
+            value={filters.region}
+            options={facets.regions.map((region) => ({
+              value: region,
+              label: region,
+            }))}
+          />
+        ) : null}
+        {facets && facets.resource_types.length > 0 ? (
+          <FacetSelect
+            label="Resource type"
+            name={AREA_PARAM.RESOURCE_TYPE}
+            value={filters.resourceType}
+            options={facets.resource_types.map((type) => ({
+              value: type,
+              label: type,
+            }))}
+          />
+        ) : null}
         <label className="flex flex-col gap-1 text-xs">
           <span className="text-text-neutral-secondary font-semibold">
             Sort by
@@ -183,3 +233,33 @@ export const AreaFindingsFilters = ({
     </div>
   );
 };
+
+interface FacetOption {
+  value: string;
+  label: string;
+}
+
+interface FacetSelectProps {
+  label: string;
+  name: string;
+  value?: string;
+  options: FacetOption[];
+}
+
+const FacetSelect = ({ label, name, value, options }: FacetSelectProps) => (
+  <label className="flex flex-col gap-1 text-xs">
+    <span className="text-text-neutral-secondary font-semibold">{label}</span>
+    <select
+      name={name}
+      defaultValue={value ?? ""}
+      className={cn(FORM_SELECT_CLASS, "w-44")}
+    >
+      <option value="">All</option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  </label>
+);

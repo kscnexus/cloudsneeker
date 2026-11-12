@@ -11,6 +11,8 @@ import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import { Button, Input } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
 
+import { PageNav } from "./page-nav";
+
 export interface ListSelectOption {
   value: string;
   label: string;
@@ -102,7 +104,7 @@ interface ListPagerProps {
   noun: string;
 }
 
-/** "N items · Page X of Y" with previous and next links. */
+/** "N items · Page X of Y" with numbered pages (see `PageNav`). */
 export const ListPager = ({
   path,
   keep,
@@ -110,43 +112,11 @@ export const ListPager = ({
   pagination,
   noun,
 }: ListPagerProps) => (
-  <nav
-    aria-label={`${noun} pages`}
-    className="text-text-neutral-secondary flex flex-wrap items-center justify-between gap-2 text-sm"
-  >
-    <span>
-      {pagination.count} {noun}
-      {pagination.pages > 1
-        ? ` · Page ${pagination.page} of ${pagination.pages}`
-        : ""}
-    </span>
-    {pagination.pages > 1 ? (
-      <span className="flex gap-2">
-        {pagination.page > 1 ? (
-          <Button asChild size="xs" variant="outline">
-            <Link
-              href={listHref(path, keep, {
-                ...filters,
-                page: pagination.page - 1,
-              })}
-            >
-              Previous
-            </Link>
-          </Button>
-        ) : null}
-        {pagination.page < pagination.pages ? (
-          <Button asChild size="xs" variant="outline">
-            <Link
-              href={listHref(path, keep, {
-                ...filters,
-                page: pagination.page + 1,
-              })}
-            >
-              Next
-            </Link>
-          </Button>
-        ) : null}
-      </span>
-    ) : null}
-  </nav>
+  <PageNav
+    page={pagination.page}
+    pages={pagination.pages}
+    count={pagination.count}
+    noun={noun}
+    hrefFor={(page) => listHref(path, keep, { ...filters, page })}
+  />
 );

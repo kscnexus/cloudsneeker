@@ -34,6 +34,7 @@ import { EmptyState } from "./empty-state";
 import { FindingTriageStatusFilter } from "./finding-triage-status-filter";
 import { FindingTriageTable } from "./finding-triage-table";
 import { PageHeader } from "./page-header";
+import { PageNav } from "./page-nav";
 import { SectionCard } from "./section-card";
 
 interface AreaTriageViewProps {
@@ -151,27 +152,11 @@ const SSRAreaTriageList = async ({
       ) : (
         <FindingTriageTable triages={triages} area={area} />
       )}
-      {pages > 1 ? (
-        <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-text-neutral-tertiary">
-            Page {page} of {pages}
-          </span>
-          {page > 1 ? (
-            <Button asChild size="xs" variant="outline">
-              <Link href={areaTriagePageHref(area, status, page - 1)}>
-                Previous
-              </Link>
-            </Button>
-          ) : null}
-          {page < pages ? (
-            <Button asChild size="xs" variant="outline">
-              <Link href={areaTriagePageHref(area, status, page + 1)}>
-                Next
-              </Link>
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <PageNav
+        page={page}
+        pages={pages}
+        hrefFor={(target) => areaTriagePageHref(area, status, target)}
+      />
     </SectionCard>
   );
 };

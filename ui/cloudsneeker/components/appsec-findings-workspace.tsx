@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import {
   getAppSecFindingsSummary,
+  listAppSecApplications,
   listAppSecFindings,
 } from "@/cloudsneeker/actions/appsec";
 import { newAlertHref } from "@/cloudsneeker/lib/alert-areas";
@@ -13,6 +14,7 @@ import {
   APPSEC_FINDING_SORT,
   APPSEC_FINDING_SORT_LABEL,
   APPSEC_FIX_FILTER,
+  APPSEC_PRIORITIES,
   APPSEC_SEVERITIES,
   APPSEC_STATES,
   appSecCategoryLabel,
@@ -23,6 +25,7 @@ import {
   appSecFindingsHref,
   appSecFindingsQuery,
   appSecFixSummary,
+  appSecPriorityLabel,
   appSecSeverityLabel,
   appSecStateLabel,
   type AppSecWorkspace,
@@ -43,6 +46,7 @@ import {
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
+import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
   APPSEC_CATEGORY,
@@ -223,12 +227,21 @@ const SummaryTiles = ({
   );
 };
 
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
 const Filters = ({
   workspace,
   filters,
+  applications,
+  targets,
 }: {
   workspace: AppSecWorkspace;
   filters: AppSecFindingFilters;
+  applications: FilterOption[];
+  targets: FilterOption[];
 }) => {
   const reset = { ...filters, page: 1 };
   const href = (next: Partial<AppSecFindingFilters>) =>
@@ -242,10 +255,6 @@ const Filters = ({
     [param.FIX, filters.fix ?? ""],
     [param.OVERDUE, filters.overdue ? "1" : ""],
     [param.SUPPRESSED, filters.suppressed ? "1" : ""],
-    [param.TARGET, filters.target ?? ""],
-    [param.APPLICATION, filters.application ?? ""],
-    [param.RULE, filters.rule ?? ""],
-    [param.PACKAGE, filters.pkg ?? ""],
   ];
   return (
     <div className="flex flex-col gap-3">
@@ -306,6 +315,25 @@ const Filters = ({
           </>
         ) : null}
       </nav>
+      <nav aria-label="Priority" className="flex flex-wrap gap-2">
+        {APPSEC_PRIORITIES.map((priority) => (
+          <ChipLink
+            key={priority}
+            href={href({
+              priorities: toggleItem(filters.priorities, priority),
+            })}
+            active={filters.priorities.includes(priority)}
+          >
+            {appSecPriorityLabel(priority)}
+          </ChipLink>
+        ))}
+        <ChipLink
+          href={href({ overdue: !filters.overdue })}
+          active={filters.overdue}
+        >
+          Past deadline
+        </ChipLink>
+      </nav>
       <nav aria-label="Triage status" className="flex flex-wrap gap-2">
         {[null, ...TRIAGE_STATUS_FILTERS].map((status) => (
           <ChipLink
@@ -331,6 +359,38 @@ const Filters = ({
             name={param.SEARCH}
             defaultValue={filters.search}
             placeholder={`${workspace.ruleLabel}, title, package, file or resource`}
+          />
+        </label>
+        <OptionSelect
+          label="Application"
+          name={param.APPLICATION}
+          value={filters.application}
+          options={applications}
+        />
+        <OptionSelect
+          label="Target"
+          name={param.TARGET}
+          value={filters.target}
+          options={targets}
+        />
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-text-neutral-secondary font-semibold">
+            {workspace.ruleLabel}
+          </span>
+          <Input
+            name={param.RULE}
+            defaultValue={filters.rule ?? ""}
+            className="w-40"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-text-neutral-secondary font-semibold">
+            Package
+          </span>
+          <Input
+            name={param.PACKAGE}
+            defaultValue={filters.pkg ?? ""}
+            className="w-40"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs">
@@ -506,12 +566,28 @@ const SSRWorkspace = async ({
     rule: filters.rule,
     pkg: filters.pkg,
   };
-  const [response, summaryResponse] = await Promise.all([
-    listAppSecFindings(appSecFindingsQuery(workspace.category, filters)),
-    getAppSecFindingsSummary(
-      appSecFindingsQuery(workspace.category, scope, { paginate: false }),
-    ),
-  ]);
+  const [response, summaryResponse, applicationsResponse, loadedTargets] =
+    await Promise.all([
+      listAppSecFindings(appSecFindingsQuery(workspace.category, filters)),
+      getAppSecFindingsSummary(
+        appSecFindingsQuery(workspace.category, scope, { paginate: false }),
+      ),
+      listAppSecApplications({ "page[size]": "100", sort: "name" }),
+      loadAllTargets({}, "name"),
+    ]);
+  const applicationOptions: FilterOption[] = isListResponse(
+    applicationsResponse,
+  )
+    ? responseList<AppSecResource<{ name?: string }>>(applicationsResponse).map(
+        (item) => ({ value: item.id, label: item.attributes.name || item.id }),
+      )
+    : [];
+  const targetOptions: FilterOption[] = (loadedTargets?.targets ?? []).map(
+    (target) => ({
+      value: target.id,
+      label: target.attributes.name || target.id,
+    }),
+  );
   const reloadHref = appSecFindingsHref(workspace.segment, filters);
   if (!isListResponse(response)) {
     return (
@@ -533,7 +609,12 @@ const SSRWorkspace = async ({
         title="Findings"
         description={`${total} finding(s) match. A finding keeps one row across scans; triage follows it.`}
       >
-        <Filters workspace={workspace} filters={filters} />
+        <Filters
+          workspace={workspace}
+          filters={filters}
+          applications={applicationOptions}
+          targets={targetOptions}
+        />
         {findings.length === 0 ? (
           <EmptyState
             title={filtered ? "No findings match" : "No findings"}
@@ -566,3 +647,32 @@ const SSRWorkspace = async ({
     </div>
   );
 };
+
+const OptionSelect = ({
+  label,
+  name,
+  value,
+  options,
+}: {
+  label: string;
+  name: string;
+  value: string | null;
+  options: FilterOption[];
+}) =>
+  options.length > 0 ? (
+    <label className="flex flex-col gap-1 text-xs">
+      <span className="text-text-neutral-secondary font-semibold">{label}</span>
+      <select
+        name={name}
+        defaultValue={value ?? ""}
+        className={cn(FORM_SELECT_CLASS, "w-48")}
+      >
+        <option value="">All</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  ) : null;

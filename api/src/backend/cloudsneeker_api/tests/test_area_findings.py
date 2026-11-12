@@ -141,6 +141,8 @@ class TestParseQuery:
             {"filter[area]": "cloud", "filter[severity__in]": "urgent"},
             {"filter[area]": "cloud", "filter[triage_status__in]": "done"},
             {"filter[area]": "cloud", "sort": "uid"},
+            {"filter[area]": "cloud", "filter[region__in]": "us-east-1"},
+            {"filter[area]": "application_security", "filter[resource_type__in]": "x"},
         ],
     )
     def test_rejects_unknown_values(self, params):
@@ -425,6 +427,48 @@ class TestAreaFindingsApi:
             **{"filter[uid]": uid},
         )
         assert _uids(response) == []
+
+    def test_governance_filters_by_account_region_and_type_with_facets(
+        self, authenticated_client, aws_provider
+    ):
+        _policy_run(
+            aws_provider,
+            [
+                {"VolumeId": "vol-1", "c7n:policy": "unused-ebs", "c7n:region": "us-east-1"},
+                {"VolumeId": "vol-2", "c7n:policy": "unused-ebs", "c7n:region": "eu-west-1"},
+            ],
+        )
+
+        everything = _list(authenticated_client, "governance")
+        facets = everything.json()["meta"]["facets"]
+        assert facets["regions"] == ["eu-west-1", "us-east-1"]
+        assert facets["resource_types"] == ["aws.ebs"]
+        assert [item["id"] for item in facets["accounts"]] == [str(aws_provider.id)]
+
+        by_region = _list(
+            authenticated_client, "governance", **{"filter[region__in]": "eu-west-1"}
+        )
+        assert [row["attributes"]["resource_id"] for row in by_region.json()["data"]] == [
+            "vol-2"
+        ]
+        by_type = _list(
+            authenticated_client,
+            "governance",
+            **{"filter[resource_type__in]": "aws.ec2"},
+        )
+        assert by_type.json()["data"] == []
+        by_account = _list(
+            authenticated_client,
+            "governance",
+            **{"filter[provider__in]": str(aws_provider.id)},
+        )
+        assert len(by_account.json()["data"]) == 2
+        other = _list(
+            authenticated_client,
+            "governance",
+            **{"filter[provider__in]": "00000000-0000-0000-0000-000000000000"},
+        )
+        assert other.json()["data"] == []
 
     def test_app_security_triage_records_area(self, authenticated_client, aws_provider):
         _finding(_app_security_scan(aws_provider), "trivy-repo-CVE-2")
