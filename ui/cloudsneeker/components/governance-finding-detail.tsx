@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 
 import { FindingTriageStatusBadge } from "@/cloudsneeker/components/finding-triage-status-badge";
 import { MuteFindingsButton } from "@/cloudsneeker/components/mute-findings-button";
-import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { AREA_CONFIG } from "@/cloudsneeker/lib/area-findings";
 import { formatAuditTime } from "@/cloudsneeker/lib/audit-log";
 import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";

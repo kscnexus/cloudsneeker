@@ -25,7 +25,11 @@ interface SortSelectProps {
 
 /** Table sort for lists whose columns do not sort on their own: sets the
  * `sort` URL parameter and returns to page 1. */
-export const SortSelect = ({ value, options, defaultValue }: SortSelectProps) => {
+export const SortSelect = ({
+  value,
+  options,
+  defaultValue,
+}: SortSelectProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

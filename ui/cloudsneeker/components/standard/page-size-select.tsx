@@ -3,17 +3,16 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
+  PAGE_SIZE_OPTIONS,
+  STANDARD_PARAM,
+} from "@/cloudsneeker/lib/standard-list";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/select/select";
-
-import {
-  PAGE_SIZE_OPTIONS,
-  STANDARD_PARAM,
-} from "@/cloudsneeker/lib/standard-list";
 
 interface PageSizeSelectProps {
   value: number;

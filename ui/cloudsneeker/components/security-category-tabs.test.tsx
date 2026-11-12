@@ -35,13 +35,13 @@ describe("SecurityCategoryTabs", () => {
     expect(all).toHaveTextContent("7");
     expect(all).toHaveAttribute(
       "href",
-      "/application-security/findings?severity=critical",
+      "/application-security/findings?filter%5Bseverity__in%5D=critical",
     );
     const sca = screen.getByRole("link", { name: /SCA/ });
     expect(sca).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: /Secrets/ })).toHaveAttribute(
       "href",
-      "/application-security/findings?severity=critical&category=secrets",
+      "/application-security/findings?filter%5Bseverity__in%5D=critical&category=secrets",
     );
   });
 

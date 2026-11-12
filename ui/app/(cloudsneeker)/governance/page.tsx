@@ -285,7 +285,7 @@ const SSRCustodianWorkspace = async ({
               {
                 name: LIST_PARAM.TYPE,
                 label: "Schedule",
-                allLabel: "Any schedule",
+                allLabel: "All schedules",
                 options: [
                   { value: POLICY_SCHEDULE.ON, label: "Scheduled" },
                   { value: POLICY_SCHEDULE.OFF, label: "Not scheduled" },

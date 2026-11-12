@@ -2,6 +2,7 @@
 // Pure functions; pages and components read these so URLs, API parameters
 // and wording stay in one place.
 
+import { TRIAGE_STATUS_FILTERS } from "@/cloudsneeker/lib/finding-triage";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import {
   APPSEC_CATEGORY,
@@ -18,6 +19,7 @@ import {
   type AppSecSeverity,
   type AppSecState,
 } from "@/cloudsneeker/types/appsec";
+import { TRIVY_MODE } from "@/cloudsneeker/types/trivy";
 
 type SearchParamValue = string | string[] | undefined;
 type SearchParams = Record<string, SearchParamValue>;
@@ -227,22 +229,55 @@ export const appSecDownloadHref = (
 
 // --- Findings list filters ---------------------------------------------------
 
+/** Query string names of the findings pages. The filter bar keys follow the
+ * Cloud Security Findings page (`filter[...]`, comma-separated); rule and
+ * package are scopes set by links from other pages. */
 export const APPSEC_FINDING_PARAM = {
-  SEVERITY: "severity",
-  STATE: "state",
-  PRIORITY: "priority",
-  TRIAGE: "triage",
-  FIX: "fix",
-  OVERDUE: "overdue",
-  SUPPRESSED: "suppressed",
-  TARGET: "target",
-  APPLICATION: "application",
+  SEVERITY: "filter[severity__in]",
+  STATE: "filter[state__in]",
+  PRIORITY: "filter[priority__in]",
+  TRIAGE: "filter[triage_status__in]",
+  FIX: "filter[fix_available]",
+  OVERDUE: "filter[overdue]",
+  SUPPRESSED: "filter[suppressed]",
+  TARGET: "filter[target__in]",
+  APPLICATION: "filter[application__in]",
+  ASSET_TYPE: "filter[target_type]",
+  FIRST_SEEN: "filter[first_seen_days]",
   RULE: "rule",
   PACKAGE: "package",
-  SEARCH: "q",
+  SEARCH: "filter[search]",
   SORT: "sort",
   PAGE: "page",
+  PAGE_SIZE: "pageSize",
 } as const;
+
+/** Names used before the filter bar; read so old links keep working (the
+ * pages redirect them to the current names). */
+export const LEGACY_APPSEC_FINDING_PARAM: Record<string, string> = {
+  [APPSEC_FINDING_PARAM.SEVERITY]: "severity",
+  [APPSEC_FINDING_PARAM.STATE]: "state",
+  [APPSEC_FINDING_PARAM.PRIORITY]: "priority",
+  [APPSEC_FINDING_PARAM.TRIAGE]: "triage",
+  [APPSEC_FINDING_PARAM.FIX]: "fix",
+  [APPSEC_FINDING_PARAM.OVERDUE]: "overdue",
+  [APPSEC_FINDING_PARAM.SUPPRESSED]: "suppressed",
+  [APPSEC_FINDING_PARAM.TARGET]: "target",
+  [APPSEC_FINDING_PARAM.APPLICATION]: "application",
+  [APPSEC_FINDING_PARAM.SEARCH]: "q",
+};
+
+export const hasLegacyAppSecParams = (searchParams: SearchParams): boolean =>
+  Object.values(LEGACY_APPSEC_FINDING_PARAM).some((name) => {
+    const value = searchParams[name];
+    return value !== undefined && value !== "";
+  });
+
+/** "First seen" choices (days). */
+export const APPSEC_FIRST_SEEN_DAYS: readonly number[] = [1, 7, 30, 90];
+
+export const APPSEC_PAGE_SIZE = 25;
+export const APPSEC_MAX_PAGE_SIZE = 100;
 
 export const APPSEC_FINDING_SORT = {
   PRIORITY: "-priority",
@@ -285,9 +320,14 @@ export interface AppSecFindingFilters {
   application: string | null;
   rule: string | null;
   pkg: string | null;
+  /** Target modes (`filter[target_type]`), e.g. repo, image, k8s. */
+  assetTypes: string[];
+  /** Found within the last N days. */
+  firstSeenDays: number | null;
   search: string;
   sort: AppSecFindingSort;
   page: number;
+  pageSize: number;
 }
 
 export const DEFAULT_APPSEC_FINDING_FILTERS: AppSecFindingFilters = {
@@ -302,50 +342,100 @@ export const DEFAULT_APPSEC_FINDING_FILTERS: AppSecFindingFilters = {
   application: null,
   rule: null,
   pkg: null,
+  assetTypes: [],
+  firstSeenDays: null,
   search: "",
   sort: APPSEC_FINDING_SORT.PRIORITY,
   page: 1,
+  pageSize: APPSEC_PAGE_SIZE,
 };
 
 const first = (value: SearchParamValue): string =>
   (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
 
-const csv = <T extends string>(
-  value: SearchParamValue,
-  allowed: readonly T[],
-): T[] => {
-  const requested = first(value)
-    .split(",")
-    .map((item) => item.trim());
+/** A parameter by its current name, else its legacy name. */
+const read = (searchParams: SearchParams, name: string): string =>
+  first(searchParams[name]) ||
+  (LEGACY_APPSEC_FINDING_PARAM[name]
+    ? first(searchParams[LEGACY_APPSEC_FINDING_PARAM[name]])
+    : "");
+
+const list = (value: string): string[] =>
+  Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+const csv = <T extends string>(value: string, allowed: readonly T[]): T[] => {
+  const requested = list(value);
   return allowed.filter((item) => requested.includes(item));
 };
+
+const ID_PATTERN = /^[0-9a-f-]{36}$/i;
+
+const ids = (value: string): string | null => {
+  const valid = list(value).filter((item) => ID_PATTERN.test(item));
+  return valid.length ? valid.join(",") : null;
+};
+
+const truthy = (value: string): boolean =>
+  ["1", "true", "yes"].includes(value.toLowerCase());
+
+const parseFix = (value: string): AppSecFixFilter | null => {
+  const text = value.toLowerCase();
+  if (text === "true" || text === APPSEC_FIX_FILTER.AVAILABLE) {
+    return APPSEC_FIX_FILTER.AVAILABLE;
+  }
+  // "unavailable" comes from the shared area links (fix filter of the
+  // Application Security cards).
+  if (
+    text === "false" ||
+    text === APPSEC_FIX_FILTER.NONE ||
+    text === "unavailable"
+  ) {
+    return APPSEC_FIX_FILTER.NONE;
+  }
+  return null;
+};
+
+const TARGET_MODES: readonly string[] = Object.values(TRIVY_MODE);
 
 export const parseAppSecFindingFilters = (
   searchParams: SearchParams,
 ): AppSecFindingFilters => {
   const param = APPSEC_FINDING_PARAM;
   const sort = first(searchParams[param.SORT]);
-  const fix = first(searchParams[param.FIX]);
   const page = Number.parseInt(first(searchParams[param.PAGE]), 10);
+  const pageSize = Number.parseInt(first(searchParams[param.PAGE_SIZE]), 10);
+  const days = Number.parseInt(first(searchParams[param.FIRST_SEEN]), 10);
+  const triage = csv(read(searchParams, param.TRIAGE), TRIAGE_STATUS_FILTERS);
   return {
-    severities: csv(searchParams[param.SEVERITY], APPSEC_SEVERITIES),
-    states: csv(searchParams[param.STATE], APPSEC_STATES),
-    priorities: csv(searchParams[param.PRIORITY], APPSEC_PRIORITIES),
-    triage: first(searchParams[param.TRIAGE]) || null,
-    fix: (Object.values(APPSEC_FIX_FILTER) as string[]).includes(fix)
-      ? (fix as AppSecFixFilter)
-      : null,
-    overdue: first(searchParams[param.OVERDUE]) === "1",
-    suppressed: first(searchParams[param.SUPPRESSED]) === "1",
-    target: first(searchParams[param.TARGET]) || null,
-    application: first(searchParams[param.APPLICATION]) || null,
-    rule: first(searchParams[param.RULE]) || null,
-    pkg: first(searchParams[param.PACKAGE]) || null,
-    search: first(searchParams[param.SEARCH]),
+    severities: csv(read(searchParams, param.SEVERITY), APPSEC_SEVERITIES),
+    states: csv(read(searchParams, param.STATE), APPSEC_STATES),
+    priorities: csv(read(searchParams, param.PRIORITY), APPSEC_PRIORITIES),
+    triage: triage.length ? triage.join(",") : null,
+    fix: parseFix(read(searchParams, param.FIX)),
+    overdue: truthy(read(searchParams, param.OVERDUE)),
+    suppressed: truthy(read(searchParams, param.SUPPRESSED)),
+    target: ids(read(searchParams, param.TARGET)),
+    application: ids(read(searchParams, param.APPLICATION)),
+    rule: first(searchParams[param.RULE]).slice(0, 200) || null,
+    pkg: first(searchParams[param.PACKAGE]).slice(0, 200) || null,
+    assetTypes: csv(first(searchParams[param.ASSET_TYPE]), TARGET_MODES),
+    firstSeenDays: APPSEC_FIRST_SEEN_DAYS.includes(days) ? days : null,
+    search: read(searchParams, param.SEARCH).slice(0, 200),
     sort: (Object.values(APPSEC_FINDING_SORT) as string[]).includes(sort)
       ? (sort as AppSecFindingSort)
       : APPSEC_FINDING_SORT.PRIORITY,
     page: Number.isFinite(page) && page > 0 ? page : 1,
+    pageSize:
+      Number.isFinite(pageSize) && pageSize > 0
+        ? Math.min(pageSize, APPSEC_MAX_PAGE_SIZE)
+        : APPSEC_PAGE_SIZE,
   };
 };
 
@@ -363,23 +453,31 @@ export const appSecFindingsHref = (
   if (merged.priorities.length)
     query.set(param.PRIORITY, merged.priorities.join(","));
   if (merged.triage) query.set(param.TRIAGE, merged.triage);
-  if (merged.fix) query.set(param.FIX, merged.fix);
-  if (merged.overdue) query.set(param.OVERDUE, "1");
-  if (merged.suppressed) query.set(param.SUPPRESSED, "1");
+  if (merged.fix)
+    query.set(
+      param.FIX,
+      merged.fix === APPSEC_FIX_FILTER.AVAILABLE ? "true" : "false",
+    );
+  if (merged.overdue) query.set(param.OVERDUE, "true");
+  if (merged.suppressed) query.set(param.SUPPRESSED, "true");
   if (merged.target) query.set(param.TARGET, merged.target);
   if (merged.application) query.set(param.APPLICATION, merged.application);
+  if (merged.assetTypes.length)
+    query.set(param.ASSET_TYPE, merged.assetTypes.join(","));
+  if (merged.firstSeenDays)
+    query.set(param.FIRST_SEEN, String(merged.firstSeenDays));
   if (merged.rule) query.set(param.RULE, merged.rule);
   if (merged.pkg) query.set(param.PACKAGE, merged.pkg);
   if (merged.search) query.set(param.SEARCH, merged.search);
   if (merged.sort !== APPSEC_FINDING_SORT.PRIORITY)
     query.set(param.SORT, merged.sort);
+  if (merged.pageSize !== APPSEC_PAGE_SIZE)
+    query.set(param.PAGE_SIZE, String(merged.pageSize));
   if (merged.page > 1) query.set(param.PAGE, String(merged.page));
   const serialized = query.toString();
   const base = appSecurityHref(segment);
   return serialized ? `${base}?${serialized}` : base;
 };
-
-export const APPSEC_PAGE_SIZE = 25;
 
 /** API query for `GET /appsec-findings` (and its summary and export). */
 export const appSecFindingsQuery = (
@@ -401,15 +499,20 @@ export const appSecFindingsQuery = (
       filters.fix === APPSEC_FIX_FILTER.AVAILABLE ? "true" : "false";
   if (filters.overdue) query["filter[overdue]"] = "true";
   if (filters.suppressed) query["filter[suppressed]"] = "true";
-  if (filters.target) query["filter[target]"] = filters.target;
-  if (filters.application) query["filter[application]"] = filters.application;
+  if (filters.target) query["filter[target__in]"] = filters.target;
+  if (filters.application)
+    query["filter[application__in]"] = filters.application;
+  if (filters.assetTypes.length)
+    query["filter[target_type]"] = filters.assetTypes.join(",");
+  if (filters.firstSeenDays)
+    query["filter[first_seen_days]"] = String(filters.firstSeenDays);
   if (filters.rule) query["filter[rule_id]"] = filters.rule;
   if (filters.pkg) query["filter[pkg_name]"] = filters.pkg;
   if (filters.search) query["filter[search]"] = filters.search;
   query.sort = filters.sort;
   if (options.paginate ?? true) {
     query["page[number]"] = String(filters.page);
-    query["page[size]"] = String(APPSEC_PAGE_SIZE);
+    query["page[size]"] = String(filters.pageSize);
   }
   return query;
 };
@@ -426,6 +529,8 @@ export const isAppSecFiltered = (filters: AppSecFindingFilters): boolean =>
   filters.application !== null ||
   filters.rule !== null ||
   filters.pkg !== null ||
+  filters.assetTypes.length > 0 ||
+  filters.firstSeenDays !== null ||
   filters.search !== "";
 
 export const toggleItem = <T>(items: readonly T[], item: T): T[] =>

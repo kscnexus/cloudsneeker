@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
-import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import type { SearchGroupItem } from "@/cloudsneeker/lib/global-search";
 
 interface GlobalSearchResultsProps {

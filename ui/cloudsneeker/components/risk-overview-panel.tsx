@@ -1,20 +1,26 @@
 import { Gauge } from "lucide-react";
 import Link from "next/link";
 
-import { formatReportDate, formatReportDay } from "@/cloudsneeker/lib/report-view";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
+import {
+  formatReportDate,
+  formatReportDay,
+} from "@/cloudsneeker/lib/report-view";
 import type {
   RiskOverviewModel,
   RiskTopItem,
   RiskTrendBar,
 } from "@/cloudsneeker/lib/risk-overview";
-import { CARD_LIST_CLASS, FOCUS_RING_CLASS } from "@/cloudsneeker/lib/ui-classes";
+import {
+  CARD_LIST_CLASS,
+  FOCUS_RING_CLASS,
+} from "@/cloudsneeker/lib/ui-classes";
 import { reportsHref } from "@/cloudsneeker/routes";
 import { Button } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
 
 import { EmptyState } from "./empty-state";
 import { ReportScoreRing } from "./report-score-ring";
-import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { RiskOverviewRefreshButton } from "./risk-overview-refresh-button";
 import { SectionCard } from "./section-card";
 import { SeverityBreakdown } from "./severity-breakdown";

@@ -40,7 +40,10 @@ export const StandardTableCard = ({
     total !== undefined ||
     toolbarRight !== undefined;
   return (
-    <div data-table-scroll-container="" className={cn(TABLE_CARD_CLASS, className)}>
+    <div
+      data-table-scroll-container=""
+      className={cn(TABLE_CARD_CLASS, className)}
+    >
       {header ? <div className="w-full">{header}</div> : null}
       {showToolbar ? (
         <div

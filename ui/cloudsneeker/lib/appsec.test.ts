@@ -10,6 +10,7 @@ import {
   appSecFindingLocation,
   appSecFindingsHref,
   appSecFindingsQuery,
+  hasLegacyAppSecParams,
   appSecFixSummary,
   appSecSeverityLabel,
   attributesOf,
@@ -59,7 +60,7 @@ describe("finding filters", () => {
       triage: "risk_accepted",
       fix: "available",
       overdue: "1",
-      target: " t-1 ",
+      target: " 0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a01 ",
       q: "lodash",
       sort: "-severity",
       page: "3",
@@ -70,7 +71,7 @@ describe("finding filters", () => {
     expect(filters.triage).toBe("risk_accepted");
     expect(filters.fix).toBe("available");
     expect(filters.overdue).toBe(true);
-    expect(filters.target).toBe("t-1");
+    expect(filters.target).toBe("0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a01");
     expect(filters.sort).toBe("-severity");
     expect(filters.page).toBe(3);
   });
@@ -220,5 +221,57 @@ describe("presentation", () => {
     expect(actionError({ error: "Denied", status: 403 })).toBe("Denied");
     expect(actionError({ errors: [{ detail: "Bad name" }] })).toBe("Bad name");
     expect(actionError(undefined)).toBeNull();
+  });
+});
+
+describe("filter bar parameters", () => {
+  const ID_A = "0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a01";
+  const ID_B = "0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a02";
+
+  it("reads filter[...] lists and sends them to the API", () => {
+    const filters = parseAppSecFindingFilters({
+      "filter[severity__in]": "high,low",
+      "filter[triage_status__in]": "open,resolved",
+      "filter[target__in]": `${ID_A},not-an-id,${ID_B}`,
+      "filter[application__in]": ID_A,
+      "filter[target_type]": "repo,image,bogus",
+      "filter[first_seen_days]": "7",
+      "filter[fix_available]": "false",
+      "filter[search]": "lodash",
+      pageSize: "50",
+    });
+    expect(filters).toMatchObject({
+      severities: ["high", "low"],
+      triage: "open,resolved",
+      target: `${ID_A},${ID_B}`,
+      application: ID_A,
+      assetTypes: ["image", "repo"],
+      firstSeenDays: 7,
+      fix: "none",
+      search: "lodash",
+      pageSize: 50,
+    });
+    expect(appSecFindingsQuery(null, filters)).toMatchObject({
+      "filter[target__in]": `${ID_A},${ID_B}`,
+      "filter[application__in]": ID_A,
+      "filter[target_type]": "image,repo",
+      "filter[first_seen_days]": "7",
+      "filter[fix_available]": "false",
+      "page[size]": "50",
+    });
+  });
+
+  it("writes links with the filter bar names and flags legacy ones", () => {
+    expect(
+      appSecFindingsHref(APPSEC_SEGMENT.FINDINGS, {
+        severities: ["critical"],
+        overdue: true,
+      }),
+    ).toBe(
+      "/application-security/findings?filter%5Bseverity__in%5D=critical&filter%5Boverdue%5D=true",
+    );
+    expect(hasLegacyAppSecParams({ severity: "high" })).toBe(true);
+    expect(hasLegacyAppSecParams({ rule: "CVE-1" })).toBe(false);
+    expect(parseAppSecFindingFilters({ fix: "unavailable" }).fix).toBe("none");
   });
 });

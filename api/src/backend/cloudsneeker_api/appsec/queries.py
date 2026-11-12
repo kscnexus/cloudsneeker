@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from cloudsneeker_api.models import (
     AppSecApplication,
@@ -59,6 +60,18 @@ class QueryError(ValueError):
 
 def _csv(value: Any) -> list[str]:
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+def _uuids(value: Any, name: str) -> list[str]:
+    values = _csv(value)
+    for item in values:
+        try:
+            UUID(item)
+        except ValueError:
+            raise QueryError(
+                f"filter[{name}] takes ids: {item!r} is not one."
+            ) from None
+    return values
 
 
 def _bool(value: Any, name: str) -> bool | None:
@@ -183,6 +196,14 @@ def filter_findings(queryset: QuerySet, params, *, now: datetime) -> QuerySet:
         value = params.get(f"filter[{name}]")
         if value:
             queryset = queryset.filter(**{lookup: value})
+    # Lists for the multi-select filters (comma-separated ids).
+    for name, lookup in (
+        ("target__in", "target_id__in"),
+        ("application__in", "target__application_id__in"),
+    ):
+        values = _uuids(params.get(f"filter[{name}]"), name)
+        if values:
+            queryset = queryset.filter(**{lookup: values})
     for name in ("rule_id", "pkg_name", "ecosystem", "finding_type", "scanner"):
         value = params.get(f"filter[{name}]")
         if value:

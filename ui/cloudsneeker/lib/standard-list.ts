@@ -86,7 +86,10 @@ export const readPageSize = (
 /** Sets or removes list parameters on a query string. */
 export const withListParams = (
   base: URLSearchParams,
-  values: Record<string, string | readonly string[] | number | null | undefined>,
+  values: Record<
+    string,
+    string | readonly string[] | number | null | undefined
+  >,
 ): URLSearchParams => {
   const next = new URLSearchParams(base.toString());
   Object.entries(values).forEach(([name, value]) => {

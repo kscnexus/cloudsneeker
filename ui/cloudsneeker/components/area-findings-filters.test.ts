@@ -5,7 +5,7 @@ import { buildAreaFilters } from "./area-findings-filters";
 describe("buildAreaFilters", () => {
   it("offers severity, status, source and muted; facets only when present", () => {
     const filters = buildAreaFilters({
-      sources: [{ id: "p1", name: "Public buckets" }],
+      sources: [{ id: "p1", name: "Public buckets", kind: "policy" }],
       sourceLabel: "Policies",
     });
     expect(filters.map((filter) => filter.label)).toEqual([

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import {
   categoryImpact,
   categoryLabel,
@@ -23,7 +24,6 @@ import { Button } from "@/components/shadcn";
 import { AreaFindingExploitDetails } from "./area-finding-exploit";
 import { AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
-import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { RiskPriorityBadge } from "./risk-priority-badge";
 import { SectionCard } from "./section-card";
 

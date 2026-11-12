@@ -7,8 +7,8 @@ import { useState } from "react";
 
 import { installCustodianLibraryPolicies } from "@/cloudsneeker/actions/custodian-library";
 import { FormAlert } from "@/cloudsneeker/components/form-layout";
-import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import {
   actionError,
   coveragePercent,

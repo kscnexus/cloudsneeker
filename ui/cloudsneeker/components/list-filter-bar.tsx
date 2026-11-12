@@ -1,17 +1,14 @@
-import Link from "next/link";
-
 import {
-  hasListFilters,
   LIST_PARAM,
   type ListFilters,
   listHref,
   type ListPagination,
 } from "@/cloudsneeker/lib/list-filters";
-import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
-import { Button, Input } from "@/components/shadcn";
-import { cn } from "@/lib/utils";
+import { DataTableSearch } from "@/components/shadcn/table/data-table-search";
 
 import { PageNav } from "./page-nav";
+import { StandardFilters } from "./standard/standard-filters";
+import type { StandardFilter } from "./standard/standard-filters.utils";
 
 export interface ListSelectOption {
   value: string;
@@ -37,63 +34,36 @@ interface ListFilterBarProps {
   selects?: ListSelect[];
 }
 
-/** Search and selects submitted as a GET form: works without client code,
- * keeps state in the URL and resets to page 1 on every change. */
+/** "All accounts" -> "Accounts": the dropdown placeholder reads "All <label>". */
+const pluralLabel = (select: ListSelect): string => {
+  const text = select.allLabel.replace(/^(All|Any)\s+/i, "").trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : select.label;
+};
+
+export const listSelectFilters = (selects: ListSelect[]): StandardFilter[] =>
+  selects.map((select) => ({
+    key: select.name,
+    label: pluralLabel(select),
+    single: true,
+    options: select.options,
+  }));
+
+/** The Cloud Security Findings filter bar for the smaller lists: one select
+ * per field (applied together, with chips) and the search box. State lives in
+ * the URL (`filter[...]`), so reloads, links and pages keep it. */
 export const ListFilterBar = ({
-  path,
-  keep,
-  filters,
   searchPlaceholder,
   selects = [],
 }: ListFilterBarProps) => (
-  <form
-    method="get"
-    action={path}
-    className="flex flex-wrap items-end gap-3"
-    role="search"
-  >
-    {Object.entries(keep).map(([name, value]) => (
-      <input key={name} type="hidden" name={name} value={value} />
-    ))}
-    <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs font-medium">
-      <span className="text-text-neutral-secondary">Search</span>
-      <Input
-        name={LIST_PARAM.SEARCH}
-        defaultValue={filters.search}
-        placeholder={searchPlaceholder}
-        aria-label="Search"
-      />
-    </label>
-    {selects.map((select) => (
-      <label
-        key={select.name}
-        className="flex min-w-[180px] flex-col gap-1 text-xs font-medium"
-      >
-        <span className="text-text-neutral-secondary">{select.label}</span>
-        <select
-          name={select.name}
-          defaultValue={filters[select.name]}
-          className={cn(FORM_SELECT_CLASS, "h-9")}
-          aria-label={select.label}
-        >
-          <option value="">{select.allLabel}</option>
-          {select.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-    ))}
-    <Button type="submit" size="sm">
-      Apply
-    </Button>
-    {hasListFilters(filters) ? (
-      <Button asChild size="sm" variant="ghost">
-        <Link href={listHref(path, keep, {})}>Clear all</Link>
-      </Button>
-    ) : null}
-  </form>
+  <StandardFilters
+    testIdPrefix="list"
+    filters={listSelectFilters(selects)}
+    trailingControls={
+      <div className="w-full md:w-80">
+        <DataTableSearch placeholder={`${searchPlaceholder} (press Enter)`} />
+      </div>
+    }
+  />
 );
 
 interface ListPagerProps {
@@ -104,7 +74,7 @@ interface ListPagerProps {
   noun: string;
 }
 
-/** "N items · Page X of Y" with numbered pages (see `PageNav`). */
+/** "N items", "Page X of Y" and numbered pages (see `PageNav`). */
 export const ListPager = ({
   path,
   keep,

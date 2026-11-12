@@ -92,11 +92,16 @@ export const searchMoreHref = (kind: SearchGroupKind, text: string): string => {
     case SEARCH_GROUP.ACCOUNTS:
       return withQuery("/providers", { "filter[search]": text });
     case SEARCH_GROUP.TARGETS:
-      return withQuery("/application-security/scans", { q: text });
+      return withQuery("/application-security/scans", {
+        "filter[search]": text,
+      });
     case SEARCH_GROUP.APPLICATIONS:
       return "/application-security/applications";
     case SEARCH_GROUP.POLICIES:
-      return withQuery("/governance", { tab: "policies", q: text });
+      return withQuery("/governance", {
+        tab: "policies",
+        "filter[search]": text,
+      });
     default:
       return withQuery("/alerts", { "filter[search]": text });
   }

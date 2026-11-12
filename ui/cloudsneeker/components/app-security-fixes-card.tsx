@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { areaFindingsPageHref } from "@/cloudsneeker/lib/area-findings";
 import { CARD_LIST_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
@@ -10,7 +11,6 @@ import {
 import { Button } from "@/components/shadcn";
 
 import { AreaFindingFixCell } from "./area-finding-fix";
-import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "./section-card";
 import { STAT_TILE_TONE, StatTile } from "./stat-tile";
 

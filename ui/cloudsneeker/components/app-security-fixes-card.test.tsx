@@ -56,7 +56,7 @@ describe("AppSecurityFixesCard", () => {
     ).toBeInTheDocument();
     expect(within(list).getByRole("link", { name: "Title a" })).toHaveAttribute(
       "href",
-      "/application-security/findings?q=a",
+      "/application-security/findings?filter%5Bsearch%5D=a",
     );
   });
 

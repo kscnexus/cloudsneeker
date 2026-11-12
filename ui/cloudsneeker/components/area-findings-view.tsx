@@ -217,9 +217,7 @@ const SSRAreaFindings = async ({
             count={total}
             noun="findings"
             pageSize={filters.pageSize ?? AREA_FINDINGS_PAGE_SIZE}
-            hrefFor={(page) =>
-              areaFindingsPageHref(area, { ...filters, page })
-            }
+            hrefFor={(page) => areaFindingsPageHref(area, { ...filters, page })}
           />
         }
       >

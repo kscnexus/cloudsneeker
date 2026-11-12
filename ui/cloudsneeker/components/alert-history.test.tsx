@@ -4,6 +4,17 @@ import { describe, expect, it, vi } from "vitest";
 import type { AlertEventItem } from "@/cloudsneeker/lib/alert-history";
 import { parseListFilters } from "@/cloudsneeker/lib/list-filters";
 
+const navigation = vi.hoisted(() => ({
+  router: { push: () => undefined },
+  params: new URLSearchParams("tab=history"),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => navigation.router,
+  usePathname: () => "/alerts",
+  useSearchParams: () => navigation.params,
+}));
+
 vi.mock("@/cloudsneeker/components/alert-event-actions", () => ({
   AlertEventActions: ({ status }: { status: string }) => (
     <div>{`actions:${status}`}</div>
@@ -57,8 +68,8 @@ describe("AlertHistory", () => {
     expect(screen.getByText("actions:acknowledged")).toBeInTheDocument();
   });
 
-  it("keeps the History tab in the filter form", () => {
-    const { container } = render(
+  it("shows the standard filter bar and search", () => {
+    render(
       <AlertHistory
         events={[]}
         filters={parseListFilters({})}
@@ -67,8 +78,9 @@ describe("AlertHistory", () => {
       />,
     );
     expect(
-      container.querySelector('input[type="hidden"][name="tab"]'),
-    ).toHaveAttribute("value", "history");
+      screen.getByPlaceholderText("Rule name (press Enter)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("All Statuses")).toBeInTheDocument();
     expect(screen.getByText(/No alerts yet/)).toBeInTheDocument();
   });
 
