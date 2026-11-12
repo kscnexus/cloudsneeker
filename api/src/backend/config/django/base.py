@@ -67,6 +67,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "cloudsneeker_api.audit.AuditLogMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.signup.SignupGateMiddleware",  # cloudsneeker-hook
+    "cloudsneeker_api.token_refresh_grace.RefreshGraceMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.login_guard.LoginGuardMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.mfa.MfaMiddleware",  # cloudsneeker-hook
     "cloudsneeker_api.subscriptions.SubscriptionEnforcementMiddleware",  # cloudsneeker-hook
