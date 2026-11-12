@@ -57,6 +57,19 @@ sync_checkout "$SOURCE"
 git -C "$SOURCE" checkout --quiet "$(git -C "$CHECKOUT" rev-parse HEAD)"
 TAG="$(git -C "$CHECKOUT" rev-parse --short=12 HEAD)"
 
+# Every deploy leaves an image set and build cache behind; on 2026-11-12 the
+# disk filled and the build failed ("No space left on device"). Drop dangling
+# images, images no container uses that are older than a week, and build cache
+# beyond 8 GB. Images of running containers, containers and volumes (the
+# database and other data) are never touched.
+log "Freeing disk space"
+df -h / | tail -1
+docker image prune -f >/dev/null || true
+docker image prune -af --filter "until=168h" >/dev/null || true
+docker builder prune -f --max-used-space 8gb >/dev/null 2>&1 ||
+  docker builder prune -f --keep-storage 8gb >/dev/null 2>&1 || true
+df -h / | tail -1
+
 log "Building images $TAG"
 # Package downloads inside docker build sometimes time out; finished layers are
 # cached, so a retry resumes where the last attempt stopped.
