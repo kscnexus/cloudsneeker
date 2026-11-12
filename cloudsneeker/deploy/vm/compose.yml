@@ -21,6 +21,9 @@ services:
   cloudsneeker-api:
     environment:
       DJANGO_WORKERS: ${CLOUDSNEEKER_VM_API_WORKERS:-6}
+      # Parallel token refreshes from the web app's serverless instances get
+      # the same new tokens for 60 s (cloudsneeker_api/token_refresh_grace.py).
+      CLOUDSNEEKER_REFRESH_GRACE_SECONDS: ${CLOUDSNEEKER_REFRESH_GRACE_SECONDS:-60}
     ports: !override
       - "127.0.0.1:${DJANGO_PORT:-8080}:${DJANGO_PORT:-8080}"
 

@@ -24,7 +24,7 @@ REFRESH_URL = "/api/v1/tokens/refresh"
 
 @pytest.fixture(autouse=True)
 def _local_cache(monkeypatch):
-    monkeypatch.delenv("CLOUDSNEEKER_REFRESH_GRACE_SECONDS", raising=False)
+    monkeypatch.setenv("CLOUDSNEEKER_REFRESH_GRACE_SECONDS", "60")
     with override_settings(CACHES=LOCAL_CACHES):
         caches[grace.CACHE_ALIAS].clear()
         yield
@@ -124,6 +124,15 @@ class TestRefreshGraceMiddleware:
         assert middleware(_request(path="/api/v1/tokens")).status_code == 401
         assert upstream.calls == 3
 
+    def test_window_is_off_unless_configured(self, monkeypatch):
+        # Upstream expects a rotated refresh token to fail at once.
+        monkeypatch.delenv("CLOUDSNEEKER_REFRESH_GRACE_SECONDS", raising=False)
+        assert grace.grace_seconds() == 0
+        upstream = _Upstream()
+        middleware = grace.RefreshGraceMiddleware(upstream)
+        middleware(_request())
+        assert middleware(_request()).status_code == 401
+
     def test_window_off(self, monkeypatch):
         monkeypatch.setenv("CLOUDSNEEKER_REFRESH_GRACE_SECONDS", "0")
         upstream = _Upstream()
@@ -144,7 +153,7 @@ class TestRefreshGraceMiddleware:
 
 @pytest.mark.django_db
 class TestRefreshGraceEndToEnd:
-    def test_same_refresh_token_twice_keeps_the_session(self, create_test_user):
+    def test_same_refresh_token_twice_keeps_the_session(self, tenants_fixture):
         from conftest import TEST_PASSWORD, TEST_USER
         from django.urls import reverse
         from rest_framework.test import APIClient

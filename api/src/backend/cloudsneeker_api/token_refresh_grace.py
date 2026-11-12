@@ -12,7 +12,9 @@ This middleware makes a refresh idempotent for a short window:
 
 * the first request for a refresh token takes a lock and runs the upstream
   view; a 200 response is kept for ``CLOUDSNEEKER_REFRESH_GRACE_SECONDS``
-  (60 by default, 0 turns the window off) under a SHA-256 of the token;
+  under a SHA-256 of the token. The window is off (0) unless the setting is
+  given, which keeps upstream's immediate invalidation (and its tests); the
+  VM deployment sets 60 (``cloudsneeker/deploy/vm/compose.yml``);
 * a request with the same token inside the window gets that same response
   (the same new access and refresh token), not a failure;
 * a request that arrives while the first is still running waits for its
@@ -47,7 +49,7 @@ POLL_SECONDS = 0.1
 
 
 def grace_seconds() -> int:
-    return max(0, env.int("CLOUDSNEEKER_REFRESH_GRACE_SECONDS", default=60))
+    return max(0, env.int("CLOUDSNEEKER_REFRESH_GRACE_SECONDS", default=0))
 
 
 def _cache():
