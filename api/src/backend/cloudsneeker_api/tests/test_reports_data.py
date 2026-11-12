@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from cloudsneeker_api.services.custodian_library import get_library_policy
 from api.db_utils import rls_transaction
 from api.models import (
     ComplianceOverviewSummary,
@@ -425,6 +426,56 @@ class TestGovernanceAndExecutive:
         assert data.top_risks[0]["check_id"] == "unused-ebs"
         resources = next(t for t in data.tables if t.key == "resources").rows
         assert resources[0]["uid"] == "vol-1"
+
+    def test_governance_severity_comes_from_findings_and_skips_muted(
+        self, tenants_fixture, aws_provider
+    ):
+        from api.models import MuteRule
+        from cloudsneeker_api.services.governance_findings import governance_uid
+
+        tenant = tenants_fixture[0]
+        with rls_transaction(str(tenant.id)):
+            ssh = CustodianPolicy.objects.create(
+                tenant_id=tenant.id,
+                name="SSH open",
+                policy_yaml=(
+                    "policies:\n"
+                    "  - name: aws-sg-ssh-open\n"
+                    "    resource: aws.security-group\n"
+                ),
+                provider=aws_provider,
+            )
+            CustodianRun.objects.create(
+                tenant_id=tenant.id,
+                policy=ssh,
+                provider=aws_provider,
+                status=CustodianRun.Status.COMPLETED,
+                finished_at=NOW,
+                summary={"resource_count": 2},
+                output={
+                    "resources": [
+                        {"GroupId": "sg-1", "c7n:policy": "aws-sg-ssh-open"},
+                        {"GroupId": "sg-2", "c7n:policy": "aws-sg-ssh-open"},
+                    ]
+                },
+            )
+            MuteRule.objects.create(
+                tenant_id=tenant.id,
+                name="muted sg",
+                reason="lab",
+                finding_uids=[governance_uid(str(ssh.id), "sg-2")],
+            )
+        self._policy_run(tenant, aws_provider, count=3, finished_at=NOW)
+
+        data = _assemble(tenant, "governance")
+
+        ssh_severity = get_library_policy("aws-sg-ssh-open")["severity"]
+        assert data.top_risks[0]["check_id"] == "SSH open"
+        assert data.top_risks[0]["severity"] == ssh_severity
+        assert data.severity_totals[ssh_severity] == 1
+        assert data.severity_totals["medium"] == 3
+        assert data.kpis["muted_resources"] == 1
+        assert data.status_totals == {"pass": 0, "fail": 2, "muted": 0, "manual": 0}
 
     def test_executive_combines_domains(self, tenants_fixture, provider_factory):
         tenant = tenants_fixture[0]
