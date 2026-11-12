@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 import { EmptyState } from "./empty-state";
 import { ReportScoreRing } from "./report-score-ring";
-import { ReportSeverityBadge } from "./report-severity-badge";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { RiskOverviewRefreshButton } from "./risk-overview-refresh-button";
 import { SectionCard } from "./section-card";
 import { SeverityBreakdown } from "./severity-breakdown";
@@ -68,7 +68,7 @@ const TopRiskList = ({ risks }: { risks: RiskTopItem[] }) => {
               {risk.title}
             </span>
             <span className="flex shrink-0 items-center gap-2">
-              <ReportSeverityBadge severity={risk.severity} />
+              <StandardSeverityBadge severity={risk.severity} />
               {risk.resources !== null ? (
                 <span className="text-text-neutral-secondary text-xs tabular-nums">
                   {risk.resources} resource{risk.resources === 1 ? "" : "s"}

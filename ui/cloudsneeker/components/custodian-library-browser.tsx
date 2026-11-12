@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { installCustodianLibraryPolicies } from "@/cloudsneeker/actions/custodian-library";
 import { FormAlert } from "@/cloudsneeker/components/form-layout";
-import { ReportSeverityBadge } from "@/cloudsneeker/components/report-severity-badge";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import {
   actionError,
@@ -312,7 +312,7 @@ export const CustodianLibraryBrowser = ({
                           <span className="text-text-neutral-primary font-medium">
                             {policy.name}
                           </span>
-                          <ReportSeverityBadge severity={policy.severity} />
+                          <StandardSeverityBadge severity={policy.severity} />
                           {policy.starter ? (
                             <Badge variant="outline">Starter</Badge>
                           ) : null}

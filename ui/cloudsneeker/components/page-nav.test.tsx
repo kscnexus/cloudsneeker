@@ -16,7 +16,8 @@ describe("PageNav", () => {
       />,
     );
 
-    expect(screen.getByText("385 findings · Page 5 of 16")).toBeInTheDocument();
+    expect(screen.getByText("385 findings")).toBeInTheDocument();
+    expect(screen.getByText("Page 5 of 16")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Page 4" })).toHaveAttribute(
       "href",
       "/list?page=4",

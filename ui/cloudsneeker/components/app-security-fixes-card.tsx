@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/shadcn";
 
 import { AreaFindingFixCell } from "./area-finding-fix";
-import { ReportSeverityBadge } from "./report-severity-badge";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "./section-card";
 import { STAT_TILE_TONE, StatTile } from "./stat-tile";
 
@@ -113,7 +113,7 @@ export const AppSecurityFixesCard = ({
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <ReportSeverityBadge severity={finding.severity} />
+                    <StandardSeverityBadge severity={finding.severity} />
                     <AreaFindingFixCell finding={finding} />
                   </div>
                 </li>

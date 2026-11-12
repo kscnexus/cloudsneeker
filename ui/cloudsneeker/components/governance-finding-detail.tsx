@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { FindingTriageStatusBadge } from "@/cloudsneeker/components/finding-triage-status-badge";
 import { MuteFindingsButton } from "@/cloudsneeker/components/mute-findings-button";
-import { ReportSeverityBadge } from "@/cloudsneeker/components/report-severity-badge";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import { AREA_CONFIG } from "@/cloudsneeker/lib/area-findings";
 import { formatAuditTime } from "@/cloudsneeker/lib/audit-log";
@@ -56,7 +56,7 @@ export const GovernanceFindingDetail = ({
     <div className="flex flex-col gap-4">
       <SectionCard title={finding.title || finding.check_id}>
         <div className="flex flex-wrap items-center gap-2">
-          <ReportSeverityBadge severity={finding.severity} />
+          <StandardSeverityBadge severity={finding.severity} />
           {finding.muted ? (
             <Badge variant="tag">Muted</Badge>
           ) : (
