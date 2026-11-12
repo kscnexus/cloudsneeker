@@ -201,7 +201,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends poppler-utils imagemagick >/dev/null
-          uv run pytest src/backend/cloudsneeker_api/tests/test_assessment_render.py -q
+          uv run pytest src/backend/cloudsneeker_api/tests/test_assessment_render.py src/backend/cloudsneeker_api/tests/test_reports_pdf_design.py -q
           cd "$CS_REPORT_SAMPLES_DIR"
           for pdf in *.pdf; do
             name="${pdf%.pdf}"
