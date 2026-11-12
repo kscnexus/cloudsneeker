@@ -57,10 +57,10 @@ describe("search links", () => {
 
   it("links each group to its filtered list", () => {
     expect(searchMoreHref(SEARCH_GROUP.GOVERNANCE_FINDINGS, "bucket")).toBe(
-      "/governance/findings?q=bucket",
+      "/governance/findings?filter%5Bsearch%5D=bucket",
     );
     expect(searchMoreHref(SEARCH_GROUP.POLICIES, "bucket")).toBe(
-      "/governance?tab=policies&q=bucket",
+      "/governance?tab=policies&filter%5Bsearch%5D=bucket",
     );
   });
 });
@@ -87,7 +87,7 @@ describe("toSearchGroups", () => {
       kind: "governance_policies",
       label: "Cloud Governance policies",
       count: 2,
-      moreHref: "/governance?tab=policies&q=bucket",
+      moreHref: "/governance?tab=policies&filter%5Bsearch%5D=bucket",
     });
     expect(groups[0].hits.map((hit) => hit.href)).toEqual(["/governance/p1"]);
     expect(searchTotal(groups)).toBe(2);

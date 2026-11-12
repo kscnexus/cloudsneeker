@@ -293,10 +293,9 @@ export default async function AppSecuritySbomPage({
 
         <SectionCard title="Components">
           <ComponentFiltersBar
-            base={pageBase}
-            filters={filters}
             ecosystems={Object.keys(sbom.summary.ecosystems ?? {})}
-            extra={extra}
+            licenses={Object.keys(sbom.summary.licenses ?? {})}
+            sort={filters.sort}
           />
           {components.length === 0 ? (
             <EmptyState title="No components match" />

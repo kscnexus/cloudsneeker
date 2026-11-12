@@ -1,5 +1,6 @@
 import { ListChecks } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { auth } from "@/auth.config";
@@ -9,9 +10,14 @@ import { newAlertHref } from "@/cloudsneeker/lib/alert-areas";
 import { securityCategoryTabs } from "@/cloudsneeker/lib/app-security-categories";
 import {
   AREA_CONFIG,
+  AREA_FINDING_SORT,
+  AREA_FINDING_SORT_LABEL,
+  AREA_FINDINGS_PAGE_SIZE,
   type AreaFindingFilters,
   areaFindingsPageHref,
   areaFindingsSearchParams,
+  areaSortOptions,
+  hasLegacyAreaParams,
   parseAreaFilters,
 } from "@/cloudsneeker/lib/area-findings";
 import {
@@ -39,6 +45,8 @@ import { PageNav } from "./page-nav";
 import { RiskPriorityFilter } from "./risk-priority-filter";
 import { SectionCard } from "./section-card";
 import { SecurityCategoryTabs } from "./security-category-tabs";
+import { SortSelect } from "./standard/sort-select";
+import { StandardTableCard } from "./standard/standard-table-card";
 
 interface AreaFindingsViewProps {
   area: FindingArea;
@@ -91,6 +99,10 @@ export const AreaFindingsView = ({
 }: AreaFindingsViewProps) => {
   const config = AREA_CONFIG[area];
   const filters = parseAreaFilters(searchParams);
+  // Old links (severity=, q=, account= ...) move to the filter bar's names.
+  if (hasLegacyAreaParams(searchParams)) {
+    redirect(areaFindingsPageHref(area, filters));
+  }
 
   return (
     <ContentLayout title={`${config.name} findings`} icon={<ListChecks />}>
@@ -155,8 +167,14 @@ const SSRAreaFindings = async ({
     ? await loadApplicationName(filters.application)
     : undefined;
 
+  const filtered = isFiltered(filters);
+  const sortOptions = areaSortOptions(area).map((sort) => ({
+    value: sort,
+    label: AREA_FINDING_SORT_LABEL[sort],
+  }));
+
   return (
-    <SectionCard title="Findings" description={`${total} finding(s).`}>
+    <div className="flex flex-col gap-6">
       {config.showCategory ? (
         <SecurityCategoryTabs
           area={area}
@@ -176,52 +194,61 @@ const SSRAreaFindings = async ({
           applicationName={applicationName}
         />
       ) : null}
-      {isFiltered(filters) ? (
-        <div className="flex justify-end">
-          <Button asChild size="xs" variant="ghost">
-            <Link href={areaFindingsPageHref(area, {})}>Clear all filters</Link>
-          </Button>
-        </div>
-      ) : null}
       <AreaFindingsFilters
         area={area}
-        filters={filters}
         sources={sourcesOf(response)}
         sourceLabel={config.sourceLabel}
         facets={meta?.facets}
       />
-      {findings.length === 0 ? (
-        <EmptyState
-          title={isFiltered(filters) ? "No findings match" : "No findings yet"}
-          description={
-            isFiltered(filters)
-              ? "Clear a filter to see more findings."
-              : config.emptyFindings
-          }
-          action={
-            isFiltered(filters) ? (
-              <Button asChild size="sm" variant="outline">
-                <Link href={areaFindingsPageHref(area, {})}>Clear filters</Link>
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <AreaFindingsTable
-          config={config}
-          findings={findings}
-          canTriage={canTriage}
-          query={areaFindingsSearchParams(area, filters)}
-          total={total}
-        />
-      )}
-      <PageNav
-        page={filters.page}
-        pages={pages}
-        count={total}
-        noun="findings"
-        hrefFor={(page) => areaFindingsPageHref(area, { ...filters, page })}
-      />
-    </SectionCard>
+      <StandardTableCard
+        searchPlaceholder="Search rule, title or resource (press Enter)"
+        total={total}
+        toolbarRight={
+          <SortSelect
+            value={filters.sort}
+            defaultValue={AREA_FINDING_SORT.SEVERITY}
+            options={sortOptions}
+          />
+        }
+        footer={
+          <PageNav
+            page={filters.page}
+            pages={pages}
+            count={total}
+            noun="findings"
+            pageSize={filters.pageSize ?? AREA_FINDINGS_PAGE_SIZE}
+            hrefFor={(page) => areaFindingsPageHref(area, { ...filters, page })}
+          />
+        }
+      >
+        {findings.length === 0 ? (
+          <EmptyState
+            title={filtered ? "No findings match" : "No findings yet"}
+            description={
+              filtered
+                ? "Clear a filter to see more findings."
+                : config.emptyFindings
+            }
+            action={
+              filtered ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={areaFindingsPageHref(area, {})}>
+                    Clear filters
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <AreaFindingsTable
+            config={config}
+            findings={findings}
+            canTriage={canTriage}
+            query={areaFindingsSearchParams(area, filters)}
+            total={total}
+          />
+        )}
+      </StandardTableCard>
+    </div>
   );
 };

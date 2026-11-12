@@ -1,5 +1,6 @@
-import { Download, ShieldAlert } from "lucide-react";
+import { Download, ShieldAlert, X } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import {
@@ -13,6 +14,7 @@ import {
   APPSEC_FINDING_PARAM,
   APPSEC_FINDING_SORT,
   APPSEC_FINDING_SORT_LABEL,
+  APPSEC_FIRST_SEEN_DAYS,
   APPSEC_FIX_FILTER,
   APPSEC_PRIORITIES,
   APPSEC_SEVERITIES,
@@ -32,9 +34,9 @@ import {
   attributesOf,
   dueLabel,
   formatAppSecDate,
+  hasLegacyAppSecParams,
   isAppSecFiltered,
   parseAppSecFindingFilters,
-  toggleItem,
 } from "@/cloudsneeker/lib/appsec";
 import {
   TRIAGE_STATUS_FILTERS,
@@ -47,7 +49,7 @@ import {
 } from "@/cloudsneeker/lib/findings-links";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
 import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
-import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
+import { TABLE_FRAME_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import {
   APPSEC_CATEGORY,
   type AppSecFindingAttributes,
@@ -55,7 +57,8 @@ import {
   type AppSecResource,
 } from "@/cloudsneeker/types/appsec";
 import { FINDING_AREA } from "@/cloudsneeker/types/area-findings";
-import { Button, Input, Skeleton } from "@/components/shadcn";
+import { TRIVY_MODE } from "@/cloudsneeker/types/trivy";
+import { Button, Skeleton } from "@/components/shadcn";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import { cn } from "@/lib/utils";
 import type { SearchParamsProps } from "@/types";
@@ -64,12 +67,9 @@ import {
   AppSecPriorityBadge,
   AppSecSeverityBadge,
   AppSecStateBadge,
-  ChipLink,
   LoadError,
-  Pager,
   ROW_LINK_CLASS,
   TABLE_CLASS,
-  TABLE_WRAPPER_CLASS,
   TD_CLASS,
   TD_PRIMARY_CLASS,
   TH_CLASS,
@@ -78,7 +78,11 @@ import { pagesOf } from "./area-triage-view";
 import { EmptyState } from "./empty-state";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
 import { PageHeader } from "./page-header";
-import { SectionCard } from "./section-card";
+import { PageNav } from "./page-nav";
+import { SortSelect } from "./standard/sort-select";
+import { StandardFilters } from "./standard/standard-filters";
+import type { StandardFilter } from "./standard/standard-filters.utils";
+import { StandardTableCard } from "./standard/standard-table-card";
 import { StatTile } from "./stat-tile";
 
 interface AppSecFindingsWorkspaceProps {
@@ -92,6 +96,9 @@ export const AppSecFindingsWorkspace = ({
   searchParams,
 }: AppSecFindingsWorkspaceProps) => {
   const filters = parseAppSecFindingFilters(searchParams);
+  if (hasLegacyAppSecParams(searchParams)) {
+    redirect(appSecFindingsHref(workspace.segment, filters));
+  }
   const exportQuery = appSecFindingsQuery(workspace.category, filters, {
     paginate: false,
   });
@@ -227,222 +234,165 @@ const SummaryTiles = ({
   );
 };
 
-interface FilterOption {
+interface FilterChoice {
   value: string;
   label: string;
 }
 
-const Filters = ({
+/** The workspace's filter bar (Cloud Security Findings controls). */
+export const buildAppSecFilters = ({
   workspace,
-  filters,
   applications,
   targets,
 }: {
   workspace: AppSecWorkspace;
-  filters: AppSecFindingFilters;
-  applications: FilterOption[];
-  targets: FilterOption[];
-}) => {
-  const reset = { ...filters, page: 1 };
-  const href = (next: Partial<AppSecFindingFilters>) =>
-    appSecFindingsHref(workspace.segment, { ...reset, ...next });
+  applications: FilterChoice[];
+  targets: FilterChoice[];
+}): StandardFilter[] => {
   const param = APPSEC_FINDING_PARAM;
-  const hidden: [string, string][] = [
-    [param.SEVERITY, filters.severities.join(",")],
-    [param.STATE, filters.states.join(",")],
-    [param.PRIORITY, filters.priorities.join(",")],
-    [param.TRIAGE, filters.triage ?? ""],
-    [param.FIX, filters.fix ?? ""],
-    [param.OVERDUE, filters.overdue ? "1" : ""],
-    [param.SUPPRESSED, filters.suppressed ? "1" : ""],
+  const filters: StandardFilter[] = [
+    {
+      key: param.SEVERITY,
+      label: "Severities",
+      options: APPSEC_SEVERITIES.map((severity) => ({
+        value: severity,
+        label: appSecSeverityLabel(severity),
+      })),
+    },
+    {
+      key: param.PRIORITY,
+      label: "Priorities",
+      options: APPSEC_PRIORITIES.map((priority) => ({
+        value: priority,
+        label: appSecPriorityLabel(priority),
+      })),
+    },
+    {
+      key: param.STATE,
+      label: "States (active)",
+      options: APPSEC_STATES.map((state) => ({
+        value: state,
+        label: appSecStateLabel(state),
+      })),
+    },
+    {
+      key: param.TRIAGE,
+      label: "Triage Statuses",
+      options: TRIAGE_STATUS_FILTERS.map((status) => ({
+        value: status,
+        label: triageStatusLabel(status),
+      })),
+    },
   ];
+  if (applications.length > 0) {
+    filters.push({
+      key: param.APPLICATION,
+      label: "Applications",
+      wide: true,
+      options: applications,
+    });
+  }
+  if (targets.length > 0) {
+    filters.push({
+      key: param.TARGET,
+      label: "Targets",
+      wide: true,
+      options: targets,
+    });
+  }
+  filters.push(
+    {
+      key: param.ASSET_TYPE,
+      label: "Asset Types",
+      options: Object.values(TRIVY_MODE).map((mode) => ({
+        value: mode,
+        label: labelForTrivyMode(mode),
+      })),
+    },
+    {
+      key: param.FIRST_SEEN,
+      label: "Time (first seen)",
+      single: true,
+      options: APPSEC_FIRST_SEEN_DAYS.map((days) => ({
+        value: String(days),
+        label: days === 1 ? "Last 24 hours" : `Last ${days} days`,
+      })),
+    },
+  );
+  if (workspace.category === APPSEC_CATEGORY.VULNERABILITY) {
+    filters.push({
+      key: param.FIX,
+      label: "Fix States",
+      single: true,
+      options: [
+        { value: "true", label: "Fix available" },
+        { value: "false", label: "No fix yet" },
+      ],
+    });
+  }
+  filters.push(
+    {
+      key: param.OVERDUE,
+      label: "Deadlines",
+      single: true,
+      options: [{ value: "true", label: "Past deadline" }],
+    },
+    {
+      key: param.SUPPRESSED,
+      label: "Findings (suppressed hidden)",
+      single: true,
+      options: [{ value: "true", label: "Suppressed only" }],
+    },
+  );
+  return filters;
+};
+
+/** Rule and package scopes come from links (components, finding detail);
+ * they show as removable notes above the table. */
+const ScopeNotes = ({
+  workspace,
+  filters,
+}: {
+  workspace: AppSecWorkspace;
+  filters: AppSecFindingFilters;
+}) => {
+  const scopes = [
+    filters.rule
+      ? {
+          label: `Rule: ${filters.rule}`,
+          href: appSecFindingsHref(workspace.segment, {
+            ...filters,
+            rule: null,
+            page: 1,
+          }),
+        }
+      : null,
+    filters.pkg
+      ? {
+          label: `Package: ${filters.pkg}`,
+          href: appSecFindingsHref(workspace.segment, {
+            ...filters,
+            pkg: null,
+            page: 1,
+          }),
+        }
+      : null,
+  ].filter((scope) => scope !== null);
+  if (scopes.length === 0) return null;
   return (
-    <div className="flex flex-col gap-3">
-      <nav aria-label="Severity" className="flex flex-wrap gap-2">
-        {APPSEC_SEVERITIES.map((severity) => (
-          <ChipLink
-            key={severity}
-            href={href({
-              severities: toggleItem(filters.severities, severity),
-            })}
-            active={filters.severities.includes(severity)}
-          >
-            {appSecSeverityLabel(severity)}
-          </ChipLink>
-        ))}
-      </nav>
-      <nav aria-label="Detection state" className="flex flex-wrap gap-2">
-        {APPSEC_STATES.map((state) => (
-          <ChipLink
-            key={state}
-            href={href({ states: toggleItem(filters.states, state) })}
-            active={filters.states.includes(state)}
-          >
-            {appSecStateLabel(state)}
-          </ChipLink>
-        ))}
-        <ChipLink
-          href={href({ suppressed: !filters.suppressed })}
-          active={filters.suppressed}
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-text-neutral-secondary">Scoped to</span>
+      {scopes.map((scope) => (
+        <Link
+          key={scope.label}
+          href={scope.href}
+          className="border-border-neutral-secondary text-text-neutral-primary hover:bg-bg-neutral-tertiary inline-flex items-center gap-1 rounded-full border px-2.5 py-1"
+          aria-label={`Remove ${scope.label}`}
         >
-          Suppressed
-        </ChipLink>
-        {workspace.category === APPSEC_CATEGORY.VULNERABILITY ||
-        workspace.category === null ? (
-          <>
-            <ChipLink
-              href={href({
-                fix:
-                  filters.fix === APPSEC_FIX_FILTER.AVAILABLE
-                    ? null
-                    : APPSEC_FIX_FILTER.AVAILABLE,
-              })}
-              active={filters.fix === APPSEC_FIX_FILTER.AVAILABLE}
-            >
-              Fix available
-            </ChipLink>
-            <ChipLink
-              href={href({
-                fix:
-                  filters.fix === APPSEC_FIX_FILTER.NONE
-                    ? null
-                    : APPSEC_FIX_FILTER.NONE,
-              })}
-              active={filters.fix === APPSEC_FIX_FILTER.NONE}
-            >
-              No fix yet
-            </ChipLink>
-          </>
-        ) : null}
-      </nav>
-      <nav aria-label="Priority" className="flex flex-wrap gap-2">
-        {APPSEC_PRIORITIES.map((priority) => (
-          <ChipLink
-            key={priority}
-            href={href({
-              priorities: toggleItem(filters.priorities, priority),
-            })}
-            active={filters.priorities.includes(priority)}
-          >
-            {appSecPriorityLabel(priority)}
-          </ChipLink>
-        ))}
-        <ChipLink
-          href={href({ overdue: !filters.overdue })}
-          active={filters.overdue}
-        >
-          Past deadline
-        </ChipLink>
-      </nav>
-      <nav aria-label="Triage status" className="flex flex-wrap gap-2">
-        {[null, ...TRIAGE_STATUS_FILTERS].map((status) => (
-          <ChipLink
-            key={status ?? "any"}
-            href={href({ triage: status })}
-            active={status === filters.triage}
-          >
-            {status ? triageStatusLabel(status) : "Any triage status"}
-          </ChipLink>
-        ))}
-      </nav>
-      <form method="get" className="flex flex-wrap items-end gap-2">
-        {hidden.map(([name, value]) =>
-          value ? (
-            <input key={name} type="hidden" name={name} value={value} />
-          ) : null,
-        )}
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Search
-          </span>
-          <Input
-            name={param.SEARCH}
-            defaultValue={filters.search}
-            placeholder={`${workspace.ruleLabel}, title, package, file or resource`}
-          />
-        </label>
-        <OptionSelect
-          label="Application"
-          name={param.APPLICATION}
-          value={filters.application}
-          options={applications}
-        />
-        <OptionSelect
-          label="Target"
-          name={param.TARGET}
-          value={filters.target}
-          options={targets}
-        />
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            {workspace.ruleLabel}
-          </span>
-          <Input
-            name={param.RULE}
-            defaultValue={filters.rule ?? ""}
-            className="w-40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Package
-          </span>
-          <Input
-            name={param.PACKAGE}
-            defaultValue={filters.pkg ?? ""}
-            className="w-40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Sort by
-          </span>
-          <select
-            name={param.SORT}
-            defaultValue={filters.sort}
-            className={cn(FORM_SELECT_CLASS, "w-40")}
-          >
-            {Object.values(APPSEC_FINDING_SORT).map((sort) => (
-              <option key={sort} value={sort}>
-                {APPSEC_FINDING_SORT_LABEL[sort]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button type="submit" size="sm">
-          Apply
-        </Button>
-        <Button asChild size="sm" variant="ghost">
-          <Link href={appSecFindingsHref(workspace.segment)}>Reset</Link>
-        </Button>
-      </form>
-      {filters.target || filters.application || filters.rule || filters.pkg ? (
-        <p className="text-text-neutral-tertiary text-xs">
-          Scoped to{" "}
-          {[
-            filters.application ? "one application" : null,
-            filters.target ? "one target" : null,
-            filters.rule
-              ? `${workspace.ruleLabel.toLowerCase()} ${filters.rule}`
-              : null,
-            filters.pkg ? `package ${filters.pkg}` : null,
-          ]
-            .filter(Boolean)
-            .join(", ")}
-          .{" "}
-          <Link
-            className="underline"
-            href={href({
-              target: null,
-              application: null,
-              rule: null,
-              pkg: null,
-            })}
-          >
-            Remove scope
-          </Link>
-        </p>
-      ) : null}
+          {scope.label}
+          <X className="size-3" aria-hidden="true" />
+        </Link>
+      ))}
     </div>
   );
 };
@@ -454,7 +404,7 @@ const FindingsTable = ({
   workspace: AppSecWorkspace;
   findings: AppSecResource<AppSecFindingAttributes>[];
 }) => (
-  <div className={TABLE_WRAPPER_CLASS}>
+  <div className={TABLE_FRAME_CLASS}>
     <table className={TABLE_CLASS}>
       <thead>
         <tr>
@@ -575,14 +525,14 @@ const SSRWorkspace = async ({
       listAppSecApplications({ "page[size]": "100", sort: "name" }),
       loadAllTargets({}, "name"),
     ]);
-  const applicationOptions: FilterOption[] = isListResponse(
+  const applicationOptions: FilterChoice[] = isListResponse(
     applicationsResponse,
   )
     ? responseList<AppSecResource<{ name?: string }>>(applicationsResponse).map(
         (item) => ({ value: item.id, label: item.attributes.name || item.id }),
       )
     : [];
-  const targetOptions: FilterOption[] = (loadedTargets?.targets ?? []).map(
+  const targetOptions: FilterChoice[] = (loadedTargets?.targets ?? []).map(
     (target) => ({
       value: target.id,
       label: target.attributes.name || target.id,
@@ -599,22 +549,48 @@ const SSRWorkspace = async ({
   const total = responseCount(response) ?? findings.length;
   const summary = attributesOf<AppSecFindingsSummary>(summaryResponse);
   const filtered = isAppSecFiltered(filters);
+  const sortOptions = Object.values(APPSEC_FINDING_SORT).map((sort) => ({
+    value: sort,
+    label: APPSEC_FINDING_SORT_LABEL[sort],
+  }));
 
   return (
     <div className="flex flex-col gap-6">
       {summary ? (
         <SummaryTiles workspace={workspace} summary={summary} />
       ) : null}
-      <SectionCard
-        title="Findings"
-        description={`${total} finding(s) match. A finding keeps one row across scans; triage follows it.`}
+      <StandardFilters
+        testIdPrefix={`appsec-${workspace.segment || "findings"}`}
+        filters={buildAppSecFilters({
+          workspace,
+          applications: applicationOptions,
+          targets: targetOptions,
+        })}
+      />
+      <ScopeNotes workspace={workspace} filters={filters} />
+      <StandardTableCard
+        searchPlaceholder="Search rule, package, file or title (press Enter)"
+        total={total}
+        toolbarRight={
+          <SortSelect
+            value={filters.sort}
+            defaultValue={APPSEC_FINDING_SORT.PRIORITY}
+            options={sortOptions}
+          />
+        }
+        footer={
+          <PageNav
+            page={filters.page}
+            pages={pagesOf(response)}
+            count={total}
+            noun="findings"
+            pageSize={filters.pageSize}
+            hrefFor={(page) =>
+              appSecFindingsHref(workspace.segment, { ...filters, page })
+            }
+          />
+        }
       >
-        <Filters
-          workspace={workspace}
-          filters={filters}
-          applications={applicationOptions}
-          targets={targetOptions}
-        />
         {findings.length === 0 ? (
           <EmptyState
             title={filtered ? "No findings match" : "No findings"}
@@ -636,43 +612,7 @@ const SSRWorkspace = async ({
         ) : (
           <FindingsTable workspace={workspace} findings={findings} />
         )}
-        <Pager
-          page={filters.page}
-          pages={pagesOf(response)}
-          hrefFor={(page) =>
-            appSecFindingsHref(workspace.segment, { ...filters, page })
-          }
-        />
-      </SectionCard>
+      </StandardTableCard>
     </div>
   );
 };
-
-const OptionSelect = ({
-  label,
-  name,
-  value,
-  options,
-}: {
-  label: string;
-  name: string;
-  value: string | null;
-  options: FilterOption[];
-}) =>
-  options.length > 0 ? (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="text-text-neutral-secondary font-semibold">{label}</span>
-      <select
-        name={name}
-        defaultValue={value ?? ""}
-        className={cn(FORM_SELECT_CLASS, "w-48")}
-      >
-        <option value="">All</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  ) : null;

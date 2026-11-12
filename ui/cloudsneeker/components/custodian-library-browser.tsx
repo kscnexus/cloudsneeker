@@ -7,8 +7,9 @@ import { useState } from "react";
 
 import { installCustodianLibraryPolicies } from "@/cloudsneeker/actions/custodian-library";
 import { FormAlert } from "@/cloudsneeker/components/form-layout";
-import { ReportSeverityBadge } from "@/cloudsneeker/components/report-severity-badge";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { toFilterOption } from "@/cloudsneeker/components/standard/standard-filters.utils";
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import {
   actionError,
   coveragePercent,
@@ -39,7 +40,22 @@ import type {
   LibraryProvider,
 } from "@/cloudsneeker/types/custodian-library";
 import { Badge, Button, Input } from "@/components/shadcn";
+import { DataTableFilterCustom } from "@/components/shadcn/table/data-table-filter-custom";
 import { cn } from "@/lib/utils";
+import { DATA_TABLE_FILTER_MODE } from "@/types/filters";
+
+const LIBRARY_FILTER = {
+  CATEGORY: "category",
+  SEVERITY: "severity",
+} as const;
+
+type LibraryFilterField = (typeof LIBRARY_FILTER)[keyof typeof LIBRARY_FILTER];
+
+/** "filter[category]" or "category" -> the filter field. */
+const fieldOf = (key: string): LibraryFilterField =>
+  key.replace(/^filter\[|\]$/g, "") === LIBRARY_FILTER.SEVERITY
+    ? LIBRARY_FILTER.SEVERITY
+    : LIBRARY_FILTER.CATEGORY;
 
 interface ProviderOption {
   id: string;
@@ -70,6 +86,29 @@ export const CustodianLibraryBrowser = ({
   const [error, setError] = useState<string | null>(null);
 
   const visible = filterLibraryPolicies(policies, filters);
+  // Same dropdowns as the Cloud Security Findings filters, applied at once
+  // because the library is filtered in the browser.
+  const libraryFilterOptions = [
+    toFilterOption({
+      key: LIBRARY_FILTER.CATEGORY,
+      label: "Categories",
+      single: true,
+      wide: true,
+      options: categories.map((category) => ({
+        value: category.id,
+        label: category.name,
+      })),
+    }),
+    toFilterOption({
+      key: LIBRARY_FILTER.SEVERITY,
+      label: "Severities",
+      single: true,
+      options: LIBRARY_SEVERITIES.map((severity) => ({
+        value: severity,
+        label: severityLabel(severity),
+      })),
+    }),
+  ];
   const summary = summarizeCoverage(coverage, providerType);
   const starterIds = pendingStarterIds(policies);
   const providerName = LIBRARY_PROVIDER_LABEL[providerType];
@@ -202,41 +241,25 @@ export const CustodianLibraryBrowser = ({
             <Input
               aria-label="Search the library"
               placeholder="Search by name, resource or framework"
+              className="h-10"
               value={filters.search}
               onChange={(event) =>
                 updateFilters({ search: event.target.value })
               }
             />
-            <select
-              aria-label="Category"
-              className={FORM_SELECT_CLASS}
-              value={filters.category}
-              onChange={(event) =>
-                updateFilters({ category: event.target.value })
+            <DataTableFilterCustom
+              gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 md:col-span-2"
+              filters={libraryFilterOptions}
+              hideClearButton
+              mode={DATA_TABLE_FILTER_MODE.BATCH}
+              onBatchChange={(key, values) =>
+                updateFilters({ [fieldOf(key)]: values[0] ?? "" })
               }
-            >
-              <option value="">All categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Severity"
-              className={FORM_SELECT_CLASS}
-              value={filters.severity}
-              onChange={(event) =>
-                updateFilters({ severity: event.target.value })
-              }
-            >
-              <option value="">All severities</option>
-              {LIBRARY_SEVERITIES.map((severity) => (
-                <option key={severity} value={severity}>
-                  {severityLabel(severity)}
-                </option>
-              ))}
-            </select>
+              getFilterValue={(key) => {
+                const value = filters[fieldOf(key)];
+                return value ? [value] : [];
+              }}
+            />
             <select
               aria-label="Add to provider"
               className={FORM_SELECT_CLASS}
@@ -312,7 +335,7 @@ export const CustodianLibraryBrowser = ({
                           <span className="text-text-neutral-primary font-medium">
                             {policy.name}
                           </span>
-                          <ReportSeverityBadge severity={policy.severity} />
+                          <StandardSeverityBadge severity={policy.severity} />
                           {policy.starter ? (
                             <Badge variant="outline">Starter</Badge>
                           ) : null}

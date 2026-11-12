@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { StandardSeverityBadge } from "@/cloudsneeker/components/standard/standard-severity-badge";
 import {
   categoryImpact,
   categoryLabel,
@@ -23,7 +24,6 @@ import { Button } from "@/components/shadcn";
 import { AreaFindingExploitDetails } from "./area-finding-exploit";
 import { AreaFindingFixDetails } from "./area-finding-fix";
 import { FindingTriageStatusBadge } from "./finding-triage-status-badge";
-import { ReportSeverityBadge } from "./report-severity-badge";
 import { RiskPriorityBadge } from "./risk-priority-badge";
 import { SectionCard } from "./section-card";
 
@@ -65,7 +65,7 @@ export const AppSecurityFindingDetail = ({
       <SectionCard title="Summary" contentClassName="p-4 sm:p-5">
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Severity">
-            <ReportSeverityBadge severity={finding.severity} />
+            <StandardSeverityBadge severity={finding.severity} />
           </Field>
           <Field label="Risk priority">
             <span title={RISK_PRIORITY_RULES}>

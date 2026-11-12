@@ -29,6 +29,13 @@ describe("parseListFilters", () => {
       page: 3,
     });
     expect(parseListFilters({ page: "-2" }).page).toBe(1);
+    expect(
+      parseListFilters({
+        "filter[search]": "s3",
+        "filter[provider]": "p2",
+        q: "ignored",
+      }),
+    ).toMatchObject({ search: "s3", provider: "p2" });
     expect(hasListFilters(parseListFilters({}))).toBe(false);
   });
 });
@@ -37,7 +44,7 @@ describe("links and queries", () => {
   it("keeps the tab and drops page 1", () => {
     expect(
       listHref("/governance", { tab: "policies" }, { search: "s3", page: 1 }),
-    ).toBe("/governance?tab=policies&q=s3");
+    ).toBe("/governance?tab=policies&filter%5Bsearch%5D=s3");
     expect(listHref("/x", {}, { page: 2 })).toBe("/x?page=2");
   });
 

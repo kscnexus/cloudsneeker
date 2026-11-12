@@ -1,265 +1,111 @@
-import Link from "next/link";
-
 import {
-  AREA_CONFIG,
-  AREA_FINDING_SORT_LABEL,
-  AREA_FIX_FILTER_LABEL,
+  AREA_MUTED_INCLUDE,
   AREA_PARAM,
   AREA_SEVERITIES,
-  type AreaFindingFilters,
-  areaFindingsPageHref,
-  areaSortOptions,
-  toggleSeverity,
 } from "@/cloudsneeker/lib/area-findings";
 import {
   TRIAGE_STATUS_FILTERS,
   triageStatusLabel,
 } from "@/cloudsneeker/lib/finding-triage";
 import { severityLabel } from "@/cloudsneeker/lib/report-view";
-import { FORM_SELECT_CLASS } from "@/cloudsneeker/lib/ui-classes";
-import {
-  AREA_FIX_FILTER,
-  type AreaFindingFacets,
-  type AreaFindingSource,
-  type FindingArea,
+import type {
+  AreaFindingFacets,
+  AreaFindingSource,
+  FindingArea,
 } from "@/cloudsneeker/types/area-findings";
-import { Button, Input } from "@/components/shadcn";
-import { cn } from "@/lib/utils";
+
+import { StandardFilters } from "./standard/standard-filters";
+import type { StandardFilter } from "./standard/standard-filters.utils";
 
 interface AreaFindingsFiltersProps {
   area: FindingArea;
-  filters: AreaFindingFilters;
   sources: AreaFindingSource[];
+  /** Plural label of the area's sources, e.g. "Policies". */
   sourceLabel: string;
   /** Governance: accounts, regions and resource types to offer. */
   facets?: AreaFindingFacets;
 }
 
-const chipClass = (active: boolean) =>
-  cn(
-    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-    active
-      ? "border-button-primary bg-button-primary text-black"
-      : "border-border-neutral-secondary text-text-neutral-secondary hover:text-text-neutral-primary",
-  );
-
-/** Severity and triage chips (links) plus a search, source and sort form. */
-export const AreaFindingsFilters = ({
-  area,
-  filters,
+/** The area's filters as Cloud Security Findings shows them: searchable
+ * multi-selects, applied together, with chips and Clear Filters. */
+export const buildAreaFilters = ({
   sources,
   sourceLabel,
   facets,
-}: AreaFindingsFiltersProps) => {
-  const reset = { ...filters, page: 1 };
-  return (
-    <div className="flex flex-col gap-3">
-      <nav aria-label="Severity" className="flex flex-wrap gap-2">
-        {AREA_SEVERITIES.map((severity) => {
-          const active = filters.severities.includes(severity);
-          return (
-            <Link
-              key={severity}
-              href={areaFindingsPageHref(area, {
-                ...reset,
-                severities: toggleSeverity(filters.severities, severity),
-              })}
-              aria-current={active ? "true" : undefined}
-              className={chipClass(active)}
-            >
-              {severityLabel(severity)}
-            </Link>
-          );
-        })}
-      </nav>
-      <nav aria-label="Triage status" className="flex flex-wrap gap-2">
-        {[null, ...TRIAGE_STATUS_FILTERS].map((status) => (
-          <Link
-            key={status ?? "all"}
-            href={areaFindingsPageHref(area, { ...reset, triage: status })}
-            aria-current={status === filters.triage ? "page" : undefined}
-            className={chipClass(status === filters.triage)}
-          >
-            {status ? triageStatusLabel(status) : "Any status"}
-          </Link>
-        ))}
-      </nav>
-      {AREA_CONFIG[area].showFix ? (
-        <nav aria-label="Fix" className="flex flex-wrap gap-2">
-          {[null, ...Object.values(AREA_FIX_FILTER)].map((fix) => (
-            <Link
-              key={fix ?? "any"}
-              href={areaFindingsPageHref(area, { ...reset, fix })}
-              aria-current={fix === filters.fix ? "page" : undefined}
-              className={chipClass(fix === filters.fix)}
-            >
-              {fix ? AREA_FIX_FILTER_LABEL[fix] : "Any fix state"}
-            </Link>
-          ))}
-        </nav>
-      ) : null}
-      {AREA_CONFIG[area].showExploit ? (
-        <nav aria-label="Exploitation" className="flex flex-wrap gap-2">
-          <Link
-            href={areaFindingsPageHref(area, {
-              ...reset,
-              exploited: !filters.exploited,
-            })}
-            aria-current={filters.exploited ? "page" : undefined}
-            className={chipClass(Boolean(filters.exploited))}
-            title="CVEs in the CISA Known Exploited Vulnerabilities catalog"
-          >
-            Known exploited
-          </Link>
-        </nav>
-      ) : null}
-      <nav aria-label="Muted findings" className="flex flex-wrap gap-2">
-        <Link
-          href={areaFindingsPageHref(area, { ...reset, muted: !filters.muted })}
-          aria-current={filters.muted ? "page" : undefined}
-          className={chipClass(Boolean(filters.muted))}
-          title="Include findings muted by a mutelist rule"
-        >
-          Show muted
-        </Link>
-      </nav>
-      <form method="get" className="flex flex-wrap items-end gap-2">
-        {filters.muted ? (
-          <input type="hidden" name={AREA_PARAM.MUTED} value="1" />
-        ) : null}
-        {filters.exploited ? (
-          <input type="hidden" name={AREA_PARAM.EXPLOITED} value="1" />
-        ) : null}
-        {filters.fix ? (
-          <input type="hidden" name={AREA_PARAM.FIX} value={filters.fix} />
-        ) : null}
-        {filters.severities.length ? (
-          <input
-            type="hidden"
-            name={AREA_PARAM.SEVERITY}
-            value={filters.severities.join(",")}
-          />
-        ) : null}
-        {filters.triage ? (
-          <input
-            type="hidden"
-            name={AREA_PARAM.TRIAGE}
-            value={filters.triage}
-          />
-        ) : null}
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Search
-          </span>
-          <Input
-            name={AREA_PARAM.SEARCH}
-            defaultValue={filters.search}
-            placeholder="Rule, title or resource"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            {sourceLabel}
-          </span>
-          <select
-            name={AREA_PARAM.SOURCE}
-            defaultValue={filters.source ?? ""}
-            className={cn(FORM_SELECT_CLASS, "w-48")}
-          >
-            <option value="">All</option>
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {facets && facets.accounts.length > 0 ? (
-          <FacetSelect
-            label="Account"
-            name={AREA_PARAM.ACCOUNT}
-            value={filters.account}
-            options={facets.accounts.map((account) => ({
-              value: account.id,
-              label: account.name,
-            }))}
-          />
-        ) : null}
-        {facets && facets.regions.length > 0 ? (
-          <FacetSelect
-            label="Region"
-            name={AREA_PARAM.REGION}
-            value={filters.region}
-            options={facets.regions.map((region) => ({
-              value: region,
-              label: region,
-            }))}
-          />
-        ) : null}
-        {facets && facets.resource_types.length > 0 ? (
-          <FacetSelect
-            label="Resource type"
-            name={AREA_PARAM.RESOURCE_TYPE}
-            value={filters.resourceType}
-            options={facets.resource_types.map((type) => ({
-              value: type,
-              label: type,
-            }))}
-          />
-        ) : null}
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-text-neutral-secondary font-semibold">
-            Sort by
-          </span>
-          <select
-            name={AREA_PARAM.SORT}
-            defaultValue={filters.sort}
-            className={cn(FORM_SELECT_CLASS, "w-44")}
-          >
-            {areaSortOptions(area).map((sort) => (
-              <option key={sort} value={sort}>
-                {AREA_FINDING_SORT_LABEL[sort]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button type="submit" size="sm">
-          Apply
-        </Button>
-        <Button asChild size="sm" variant="ghost">
-          <Link href={areaFindingsPageHref(area, {})}>Reset</Link>
-        </Button>
-      </form>
-    </div>
-  );
+}: Omit<AreaFindingsFiltersProps, "area">): StandardFilter[] => {
+  const filters: StandardFilter[] = [
+    {
+      key: AREA_PARAM.SEVERITY,
+      label: "Severities",
+      options: AREA_SEVERITIES.map((severity) => ({
+        value: severity,
+        label: severityLabel(severity),
+      })),
+    },
+    {
+      key: AREA_PARAM.TRIAGE,
+      label: "Statuses",
+      options: TRIAGE_STATUS_FILTERS.map((status) => ({
+        value: status,
+        label: triageStatusLabel(status),
+      })),
+    },
+    {
+      key: AREA_PARAM.SOURCE,
+      label: sourceLabel,
+      wide: true,
+      options: sources.map((source) => ({
+        value: source.id,
+        label: source.name,
+      })),
+    },
+  ];
+  if (facets && facets.accounts.length > 0) {
+    filters.push({
+      key: AREA_PARAM.ACCOUNT,
+      label: "Accounts",
+      options: facets.accounts.map((account) => ({
+        value: account.id,
+        label: account.name,
+      })),
+    });
+  }
+  if (facets && facets.regions.length > 0) {
+    filters.push({
+      key: AREA_PARAM.REGION,
+      label: "Regions",
+      options: facets.regions.map((region) => ({
+        value: region,
+        label: region,
+      })),
+    });
+  }
+  if (facets && facets.resource_types.length > 0) {
+    filters.push({
+      key: AREA_PARAM.RESOURCE_TYPE,
+      label: "Resource Types",
+      wide: true,
+      options: facets.resource_types.map((type) => ({
+        value: type,
+        label: type,
+      })),
+    });
+  }
+  filters.push({
+    key: AREA_PARAM.MUTED,
+    label: "Findings (muted hidden)",
+    single: true,
+    options: [{ value: AREA_MUTED_INCLUDE, label: "Include muted findings" }],
+  });
+  return filters;
 };
 
-interface FacetOption {
-  value: string;
-  label: string;
-}
-
-interface FacetSelectProps {
-  label: string;
-  name: string;
-  value?: string;
-  options: FacetOption[];
-}
-
-const FacetSelect = ({ label, name, value, options }: FacetSelectProps) => (
-  <label className="flex flex-col gap-1 text-xs">
-    <span className="text-text-neutral-secondary font-semibold">{label}</span>
-    <select
-      name={name}
-      defaultValue={value ?? ""}
-      className={cn(FORM_SELECT_CLASS, "w-44")}
-    >
-      <option value="">All</option>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
+export const AreaFindingsFilters = ({
+  area,
+  ...props
+}: AreaFindingsFiltersProps) => (
+  <StandardFilters
+    testIdPrefix={`${area}-findings`}
+    filters={buildAreaFilters(props)}
+  />
 );

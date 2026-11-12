@@ -143,7 +143,7 @@ describe("audit filters", () => {
     expect(query.get("filter[inserted_at__lte]")).toBe("2026-10-30");
 
     expect(auditPageHref(filters, 1)).toBe(
-      `${PRODUCT_ROUTE.AUDIT_LOG}?outcome=failure&to=2026-10-30`,
+      `${PRODUCT_ROUTE.AUDIT_LOG}?filter%5Boutcome%5D=failure&filter%5Bto%5D=2026-10-30`,
     );
     expect(auditPageHref(parseAuditLogFilters({}), 2)).toBe(
       `${PRODUCT_ROUTE.AUDIT_LOG}?page=2`,

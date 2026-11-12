@@ -30,6 +30,7 @@ import {
 import type { FindingTriageStatus } from "@/types/findings-triage";
 
 export const AREA_FINDINGS_PAGE_SIZE = 25;
+export const AREA_FINDINGS_MAX_PAGE_SIZE = 100;
 
 export const AREA_SEVERITIES = [
   "critical",
@@ -60,25 +61,51 @@ export const AREA_FINDING_SORT_LABEL: Record<AreaFindingSort, string> = {
   [AREA_FINDING_SORT.EXPLOIT]: "Exploit likelihood",
 };
 
-/** Query string names on the area pages. */
+/** Query string names on the area pages. The filter bar keys follow the
+ * Cloud Security Findings page (`filter[...]`, comma-separated). */
 export const AREA_PARAM = {
-  SEVERITY: "severity",
-  TRIAGE: "triage",
-  SOURCE: "source",
-  SEARCH: "q",
+  SEVERITY: "filter[severity__in]",
+  TRIAGE: "filter[triage_status__in]",
+  SOURCE: "filter[source__in]",
+  SEARCH: "filter[search]",
   SORT: "sort",
   PAGE: "page",
+  PAGE_SIZE: "pageSize",
   FIX: "fix",
   EXPLOITED: "exploited",
   CATEGORY: "category",
   PRIORITY: "priority",
   OVERDUE: "overdue",
   APPLICATION: "app",
-  ACCOUNT: "account",
-  REGION: "region",
-  RESOURCE_TYPE: "rtype",
-  MUTED: "muted",
+  ACCOUNT: "filter[provider__in]",
+  REGION: "filter[region__in]",
+  RESOURCE_TYPE: "filter[resource_type__in]",
+  MUTED: "filter[muted]",
 } as const;
+
+/** Value of `filter[muted]` that includes muted findings. */
+export const AREA_MUTED_INCLUDE = "include";
+
+/** Names used before the filter bar moved to `filter[...]`; still read so old
+ * links keep working (the page redirects them to the current names). */
+export const LEGACY_AREA_PARAM: Record<string, string> = {
+  [AREA_PARAM.SEVERITY]: "severity",
+  [AREA_PARAM.TRIAGE]: "triage",
+  [AREA_PARAM.SOURCE]: "source",
+  [AREA_PARAM.SEARCH]: "q",
+  [AREA_PARAM.ACCOUNT]: "account",
+  [AREA_PARAM.REGION]: "region",
+  [AREA_PARAM.RESOURCE_TYPE]: "rtype",
+  [AREA_PARAM.MUTED]: "muted",
+};
+
+/** True when the URL still uses a legacy filter name. */
+export const hasLegacyAreaParams = (
+  params: Record<string, string | string[] | undefined>,
+): boolean =>
+  Object.values(LEGACY_AREA_PARAM).some(
+    (name) => params[name] !== undefined && params[name] !== "",
+  );
 
 export const AREA_FIX_FILTER_LABEL: Record<AreaFixFilter, string> = {
   [AREA_FIX_FILTER.AVAILABLE]: "Fix available",
@@ -148,7 +175,8 @@ export const AREA_CONFIG: Record<FindingArea, AreaConfig> = {
 
 export interface AreaFindingFilters {
   severities: AreaSeverity[];
-  triage: FindingTriageStatus | null;
+  /** Comma-separated triage statuses (`filter[triage_status__in]`). */
+  triage: string | null;
   source: string | null;
   search: string;
   sort: AreaFindingSort;
@@ -171,6 +199,8 @@ export interface AreaFindingFilters {
   resourceType?: string;
   /** Include muted findings. */
   muted?: boolean;
+  /** Rows per page when not the default. */
+  pageSize?: number;
 }
 
 /** Sort options an area offers (exploit likelihood needs CVE findings). */
@@ -190,17 +220,45 @@ const parsePage = (value: ParamValue): number => {
   return Number.isInteger(candidate) && candidate > 0 ? candidate : 1;
 };
 
+/** A filter value from its current name, else its legacy name. */
+const read = (params: Record<string, ParamValue>, name: string): string =>
+  first(params[name]) ||
+  (LEGACY_AREA_PARAM[name] ? first(params[LEGACY_AREA_PARAM[name]]) : "");
+
+const csv = (value: string, max: number): string =>
+  Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  )
+    .join(",")
+    .slice(0, max);
+
+const parsePageSize = (value: ParamValue): number | undefined => {
+  const candidate = Number(first(value));
+  if (!Number.isInteger(candidate) || candidate < 1) return undefined;
+  return Math.min(candidate, AREA_FINDINGS_MAX_PAGE_SIZE);
+};
+
 /** Page filters from the URL; unknown values fall back to the defaults. */
 export const parseAreaFilters = (
   params: Record<string, ParamValue>,
 ): AreaFindingFilters => {
-  const severities = first(params[AREA_PARAM.SEVERITY])
+  const severities = read(params, AREA_PARAM.SEVERITY)
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter((value): value is AreaSeverity =>
       (AREA_SEVERITIES as readonly string[]).includes(value),
     );
-  const triage = first(params[AREA_PARAM.TRIAGE]);
+  const triage = read(params, AREA_PARAM.TRIAGE)
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) =>
+      (TRIAGE_STATUS_FILTERS as readonly string[]).includes(value),
+    );
   const sort = first(params[AREA_PARAM.SORT]);
   const fix = first(params[AREA_PARAM.FIX]);
   const category = SECURITY_CATEGORIES.find(
@@ -210,14 +268,18 @@ export const parseAreaFilters = (
     (value) => value === first(params[AREA_PARAM.PRIORITY]).toLowerCase(),
   );
   const application = first(params[AREA_PARAM.APPLICATION]).slice(0, 64);
-  const account = first(params[AREA_PARAM.ACCOUNT]).slice(0, 64);
-  const region = first(params[AREA_PARAM.REGION]).slice(0, 64);
-  const resourceType = first(params[AREA_PARAM.RESOURCE_TYPE]).slice(0, 100);
+  const account = csv(read(params, AREA_PARAM.ACCOUNT), 1000);
+  const region = csv(read(params, AREA_PARAM.REGION), 1000);
+  const resourceType = csv(read(params, AREA_PARAM.RESOURCE_TYPE), 1000);
+  const muted = read(params, AREA_PARAM.MUTED).toLowerCase();
+  const pageSize = parsePageSize(params[AREA_PARAM.PAGE_SIZE]);
   return {
     severities: Array.from(new Set(severities)),
-    triage: TRIAGE_STATUS_FILTERS.find((status) => status === triage) ?? null,
-    source: first(params[AREA_PARAM.SOURCE]) || null,
-    search: first(params[AREA_PARAM.SEARCH]).slice(0, 200),
+    triage: triage.length
+      ? (Array.from(new Set(triage)).join(",") as AreaFindingFilters["triage"])
+      : null,
+    source: csv(read(params, AREA_PARAM.SOURCE), 2000) || null,
+    search: read(params, AREA_PARAM.SEARCH).slice(0, 200),
     sort: (Object.values(AREA_FINDING_SORT) as string[]).includes(sort)
       ? (sort as AreaFindingSort)
       : AREA_FINDING_SORT.SEVERITY,
@@ -231,7 +293,10 @@ export const parseAreaFilters = (
     ...(account ? { account } : {}),
     ...(region ? { region } : {}),
     ...(resourceType ? { resourceType } : {}),
-    ...(first(params[AREA_PARAM.MUTED]) === "1" ? { muted: true } : {}),
+    ...(muted === AREA_MUTED_INCLUDE || muted === "1" || muted === "true"
+      ? { muted: true }
+      : {}),
+    ...(pageSize && pageSize !== AREA_FINDINGS_PAGE_SIZE ? { pageSize } : {}),
   };
 };
 
@@ -242,7 +307,7 @@ export const areaFindingsSearchParams = (
 ): Record<string, string> => ({
   "filter[area]": area,
   "page[number]": String(filters.page),
-  "page[size]": String(AREA_FINDINGS_PAGE_SIZE),
+  "page[size]": String(filters.pageSize ?? AREA_FINDINGS_PAGE_SIZE),
   sort: filters.sort,
   ...(filters.severities.length
     ? { "filter[severity__in]": filters.severities.join(",") }
@@ -326,7 +391,10 @@ export const areaFindingsPageHref = (
   if (filters.resourceType) {
     params.set(AREA_PARAM.RESOURCE_TYPE, filters.resourceType);
   }
-  if (filters.muted) params.set(AREA_PARAM.MUTED, "1");
+  if (filters.muted) params.set(AREA_PARAM.MUTED, AREA_MUTED_INCLUDE);
+  if (filters.pageSize && filters.pageSize !== AREA_FINDINGS_PAGE_SIZE) {
+    params.set(AREA_PARAM.PAGE_SIZE, String(filters.pageSize));
+  }
   if (filters.page && filters.page > 1) {
     params.set(AREA_PARAM.PAGE, String(filters.page));
   }

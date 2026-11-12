@@ -167,6 +167,15 @@ export interface AuditLogFilters {
   page: number;
 }
 
+/** URL names of the audit log filter bar. */
+export const AUDIT_PARAM = {
+  CATEGORY: "filter[category]",
+  SEARCH: "filter[search]",
+  OUTCOME: "filter[outcome]",
+  FROM: "filter[from]",
+  TO: "filter[to]",
+} as const;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ACTOR_MAX_LENGTH = 254;
 
@@ -183,11 +192,15 @@ const isOutcome = (value: string): value is AuditOutcome =>
 export const parseAuditLogFilters = (
   searchParams: Record<string, SearchParamValue> = {},
 ): AuditLogFilters => {
-  const category = first(searchParams.category);
-  const actor = first(searchParams.actor).slice(0, ACTOR_MAX_LENGTH);
-  const outcome = first(searchParams.outcome);
-  const from = first(searchParams.from);
-  const to = first(searchParams.to);
+  // Filter bar names (`filter[...]`), then the names used before it.
+  const read = (name: string, legacy: string): string =>
+    first(searchParams[AUDIT_PARAM[name as keyof typeof AUDIT_PARAM]]) ||
+    first(searchParams[legacy]);
+  const category = read("CATEGORY", "category");
+  const actor = read("SEARCH", "actor").slice(0, ACTOR_MAX_LENGTH);
+  const outcome = read("OUTCOME", "outcome");
+  const from = read("FROM", "from");
+  const to = read("TO", "to");
   const page = Number.parseInt(first(searchParams.page), 10);
   return {
     ...(isCategory(category) ? { category } : {}),
@@ -233,13 +246,16 @@ export const auditExportHref = (filters: AuditLogFilters): string => {
 };
 
 /** Audit log page link with the given filters and page. */
-export const auditPageHref = (filters: AuditLogFilters, page: number): string => {
+export const auditPageHref = (
+  filters: AuditLogFilters,
+  page: number,
+): string => {
   const query = new URLSearchParams();
-  if (filters.category) query.set("category", filters.category);
-  if (filters.actor) query.set("actor", filters.actor);
-  if (filters.outcome) query.set("outcome", filters.outcome);
-  if (filters.from) query.set("from", filters.from);
-  if (filters.to) query.set("to", filters.to);
+  if (filters.category) query.set(AUDIT_PARAM.CATEGORY, filters.category);
+  if (filters.actor) query.set(AUDIT_PARAM.SEARCH, filters.actor);
+  if (filters.outcome) query.set(AUDIT_PARAM.OUTCOME, filters.outcome);
+  if (filters.from) query.set(AUDIT_PARAM.FROM, filters.from);
+  if (filters.to) query.set(AUDIT_PARAM.TO, filters.to);
   if (page > 1) query.set("page", String(page));
   const serialized = query.toString();
   return serialized

@@ -2,14 +2,14 @@ import { FileStack } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { listAppSecSboms } from "@/cloudsneeker/actions/appsec";
 import {
-  ChipLink,
+  listAppSecApplications,
+  listAppSecSboms,
+} from "@/cloudsneeker/actions/appsec";
+import {
   LoadError,
-  Pager,
   ROW_LINK_CLASS,
   TABLE_CLASS,
-  TABLE_WRAPPER_CLASS,
   TD_CLASS,
   TD_PRIMARY_CLASS,
   TH_CLASS,
@@ -17,7 +17,9 @@ import {
 import { pagesOf } from "@/cloudsneeker/components/area-triage-view";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
-import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { PageNav } from "@/cloudsneeker/components/page-nav";
+import { StandardFilters } from "@/cloudsneeker/components/standard/standard-filters";
+import { StandardTableCard } from "@/cloudsneeker/components/standard/standard-table-card";
 import {
   APPSEC_SEGMENT,
   appSecSbomHref,
@@ -28,7 +30,14 @@ import {
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
+import {
+  filterParam,
+  readFilterValue,
+  readPage,
+  STANDARD_PARAM,
+} from "@/cloudsneeker/lib/standard-list";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
+import { TABLE_FRAME_CLASS } from "@/cloudsneeker/lib/ui-classes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import type {
   AppSecResource,
@@ -55,12 +64,17 @@ const BASE = appSecurityHref(APPSEC_SEGMENT.SBOMS);
 const one = (value: string | string[] | undefined): string =>
   ((Array.isArray(value) ? value[0] : value) ?? "").trim();
 
+const VERSIONS_ALL = "all";
+
 const hrefFor = (filters: Partial<SbomListFilters>): string => {
   const query = new URLSearchParams();
-  if (filters.history) query.set("history", "1");
+  if (filters.history && !filters.target)
+    query.set(filterParam("versions"), VERSIONS_ALL);
   if (filters.target) query.set("target", filters.target);
-  if (filters.application) query.set("application", filters.application);
-  if (filters.page && filters.page > 1) query.set("page", String(filters.page));
+  if (filters.application)
+    query.set(filterParam("application"), filters.application);
+  if (filters.page && filters.page > 1)
+    query.set(STANDARD_PARAM.PAGE, String(filters.page));
   const serialized = query.toString();
   return serialized ? `${BASE}?${serialized}` : BASE;
 };
@@ -69,12 +83,25 @@ export default async function AppSecuritySbomsPage({
   searchParams,
 }: PageProps) {
   const params = await searchParams;
+  const target = one(params.target);
   const filters: SbomListFilters = {
-    history: one(params.history) === "1" || one(params.target) !== "",
-    target: one(params.target),
-    application: one(params.application),
-    page: Math.max(1, Number.parseInt(one(params.page), 10) || 1),
+    history:
+      readFilterValue(params, "versions") === VERSIONS_ALL ||
+      one(params.history) === "1" ||
+      target !== "",
+    target,
+    application: readFilterValue(params, "application", ["application"]),
+    page: readPage(params),
   };
+  const applications = await listAppSecApplications({
+    "page[size]": "100",
+    sort: "name",
+  });
+  const applicationOptions = isListResponse(applications)
+    ? responseList<AppSecResource<{ name?: string }>>(applications).map(
+        (item) => ({ value: item.id, label: item.attributes.name || item.id }),
+      )
+    : [];
   return (
     <ContentLayout title="SBOMs" icon={<FileStack />}>
       <PageHeader
@@ -87,12 +114,43 @@ export default async function AppSecuritySbomsPage({
           </Button>
         }
       />
-      <Suspense
-        key={JSON.stringify(filters)}
-        fallback={<Skeleton className="h-64 w-full rounded-xl" />}
-      >
-        <SSRSboms filters={filters} />
-      </Suspense>
+      <div className="flex flex-col gap-6">
+        <StandardFilters
+          testIdPrefix="sboms"
+          filters={[
+            {
+              key: "versions",
+              label: "Versions (newest per asset)",
+              single: true,
+              options: [{ value: VERSIONS_ALL, label: "All versions" }],
+            },
+            {
+              key: "application",
+              label: "Applications",
+              single: true,
+              wide: true,
+              options: applicationOptions,
+            },
+          ]}
+        />
+        {filters.target ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-text-neutral-secondary">Scoped to</span>
+            <Link
+              href={hrefFor({ application: filters.application })}
+              className="border-border-neutral-secondary text-text-neutral-primary hover:bg-bg-neutral-tertiary rounded-full border px-2.5 py-1"
+            >
+              One asset ×
+            </Link>
+          </div>
+        ) : null}
+        <Suspense
+          key={JSON.stringify(filters)}
+          fallback={<Skeleton className="h-64 w-full rounded-xl" />}
+        >
+          <SSRSboms filters={filters} />
+        </Suspense>
+      </div>
     </ContentLayout>
   );
 }
@@ -114,36 +172,25 @@ const SSRSboms = async ({ filters }: { filters: SbomListFilters }) => {
   const total = responseCount(response) ?? sboms.length;
 
   return (
-    <SectionCard
-      title="Catalogue"
-      description={`${total} ${filters.history ? "inventory version(s)" : "asset(s) with an inventory"}.`}
+    <StandardTableCard
+      total={total}
+      footer={
+        <PageNav
+          page={filters.page}
+          pages={pagesOf(response)}
+          count={total}
+          noun={filters.history ? "inventory versions" : "assets"}
+          hrefFor={(page) => hrefFor({ ...filters, page })}
+        />
+      }
     >
-      <nav aria-label="Versions" className="flex flex-wrap gap-2">
-        <ChipLink
-          href={hrefFor({ application: filters.application })}
-          active={!filters.history}
-        >
-          Newest per asset
-        </ChipLink>
-        <ChipLink
-          href={hrefFor({ application: filters.application, history: true })}
-          active={filters.history && !filters.target}
-        >
-          All versions
-        </ChipLink>
-        {filters.target ? (
-          <ChipLink href={hrefFor({ application: filters.application })} active>
-            One asset ×
-          </ChipLink>
-        ) : null}
-      </nav>
       {sboms.length === 0 ? (
         <EmptyState
           title="No SBOMs yet"
           description="Scan a repository, image or archive, or import a CycloneDX or SPDX document."
         />
       ) : (
-        <div className={TABLE_WRAPPER_CLASS}>
+        <div className={TABLE_FRAME_CLASS}>
           <table className={TABLE_CLASS}>
             <thead>
               <tr>
@@ -213,11 +260,6 @@ const SSRSboms = async ({ filters }: { filters: SbomListFilters }) => {
           </table>
         </div>
       )}
-      <Pager
-        page={filters.page}
-        pages={pagesOf(response)}
-        hrefFor={(page) => hrefFor({ ...filters, page })}
-      />
-    </SectionCard>
+    </StandardTableCard>
   );
 };

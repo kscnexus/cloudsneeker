@@ -3,12 +3,20 @@
 // State lives in the URL so filters survive reloads, links and pagination.
 
 export const LIST_PARAM = {
-  SEARCH: "q",
-  PROVIDER: "provider",
-  STATUS: "status",
-  TYPE: "type",
+  SEARCH: "filter[search]",
+  PROVIDER: "filter[provider]",
+  STATUS: "filter[status]",
+  TYPE: "filter[type]",
   PAGE: "page",
 } as const;
+
+/** Names used before the standard filter bar; still read for old links. */
+const LEGACY_LIST_PARAM: Record<string, string> = {
+  [LIST_PARAM.SEARCH]: "q",
+  [LIST_PARAM.PROVIDER]: "provider",
+  [LIST_PARAM.STATUS]: "status",
+  [LIST_PARAM.TYPE]: "type",
+};
 
 export const LIST_PAGE_SIZE = 25;
 
@@ -29,8 +37,13 @@ export interface ListFilters {
 type Params = Record<string, string | string[] | undefined>;
 
 const first = (params: Params, key: string): string => {
-  const value = params[key];
-  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+  const read = (name: string) => {
+    const value = params[name];
+    return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+  };
+  return (
+    read(key) || (LEGACY_LIST_PARAM[key] ? read(LEGACY_LIST_PARAM[key]) : "")
+  );
 };
 
 export const parseListFilters = (params: Params): ListFilters => {

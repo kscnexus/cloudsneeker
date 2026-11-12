@@ -176,10 +176,9 @@ const SSRComponents = async ({
       ) : null}
       <SectionCard title="Components" description={`${total} component(s).`}>
         <ComponentFiltersBar
-          base={BASE}
-          filters={filters}
           ecosystems={ecosystems}
-          extra={scope}
+          licenses={Object.keys(summary?.licenses ?? {})}
+          sort={filters.sort}
         />
         {components.length === 0 ? (
           <EmptyState
@@ -196,6 +195,8 @@ const SSRComponents = async ({
         <Pager
           page={filters.page}
           pages={pagesOf(response)}
+          count={total}
+          noun="components"
           hrefFor={(page) => componentsHref(BASE, { ...filters, page }, scope)}
         />
       </SectionCard>

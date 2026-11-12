@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 
 import {
   appSecPriorityLabel,
-  appSecSeverityLabel,
   appSecStateLabel,
 } from "@/cloudsneeker/lib/appsec";
 import { Button } from "@/components/shadcn";
@@ -13,26 +12,11 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
 import { PageNav } from "./page-nav";
 import { SectionCard } from "./section-card";
+import { StandardSeverityBadge } from "./standard/standard-severity-badge";
 
-const SEVERITY_CLASS: Record<string, string> = {
-  critical: "bg-bg-data-critical text-white",
-  high: "bg-bg-data-high text-black",
-  medium: "bg-bg-data-medium text-black",
-  low: "bg-bg-data-low text-black",
-  informational: "bg-bg-data-info text-white",
-};
-
-/** Scanner severity pill; "unknown" stays neutral instead of reading as low. */
+/** Scanner severity, drawn like the Cloud Security Findings table. */
 export const AppSecSeverityBadge = ({ severity }: { severity: string }) => (
-  <span
-    className={cn(
-      "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
-      SEVERITY_CLASS[severity] ??
-        "bg-bg-neutral-tertiary text-text-neutral-primary",
-    )}
-  >
-    {appSecSeverityLabel(severity)}
-  </span>
+  <StandardSeverityBadge severity={severity} />
 );
 
 const STATE_VARIANT = {

@@ -8,6 +8,7 @@ import {
   areaFindingHref,
   areaFindingsPageHref,
   areaFindingsSearchParams,
+  hasLegacyAreaParams,
   areaSortOptions,
   areaTriagePageHref,
   areaTriageSearchParams,
@@ -180,7 +181,9 @@ describe("area links", () => {
         triage: "resolved",
         page: 2,
       }),
-    ).toBe("/governance/findings?severity=high&triage=resolved&page=2");
+    ).toBe(
+      "/governance/findings?filter%5Bseverity__in%5D=high&filter%5Btriage_status__in%5D=resolved&page=2",
+    );
   });
 
   it("keeps the cloud triage query names", () => {
@@ -233,7 +236,7 @@ describe("account, region, resource type and muted filters", () => {
       muted: true,
     });
     expect(areaFindingsPageHref(FINDING_AREA.GOVERNANCE, filters)).toBe(
-      "/governance/findings?account=prov-1&region=eu-west-1&rtype=aws.security-group&muted=1",
+      "/governance/findings?filter%5Bprovider__in%5D=prov-1&filter%5Bregion__in%5D=eu-west-1&filter%5Bresource_type__in%5D=aws.security-group&filter%5Bmuted%5D=include",
     );
     expect(
       areaFindingsSearchParams(FINDING_AREA.GOVERNANCE, filters),
@@ -253,5 +256,44 @@ describe("account, region, resource type and muted filters", () => {
     expect(query).not.toHaveProperty("filter[region__in]");
     expect(query).not.toHaveProperty("filter[resource_type__in]");
     expect(query["filter[provider__in]"]).toBe("p");
+  });
+});
+
+describe("filter bar parameters", () => {
+  it("reads the filter[...] names with several values each", () => {
+    const filters = parseAreaFilters({
+      "filter[severity__in]": "high,critical,bogus",
+      "filter[triage_status__in]": "open,resolved,nope",
+      "filter[source__in]": "p1,p2",
+      "filter[provider__in]": "a,b",
+      "filter[region__in]": "us-east-1,eu-west-1",
+      "filter[search]": " bucket ",
+      "filter[muted]": "include",
+      pageSize: "50",
+    });
+    expect(filters).toMatchObject({
+      severities: ["high", "critical"],
+      triage: "open,resolved",
+      source: "p1,p2",
+      account: "a,b",
+      region: "us-east-1,eu-west-1",
+      search: "bucket",
+      muted: true,
+      pageSize: 50,
+    });
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.GOVERNANCE, filters),
+    ).toMatchObject({
+      "filter[triage_status__in]": "open,resolved",
+      "filter[source__in]": "p1,p2",
+      "page[size]": "50",
+    });
+  });
+
+  it("caps the page size and flags legacy names", () => {
+    expect(parseAreaFilters({ pageSize: "500" }).pageSize).toBe(100);
+    expect(parseAreaFilters({ pageSize: "25" }).pageSize).toBeUndefined();
+    expect(hasLegacyAreaParams({ severity: "high" })).toBe(true);
+    expect(hasLegacyAreaParams({ "filter[severity__in]": "high" })).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AreaFindingAttributes } from "@/cloudsneeker/types/area-findings";
@@ -42,7 +43,7 @@ const finding = (
   }) as AreaFindingAttributes;
 
 describe("GovernanceFindingDetail", () => {
-  it("shows the resource, policy, run and resource details", () => {
+  it("shows the resource, policy, run and resource details", async () => {
     render(<GovernanceFindingDetail finding={finding()} canTriage />);
 
     expect(screen.getByText("Unattached EBS volume")).toBeInTheDocument();
@@ -50,9 +51,11 @@ describe("GovernanceFindingDetail", () => {
     expect(
       screen.getByRole("link", { name: "Unused volumes" }),
     ).toHaveAttribute("href", "/governance/p1");
+    await userEvent.click(screen.getByRole("tab", { name: "Remediation" }));
     expect(
       screen.getByRole("link", { name: "Open the run that reported it" }),
     ).toHaveAttribute("href", "/governance/p1/runs/run-9");
+    await userEvent.click(screen.getByRole("tab", { name: "Evidence" }));
     expect(screen.getByText(/"Size": 8/)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "mute:custodian-p1-vol-1" }),
