@@ -14,6 +14,7 @@ import {
   formatDuration,
   getCustodianTab,
   runDurationMs,
+  summarizeRunError,
 } from "./custodian-dashboard";
 
 const policy = (
@@ -51,7 +52,9 @@ const run = (
     mode: "dryrun",
     trigger: "manual",
     summary:
-      resourceCount === undefined ? undefined : { resource_count: resourceCount },
+      resourceCount === undefined
+        ? undefined
+        : { resource_count: resourceCount },
     ...extras,
   },
 });
@@ -203,9 +206,9 @@ describe("buildCustodianReportRows", () => {
 
 describe("runDurationMs", () => {
   it("returns elapsed milliseconds when both timestamps exist", () => {
-    expect(
-      runDurationMs("2026-03-01T10:00:00Z", "2026-03-01T10:00:05Z"),
-    ).toBe(5000);
+    expect(runDurationMs("2026-03-01T10:00:00Z", "2026-03-01T10:00:05Z")).toBe(
+      5000,
+    );
   });
 
   it("returns null when a timestamp is missing", () => {
@@ -238,5 +241,33 @@ describe("formatDuration", () => {
     expect(formatDuration(250)).toBe("250 ms");
     expect(formatDuration(30_000)).toBe("30s");
     expect(formatDuration(90_000)).toBe("1m 30s");
+  });
+});
+
+describe("summarizeRunError", () => {
+  it("keeps the cloud API error from an engine log", () => {
+    const log = [
+      "policy:aws-lambda-public-url resource:aws.lambda region:ap-south-1 count:8 time:1.68",
+      "Error while executing policy",
+      "Traceback (most recent call last):",
+      '  File "policy.py", line 330, in run',
+      "botocore.exceptions.ClientError: An error occurred (AccessDeniedException) when calling the GetFunctionUrlConfig operation: Unable to determine service/operation name to be authorized",
+      "Error while executing policy aws-lambda-public-url, continuing",
+    ].join("\n");
+    expect(summarizeRunError(log)).toBe(
+      "An error occurred (AccessDeniedException) when calling the GetFunctionUrlConfig operation: Unable to determine service/operation name to be authorized",
+    );
+  });
+
+  it("falls back to the last error line, then the last line", () => {
+    expect(summarizeRunError("starting\nValueError: bad filter\ndone")).toBe(
+      "ValueError: bad filter",
+    );
+    expect(summarizeRunError("timed out")).toBe("timed out");
+    expect(summarizeRunError(null)).toBe("");
+  });
+
+  it("shortens very long lines", () => {
+    expect(summarizeRunError(`Error: ${"x".repeat(400)}`).length).toBe(240);
   });
 });

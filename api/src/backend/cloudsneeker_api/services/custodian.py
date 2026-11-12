@@ -382,6 +382,54 @@ def _resolve_custodian_bin() -> str:
     return "custodian"
 
 
+# AWS services whose resources are global: listing them from one region
+# returns all of them. Running such a policy in every enabled region repeats
+# the same API calls per region (S3 buckets timed out across 17 regions).
+# ``aws.account`` is not here: GuardDuty and Config filters are per region.
+GLOBAL_AWS_RESOURCES = frozenset(
+    {
+        "aws.s3",
+        "aws.iam-user",
+        "aws.iam-role",
+        "aws.iam-group",
+        "aws.iam-policy",
+        "aws.iam-profile",
+        "aws.iam-certificate",
+        "aws.iam-oidc-provider",
+        "aws.iam-saml-provider",
+        "aws.distribution",
+        "aws.streaming-distribution",
+        "aws.hostedzone",
+        "aws.rrset",
+        "aws.waf",
+        "aws.org-account",
+        "aws.org-policy",
+    }
+)
+GLOBAL_AWS_HOME_REGION = "us-east-1"
+
+
+def regions_for_policy(policy_yaml: str, regions: list[str]) -> list[str]:
+    """Regions to run a policy in: one region when every rule is global."""
+    try:
+        parsed = yaml.safe_load(policy_yaml or "") or {}
+    except yaml.YAMLError:
+        return regions
+    entries = parsed.get("policies") if isinstance(parsed, dict) else None
+    if not isinstance(entries, list) or not entries:
+        return regions
+    resources = {
+        str(entry.get("resource") or "")
+        for entry in entries
+        if isinstance(entry, dict)
+    }
+    if not resources or not resources <= GLOBAL_AWS_RESOURCES:
+        return regions
+    if not regions:
+        return [GLOBAL_AWS_HOME_REGION]
+    return [GLOBAL_AWS_HOME_REGION if GLOBAL_AWS_HOME_REGION in regions else regions[0]]
+
+
 def _execute_c7n_dryrun(
     *,
     policy_path: Path,
@@ -481,7 +529,7 @@ def run_custodian_dryrun(
             regions = (
                 sorted({str(region).strip() for region in regions_override if str(region).strip()})
                 if regions_override
-                else bundle.regions
+                else regions_for_policy(policy_yaml, bundle.regions)
             )
             return _execute_c7n_dryrun(
                 policy_path=policy_path,
