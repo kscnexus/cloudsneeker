@@ -67,3 +67,16 @@ All test records are kept (policies, runs, the alert rule "Governance policy tes
 | Governance report (PR #20) | Severity breakdown and severity-ranked top risks; muted resources KPI 1 |
 | Alert form (PR #19) | Says that no severity means Critical and High |
 | Sessions (PR #21, #22) | Users were signed out mid-session (68 failed token refreshes beside 2 good ones); refresh grace window deployed (`CLOUDSNEEKER_REFRESH_GRACE_SECONDS=60` on the VM); 8 parallel page loads after the deploy all 200. The VM build hang at BuildKit export (twice) now times out after 10 minutes and retries |
+
+## Lists, Filters, and Reports (2026-11-12)
+
+Deployed by "Cloudsneeker: Deploy to Azure" after PRs #24, #25 and #26 merged. Checked on https://cloudsneeker.vercel.app.
+
+| Change | Check | Result |
+| --- | --- | --- |
+| Sidebar (PR #24) | Desktop viewport 1440x700 | The scrollbar shows without hovering (8 px); the menu (1,684 px) scrolls inside a 512 px area |
+| Numbered pages (PR #24) | `/governance/findings`, `/application-security/findings` | "575 findings · Page 1 of 23" with numbered pages; Application Security "Page 1 of 1598" |
+| Governance filters (PR #24) | Account, Region, Resource type, Show muted | Region us-east-1 narrows 575 to 45 findings; page 2 of 2 loads |
+| Application Security filters (PR #24) | Priority, Past deadline, Application, Target, Rule, Package | All present; the Target list has the tenant's 318 targets |
+| PDF design (PR #25) | Generate Cloud posture (PDF) | 155 pages in the new layout: contents, executive summary, risk distribution, trend, top risks, coverage, next actions, methodology appendix |
+| Report sources (PR #26) | Generate dialog per report | Cloud posture lists only the AWS account ("Showing cloud and SaaS accounts only"); Container images lists images and clusters only (none on this tenant); Executive summary lists all 160 sources |
