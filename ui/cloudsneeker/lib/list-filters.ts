@@ -12,6 +12,12 @@ export const LIST_PARAM = {
 
 export const LIST_PAGE_SIZE = 25;
 
+/** Values of the policy list's schedule select. */
+export const POLICY_SCHEDULE = {
+  ON: "scheduled",
+  OFF: "unscheduled",
+} as const;
+
 export interface ListFilters {
   search: string;
   provider: string;
@@ -68,6 +74,13 @@ export const policyListQuery = (
   sort: "name",
   ...(filters.search ? { "filter[search]": filters.search } : {}),
   ...(filters.provider ? { "filter[provider]": filters.provider } : {}),
+  // The policy list uses the "type" select for its schedule (on / off).
+  ...(filters.type === POLICY_SCHEDULE.ON ||
+  filters.type === POLICY_SCHEDULE.OFF
+    ? {
+        "filter[schedule_enabled]": String(filters.type === POLICY_SCHEDULE.ON),
+      }
+    : {}),
 });
 
 /** Query for `custodian-runs`. */

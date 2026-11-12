@@ -138,6 +138,12 @@ class AreaFindingQuery:
     overdue: bool = False
     applications: list[str] = field(default_factory=list)
     uid: str = ""
+    # Provider (account) ids, any area; regions and resource types,
+    # governance only (``filter[provider__in]``, ``filter[region__in]``,
+    # ``filter[resource_type__in]``).
+    accounts: list[str] = field(default_factory=list)
+    regions: list[str] = field(default_factory=list)
+    resource_types: list[str] = field(default_factory=list)
     # ``summary=applications`` adds per-application totals to the page.
     summarize_applications: bool = False
     search: str = ""
@@ -166,6 +172,9 @@ class AreaFindingPage:
     priority_counts: dict[str, int] | None = None
     overdue_count: int | None = None
     applications: list[dict[str, Any]] | None = None
+    # Governance: accounts, regions and resource types present before the
+    # filters, for the filter controls.
+    facets: dict[str, Any] | None = None
 
 
 def _csv(value: str | None) -> list[str]:
@@ -224,6 +233,12 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         raise AreaFindingsError(
             "The uid filter applies to application_security and governance."
         )
+    regions = _csv(params.get("filter[region__in]"))
+    resource_types = _csv(params.get("filter[resource_type__in]"))
+    if (regions or resource_types) and area != AREA.GOVERNANCE:
+        raise AreaFindingsError(
+            "Region and resource type filters apply to governance only."
+        )
     fix = str(params.get("filter[fix]") or "").strip()
     if fix and fix not in FIX_FILTER_VALUES:
         raise AreaFindingsError(
@@ -244,6 +259,9 @@ def parse_query(params: dict[str, Any]) -> AreaFindingQuery:
         overdue=overdue,
         applications=applications,
         uid=uid,
+        accounts=_csv(params.get("filter[provider__in]")),
+        regions=regions,
+        resource_types=resource_types,
         summarize_applications=area == AREA.APPLICATION_SECURITY
         and str(params.get("summary") or "") == "applications",
         search=str(params.get("filter[search]") or "").strip()[:SEARCH_MAX_LENGTH],
@@ -401,6 +419,7 @@ def _finding_queryset(
         for scan_id, source in sources.items()
         if (not query.sources or source.id in query.sources)
         and (not query.applications or source.provider_id in query.applications)
+        and (not query.accounts or source.provider_id in query.accounts)
     ]
     queryset = Finding.all_objects.filter(tenant_id=tenant_id, scan_id__in=scan_ids)
     if not query.include_passed:
@@ -685,6 +704,12 @@ def _governance_matches(
 ) -> bool:
     if query.uid and finding.uid != query.uid:
         return False
+    if query.accounts and finding.provider_id not in query.accounts:
+        return False
+    if query.regions and finding.region not in query.regions:
+        return False
+    if query.resource_types and finding.resource_type not in query.resource_types:
+        return False
     if query.exploited:
         # Policy matches are not CVEs, so none is a known exploited one.
         return False
@@ -828,7 +853,34 @@ def _governance_page(
         ],
         count=len(matches),
         sources=sorted(sources.values(), key=lambda source: source.name.lower()),
+        facets=_governance_facets(tenant_id, findings),
     )
+
+
+def _governance_facets(tenant_id: str, findings: list[Any]) -> dict[str, Any]:
+    """Accounts, regions and resource types of the visible findings."""
+    from api.models import Provider
+
+    provider_ids = sorted({finding.provider_id for finding in findings if finding.provider_id})
+    names = {
+        str(row["id"]): row["alias"] or row["uid"]
+        for row in Provider.objects.filter(
+            tenant_id=tenant_id, id__in=provider_ids
+        ).values("id", "alias", "uid")
+    }
+    return {
+        "accounts": sorted(
+            (
+                {"id": provider_id, "name": names.get(provider_id, provider_id)}
+                for provider_id in provider_ids
+            ),
+            key=lambda item: item["name"].lower(),
+        ),
+        "regions": sorted({finding.region for finding in findings if finding.region}),
+        "resource_types": sorted(
+            {finding.resource_type for finding in findings if finding.resource_type}
+        ),
+    }
 
 
 # --- Entry point ---------------------------------------------------------------------

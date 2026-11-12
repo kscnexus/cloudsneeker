@@ -217,3 +217,41 @@ describe("toggleSeverity", () => {
     expect(toggleSeverity(["critical", "low"], "low")).toEqual(["critical"]);
   });
 });
+
+describe("account, region, resource type and muted filters", () => {
+  it("round-trip through the URL and reach the API query", () => {
+    const filters = parseAreaFilters({
+      account: "prov-1",
+      region: "eu-west-1",
+      rtype: "aws.security-group",
+      muted: "1",
+    });
+    expect(filters).toMatchObject({
+      account: "prov-1",
+      region: "eu-west-1",
+      resourceType: "aws.security-group",
+      muted: true,
+    });
+    expect(areaFindingsPageHref(FINDING_AREA.GOVERNANCE, filters)).toBe(
+      "/governance/findings?account=prov-1&region=eu-west-1&rtype=aws.security-group&muted=1",
+    );
+    expect(
+      areaFindingsSearchParams(FINDING_AREA.GOVERNANCE, filters),
+    ).toMatchObject({
+      "filter[provider__in]": "prov-1",
+      "filter[region__in]": "eu-west-1",
+      "filter[resource_type__in]": "aws.security-group",
+      "filter[muted]": "include",
+    });
+  });
+
+  it("sends region and resource type for governance only", () => {
+    const query = areaFindingsSearchParams(
+      FINDING_AREA.CLOUD,
+      parseAreaFilters({ region: "eu-west-1", rtype: "x", account: "p" }),
+    );
+    expect(query).not.toHaveProperty("filter[region__in]");
+    expect(query).not.toHaveProperty("filter[resource_type__in]");
+    expect(query["filter[provider__in]"]).toBe("p");
+  });
+});

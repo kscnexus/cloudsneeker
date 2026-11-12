@@ -51,6 +51,7 @@ import {
   LIST_PARAM,
   type ListFilters,
   paginationOf,
+  POLICY_SCHEDULE,
   parseListFilters,
   policyListQuery,
   runListQuery,
@@ -279,7 +280,18 @@ const SSRCustodianWorkspace = async ({
             keep={{ tab: CUSTODIAN_TAB.POLICIES }}
             filters={listFilters}
             searchPlaceholder="Policy name or description"
-            selects={[providerSelect]}
+            selects={[
+              providerSelect,
+              {
+                name: LIST_PARAM.TYPE,
+                label: "Schedule",
+                allLabel: "Any schedule",
+                options: [
+                  { value: POLICY_SCHEDULE.ON, label: "Scheduled" },
+                  { value: POLICY_SCHEDULE.OFF, label: "Not scheduled" },
+                ],
+              },
+            ]}
           />
           <CustodianPolicyList
             policies={pagedPolicies}

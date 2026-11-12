@@ -54,3 +54,8 @@ export const CLOUDSNEEKER_SURFACE = {
 
 export type CloudsneekerSurface =
   (typeof CLOUDSNEEKER_SURFACE)[keyof typeof CLOUDSNEEKER_SURFACE];
+
+/** Sidebar menu scrollbar: a visible thumb on both themes (the shared
+ * scroll area paints it in the border colour, which barely shows). */
+export const SIDEBAR_SCROLLBAR_CLASS =
+  "[&_[data-orientation=vertical]]:w-2 [&_[data-orientation=vertical]>div]:bg-text-neutral-tertiary/50 [&_[data-orientation=vertical]>div:hover]:bg-text-neutral-tertiary";

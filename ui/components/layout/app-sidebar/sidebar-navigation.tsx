@@ -4,6 +4,7 @@ import { ArrowUpRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { SIDEBAR_SCROLLBAR_CLASS } from "@/cloudsneeker/lib/ui-classes"; // cloudsneeker-hook
 import { Badge } from "@/components/shadcn/badge/badge";
 import {
   Collapsible,
@@ -273,7 +274,15 @@ export function SidebarNavigation({
   onSelect,
 }: SidebarNavigationProps) {
   return (
-    <ScrollArea className="h-full [&>div>div[style]]:block!">
+    // cloudsneeker-hook: keep the scrollbar visible whenever the menu
+    // overflows (Radix's default shows it only while hovering).
+    <ScrollArea
+      type="auto"
+      className={cn(
+        "h-full [&>div>div[style]]:block!",
+        SIDEBAR_SCROLLBAR_CLASS, // cloudsneeker-hook
+      )}
+    >
       <nav aria-label="Main navigation" className="space-y-5 px-3 py-4">
         {sections.map((section, index) => (
           <NavigationSectionList

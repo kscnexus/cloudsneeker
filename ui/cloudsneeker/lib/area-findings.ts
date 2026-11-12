@@ -74,6 +74,10 @@ export const AREA_PARAM = {
   PRIORITY: "priority",
   OVERDUE: "overdue",
   APPLICATION: "app",
+  ACCOUNT: "account",
+  REGION: "region",
+  RESOURCE_TYPE: "rtype",
+  MUTED: "muted",
 } as const;
 
 export const AREA_FIX_FILTER_LABEL: Record<AreaFixFilter, string> = {
@@ -160,6 +164,13 @@ export interface AreaFindingFilters {
   overdue?: boolean;
   /** Application Security: linked provider (repository) id. */
   application?: string;
+  /** Cloud account (provider id). */
+  account?: string;
+  /** Governance: region and resource type. */
+  region?: string;
+  resourceType?: string;
+  /** Include muted findings. */
+  muted?: boolean;
 }
 
 /** Sort options an area offers (exploit likelihood needs CVE findings). */
@@ -199,6 +210,9 @@ export const parseAreaFilters = (
     (value) => value === first(params[AREA_PARAM.PRIORITY]).toLowerCase(),
   );
   const application = first(params[AREA_PARAM.APPLICATION]).slice(0, 64);
+  const account = first(params[AREA_PARAM.ACCOUNT]).slice(0, 64);
+  const region = first(params[AREA_PARAM.REGION]).slice(0, 64);
+  const resourceType = first(params[AREA_PARAM.RESOURCE_TYPE]).slice(0, 100);
   return {
     severities: Array.from(new Set(severities)),
     triage: TRIAGE_STATUS_FILTERS.find((status) => status === triage) ?? null,
@@ -214,6 +228,10 @@ export const parseAreaFilters = (
     ...(priority ? { priority } : {}),
     ...(first(params[AREA_PARAM.OVERDUE]) === "1" ? { overdue: true } : {}),
     ...(application ? { application } : {}),
+    ...(account ? { account } : {}),
+    ...(region ? { region } : {}),
+    ...(resourceType ? { resourceType } : {}),
+    ...(first(params[AREA_PARAM.MUTED]) === "1" ? { muted: true } : {}),
   };
 };
 
@@ -232,6 +250,14 @@ export const areaFindingsSearchParams = (
   ...(filters.triage ? { "filter[triage_status__in]": filters.triage } : {}),
   ...(filters.source ? { "filter[source__in]": filters.source } : {}),
   ...(filters.search ? { "filter[search]": filters.search } : {}),
+  ...(filters.account ? { "filter[provider__in]": filters.account } : {}),
+  ...(filters.muted ? { "filter[muted]": "include" } : {}),
+  ...(area === FINDING_AREA.GOVERNANCE && filters.region
+    ? { "filter[region__in]": filters.region }
+    : {}),
+  ...(area === FINDING_AREA.GOVERNANCE && filters.resourceType
+    ? { "filter[resource_type__in]": filters.resourceType }
+    : {}),
   ...(filters.fix && AREA_CONFIG[area].showFix
     ? { "filter[fix]": filters.fix }
     : {}),
@@ -295,6 +321,12 @@ export const areaFindingsPageHref = (
   if (filters.application) {
     params.set(AREA_PARAM.APPLICATION, filters.application);
   }
+  if (filters.account) params.set(AREA_PARAM.ACCOUNT, filters.account);
+  if (filters.region) params.set(AREA_PARAM.REGION, filters.region);
+  if (filters.resourceType) {
+    params.set(AREA_PARAM.RESOURCE_TYPE, filters.resourceType);
+  }
+  if (filters.muted) params.set(AREA_PARAM.MUTED, "1");
   if (filters.page && filters.page > 1) {
     params.set(AREA_PARAM.PAGE, String(filters.page));
   }

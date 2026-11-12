@@ -35,6 +35,7 @@ import { AreaFindingsTable } from "./area-findings-table";
 import { pagesOf } from "./area-triage-view";
 import { EmptyState } from "./empty-state";
 import { PageHeader } from "./page-header";
+import { PageNav } from "./page-nav";
 import { RiskPriorityFilter } from "./risk-priority-filter";
 import { SectionCard } from "./section-card";
 import { SecurityCategoryTabs } from "./security-category-tabs";
@@ -77,7 +78,11 @@ const isFiltered = (filters: AreaFindingFilters): boolean =>
   Boolean(filters.category) ||
   Boolean(filters.priority) ||
   Boolean(filters.overdue) ||
-  Boolean(filters.application);
+  Boolean(filters.application) ||
+  Boolean(filters.account) ||
+  Boolean(filters.region) ||
+  Boolean(filters.resourceType) ||
+  Boolean(filters.muted);
 
 /** One area's Findings page: current findings with filters and triage. */
 export const AreaFindingsView = ({
@@ -183,6 +188,7 @@ const SSRAreaFindings = async ({
         filters={filters}
         sources={sourcesOf(response)}
         sourceLabel={config.sourceLabel}
+        facets={meta?.facets}
       />
       {findings.length === 0 ? (
         <EmptyState
@@ -209,37 +215,13 @@ const SSRAreaFindings = async ({
           total={total}
         />
       )}
-      {pages > 1 ? (
-        <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-text-neutral-tertiary">
-            Page {filters.page} of {pages}
-          </span>
-          {filters.page > 1 ? (
-            <Button asChild size="xs" variant="outline">
-              <Link
-                href={areaFindingsPageHref(area, {
-                  ...filters,
-                  page: filters.page - 1,
-                })}
-              >
-                Previous
-              </Link>
-            </Button>
-          ) : null}
-          {filters.page < pages ? (
-            <Button asChild size="xs" variant="outline">
-              <Link
-                href={areaFindingsPageHref(area, {
-                  ...filters,
-                  page: filters.page + 1,
-                })}
-              >
-                Next
-              </Link>
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <PageNav
+        page={filters.page}
+        pages={pages}
+        count={total}
+        noun="findings"
+        hrefFor={(page) => areaFindingsPageHref(area, { ...filters, page })}
+      />
     </SectionCard>
   );
 };
