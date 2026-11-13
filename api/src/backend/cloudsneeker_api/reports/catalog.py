@@ -81,6 +81,11 @@ COMMON_PARAMS: tuple[str, ...] = (
     "trend_points",
 )
 
+# Optional parameter that limits a report to one Application Security target.
+TARGET_PARAM = "target_id"
+# Set from the target when the run is created; never accepted from clients.
+TARGET_NAME_PARAM = "target_name"
+
 EXECUTIVE = "executive"
 CLOUD_POSTURE = "cloud_posture"
 COMPLIANCE = "compliance"
@@ -166,7 +171,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             ),
             audience="engineering",
             category="application",
-            optional_params=FINDINGS_PARAMS,
+            optional_params=(*FINDINGS_PARAMS, TARGET_PARAM),
         ),
         ReportType(
             id=SAST,
@@ -174,7 +179,7 @@ REPORT_TYPES: dict[str, ReportType] = {
             description="Source code weaknesses found by static analysis scans.",
             audience="engineering",
             category="application",
-            optional_params=FINDINGS_PARAMS,
+            optional_params=(*FINDINGS_PARAMS, TARGET_PARAM),
         ),
         ReportType(
             id=CONTAINER,
@@ -517,6 +522,9 @@ def validate_params(report_type: str, params: Any) -> dict[str, Any]:
         params = {}
     if not isinstance(params, dict):
         raise ReportParamsError("params must be an object.")
+    # The target name is resolved from ``target_id`` on the server; a stored
+    # value (schedules re-validate their params) is dropped, not rejected.
+    params = {k: v for k, v in params.items() if k != TARGET_NAME_PARAM}
 
     allowed = set(COMMON_PARAMS) | set(spec.required_params) | set(spec.optional_params)
     unknown = sorted(set(params) - allowed)
@@ -584,6 +592,11 @@ def validate_params(report_type: str, params: Any) -> dict[str, Any]:
             normalized["status_scope"] = status_scope
     if spec.id in ASSESSMENT_TYPES:
         normalized.update(_assessment_options(params, allowed, date_from, date_to))
+    if TARGET_PARAM in allowed:
+        target_id = params.get(TARGET_PARAM)
+        normalized[TARGET_PARAM] = (
+            _parse_uuid(target_id, TARGET_PARAM) if target_id else None
+        )
     return normalized
 
 
@@ -663,23 +676,33 @@ def filters_from_params(params: dict[str, Any]) -> ReportFilters:
             for key in (*ASSESSMENT_PARAMS, "frameworks")
             if key in params
         },
+        target_id=params.get(TARGET_PARAM) or None,
+        target_name=params.get(TARGET_NAME_PARAM) or None,
     )
 
 
-def report_filename(report_type: str, fmt: str, when: datetime) -> str:
-    """Return the download filename ``cloudsneeker-<type>-<date>.<ext>``.
+def report_filename(
+    report_type: str, fmt: str, when: datetime, target_name: str | None = None
+) -> str:
+    """Return the download filename.
 
-    The prefix comes from the brand slug so a white-label build keeps its name.
+    A report limited to one target is named after it
+    (``<target>-<type>-<date>.<ext>``); every other report uses the brand slug
+    (``cloudsneeker-<type>-<date>.<ext>``) so a white-label build keeps its
+    name.
 
     Args:
         report_type: Catalog key.
         fmt: Output format.
         when: Date stamped into the name.
+        target_name: Target the report covers, if any.
 
     Returns:
         File name without directories.
     """
     from cloudsneeker_api.brand import brand
+    from django.utils.text import slugify
 
+    prefix = slugify(target_name or "")[:80].strip("-") or brand.slug
     slug = report_type.replace("_", "-")
-    return f"{brand.slug}-{slug}-{when.strftime('%Y-%m-%d')}.{fmt}"
+    return f"{prefix}-{slug}-{when.strftime('%Y-%m-%d')}.{fmt}"

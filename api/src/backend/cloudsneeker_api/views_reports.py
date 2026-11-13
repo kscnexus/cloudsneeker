@@ -22,6 +22,7 @@ from cloudsneeker_api.reports.access import (
 from cloudsneeker_api.reports.catalog import (
     FORMAT_CONTENT_TYPES,
     REPORT_TYPES,
+    TARGET_NAME_PARAM,
     ReportParamsError,
     report_filename,
 )
@@ -43,6 +44,7 @@ from cloudsneeker_api.reports.share import (
     resolve_share_token,
     revoke_share_link,
 )
+from cloudsneeker_api.reports.targets import resolve_target_scope
 from cloudsneeker_api.serializers_reports import (
     ReportRunCreateSerializer,
     ReportRunSerializer,
@@ -191,7 +193,17 @@ class ReportRunViewSet(_ReportVisibilityMixin, BaseRLSViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        params = self._scoped_params(serializer.validated_data["params"])
+        try:
+            # Pin a target-scoped report to the target's provider first, so
+            # provider visibility is checked against that provider.
+            params = resolve_target_scope(
+                str(request.tenant_id),
+                serializer.validated_data["report_type"],
+                serializer.validated_data["params"],
+            )
+        except ReportParamsError as exc:
+            return _error(str(exc), "invalid_report_params", status.HTTP_400_BAD_REQUEST)
+        params = self._scoped_params(params)
         try:
             run = enqueue_report_run(
                 tenant_id=str(request.tenant_id),
@@ -234,7 +246,12 @@ class ReportRunViewSet(_ReportVisibilityMixin, BaseRLSViewSet):
             path = artifact_path(run, fmt)
         except ReportRunError as exc:
             return _error(str(exc), "report_unavailable", status.HTTP_404_NOT_FOUND)
-        filename = report_filename(run.report_type, fmt, run.finished_at or run.inserted_at)
+        filename = report_filename(
+            run.report_type,
+            fmt,
+            run.finished_at or run.inserted_at,
+            (run.params or {}).get(TARGET_NAME_PARAM),
+        )
         response = FileResponse(
             open(path, "rb"),  # noqa: SIM115 - FileResponse closes the file
             as_attachment=True,
