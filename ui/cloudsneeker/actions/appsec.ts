@@ -63,6 +63,18 @@ export const getAppSecOverview = async (days?: string) =>
 
 export const getAppSecCapabilities = async () => read("/appsec/capabilities");
 
+/**
+ * Record the branch of every repository and static analysis target saved
+ * without one (in its config and name). Runs in the background.
+ */
+export const recordTargetBranches = async () =>
+  write(
+    "POST",
+    "/appsec/record-branches",
+    "cloudsneeker-appsec-branch-backfills",
+    {},
+  );
+
 /** Branches of a code repository source, default branch first. */
 export const listRepositoryBranches = async (providerId: string) =>
   read("/appsec/repository-branches", { provider_id: providerId });

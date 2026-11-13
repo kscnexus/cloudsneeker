@@ -220,3 +220,153 @@ def run_branch(summary: Any, output: Any, options: Any = None) -> str:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return ""
+
+
+# ``TrivyTarget.name`` max length.
+TARGET_NAME_MAX = 100
+
+
+def strip_branch(name: str, branch: str | None) -> str:
+    """``name`` without a trailing ``" @ <branch>"`` or ``" (<branch>)"``."""
+    name = str(name or "")
+    branch = str(branch or "").strip()
+    if not branch:
+        return name
+    for suffix in (f" @ {branch}", f" ({branch})"):
+        if name.lower().endswith(suffix.lower()):
+            return name[: -len(suffix)].rstrip()
+    return name
+
+
+def name_for_branch(name: str, branch: str | None, previous: str | None = "") -> str:
+    """Target name that carries the branch it scans.
+
+    The branch is part of the name, so every list, report, export and scan
+    name that shows a target shows its branch too.
+
+    Args:
+        name: Current or requested target name.
+        branch: Branch the target scans ("" for none).
+        previous: Branch the target scanned before, removed from the name.
+
+    Returns:
+        ``"<base> @ <branch>"`` within ``TARGET_NAME_MAX`` characters, or the
+        base name when there is no branch.
+    """
+    branch = str(branch or "").strip()
+    base = strip_branch(strip_branch(name, previous), branch) or str(name or "")
+    if not branch:
+        return base[:TARGET_NAME_MAX]
+    suffix = f" @ {branch}"
+    room = TARGET_NAME_MAX - len(suffix)
+    if room < 3:
+        return base[:TARGET_NAME_MAX]
+    return f"{base[:room].rstrip()}{suffix}"
+
+
+def pin_target_branch(target: Any, branch: str, *, using: str | None = None) -> bool:
+    """Record the branch a Git target scans and put it in the target's name.
+
+    Used for targets saved without a branch (the repository's default
+    branch): after a scan, or by :func:`backfill_target_branches`. A target
+    that already has a branch, or reads no repository URL, is left alone. The
+    name keeps its old value when the new one is taken by another target.
+
+    Args:
+        target: ``TrivyTarget``.
+        branch: Branch the target scans.
+        using: Database alias (the engine writes on the admin alias).
+
+    Returns:
+        True when the target was updated.
+    """
+    from cloudsneeker_api.models import TrivyTarget
+    from django.utils import timezone
+
+    config = dict(target.config or {})
+    try:
+        branch = normalize_branch(branch)
+    except ValueError:
+        return False
+    if not branch or config.get("branch") or not config.get("repository_url"):
+        return False
+    if target.mode not in ("repo", "sast"):
+        return False
+    config["branch"] = branch
+    manager = TrivyTarget.objects.using(using) if using else TrivyTarget.objects
+    name = name_for_branch(target.name, branch)
+    if (
+        name != target.name
+        and manager.filter(tenant_id=target.tenant_id, name=name)
+        .exclude(pk=target.pk)
+        .exists()
+    ):
+        name = target.name
+    manager.filter(pk=target.pk).update(
+        config=config, name=name, updated_at=timezone.now()
+    )
+    target.config, target.name = config, name
+    return True
+
+
+def backfill_target_branches(tenant_id: str) -> dict[str, int]:
+    """Record the branch of every Git target saved without one.
+
+    The branch is the one the target's latest completed run recorded, else
+    the repository's current default branch (listed once per source).
+
+    Args:
+        tenant_id: Tenant UUID string.
+
+    Returns:
+        Counts: ``updated``, ``unchanged`` (branch already set or no
+        repository URL) and ``failed`` (repository could not be read).
+    """
+    from api.db_utils import rls_transaction
+    from cloudsneeker_api.models import TrivyRun, TrivyTarget
+
+    with rls_transaction(tenant_id):
+        targets = list(
+            TrivyTarget.objects.filter(tenant_id=tenant_id, mode__in=("repo", "sast"))
+            .select_related("provider", "provider__secret")
+            .order_by("name")
+        )
+        recorded: dict[str, str] = {}
+        for row in (
+            TrivyRun.objects.filter(
+                tenant_id=tenant_id,
+                target_id__in=[target.id for target in targets],
+                status=TrivyRun.Status.COMPLETED,
+            )
+            .order_by("target_id", "-finished_at")
+            .values("target_id", "summary", "output", "options")
+        ):
+            key = str(row["target_id"])
+            if key not in recorded:
+                recorded[key] = run_branch(row["summary"], row["output"], None)
+
+    counts = {"updated": 0, "unchanged": 0, "failed": 0}
+    defaults: dict[str, str | None] = {}
+    for target in targets:
+        config = target.config or {}
+        if config.get("branch") or not config.get("repository_url"):
+            counts["unchanged"] += 1
+            continue
+        branch = recorded.get(str(target.id), "")
+        if not branch:
+            key = str(target.provider_id)
+            if key not in defaults:
+                try:
+                    defaults[key] = list_repository_branches(
+                        str(config["repository_url"]), target.provider
+                    ).default_branch
+                except RepositoryBranchError:
+                    defaults[key] = None
+            branch = defaults[key] or ""
+        if not branch:
+            counts["failed"] += 1
+            continue
+        with rls_transaction(tenant_id):
+            updated = pin_target_branch(target, branch)
+        counts["updated" if updated else "unchanged"] += 1
+    return counts

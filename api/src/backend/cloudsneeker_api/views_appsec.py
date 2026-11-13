@@ -1371,7 +1371,11 @@ RETENTION_LIMITS = {
 class AppSecPlatformViewSet(AppSecViewSet):
     """Overview figures, the capability matrix, engine status and settings."""
 
-    http_method_names = ["get", "patch", "head", "options"]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    @extend_schema(exclude=True)
+    def create(self, request, *args, **kwargs):
+        raise NotFound()
 
     def set_required_permissions(self):
         super().set_required_permissions()
@@ -1379,6 +1383,47 @@ class AppSecPlatformViewSet(AppSecViewSet):
         # only serves target editing, which needs manage_scans.
         if self.action == "repository_branches":
             self.required_permissions = [Permissions.MANAGE_SCANS]
+
+    @extend_schema(
+        tags=[TAG],
+        summary="Record the branch of targets saved without one",
+        responses={202: OpenApiResponse(description="Queued")},
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="record-branches",
+        url_name="record-branches",
+    )
+    def record_branches(self, request):
+        """Queue the backfill: every repository and static analysis target
+        without a branch gets the branch it scans in its config and name."""
+        from cloudsneeker_api.tasks import appsec_record_branches_task
+
+        pending = sum(
+            1
+            for config in TrivyTarget.objects.filter(
+                tenant_id=self.tenant_id, mode__in=("repo", "sast")
+            ).values_list("config", flat=True)
+            if isinstance(config, dict)
+            and config.get("repository_url")
+            and not config.get("branch")
+        )
+        tenant_id = self.tenant_id
+        if pending:
+            transaction.on_commit(
+                lambda: appsec_record_branches_task.delay(tenant_id=tenant_id)
+            )
+        return Response(
+            {
+                "data": {
+                    "type": _type("branch-backfills"),
+                    "id": tenant_id,
+                    "attributes": {"queued": bool(pending), "targets": pending},
+                }
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     @extend_schema(
         tags=[TAG],

@@ -15,9 +15,11 @@ from cloudsneeker_api.services.repo_branches import (
     branch_label,
     head_branch,
     list_repository_branches,
+    name_for_branch,
     normalize_branch,
     parse_remote_refs,
     run_branch,
+    strip_branch,
 )
 from cloudsneeker_api.services.sast import run_opengrep_scan, validate_sast_config
 from cloudsneeker_api.services.trivy import (
@@ -337,3 +339,40 @@ class TestSastBranch:
         )
         assert "branch" not in clone.call_args.kwargs
         assert report["cloudsneeker_branch"] == "trunk"
+
+
+class TestNameForBranch:
+    @pytest.mark.parametrize(
+        "name, branch, previous, expected",
+        [
+            ("shop", "main", "", "shop @ main"),
+            ("shop @ main", "main", "main", "shop @ main"),
+            ("shop @ main", "develop", "main", "shop @ develop"),
+            ("shop @ main", "", "main", "shop"),
+            ("shop (SAST)", "master", "", "shop (SAST) @ master"),
+            ("shop (develop)", "develop", "", "shop @ develop"),
+            ("shop", "", "", "shop"),
+        ],
+    )
+    def test_name_carries_the_branch(self, name, branch, previous, expected):
+        assert name_for_branch(name, branch, previous) == expected
+
+    def test_long_names_stay_within_the_column(self):
+        name = name_for_branch("x" * 100, "feature/login")
+        assert len(name) == 100
+        assert name.endswith(" @ feature/login")
+
+    def test_strip_branch(self):
+        assert strip_branch("shop @ Main", "main") == "shop"
+        assert strip_branch("shop", "main") == "shop"
+        assert strip_branch("shop @ main", "") == "shop @ main"
+
+    def test_tag_checkout_records_no_branch(self, tmp_path):
+        with patch(
+            "cloudsneeker_api.services.trivy.git_clone",
+            side_effect=_fake_clone("a" * 40),
+        ):
+            branch = checkout_ssh_repository(
+                SSH_URL, _provider(uid=SSH_URL), tmp_path / "r"
+            )
+        assert branch == ""

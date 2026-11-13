@@ -151,6 +151,16 @@ def appsec_rescore_task(
     }
 
 
+@shared_task(base=RLSTask, name="cloudsneeker-appsec-record-branches", queue="scans")
+@set_tenant(keep_tenant=True)
+def appsec_record_branches_task(tenant_id: str):
+    """Record the branch of every repository and static analysis target saved
+    without one, and put it in the target's name."""
+    from cloudsneeker_api.services.repo_branches import backfill_target_branches
+
+    return backfill_target_branches(tenant_id)
+
+
 @shared_task(name="cloudsneeker-appsec-retention", queue="celery")
 def appsec_retention_task():
     """Celery Beat entrypoint: apply raw report and fixed finding retention."""

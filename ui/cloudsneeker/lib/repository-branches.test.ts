@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   branchDisplay,
   branchTargetName,
+  recordBranchesMessage,
   targetsForBranches,
   toRepositoryBranchList,
 } from "@/cloudsneeker/lib/repository-branches";
@@ -83,5 +84,29 @@ describe("toRepositoryBranchList", () => {
     expect(toRepositoryBranchList({ error: "refused" })).toBeNull();
     expect(toRepositoryBranchList(undefined)).toBeNull();
     expect(toRepositoryBranchList({ data: {} })).toBeNull();
+  });
+});
+
+describe("recordBranchesMessage", () => {
+  it("says how many targets are being updated", () => {
+    expect(
+      recordBranchesMessage({ data: { attributes: { targets: 3 } } }),
+    ).toMatch(/^Recording the branch of 3 targets/);
+    expect(
+      recordBranchesMessage({ data: { attributes: { targets: 1 } } }),
+    ).toMatch(/of 1 target in/);
+  });
+
+  it("says when nothing is left to update", () => {
+    expect(
+      recordBranchesMessage({ data: { attributes: { targets: 0 } } }),
+    ).toBe("Every repository target already names its branch.");
+  });
+
+  it("shows API errors", () => {
+    expect(recordBranchesMessage({ error: "Forbidden" })).toBe("Forbidden");
+    expect(recordBranchesMessage(undefined)).toBe(
+      "Branches could not be recorded.",
+    );
   });
 });

@@ -14,6 +14,7 @@ import {
   ListPager,
 } from "@/cloudsneeker/components/list-filter-bar";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { RecordBranchesButton } from "@/cloudsneeker/components/record-branches-button";
 import { ScanAllRepositoriesButton } from "@/cloudsneeker/components/scan-all-repositories-button";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import type { SeverityBreakdownItem } from "@/cloudsneeker/components/severity-breakdown";
@@ -90,6 +91,7 @@ export default async function ApplicationSecurityPage({
         description="Targets are the repositories, container images, archives, SBOMs and clusters you scan, on demand or on a schedule. Each scan updates the findings and the software inventory of its target."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <RecordBranchesButton />
             <ScanAllRepositoriesButton />
             <Button asChild size="sm">
               <Link href={newTargetHref()}>

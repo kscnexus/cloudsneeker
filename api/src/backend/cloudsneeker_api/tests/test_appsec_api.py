@@ -827,6 +827,141 @@ class TestRepositoryBranchesApi:
         assert rows[0]["attributes"]["target_branch"] == "develop"
 
 
+def _target_body(attributes, target_id=None):
+    data = {"type": "cloudsneeker-trivy-targets", "attributes": attributes}
+    if target_id:
+        data["id"] = str(target_id)
+    return json.dumps({"data": data})
+
+
+@pytest.mark.django_db
+class TestBranchInTargetNames:
+    """The branch a Git target scans is part of its name everywhere."""
+
+    def test_create_and_edit_keep_the_branch_in_the_name(
+        self, authenticated_client, iac_provider
+    ):
+        created = authenticated_client.post(
+            reverse("trivy-targets-list"),
+            data=_target_body(
+                {
+                    "name": "shop",
+                    "mode": "repo",
+                    "provider_id": str(iac_provider.id),
+                    "config": {
+                        "repository_url": iac_provider.uid,
+                        "branch": "develop",
+                    },
+                }
+            ),
+            content_type=JSONAPI,
+        )
+        assert created.status_code == 201, created.content
+        target_id = created.json()["data"]["id"]
+        assert created.json()["data"]["attributes"]["name"] == "shop @ develop"
+
+        def patch_config(config):
+            return authenticated_client.patch(
+                reverse("trivy-targets-detail", kwargs={"pk": target_id}),
+                data=_target_body({"config": config}, target_id),
+                content_type=JSONAPI,
+            )
+
+        moved = patch_config({"repository_url": iac_provider.uid, "branch": "main"})
+        assert moved.status_code == 200, moved.content
+        assert moved.json()["data"]["attributes"]["name"] == "shop @ main"
+
+        cleared = patch_config({"repository_url": iac_provider.uid})
+        assert cleared.json()["data"]["attributes"]["name"] == "shop"
+
+    def test_scan_pins_the_default_branch(self, target):
+        from cloudsneeker_api.services.repo_branches import pin_target_branch
+
+        assert pin_target_branch(target, "master") is True
+        target.refresh_from_db()
+        assert target.config["branch"] == "master"
+        assert target.name == "shop repo @ master"
+        # Already pinned: left alone.
+        assert pin_target_branch(target, "develop") is False
+
+    def test_taken_name_keeps_the_old_name(self, target):
+        from cloudsneeker_api.services.repo_branches import pin_target_branch
+
+        TrivyTarget.objects.create(
+            tenant_id=target.tenant_id,
+            provider=target.provider,
+            name="shop repo @ master",
+            mode="sast",
+            config={"repository_url": target.provider.uid, "branch": "master"},
+        )
+        assert pin_target_branch(target, "master") is True
+        target.refresh_from_db()
+        assert target.name == "shop repo"
+        assert target.config["branch"] == "master"
+
+    def test_backfill_uses_recorded_then_default_branch(self, target):
+        from cloudsneeker_api.services.repo_branches import (
+            RepositoryBranches,
+            backfill_target_branches,
+        )
+
+        TrivyRun.objects.create(
+            tenant_id=target.tenant_id,
+            target=target,
+            provider=target.provider,
+            status=TrivyRun.Status.COMPLETED,
+            finished_at=timezone.now(),
+            summary={"branch": "trunk"},
+        )
+        never_run = TrivyTarget.objects.create(
+            tenant_id=target.tenant_id,
+            provider=target.provider,
+            name="shop code",
+            mode="sast",
+            config={"repository_url": target.provider.uid},
+        )
+        with patch(
+            "cloudsneeker_api.services.repo_branches.list_repository_branches",
+            return_value=RepositoryBranches(["main"], "main"),
+        ):
+            counts = backfill_target_branches(str(target.tenant_id))
+
+        assert counts == {"updated": 2, "unchanged": 0, "failed": 0}
+        target.refresh_from_db()
+        never_run.refresh_from_db()
+        assert target.name == "shop repo @ trunk"
+        assert never_run.name == "shop code @ main"
+
+    def test_backfill_counts_unreadable_repositories(self, target):
+        from cloudsneeker_api.services.repo_branches import backfill_target_branches
+
+        with patch(
+            "cloudsneeker_api.services.repo_branches.list_repository_branches",
+            side_effect=RepositoryBranchError("refused"),
+        ):
+            counts = backfill_target_branches(str(target.tenant_id))
+        assert counts == {"updated": 0, "unchanged": 0, "failed": 1}
+
+    def test_record_branches_endpoint_queues_the_backfill(
+        self, authenticated_client, target
+    ):
+        with patch("cloudsneeker_api.views_appsec.transaction.on_commit") as on_commit:
+            response = authenticated_client.post(
+                reverse("appsec-record-branches"), content_type=JSONAPI
+            )
+        assert response.status_code == 202, response.content
+        assert response.json()["data"]["attributes"]["targets"] == 1
+        on_commit.assert_called_once()
+
+    def test_record_branches_needs_manage_scans(
+        self, authenticated_client_no_permissions_rbac
+    ):
+        response = authenticated_client_no_permissions_rbac.post(
+            reverse("appsec-record-branches"), content_type=JSONAPI
+        )
+        assert response.status_code == 403
+
+
 @pytest.mark.django_db
 class TestTenantScanLimit:
     """The organization limit caps scans running at once, not scans queued."""
