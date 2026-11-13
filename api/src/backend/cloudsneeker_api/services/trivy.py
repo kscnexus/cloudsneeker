@@ -611,7 +611,7 @@ def checkout_ssh_repository(
         ref: Branch or tag to check out; the default branch when empty.
 
     Returns:
-        The branch checked out, or ``ref`` when HEAD is detached (a tag).
+        The branch checked out ("" when HEAD is detached, as for a tag).
 
     Raises:
         TrivyHubError: The key is missing or unreadable, or the clone failed.
@@ -626,7 +626,7 @@ def checkout_ssh_repository(
         git_clone(repository_url, str(dest), *repo_ssh_args(provider), **options)
     except GitSshError as error:
         raise TrivyHubError(f"Repository clone failed: {error}") from None
-    branch = head_branch(dest) or str(ref or "")
+    branch = head_branch(dest)
     shutil.rmtree(dest / ".git", ignore_errors=True)
     return branch
 

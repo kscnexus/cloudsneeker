@@ -1343,6 +1343,8 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
     if branch and not metadata.get("Branch"):
         # SSH clones are scanned as a directory, so the engine reports none.
         metadata["Branch"] = branch
+    if not (options.get("tag") or options.get("commit")):
+        _pin_branch(target, branch, using)
 
     def shared_rows_for(uids: dict[str, str]) -> list[dict[str, Any]]:
         return [
@@ -1413,6 +1415,21 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
     }
 
 
+def _pin_branch(target, branch: str, using: str) -> None:
+    """Record the branch a default-branch Git target scanned (and name it).
+
+    Never fails the run: the scan results matter more than the label.
+    """
+    from cloudsneeker_api.services.repo_branches import pin_target_branch
+
+    if not branch:
+        return
+    try:
+        pin_target_branch(target, branch, using=using)
+    except Exception:  # noqa: BLE001
+        logger.warning("Could not record the branch of target %s", target.id)
+
+
 def _execute_code_scan(run, target, provider, config, using):
     """Static analysis: the existing OpenGrep path plus the finding lifecycle."""
     from cloudsneeker_api.appsec import lifecycle
@@ -1430,6 +1447,7 @@ def _execute_code_scan(run, target, provider, config, using):
         report = run_opengrep_scan(config=config, provider=provider)
     except hub.TrivyHubError as exc:
         return _fail(run, using, failures.failure(failures.FAILURE_ENGINE, str(exc)))
+    _pin_branch(target, str(report.get("cloudsneeker_branch") or ""), using)
     rows = opengrep_results_to_finding_rows(report)
     findings = parser.parse_code_rows(rows)
     fingerprint_by_uid = {

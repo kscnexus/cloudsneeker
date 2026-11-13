@@ -26,6 +26,7 @@ def cloudsneeker_task_revoke_permissions(permissions) -> dict:
         "cloudsneeker-trivy-scan": manage_scans,
         "cloudsneeker-trivy-scheduled-scan": manage_scans,
         "cloudsneeker-appsec-rescore": manage_scans,
+        "cloudsneeker-appsec-record-branches": manage_scans,
         # Any user may generate a report over the providers they can see.
         "cloudsneeker-generate-report": [],
         "cloudsneeker-scheduled-report": manage_scans,

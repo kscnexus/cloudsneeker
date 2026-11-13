@@ -356,7 +356,7 @@ def checkout_repository(
     """Clone like :func:`clone_repository` and name the branch checked out.
 
     Returns:
-        ``(secrets, branch)``; ``branch`` is ``ref`` when HEAD is detached.
+        ``(secrets, branch)``; ``branch`` is "" when HEAD is detached.
 
     Raises:
         TrivyHubError: When the clone fails; the message never has a token.
@@ -377,7 +377,7 @@ def checkout_repository(
         raise TrivyHubError(
             f"Repository clone failed: {redact(str(exc), *secrets)}"
         ) from None
-    branch = head_branch(dest) or str(ref or "")
+    branch = head_branch(dest)
     shutil.rmtree(dest / ".git", ignore_errors=True)
     return secrets, branch
 

@@ -73,3 +73,20 @@ export const toRepositoryBranchList = (
     truncated: body.meta?.truncated === true,
   };
 };
+
+/** Status line after asking the API to record target branches. */
+export const recordBranchesMessage = (result: unknown): string => {
+  if (!result || typeof result !== "object") {
+    return "Branches could not be recorded.";
+  }
+  if ("error" in result && (result as { error?: unknown }).error) {
+    return String((result as { error: unknown }).error);
+  }
+  const attributes = (
+    result as { data?: { attributes?: { targets?: unknown } } }
+  ).data?.attributes;
+  const count =
+    typeof attributes?.targets === "number" ? attributes.targets : 0;
+  if (count === 0) return "Every repository target already names its branch.";
+  return `Recording the branch of ${count} ${count === 1 ? "target" : "targets"} in the background. Refresh in a few minutes.`;
+};

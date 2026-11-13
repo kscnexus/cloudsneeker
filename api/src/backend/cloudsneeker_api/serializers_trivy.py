@@ -13,8 +13,9 @@ from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
     validate_timezone,
 )
-from cloudsneeker_api.services.repo_branches import run_branch
+from cloudsneeker_api.services.repo_branches import name_for_branch, run_branch
 from cloudsneeker_api.services.trivy import (
+    REPOSITORY_URL_MODES,
     TrivyHubError,
     assert_provider_matches_mode,
     effective_run_status,
@@ -121,6 +122,35 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
             raise ValidationError("A target with this name already exists.")
         return value
 
+    def _sync_branch_name(self, attrs, mode) -> None:
+        """Keep a Git target's branch in its name (``<name> @ <branch>``).
+
+        The name is what lists, reports, exports and scan names show, so it
+        carries the branch. Changing the branch replaces it in the name.
+        """
+        if mode not in REPOSITORY_URL_MODES or "config" not in attrs:
+            return
+        name = attrs.get("name") or (self.instance.name if self.instance else "")
+        if not name:
+            return
+        old_branch = (
+            (self.instance.config or {}).get("branch") if self.instance else ""
+        ) or ""
+        new_branch = (attrs["config"] or {}).get("branch") or ""
+        synced = name_for_branch(name, new_branch, old_branch)
+        if synced == name:
+            return
+        queryset = TrivyTarget.objects.filter(
+            tenant_id=self.context.get("tenant_id"), name=synced
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise ValidationError(
+                {"name": f"A target named '{synced}' already exists."}
+            )
+        attrs["name"] = synced
+
     def validate_mode(self, value):
         if not is_valid_trivy_mode(value):
             raise ValidationError(
@@ -189,6 +219,8 @@ class TrivyTargetWriteSerializer(RLSSerializer, BaseWriteSerializer):
                 raise ValidationError({"mode": "This field is required."})
             if provider_id is None:
                 raise ValidationError({"provider_id": "This field is required."})
+
+        self._sync_branch_name(attrs, mode)
 
         schedule_enabled = attrs.get("schedule_enabled")
         if schedule_enabled is None and self.instance is not None:

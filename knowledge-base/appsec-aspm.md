@@ -137,6 +137,8 @@ Repository and static analysis targets that read a Git URL scan one branch: `con
 
 * SSH repositories are cloned with that branch (`depth=1`); HTTPS repository scans pass it as the engine's branch option. `config.branch` replaces any branch, tag or commit from a profile or `config.options`.
 * Each run records the branch it scanned in `summary.branch` (the default branch is read from the clone's `HEAD`), and `trivy-runs` returns it as `branch`. Findings carry `target_branch` (empty: default branch).
+* The branch is part of the target name (`<name> @ <branch>`), so every list, finding, report row, export, SBOM and scan name shows it. The API keeps the name in step: saving a branch adds it, changing it replaces it (`name_for_branch` in `services/repo_branches.py`).
+* Targets saved without a branch get it recorded (config and name) after their first scan, or at once with **Record branches** on the Scans page (`POST /appsec/record-branches`, Celery `cloudsneeker-appsec-record-branches`). That uses the branch the latest run recorded, else the repository's current default branch. A recorded branch is then fixed: if the repository's default branch changes later, edit the target. If the new name is already taken, the target keeps its old name.
 * Per-target SCA and SAST reports are titled and named `<target> @ <branch>`, so files read `<target>-<branch>-sca-<date>.pdf`. A default-branch target uses the branch its latest completed run recorded.
 
 ## UI
