@@ -171,6 +171,15 @@ export interface AppSecFindingsSummary {
   suppressed: number;
   overdue: number;
   vulnerabilities: AppSecVulnerabilityMetrics;
+  /** Values that have findings in the workspace (category) whatever the
+   * other filters; the filter bar offers only these. */
+  facets?: AppSecFindingFacets;
+}
+
+export interface AppSecFindingFacets {
+  target_types: string[];
+  targets: string[];
+  applications: string[];
 }
 
 export interface AppSecTrendPoint {

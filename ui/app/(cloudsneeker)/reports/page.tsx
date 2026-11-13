@@ -285,7 +285,13 @@ const SSRReportsWorkspace = async ({
                   },
                 ]}
               />
-              <ReportRunsTable runs={runs} canShare={canManage} />
+              <ReportRunsTable
+                runs={runs}
+                canShare={canManage}
+                filtered={Boolean(
+                  runList.types.length || runList.status || runList.trigger,
+                )}
+              />
               <PageNav
                 page={runList.page}
                 pages={runPages.pages}

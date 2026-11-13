@@ -933,9 +933,14 @@ class AppSecFindingViewSet(AppSecViewSet):
         params["filter[suppressed]"] = "any"
         try:
             scoped = queries.filter_findings(queryset, params, now=timezone.now())
+            workspace = queries.filter_findings(
+                queryset, queries.facet_params(params), now=timezone.now()
+            )
         except queries.QueryError as exc:
             raise ValidationError({"detail": str(exc)}) from exc
         summary = queries.findings_summary(scoped, now=timezone.now())
+        # Options of the filter bar: values that have findings in this scope.
+        summary["facets"] = queries.findings_facets(workspace)
         return Response(
             {
                 "data": {

@@ -36,7 +36,9 @@ import {
   formatAppSecDate,
   hasLegacyAppSecParams,
   isAppSecFiltered,
+  optionsInScope,
   parseAppSecFindingFilters,
+  selectedIds,
 } from "@/cloudsneeker/lib/appsec";
 import {
   TRIAGE_STATUS_FILTERS,
@@ -244,10 +246,13 @@ export const buildAppSecFilters = ({
   workspace,
   applications,
   targets,
+  targetTypes = Object.values(TRIVY_MODE),
 }: {
   workspace: AppSecWorkspace;
   applications: FilterChoice[];
   targets: FilterChoice[];
+  /** Asset types to offer; every type when not given. */
+  targetTypes?: readonly string[];
 }): StandardFilter[] => {
   const param = APPSEC_FINDING_PARAM;
   const filters: StandardFilter[] = [
@@ -300,25 +305,25 @@ export const buildAppSecFilters = ({
       options: targets,
     });
   }
-  filters.push(
-    {
+  if (targetTypes.length > 0) {
+    filters.push({
       key: param.ASSET_TYPE,
       label: "Asset Types",
-      options: Object.values(TRIVY_MODE).map((mode) => ({
+      options: targetTypes.map((mode) => ({
         value: mode,
         label: labelForTrivyMode(mode),
       })),
-    },
-    {
-      key: param.FIRST_SEEN,
-      label: "Time (first seen)",
-      single: true,
-      options: APPSEC_FIRST_SEEN_DAYS.map((days) => ({
-        value: String(days),
-        label: days === 1 ? "Last 24 hours" : `Last ${days} days`,
-      })),
-    },
-  );
+    });
+  }
+  filters.push({
+    key: param.FIRST_SEEN,
+    label: "Time (first seen)",
+    single: true,
+    options: APPSEC_FIRST_SEEN_DAYS.map((days) => ({
+      value: String(days),
+      label: days === 1 ? "Last 24 hours" : `Last ${days} days`,
+    })),
+  });
   if (workspace.category === APPSEC_CATEGORY.VULNERABILITY) {
     filters.push({
       key: param.FIX,
@@ -538,6 +543,24 @@ const SSRWorkspace = async ({
       label: target.attributes.name || target.id,
     }),
   );
+  // Offer only values with findings in this workspace: an asset type, target
+  // or application without any would always combine to an empty list.
+  const facets = attributesOf<AppSecFindingsSummary>(summaryResponse)?.facets;
+  const scopedApplications = optionsInScope(
+    applicationOptions,
+    facets?.applications,
+    selectedIds(filters.application),
+  );
+  const scopedTargets = optionsInScope(
+    targetOptions,
+    facets?.targets,
+    selectedIds(filters.target),
+  );
+  const scopedTargetTypes = optionsInScope(
+    Object.values(TRIVY_MODE).map((value) => ({ value })),
+    facets?.target_types,
+    filters.assetTypes,
+  ).map((option) => option.value);
   const reloadHref = appSecFindingsHref(workspace.segment, filters);
   if (!isListResponse(response)) {
     return (
@@ -563,8 +586,9 @@ const SSRWorkspace = async ({
         testIdPrefix={`appsec-${workspace.segment || "findings"}`}
         filters={buildAppSecFilters({
           workspace,
-          applications: applicationOptions,
-          targets: targetOptions,
+          applications: scopedApplications,
+          targets: scopedTargets,
+          targetTypes: scopedTargetTypes,
         })}
       />
       <ScopeNotes workspace={workspace} filters={filters} />
