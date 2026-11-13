@@ -74,18 +74,27 @@ describe("TargetReportDownloadButton", () => {
     startMock
       .mockResolvedValueOnce({ runId: "run-1" })
       .mockResolvedValueOnce({ runId: "run-2" });
-    statusMock.mockResolvedValue({ "run-1": "completed", "run-2": "failed" });
+    statusMock.mockImplementation(async ([runId]: string[]) => ({
+      [runId]: runId === "run-1" ? "completed" : "failed",
+    }));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<TargetReportDownloadButton label="Download all" />);
 
     await user.click(screen.getByRole("button", { name: "Download all" }));
-    await vi.advanceTimersByTimeAsync(5000);
+    // The second report only starts after the first one finished.
+    await waitFor(() => expect(startMock).toHaveBeenCalledTimes(1));
+    expect(statusMock).not.toHaveBeenCalledWith(["run-2"]);
+    await vi.advanceTimersByTimeAsync(10000);
 
     expect(
       await screen.findByText("1 of 2 reports downloaded (1 failed)"),
     ).toBeInTheDocument();
-    expect(startMock).toHaveBeenCalledWith("target-2", "sast");
+    expect(startMock).toHaveBeenNthCalledWith(2, "target-2", "sast");
+    for (const call of statusMock.mock.calls) expect(call[0]).toHaveLength(1);
     expect(clicked).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Not downloaded: payments-api.",
+    );
   });
 
   it("does nothing when the bulk download is not confirmed", async () => {
@@ -117,8 +126,9 @@ describe("TargetReportDownloadButton", () => {
       screen.getByRole("button", { name: "Download SCA report" }),
     );
 
+    await vi.advanceTimersByTimeAsync(2000);
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "This report does not cover IaC targets.",
+      "This report does not cover IaC targets. Not downloaded: payments-api.",
     );
     expect(clicked).toHaveLength(0);
   });

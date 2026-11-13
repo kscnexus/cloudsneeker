@@ -11,7 +11,6 @@ import {
   isFinishedReportStatus,
   reportTypeForTargetMode,
   repositoryReportJobs,
-  runWithConcurrency,
 } from "./target-reports";
 
 const target = (
@@ -68,35 +67,5 @@ describe("report progress", () => {
     expect(describeReportProgress({ total: 4, ready: 3, failed: 1 })).toBe(
       "3 of 4 reports downloaded (1 failed)",
     );
-  });
-});
-
-describe("runWithConcurrency", () => {
-  it("runs every item without exceeding the limit", async () => {
-    let inFlight = 0;
-    let peak = 0;
-    const seen: number[] = [];
-    await runWithConcurrency([1, 2, 3, 4, 5], 2, async (item) => {
-      inFlight += 1;
-      peak = Math.max(peak, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      seen.push(item);
-      inFlight -= 1;
-    });
-    expect(seen.sort()).toEqual([1, 2, 3, 4, 5]);
-    expect(peak).toBe(2);
-  });
-
-  it("stops picking new items once asked to stop", async () => {
-    const seen: number[] = [];
-    await runWithConcurrency(
-      [1, 2, 3],
-      1,
-      async (item) => {
-        seen.push(item);
-      },
-      () => seen.length >= 1,
-    );
-    expect(seen).toEqual([1]);
   });
 });
