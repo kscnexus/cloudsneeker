@@ -4,6 +4,7 @@ import {
   buildTrivyConfig,
   CODE_ARCHIVE_ACCEPT,
   isSupportedCodeArchive,
+  readsRepository,
   SAST_MAX_EXCLUDE_PATTERNS,
   SAST_SOURCE,
   toggleSastRuleset,
@@ -335,4 +336,57 @@ describe("code archive formats", () => {
       expect(isSupportedCodeArchive(name)).toBe(false);
     },
   );
+});
+
+describe("branches", () => {
+  const base = {
+    name: "shop",
+    providerId: "11111111-1111-4111-8111-111111111111",
+    repositoryUrl: "git@bitbucket.org:acme/shop.git",
+  };
+
+  it("saves the branch on repository targets", () => {
+    const values = trivyTargetFormSchema.parse({
+      ...base,
+      mode: TRIVY_MODE.REPO,
+      branches: ["develop"],
+    });
+    expect(buildTrivyConfig(values).branch).toBe("develop");
+    expect(buildTrivyConfig(values, {}, "release").branch).toBe("release");
+  });
+
+  it("saves the branch on static analysis targets that read Git", () => {
+    const values = trivyTargetFormSchema.parse({
+      ...base,
+      mode: TRIVY_MODE.SAST,
+      branches: ["develop"],
+    });
+    expect(buildTrivyConfig(values)).toMatchObject({
+      repository_url: base.repositoryUrl,
+      branch: "develop",
+    });
+  });
+
+  it("leaves the branch out for the default branch and archives", () => {
+    const repo = trivyTargetFormSchema.parse({
+      ...base,
+      mode: TRIVY_MODE.REPO,
+    });
+    expect(buildTrivyConfig(repo)).not.toHaveProperty("branch");
+    const archive = trivyTargetFormSchema.parse({
+      ...base,
+      mode: TRIVY_MODE.SAST,
+      sastSource: SAST_SOURCE.ARCHIVE,
+      archiveB64: "UEsDBA==",
+      branches: ["develop"],
+    });
+    expect(buildTrivyConfig(archive)).not.toHaveProperty("branch");
+  });
+
+  it("knows which forms read a repository", () => {
+    expect(readsRepository(TRIVY_MODE.REPO, undefined)).toBe(true);
+    expect(readsRepository(TRIVY_MODE.SAST, SAST_SOURCE.REPOSITORY)).toBe(true);
+    expect(readsRepository(TRIVY_MODE.SAST, SAST_SOURCE.ARCHIVE)).toBe(false);
+    expect(readsRepository(TRIVY_MODE.IMAGE, undefined)).toBe(false);
+  });
 });

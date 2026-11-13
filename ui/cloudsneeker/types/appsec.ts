@@ -104,6 +104,8 @@ export interface AppSecFindingAttributes {
   reopen_count: number;
   target_id: string;
   target_name: string;
+  /** Branch the target scans; empty means the repository's default branch. */
+  target_branch?: string;
   target_type: string;
   application_id: string | null;
   application_name: string | null;

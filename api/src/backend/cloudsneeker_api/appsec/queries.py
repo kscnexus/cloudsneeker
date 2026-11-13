@@ -285,6 +285,8 @@ def finding_row(finding, *, detail: bool = False) -> dict[str, Any]:
         "reopen_count": finding.reopen_count,
         "target_id": str(finding.target_id),
         "target_name": finding.target.name,
+        # Empty: the target scans its repository's default branch.
+        "target_branch": str((finding.target.config or {}).get("branch") or ""),
         "target_type": finding.target.mode,
         "application_id": (
             str(finding.target.application_id)

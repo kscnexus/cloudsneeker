@@ -91,6 +91,8 @@ export default async function EditTrivyTargetPage({
     images: Array.isArray(config.images) ? config.images.join("\n") : "",
     repositoryUrl:
       typeof config.repository_url === "string" ? config.repository_url : "",
+    branches:
+      typeof config.branch === "string" && config.branch ? [config.branch] : [],
     archiveB64: "",
     sbom: typeof config.sbom === "string" ? config.sbom : "",
     namespace: typeof config.namespace === "string" ? config.namespace : "",

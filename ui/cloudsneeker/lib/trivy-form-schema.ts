@@ -85,6 +85,11 @@ export const trivyTargetFormSchema = z
       .default(defaultScannersForMode(TRIVY_MODE.REPO)),
     images: z.string().optional().default(""),
     repositoryUrl: z.string().optional().default(""),
+    /**
+     * Branches to scan; empty scans the repository's default branch. A new
+     * target with several branches is saved as one target per branch.
+     */
+    branches: z.array(z.string().trim().min(1).max(200)).optional().default([]),
     archiveB64: z.string().optional().default(""),
     sbom: z.string().optional().default(""),
     namespace: z.string().optional().default(""),
@@ -225,20 +230,34 @@ const scannersToSave = (
   return scannersForMode(mode).filter((name) => selected.includes(name));
 };
 
+/** True when the form reads a Git repository (so a branch applies). */
+export const readsRepository = (
+  mode: TrivyMode,
+  sastSource: SastSource | undefined,
+): boolean =>
+  mode === TRIVY_MODE.REPO ||
+  (mode === TRIVY_MODE.SAST && sastSource !== SAST_SOURCE.ARCHIVE);
+
 /**
  * Target config from the form. `preserved` holds saved keys the form does
- * not edit (scan option overrides), so an edit does not drop them.
+ * not edit (scan option overrides), so an edit does not drop them. `branch`
+ * is the one branch this target scans (the first selected by default).
  */
 export const buildTrivyConfig = (
   values: TrivyTargetFormValues,
   preserved: Record<string, unknown> = {},
+  branch: string = values.branches[0] ?? "",
 ): Record<string, unknown> => {
+  const branchConfig =
+    readsRepository(values.mode, values.sastSource) && branch.trim()
+      ? { branch: branch.trim() }
+      : {};
   if (values.mode === TRIVY_MODE.SAST) {
     // The static analysis engine has no scanner list; sending one is ignored.
     const source =
       values.sastSource === SAST_SOURCE.ARCHIVE
         ? { archive_b64: values.archiveB64.trim() }
-        : { repository_url: values.repositoryUrl.trim() };
+        : { repository_url: values.repositoryUrl.trim(), ...branchConfig };
     return {
       ...source,
       rulesets:
@@ -263,6 +282,7 @@ export const buildTrivyConfig = (
   }
   if (values.mode === TRIVY_MODE.REPO) {
     config.repository_url = values.repositoryUrl.trim();
+    Object.assign(config, branchConfig);
   }
   if (isArchiveMode(values.mode)) {
     if (values.archiveB64.trim()) {

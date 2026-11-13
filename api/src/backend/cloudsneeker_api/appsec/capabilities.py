@@ -124,8 +124,9 @@ TARGETS: dict[str, dict[str, Any]] = {
             "Reads lock files, not installed packages. Detects vulnerable "
             "dependencies, misconfigurations, secrets and licenses; it is not "
             "a semantic code analyzer (see Static analysis).",
-            "SSH repositories are cloned first and scanned as a directory, so "
-            "branch, tag and commit metadata is not recorded for them.",
+            "SSH repositories are cloned first (branch or tag, not commit) and "
+            "scanned as a directory; the branch is recorded, other Git "
+            "metadata is not.",
         ),
     },
     "fs": {
@@ -540,8 +541,9 @@ FEATURES: list[dict[str, str]] = [
         "area": "Targets",
         "feature": "Code repository",
         "status": STATUS_IMPLEMENTED,
-        "detail": "HTTPS with token (branch, tag, commit) and SSH (cloned, then "
-        "scanned as a directory).",
+        "detail": "HTTPS with token (branch, tag, commit) and SSH (branch or "
+        "tag cloned, then scanned as a directory). Branches are listed from "
+        "the source; one target per branch.",
     },
     {
         "area": "Targets",
@@ -916,7 +918,7 @@ FEATURES: list[dict[str, str]] = [
         "status": STATUS_PARTIAL,
         "detail": "Repository URL, branch, commit, author and tags are stored on "
         "the scan for HTTPS repositories. SSH repositories are scanned as a "
-        "directory and have none.",
+        "directory and record only the branch.",
     },
     {
         "area": "Product",

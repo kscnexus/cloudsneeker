@@ -318,7 +318,11 @@ def build_opengrep_command(
 
 
 def clone_repository(
-    repository_url: str, provider: Provider, dest: Path
+    repository_url: str,
+    provider: Provider,
+    dest: Path,
+    *,
+    ref: str | None = None,
 ) -> tuple[str, ...]:
     """Shallow-clone the provider's repository into ``dest``.
 
@@ -331,6 +335,7 @@ def clone_repository(
         repository_url: Repository URL from the target config.
         provider: Linked IaC provider.
         dest: Empty directory to clone into.
+        ref: Branch to check out; the default branch when empty.
 
     Returns:
         Secrets (authenticated URL and token) to redact from any output.
@@ -338,25 +343,43 @@ def clone_repository(
     Raises:
         TrivyHubError: When the clone fails; the message never has a token.
     """
+    return checkout_repository(repository_url, provider, dest, ref=ref)[0]
+
+
+def checkout_repository(
+    repository_url: str,
+    provider: Provider,
+    dest: Path,
+    *,
+    ref: str | None = None,
+) -> tuple[tuple[str, ...], str]:
+    """Clone like :func:`clone_repository` and name the branch checked out.
+
+    Returns:
+        ``(secrets, branch)``; ``branch`` is ``ref`` when HEAD is detached.
+
+    Raises:
+        TrivyHubError: When the clone fails; the message never has a token.
+    """
+    from cloudsneeker_api.services.repo_branches import head_branch
+
     token, username = _repo_credentials(provider)
     clone_url = authenticated_clone_url(repository_url, token or None, username)
     secrets = tuple(s for s in (clone_url, token) if s and s != repository_url)
+    options: dict[str, Any] = {"depth": 1, "errstream": io.BytesIO()}
+    if ref:
+        options["branch"] = ref
     try:
-        git_clone(
-            clone_url,
-            str(dest),
-            *repo_ssh_args(provider),
-            depth=1,
-            errstream=io.BytesIO(),
-        )
+        git_clone(clone_url, str(dest), *repo_ssh_args(provider), **options)
     except GitSshError as exc:
         raise TrivyHubError(f"Repository clone failed: {exc}") from None
     except Exception as exc:  # noqa: BLE001 - never surface a token
         raise TrivyHubError(
             f"Repository clone failed: {redact(str(exc), *secrets)}"
         ) from None
+    branch = head_branch(dest) or str(ref or "")
     shutil.rmtree(dest / ".git", ignore_errors=True)
-    return secrets
+    return secrets, branch
 
 
 def _relative_path(path: str, scan_dir: Path) -> str:
@@ -406,20 +429,25 @@ def run_opengrep_scan(*, config: dict[str, Any], provider: Provider) -> dict[str
 
     Returns:
         The OpenGrep report with relative paths, secrets scrubbed, and
-        ``cloudsneeker_rulesets`` listing the rule packs used.
+        ``cloudsneeker_rulesets`` listing the rule packs used, and
+        ``cloudsneeker_branch`` naming the branch scanned (repositories).
 
     Raises:
         TrivyHubError: When the clone or scan fails or times out.
     """
     work_dir = Path(tempfile.mkdtemp(prefix="cloudsneeker-sast-"))
     secrets: tuple[str, ...] = ()
+    branch = ""
     started = time.monotonic()
     try:
         if config.get("repository_url"):
             scan_dir = work_dir / "src"
             scan_dir.mkdir()
-            secrets = clone_repository(
-                str(config["repository_url"]), provider, scan_dir
+            secrets, branch = checkout_repository(
+                str(config["repository_url"]),
+                provider,
+                scan_dir,
+                ref=config.get("branch") or None,
             )
         else:
             scan_dir = _extract_archive(str(config["archive_b64"]), work_dir)
@@ -458,6 +486,8 @@ def run_opengrep_scan(*, config: dict[str, Any], provider: Provider) -> dict[str
             raise TrivyHubError("Static analysis JSON root must be an object.")
         report = normalize_report(report, scan_dir)
         report["cloudsneeker_rulesets"] = [path.name for path in rule_dirs]
+        if branch:
+            report["cloudsneeker_branch"] = branch
         return scrub_secrets(report, secrets)
     except subprocess.TimeoutExpired:
         raise TrivyHubError("Static analysis timed out.") from None

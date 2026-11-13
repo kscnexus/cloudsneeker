@@ -37,8 +37,13 @@ export const AppSecurityRunList = ({
   return (
     <ul className={CARD_LIST_CLASS}>
       {runs.map((run) => {
-        const scanId = run.attributes.scan_id || run.attributes.summary?.scan_id;
-        const runHref = appSecurityHref(run.attributes.target_id, "runs", run.id);
+        const scanId =
+          run.attributes.scan_id || run.attributes.summary?.scan_id;
+        const runHref = appSecurityHref(
+          run.attributes.target_id,
+          "runs",
+          run.id,
+        );
         const findingCount = run.attributes.summary?.finding_count;
         const when = formatRunTime(
           run.attributes.finished_at || run.attributes.inserted_at,
@@ -59,8 +64,11 @@ export const AppSecurityRunList = ({
             <p className="text-text-neutral-secondary text-sm">
               {[
                 labelForTrivyMode(
-                  run.attributes.target_mode || run.attributes.summary?.mode || "",
+                  run.attributes.target_mode ||
+                    run.attributes.summary?.mode ||
+                    "",
                 ),
+                run.attributes.branch ? `Branch ${run.attributes.branch}` : "",
                 run.attributes.trigger,
                 typeof findingCount === "number"
                   ? `${findingCount} findings`

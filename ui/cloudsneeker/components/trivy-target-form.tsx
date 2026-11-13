@@ -15,14 +15,20 @@ import {
   FormChoiceGroup,
   FormField,
 } from "@/cloudsneeker/components/form-layout";
+import { RepositoryBranchField } from "@/cloudsneeker/components/repository-branch-field";
 import { SbomSourceFields } from "@/cloudsneeker/components/sbom-source-fields";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import {
+  branchDisplay,
+  targetsForBranches,
+} from "@/cloudsneeker/lib/repository-branches";
 import {
   buildTrivyConfig,
   CODE_ARCHIVE_ACCEPT,
   CODE_ARCHIVE_HELP,
   isArchiveMode,
   isSupportedCodeArchive,
+  readsRepository,
   SAST_SOURCE,
   toggleSastRuleset,
   trivyTargetFormSchema,
@@ -137,6 +143,7 @@ export const TrivyTargetForm = ({
       scanners: defaultScannersForMode(TRIVY_MODE.REPO),
       images: "",
       repositoryUrl: "",
+      branches: [],
       archiveB64: "",
       sbom: "",
       namespace: "",
@@ -157,6 +164,31 @@ export const TrivyTargetForm = ({
     name: "scheduleEnabled",
   });
   const sastSource = useWatch({ control: form.control, name: "sastSource" });
+  const providerId =
+    useWatch({ control: form.control, name: "providerId" }) ?? "";
+  const branches: string[] =
+    useWatch({ control: form.control, name: "branches" }) ?? [];
+  const setBranches = (values: string[]) =>
+    form.setValue("branches", values, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  const branchErrors = form.formState.errors.branches;
+  const branchError =
+    branchErrors?.message ??
+    (Array.isArray(branchErrors)
+      ? branchErrors.find((item) => item?.message)?.message
+      : undefined);
+  const branchField = (
+    <RepositoryBranchField
+      id="trivy-branches"
+      providerId={providerId}
+      value={branches}
+      onChange={setBranches}
+      multiple={!targetId}
+      error={branchError}
+    />
+  );
   const sbom = useWatch({ control: form.control, name: "sbom" }) ?? "";
   const scanners: TrivyScanner[] =
     useWatch({ control: form.control, name: "scanners" }) ?? [];
@@ -182,31 +214,75 @@ export const TrivyTargetForm = ({
   const onSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
     setError(null);
-    const payload = {
-      name: values.name,
+    const payloadFor = (name: string, branch: string) => ({
+      name,
       description: values.description,
       mode: values.mode,
       providerId: values.providerId,
-      config: buildTrivyConfig(values, preservedConfig),
+      config: buildTrivyConfig(values, preservedConfig, branch),
       applicationId: values.applicationId || null,
       scheduleEnabled: values.scheduleEnabled,
       scheduleCron: values.scheduleEnabled ? values.scheduleCron : "",
       scheduleTimezone: values.scheduleTimezone || "UTC",
+    });
+    const errorText = (result: unknown): string | null => {
+      if (!result || typeof result !== "object" || !("error" in result)) {
+        return null;
+      }
+      const value = (result as { error?: unknown }).error;
+      if (!value) return null;
+      return typeof value === "string" ? value : "Failed to save target.";
     };
-    const result = targetId
-      ? await updateTrivyTarget(targetId, payload)
-      : await createTrivyTarget(payload);
+
+    if (targetId) {
+      const result = await updateTrivyTarget(
+        targetId,
+        payloadFor(values.name, values.branches[0] ?? ""),
+      );
+      setSaving(false);
+      const message = errorText(result);
+      if (message) {
+        setError(message);
+        return;
+      }
+      router.push(appSecurityHref(targetId));
+      router.refresh();
+      return;
+    }
+
+    // One target per selected branch, created one after another.
+    const planned = readsRepository(values.mode, values.sastSource)
+      ? targetsForBranches(values.name, values.branches)
+      : [{ name: values.name, branch: "" }];
+    const created: string[] = [];
+    const failed: string[] = [];
+    for (const item of planned) {
+      const result = await createTrivyTarget(
+        payloadFor(item.name, item.branch),
+      );
+      const message = errorText(result);
+      if (message) {
+        failed.push(
+          planned.length > 1
+            ? `${branchDisplay(item.branch)}: ${message}`
+            : message,
+        );
+      } else if (result?.data?.id) {
+        created.push(String(result.data.id));
+      }
+    }
     setSaving(false);
-    if (result && "error" in result && result.error) {
+    if (failed.length > 0) {
       setError(
-        typeof result.error === "string"
-          ? result.error
-          : "Failed to save target.",
+        created.length > 0
+          ? `Created ${created.length} of ${planned.length} targets. ${failed.join(" ")}`
+          : failed.join(" "),
       );
       return;
     }
-    const id = targetId || result?.data?.id;
-    router.push(id ? appSecurityHref(id) : appSecurityHref());
+    router.push(
+      created.length === 1 ? appSecurityHref(created[0]) : appSecurityHref(),
+    );
     router.refresh();
   });
 
@@ -445,6 +521,8 @@ export const TrivyTargetForm = ({
           </FormField>
         ) : null}
 
+        {mode === TRIVY_MODE.REPO ? branchField : null}
+
         {isArchiveMode(mode) ? (
           <FormField
             id="trivy-archive"
@@ -541,6 +619,8 @@ export const TrivyTargetForm = ({
               />
             </FormField>
           )}
+
+          {sastSource === SAST_SOURCE.ARCHIVE ? null : branchField}
 
           <FormChoiceGroup legend="Rule packs" error={errors.rulesets?.message}>
             <div className="grid gap-2 sm:grid-cols-2">

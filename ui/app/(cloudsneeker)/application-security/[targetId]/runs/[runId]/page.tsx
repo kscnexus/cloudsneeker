@@ -131,6 +131,9 @@ export default async function TrivyRunDetailPage({
           },
           { label: "Trigger", value: attributes.trigger },
           { label: "Target type", value: labelForTrivyMode(mode) },
+          ...(attributes.branch
+            ? [{ label: "Branch", value: attributes.branch }]
+            : []),
           { label: "Started", value: formatAppSecDate(attributes.started_at) },
           { label: "Duration", value: duration(attributes.duration_ms) },
           ...(attributes.engine_version

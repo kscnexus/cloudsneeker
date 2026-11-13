@@ -366,7 +366,33 @@ def validate_target_config(
 
         cfg = validate_sast_config(cfg)
 
+    _validate_branch(mode, cfg)
     return cfg
+
+
+def _validate_branch(mode: str, cfg: dict[str, Any]) -> None:
+    """Validate ``config.branch`` in place.
+
+    Repository and static analysis targets that read a Git URL scan one
+    branch; an empty value means the repository's default branch.
+
+    Raises:
+        TrivyHubError: Invalid name, or a branch on a target without a
+            repository URL.
+    """
+    from cloudsneeker_api.services.repo_branches import normalize_branch
+
+    if cfg.get("branch") in (None, ""):
+        cfg.pop("branch", None)
+        return
+    if mode not in REPOSITORY_URL_MODES or not cfg.get("repository_url"):
+        raise TrivyHubError("config.branch needs a repository URL.")
+    try:
+        cfg["branch"] = normalize_branch(cfg["branch"])
+    except ValueError as exc:
+        raise TrivyHubError(str(exc)) from None
+    if not cfg["branch"]:
+        cfg.pop("branch")
 
 
 def _validate_profile_and_options(
@@ -541,7 +567,13 @@ def repo_ssh_args(provider: Provider) -> tuple[str | None, str | None, str | Non
     return ssh_secret_args(secret)
 
 
-def clone_ssh_repository(repository_url: str, provider: Provider, dest: Path) -> Path:
+def clone_ssh_repository(
+    repository_url: str,
+    provider: Provider,
+    dest: Path,
+    *,
+    ref: str | None = None,
+) -> Path:
     """Clone an SSH repository URL with the provider's key into ``dest``.
 
     ``trivy repo`` cannot authenticate over SSH, so SSH repositories are
@@ -551,6 +583,7 @@ def clone_ssh_repository(repository_url: str, provider: Provider, dest: Path) ->
         repository_url: ``git@host:owner/repo`` or ``ssh://`` URL.
         provider: Linked IaC provider holding ``ssh_private_key``.
         dest: Directory to clone into (created if missing).
+        ref: Branch or tag to check out; the default branch when empty.
 
     Returns:
         ``dest``.
@@ -558,19 +591,44 @@ def clone_ssh_repository(repository_url: str, provider: Provider, dest: Path) ->
     Raises:
         TrivyHubError: The key is missing or unreadable, or the clone failed.
     """
+    checkout_ssh_repository(repository_url, provider, dest, ref=ref)
+    return dest
+
+
+def checkout_ssh_repository(
+    repository_url: str,
+    provider: Provider,
+    dest: Path,
+    *,
+    ref: str | None = None,
+) -> str:
+    """Clone like :func:`clone_ssh_repository` and name the branch checked out.
+
+    Args:
+        repository_url: ``git@host:owner/repo`` or ``ssh://`` URL.
+        provider: Linked IaC provider holding ``ssh_private_key``.
+        dest: Directory to clone into (created if missing).
+        ref: Branch or tag to check out; the default branch when empty.
+
+    Returns:
+        The branch checked out, or ``ref`` when HEAD is detached (a tag).
+
+    Raises:
+        TrivyHubError: The key is missing or unreadable, or the clone failed.
+    """
+    from cloudsneeker_api.services.repo_branches import head_branch
+
     dest.mkdir(parents=True, exist_ok=True)
+    options: dict[str, Any] = {"depth": 1, "errstream": io.BytesIO()}
+    if ref:
+        options["branch"] = ref
     try:
-        git_clone(
-            repository_url,
-            str(dest),
-            *repo_ssh_args(provider),
-            depth=1,
-            errstream=io.BytesIO(),
-        )
+        git_clone(repository_url, str(dest), *repo_ssh_args(provider), **options)
     except GitSshError as error:
         raise TrivyHubError(f"Repository clone failed: {error}") from None
+    branch = head_branch(dest) or str(ref or "")
     shutil.rmtree(dest / ".git", ignore_errors=True)
-    return dest
+    return branch
 
 
 def _repo_token_env(provider: Provider) -> dict[str, str]:

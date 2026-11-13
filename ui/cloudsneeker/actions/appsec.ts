@@ -63,6 +63,10 @@ export const getAppSecOverview = async (days?: string) =>
 
 export const getAppSecCapabilities = async () => read("/appsec/capabilities");
 
+/** Branches of a code repository source, default branch first. */
+export const listRepositoryBranches = async (providerId: string) =>
+  read("/appsec/repository-branches", { provider_id: providerId });
+
 export const getAppSecEngine = async () => read("/appsec/engine");
 
 export const getAppSecSettings = async () => read("/appsec/settings");
