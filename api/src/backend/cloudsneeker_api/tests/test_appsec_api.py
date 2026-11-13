@@ -348,6 +348,61 @@ class TestFindingsApi:
         }
         assert summary["by_category"] == {"vulnerability": 3}
 
+    def test_combined_filters_return_the_matching_rows(
+        self, authenticated_client, target
+    ):
+        _scan(
+            target,
+            _report(
+                [
+                    _vuln(severity="CRITICAL"),
+                    _vuln("CVE-2024-0002", "axios", "CRITICAL", ""),
+                    _vuln("CVE-2024-0003", "axios", "LOW"),
+                ],
+                [SECRET],
+            ),
+        )
+        rows = _get(
+            authenticated_client,
+            "appsec-findings-list",
+            {
+                "filter[category]": "vulnerability",
+                "filter[severity__in]": "critical,high",
+                "filter[fix_available]": "true",
+                "filter[target__in]": str(target.id),
+                "filter[target_type]": target.mode,
+                "filter[triage_status__in]": "open",
+            },
+        ).json()
+        assert [row["attributes"]["rule_id"] for row in rows["data"]] == [
+            "CVE-2024-0001"
+        ]
+
+    def test_summary_facets_follow_the_workspace_not_the_chips(
+        self, authenticated_client, target
+    ):
+        _scan(target, _report([_vuln()], [SECRET]))
+        facets = _get(
+            authenticated_client,
+            "appsec-findings-summary",
+            {
+                "filter[category]": "secret",
+                "filter[severity__in]": "low",
+                "filter[target_type]": "image",
+            },
+        ).json()["data"]["attributes"]["facets"]
+        assert facets == {
+            "target_types": ["repo"],
+            "targets": [str(target.id)],
+            "applications": [],
+        }
+        empty = _get(
+            authenticated_client,
+            "appsec-findings-summary",
+            {"filter[category]": "code"},
+        ).json()["data"]["attributes"]["facets"]
+        assert empty == {"target_types": [], "targets": [], "applications": []}
+
     def test_triage_status_follows_the_existing_triage_routes(
         self, authenticated_client, target
     ):

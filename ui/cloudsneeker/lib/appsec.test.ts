@@ -19,7 +19,9 @@ import {
   dueLabel,
   formatAppSecDate,
   isAppSecFiltered,
+  optionsInScope,
   parseAppSecFindingFilters,
+  selectedIds,
   sumCounts,
   toggleItem,
   workspaceForCategory,
@@ -273,5 +275,61 @@ describe("filter bar parameters", () => {
     expect(hasLegacyAppSecParams({ severity: "high" })).toBe(true);
     expect(hasLegacyAppSecParams({ rule: "CVE-1" })).toBe(false);
     expect(parseAppSecFindingFilters({ fix: "unavailable" }).fix).toBe("none");
+  });
+});
+
+describe("combined filters", () => {
+  it("sends every filter of a combination to the API", () => {
+    const filters = parseAppSecFindingFilters({
+      "filter[severity__in]": "critical,high",
+      "filter[state__in]": "open",
+      "filter[triage_status__in]": "open,under_review",
+      "filter[fix_available]": "true",
+      "filter[target__in]":
+        "0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a01,0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a02",
+      "filter[target_type]": "repo,sast",
+      "filter[first_seen_days]": "30",
+    });
+    expect(appSecFindingsQuery("code", filters)).toMatchObject({
+      "filter[category]": "code",
+      "filter[severity__in]": "critical,high",
+      "filter[state__in]": "open",
+      "filter[triage_status__in]": "open,under_review",
+      "filter[fix_available]": "true",
+      "filter[target__in]":
+        "0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a01,0b6f0f7e-2f43-4c41-9a0e-6a3f4c1f0a02",
+      "filter[target_type]": "repo,sast",
+      "filter[first_seen_days]": "30",
+    });
+  });
+});
+
+describe("optionsInScope", () => {
+  const options = [{ value: "repo" }, { value: "image" }, { value: "sast" }];
+
+  it("keeps only values with findings in the workspace", () => {
+    expect(optionsInScope(options, ["sast"])).toEqual([{ value: "sast" }]);
+  });
+
+  it("keeps a selected value so its chip and option stay", () => {
+    expect(optionsInScope(options, ["sast"], ["repo"])).toEqual([
+      { value: "repo" },
+      { value: "sast" },
+    ]);
+  });
+
+  it("keeps every option when the API sends no facets", () => {
+    expect(optionsInScope(options, undefined)).toEqual(options);
+  });
+
+  it("offers nothing when the workspace has no findings", () => {
+    expect(optionsInScope(options, [])).toEqual([]);
+  });
+});
+
+describe("selectedIds", () => {
+  it("splits a comma-separated filter", () => {
+    expect(selectedIds("a, b,,a")).toEqual(["a", "b"]);
+    expect(selectedIds(null)).toEqual([]);
   });
 });

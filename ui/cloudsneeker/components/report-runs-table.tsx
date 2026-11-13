@@ -37,9 +37,15 @@ import { ReportShareDialog } from "./report-share-dialog";
 interface ReportRunsTableProps {
   runs: ReportRunResource[];
   canShare: boolean;
+  /** Filters are applied: an empty list means "no match", not "none yet". */
+  filtered?: boolean;
 }
 
-export const ReportRunsTable = ({ runs, canShare }: ReportRunsTableProps) => {
+export const ReportRunsTable = ({
+  runs,
+  canShare,
+  filtered = false,
+}: ReportRunsTableProps) => {
   const router = useRouter();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -71,8 +77,12 @@ export const ReportRunsTable = ({ runs, canShare }: ReportRunsTableProps) => {
     return (
       <EmptyState
         icon={<FileText />}
-        title="No reports yet"
-        description="Pick a report above and select Generate."
+        title={filtered ? "No reports match" : "No reports yet"}
+        description={
+          filtered
+            ? "Clear a filter to see more reports."
+            : "Pick a report above and select Generate."
+        }
       />
     );
   }

@@ -534,6 +534,26 @@ export const appSecFindingsQuery = (
   return query;
 };
 
+/**
+ * Options that can match in the workspace: those in `available` (values with
+ * findings there, from the summary facets) plus anything already selected, so
+ * a selection never disappears from its dropdown. Without facets (an older
+ * API) every option is kept.
+ */
+export const optionsInScope = <T extends { value: string }>(
+  options: readonly T[],
+  available: readonly string[] | undefined,
+  selected: readonly string[] = [],
+): T[] => {
+  if (!available) return [...options];
+  const keep = new Set([...available, ...selected]);
+  return options.filter((option) => keep.has(option.value));
+};
+
+/** Comma-separated ids of a filter (target or application), as a list. */
+export const selectedIds = (value: string | null): string[] =>
+  value ? list(value) : [];
+
 export const isAppSecFiltered = (filters: AppSecFindingFilters): boolean =>
   filters.severities.length > 0 ||
   filters.states.length > 0 ||

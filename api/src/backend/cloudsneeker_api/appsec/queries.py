@@ -353,6 +353,37 @@ def findings_summary(queryset: QuerySet, *, now: datetime) -> dict[str, Any]:
     }
 
 
+#: Parameters that set the scope of the filter options (the workspace).
+FACET_SCOPE_PARAMS = ("filter[category]", "filter[category__in]")
+
+
+def facet_params(params) -> dict[str, str]:
+    """Only the scope of ``params``, with every state and suppression.
+
+    The filter bar offers the target types, targets and applications that have
+    findings in the workspace; the user's own filters must not narrow them,
+    or a selected value would hide the alternatives.
+    """
+    scoped = {name: params.get(name) for name in FACET_SCOPE_PARAMS if params.get(name)}
+    scoped["filter[state__in]"] = "new,open,reopened,fixed"
+    scoped["filter[suppressed]"] = "any"
+    return scoped
+
+
+def findings_facets(queryset: QuerySet) -> dict[str, list[str]]:
+    """Distinct target types, targets and applications of a findings queryset."""
+
+    def distinct(field: str) -> list[str]:
+        values = queryset.order_by().values_list(field, flat=True).distinct()
+        return sorted(str(value) for value in values if value)
+
+    return {
+        "target_types": distinct("target__mode"),
+        "targets": distinct("target_id"),
+        "applications": distinct("target__application_id"),
+    }
+
+
 def latest_sbom_ids(tenant_id: str, targets: QuerySet) -> list[str]:
     """Id of the newest SBOM of each target."""
     newest = (
