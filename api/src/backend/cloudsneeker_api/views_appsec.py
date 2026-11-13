@@ -25,6 +25,7 @@ from typing import Any
 from uuid import UUID
 
 from api.base_views import BaseRLSViewSet
+from api.models import Provider
 from api.rbac.permissions import Permissions
 from cloudsneeker_api.appsec import capabilities as caps
 from cloudsneeker_api.appsec import policies as policy_rules
@@ -55,11 +56,16 @@ from cloudsneeker_api.models import (
 from cloudsneeker_api.parsers import LenientJSONAPIParser
 from cloudsneeker_api.reports.access import visible_provider_ids
 from cloudsneeker_api.serializers_triage import FindingTriageSerializer
+from cloudsneeker_api.services.brand_text import scrub_engine_text
+from cloudsneeker_api.services.repo_branches import (
+    RepositoryBranchError,
+    list_repository_branches,
+)
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, ValidationError
@@ -1366,6 +1372,92 @@ class AppSecPlatformViewSet(AppSecViewSet):
     """Overview figures, the capability matrix, engine status and settings."""
 
     http_method_names = ["get", "patch", "head", "options"]
+
+    def set_required_permissions(self):
+        super().set_required_permissions()
+        # Listing branches reads the source with its stored credentials and
+        # only serves target editing, which needs manage_scans.
+        if self.action == "repository_branches":
+            self.required_permissions = [Permissions.MANAGE_SCANS]
+
+    @extend_schema(
+        tags=[TAG],
+        summary="Branches of a code repository source",
+        parameters=[
+            OpenApiParameter(
+                "provider_id",
+                str,
+                required=True,
+                description="Code repository (IaC) source to list branches of.",
+            )
+        ],
+        responses={
+            200: OpenApiResponse(description="Branches, default branch first"),
+            502: OpenApiResponse(description="The repository could not be read"),
+        },
+    )
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="repository-branches",
+        url_name="repository-branches",
+    )
+    def repository_branches(self, request):
+        raw_id = str(request.query_params.get("provider_id") or "").strip()
+        try:
+            provider_id = UUID(raw_id)
+        except ValueError:
+            raise ValidationError({"provider_id": "Must be a source id."}) from None
+        visible = self.visible
+        if visible is not None and str(provider_id) not in visible:
+            raise NotFound("Source not found.")
+        provider = (
+            Provider.objects.filter(tenant_id=self.tenant_id, id=provider_id)
+            .select_related("secret")
+            .first()
+        )
+        if provider is None:
+            raise NotFound("Source not found.")
+        if provider.provider != Provider.ProviderChoices.IAC.value:
+            raise ValidationError(
+                {"provider_id": "Branches are listed only for code repository sources."}
+            )
+        try:
+            listing = list_repository_branches(provider.uid, provider)
+        except RepositoryBranchError as exc:
+            # Error responses are wrapped in ``{"errors": ...}`` by the
+            # JSON:API renderer, so the body is the error list itself.
+            return Response(
+                [
+                    {
+                        "status": "502",
+                        "code": "repository_unreachable",
+                        "detail": scrub_engine_text(str(exc)),
+                    }
+                ],
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(
+            {
+                "data": [
+                    {
+                        "type": _type("branches"),
+                        "id": name,
+                        "attributes": {
+                            "name": name,
+                            "default": name == listing.default_branch,
+                        },
+                    }
+                    for name in listing.branches
+                ],
+                "meta": {
+                    "provider_id": str(provider.id),
+                    "default_branch": listing.default_branch,
+                    "count": len(listing.branches),
+                    "truncated": listing.truncated,
+                },
+            }
+        )
 
     @extend_schema(exclude=True)
     def list(self, request, *args, **kwargs):

@@ -13,6 +13,7 @@ from cloudsneeker_api.services.custodian_schedule import (
     CustodianScheduleError,
     validate_timezone,
 )
+from cloudsneeker_api.services.repo_branches import run_branch
 from cloudsneeker_api.services.trivy import (
     TrivyHubError,
     assert_provider_matches_mode,
@@ -288,12 +289,17 @@ class TrivyRunSerializer(RLSSerializer):
             "cancel_requested_at",
             "has_artifact",
             "archived_at",
+            "branch",
         ]
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
 
     has_artifact = serializers.SerializerMethodField()
+    branch = serializers.SerializerMethodField()
+
+    def get_branch(self, obj: TrivyRun) -> str:
+        return run_branch(obj.summary, obj.output, obj.options)
 
     def get_has_artifact(self, obj: TrivyRun) -> bool:
         return bool(obj.artifact_path)

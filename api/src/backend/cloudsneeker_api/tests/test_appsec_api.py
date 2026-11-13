@@ -25,6 +25,10 @@ from cloudsneeker_api.models import (
     TrivyRun,
     TrivyTarget,
 )
+from cloudsneeker_api.services.repo_branches import (
+    RepositoryBranchError,
+    RepositoryBranches,
+)
 from django.urls import reverse
 from django.utils import timezone
 
@@ -738,6 +742,89 @@ class TestRunActions:
         url = reverse("trivy-runs-export", kwargs={"pk": run.id})
         assert authenticated_client.get(url, {"format": "json"}).status_code == 404
         assert authenticated_client.get(url, {"format": "pdf"}).status_code == 400
+
+
+@pytest.mark.django_db
+class TestRepositoryBranchesApi:
+    """``GET /appsec/repository-branches`` and the branch on runs and findings."""
+
+    def test_lists_branches_default_first(self, authenticated_client, iac_provider):
+        listing = RepositoryBranches(
+            branches=["main", "develop"], default_branch="main"
+        )
+        with patch(
+            "cloudsneeker_api.views_appsec.list_repository_branches",
+            return_value=listing,
+        ) as mock_list:
+            response = _get(
+                authenticated_client,
+                "appsec-repository-branches",
+                {"provider_id": str(iac_provider.id)},
+            )
+        assert response.status_code == 200, response.content
+        body = response.json()
+        assert [row["attributes"]["name"] for row in body["data"]] == [
+            "main",
+            "develop",
+        ]
+        assert body["data"][0]["attributes"]["default"] is True
+        assert body["meta"]["default_branch"] == "main"
+        assert mock_list.call_args.args[0] == iac_provider.uid
+
+    def test_unreachable_repository(self, authenticated_client, iac_provider):
+        with patch(
+            "cloudsneeker_api.views_appsec.list_repository_branches",
+            side_effect=RepositoryBranchError("The Git server refused the SSH key."),
+        ):
+            response = _get(
+                authenticated_client,
+                "appsec-repository-branches",
+                {"provider_id": str(iac_provider.id)},
+            )
+        assert response.status_code == 502
+        assert response.json()["errors"][0]["code"] == "repository_unreachable"
+
+    def test_bad_or_unknown_source(self, authenticated_client):
+        bad = _get(
+            authenticated_client, "appsec-repository-branches", {"provider_id": "x"}
+        )
+        assert bad.status_code == 400
+        unknown = _get(
+            authenticated_client,
+            "appsec-repository-branches",
+            {"provider_id": "6f1c3a52-6a39-4c4e-9b8f-6c5d1d2b7a10"},
+        )
+        assert unknown.status_code == 404
+
+    def test_needs_manage_scans(
+        self, authenticated_client_no_permissions_rbac, iac_provider
+    ):
+        response = _get(
+            authenticated_client_no_permissions_rbac,
+            "appsec-repository-branches",
+            {"provider_id": str(iac_provider.id)},
+        )
+        assert response.status_code == 403
+
+    def test_run_and_finding_show_the_branch(self, authenticated_client, target):
+        target.config = {**target.config, "branch": "develop"}
+        target.save(update_fields=["config"])
+        run = TrivyRun.objects.create(
+            tenant_id=target.tenant_id,
+            target=target,
+            provider=target.provider,
+            status=TrivyRun.Status.COMPLETED,
+            summary={"mode": "repo", "branch": "develop"},
+        )
+        detail = authenticated_client.get(
+            reverse("trivy-runs-detail", kwargs={"pk": run.id})
+        )
+        assert detail.status_code == 200, detail.content
+        assert detail.json()["data"]["attributes"]["branch"] == "develop"
+
+        _scan(target, _report([_vuln()]))
+        rows = _get(authenticated_client, "appsec-findings-list").json()["data"]
+        assert rows[0]["attributes"]["target_branch"] == "develop"
 
 
 @pytest.mark.django_db

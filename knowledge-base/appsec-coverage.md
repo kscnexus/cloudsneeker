@@ -85,7 +85,7 @@ An option is listed for a target type only when that command accepts the flag. P
 | Capability | Status | Detail |
 | --- | --- | --- |
 | Container image | Partially Implemented | Single images and image lists run on the new engine. A source that is a whole registry still uses the registry scan and gets findings but no component inventory or lifecycle. |
-| Code repository | Implemented | HTTPS with token (branch, tag, commit) and SSH (cloned, then scanned as a directory). |
+| Code repository | Implemented | HTTPS with token (branch, tag, commit) and SSH (branch or tag cloned, then scanned as a directory). Branches are listed from the source; one target per branch. |
 | Local filesystem | Implemented | Uploaded ZIP or TAR archive, extracted with path and size checks. |
 | Root filesystem | Implemented | Uploaded archive scanned with installed-package detection. |
 | Virtual machine image | Missing | The engine (experimental) reads a local VMDK file or an AWS AMI or EBS snapshot. Disk images are too large for the upload path and the AWS form needs a per-tenant role with EBS direct API access; neither is built. |
@@ -179,7 +179,7 @@ An option is listed for a target type only when that command accepts the flag. P
 | Remediation deadlines | Partially Implemented | A deadline per severity from first detection, overdue filter and counts. Ownership is the application owner and the triage assignee; there are no overdue notifications. |
 | Dependency tree view | Missing | Dependency edges are stored and exported; the UI lists direct and transitive packages but draws no tree. |
 | Outdated package detection | Unsupported | The engine reports fixed versions for vulnerable packages only; it has no latest-version data. |
-| Git metadata | Partially Implemented | Repository URL, branch, commit, author and tags are stored on the scan for HTTPS repositories. SSH repositories are scanned as a directory and have none. |
+| Git metadata | Partially Implemented | Repository URL, branch, commit, author and tags are stored on the scan for HTTPS repositories. SSH repositories are scanned as a directory and record only the branch. |
 | Assistant integration (finding explanation) | Missing | The assistant has no tools for the new findings, components or applications yet. |
 | Verification against a live engine | Missing | Parser and command tests use fixtures built from the engine's types at the pinned version. No scan has been run against the real binary in this change. |
 

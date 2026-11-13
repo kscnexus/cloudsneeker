@@ -117,6 +117,7 @@ All under `/api/v1/`. The plan feature `application_security` gates every `appse
 | `appsec/capabilities` | GET | Target, scanner and option matrix; coverage |
 | `appsec/engine` | GET | Engine version, vulnerability data, limits, queue, failures |
 | `appsec/settings` | GET, PATCH | Risk, deadlines, retention, default profiles |
+| `appsec/repository-branches?provider_id=` | GET | Branches of a code repository source, default first (`manage_scans`; 502 when the repository cannot be read) |
 | `appsec-applications` | GET, POST, PATCH, DELETE | Application inventory (`target_ids` assigns assets) |
 | `appsec-scan-profiles` | GET, POST, PATCH, DELETE | Profiles (built-in ones are read only) |
 | `appsec-policies`, `appsec-policies/validate` | GET, POST, PATCH, DELETE | Policies; content changes create a version |
@@ -129,6 +130,14 @@ All under `/api/v1/`. The plan feature `application_security` gates every `appse
 | `findings/<uid>/triage`, `finding-triages` | unchanged | Triage of an Application Security finding by its `uid` |
 
 Existing contracts are unchanged: the new fields on `trivy-targets` and `trivy-runs` are additive.
+
+### Branches
+
+Repository and static analysis targets that read a Git URL scan one branch: `config.branch`, or the repository's default branch when it is empty (every target created before this setting). Scanning several branches means one target per branch, so each branch has its own runs, schedule, findings and report. The create form lists the source's branches (`git ls-remote` with the source's token or SSH key, `services/repo_branches.py`) and saves one target per selected branch, named `<name> @ <branch>`.
+
+* SSH repositories are cloned with that branch (`depth=1`); HTTPS repository scans pass it as the engine's branch option. `config.branch` replaces any branch, tag or commit from a profile or `config.options`.
+* Each run records the branch it scanned in `summary.branch` (the default branch is read from the clone's `HEAD`), and `trivy-runs` returns it as `branch`. Findings carry `target_branch` (empty: default branch).
+* Per-target SCA and SAST reports are titled and named `<target> @ <branch>`, so files read `<target>-<branch>-sca-<date>.pdf`. A default-branch target uses the branch its latest completed run recorded.
 
 ## UI
 

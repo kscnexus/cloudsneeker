@@ -335,6 +335,34 @@ class ScanUnit:
     secrets: tuple[str, ...] = ()
     option_overrides: dict[str, Any] = field(default_factory=dict)
     sbom_format: str = ""
+    # Git branch the unit reads; "" when unknown (the engine may report it).
+    branch: str = ""
+
+
+# Engine options that pick a Git reference; only one may be set.
+REF_OPTIONS = ("branch", "tag", "commit")
+
+
+def apply_target_branch(
+    config: dict[str, Any], options: dict[str, Any]
+) -> dict[str, Any]:
+    """Options with the target's ``config.branch`` as the Git reference.
+
+    A target's branch replaces any branch, tag or commit from its profile or
+    options, so one target always scans the branch it was created for.
+
+    Args:
+        config: Validated target config.
+        options: Resolved run options.
+
+    Returns:
+        ``options`` unchanged without a branch, else a copy with it set.
+    """
+    branch = str(config.get("branch") or "")
+    if not branch:
+        return options
+    kept = {key: value for key, value in options.items() if key not in REF_OPTIONS}
+    return {**kept, "branch": branch}
 
 
 def image_scope(reference: str) -> str:
@@ -388,8 +416,13 @@ def prepare_units(
     provider,
     work_dir: Path,
     limits: dict[str, int],
+    ref: str | None = None,
 ) -> list[ScanUnit]:
     """Fetch or write the scan input and describe the engine invocations.
+
+    Args:
+        ref: Branch or tag a repository unit reads (SSH clones check it out;
+            HTTPS scans get it as an engine option). Default branch if empty.
 
     Raises:
         EngineError: The input cannot be prepared.
@@ -412,9 +445,10 @@ def prepare_units(
                 failures.failure(failures.FAILURE_INPUT, "No repository URL.")
             )
         if is_ssh_url(url):
+            clone_dir = work_dir / "repository"
             try:
-                clone_dir = hub.clone_ssh_repository(
-                    url, provider, work_dir / "repository"
+                branch = hub.checkout_ssh_repository(
+                    url, provider, clone_dir, ref=ref or None
                 )
             except hub.TrivyHubError as exc:
                 raise EngineError(
@@ -427,10 +461,20 @@ def prepare_units(
                     str(clone_dir),
                     label=url,
                     option_overrides={"branch": None, "tag": None, "commit": None},
+                    branch=branch,
                 )
             ]
         scan_url, env, secrets = hub.repo_scan_target(url, provider)
-        return [ScanUnit("repository", scan_url, label=url, env=env, secrets=secrets)]
+        return [
+            ScanUnit(
+                "repository",
+                scan_url,
+                label=url,
+                env=env,
+                secrets=secrets,
+                branch=str(ref or ""),
+            )
+        ]
 
     if mode == "sbom":
         text = str(config.get("sbom") or "")
@@ -1187,6 +1231,7 @@ def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                 settings_row=settings_row,
                 using=using,
             )
+            options = apply_target_branch(config, options)
             binary = resolve_binary()
             status = engine_status()
             units = prepare_units(
@@ -1195,6 +1240,7 @@ def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
                 provider=provider,
                 work_dir=work_dir,
                 limits=limits,
+                ref=options.get("branch") or options.get("tag") or None,
             )
         except OptionError as exc:
             return _fail(run, using, failures.failure(failures.FAILURE_INPUT, str(exc)))
@@ -1292,6 +1338,11 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
     )
     head = succeeded[0].parsed
     document_format = succeeded[0].unit.sbom_format
+    metadata = dict(head.metadata)
+    branch = succeeded[0].unit.branch or str(metadata.get("Branch") or "")
+    if branch and not metadata.get("Branch"):
+        # SSH clones are scanned as a directory, so the engine reports none.
+        metadata["Branch"] = branch
 
     def shared_rows_for(uids: dict[str, str]) -> list[dict[str, Any]]:
         return [
@@ -1340,10 +1391,11 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
             "finding_count": stored["finding_count"],
             "sbom_id": stored["sbom_id"],
             "partial": bool(reasons),
+            **({"branch": branch} if branch else {}),
         },
         output={
             "result_targets": targets[:50],
-            "metadata": head.metadata,
+            "metadata": metadata,
             "warnings": warnings[:20],
             "artifacts": [item.artifact for item in succeeded if item.artifact],
         },
@@ -1432,6 +1484,11 @@ def _execute_code_scan(run, target, provider, config, using):
             "path": "trivy_cli",
             "scan_id": stored["scan_id"],
             "finding_count": stored["finding_count"],
+            **(
+                {"branch": str(report["cloudsneeker_branch"])}
+                if report.get("cloudsneeker_branch")
+                else {}
+            ),
         },
         output=compact_report_output(report, mode="sast"),
         coverage=coverage.to_dict(),

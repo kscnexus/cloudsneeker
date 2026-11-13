@@ -2,14 +2,15 @@
 
 A report run created with ``params.target_id`` reads only the scans that
 target produced, is pinned to the target's provider (so provider visibility
-rules keep applying), and is named after the target.
+rules keep applying), and is named after the target and the branch it scans
+(``<target> @ <branch>``, so files read ``<target>-<branch>-sca-<date>.pdf``).
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from cloudsneeker_api.models import TrivyTarget
+from cloudsneeker_api.models import TrivyRun, TrivyTarget
 from cloudsneeker_api.reports.catalog import (
     SAST,
     SCA,
@@ -17,6 +18,7 @@ from cloudsneeker_api.reports.catalog import (
     TARGET_PARAM,
     ReportParamsError,
 )
+from cloudsneeker_api.services.repo_branches import branch_label, run_branch
 
 # Target modes each target-scoped report accepts (matches the report scopes).
 TARGET_MODES: dict[str, frozenset[str]] = {
@@ -51,7 +53,7 @@ def resolve_target_scope(
         return params
     target = (
         TrivyTarget.objects.filter(tenant_id=tenant_id, id=target_id)
-        .only("id", "name", "mode", "provider_id")
+        .only("id", "name", "mode", "provider_id", "config")
         .first()
     )
     if target is None:
@@ -70,5 +72,36 @@ def resolve_target_scope(
     return {
         **params,
         "provider_ids": [provider_id],
-        TARGET_NAME_PARAM: target.name,
+        TARGET_NAME_PARAM: branch_label(target.name, target_branch(tenant_id, target)),
     }
+
+
+def target_branch(tenant_id: str, target: TrivyTarget) -> str:
+    """Branch a target scans: its ``config.branch``, else the branch its
+    latest completed run recorded (the repository's default branch).
+
+    Args:
+        tenant_id: Tenant UUID string.
+        target: Target with ``config`` loaded.
+
+    Returns:
+        The branch name, or "" when unknown (not a Git target, or never run).
+    """
+    config = target.config if isinstance(target.config, dict) else {}
+    if config.get("branch"):
+        return str(config["branch"])
+    if not config.get("repository_url"):
+        return ""
+    latest = (
+        TrivyRun.objects.filter(
+            tenant_id=tenant_id,
+            target_id=target.id,
+            status=TrivyRun.Status.COMPLETED,
+        )
+        .order_by("-finished_at")
+        .values("summary", "output", "options")
+        .first()
+    )
+    if latest is None:
+        return ""
+    return run_branch(latest["summary"], latest["output"], latest["options"])

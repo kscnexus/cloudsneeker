@@ -227,6 +227,30 @@ class TestReportRunsApi:
         assert download.status_code == 200
         assert "payments-api-sca-" in download["Content-Disposition"]
 
+    def test_target_report_names_the_branch(
+        self, authenticated_client, tenants_fixture, provider_factory, report_dir
+    ):
+        from cloudsneeker_api.models import TrivyTarget
+
+        tenant = tenants_fixture[0]
+        provider = provider_factory("iac")
+        with rls_transaction(str(tenant.id)):
+            target = TrivyTarget.objects.create(
+                tenant_id=tenant.id,
+                name="Payments API",
+                mode="sast",
+                provider=provider,
+                config={"repository_url": provider.uid, "branch": "develop"},
+            )
+
+        response = self._create(
+            authenticated_client, "sast", {"target_id": str(target.id)}
+        )
+
+        assert response.status_code == 202, response.content
+        params = response.json()["data"]["attributes"]["params"]
+        assert params["target_name"] == "Payments API @ develop"
+
     @pytest.mark.parametrize(
         "report_type,mode",
         [("sca", "sast"), ("sast", "repo")],

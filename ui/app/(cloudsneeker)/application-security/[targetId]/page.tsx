@@ -8,6 +8,7 @@ import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import { TargetReportDownloadButton } from "@/cloudsneeker/components/target-report-download-button";
 import { TrivyScanButton } from "@/cloudsneeker/components/trivy-scan-button";
+import { branchDisplay } from "@/cloudsneeker/lib/repository-branches";
 import {
   reportTypeForTargetMode,
   TARGET_REPORT_LABEL,
@@ -48,6 +49,15 @@ export default async function TrivyTargetDetailPage({
   });
   const runs = (runsResponse?.data ?? []) as TrivyRunResource[];
   const reportType = reportTypeForTargetMode(target.attributes.mode);
+  const config = target.attributes.config ?? {};
+  // Git targets: the chosen branch, else the default branch the latest
+  // run checked out.
+  const scannedBranch = runs.find((run) => run.attributes.branch)?.attributes
+    .branch;
+  const branch = !config.repository_url
+    ? ""
+    : config.branch ||
+      (scannedBranch ? `${scannedBranch} (default)` : branchDisplay(""));
 
   return (
     <ContentLayout title={target.attributes.name} icon={<ScanSearch />}>
@@ -55,6 +65,7 @@ export default async function TrivyTargetDetailPage({
         description={target.attributes.description || "No description"}
         meta={[
           { label: "Mode", value: labelForTrivyMode(target.attributes.mode) },
+          ...(branch ? [{ label: "Branch", value: branch }] : []),
           {
             label: "Provider",
             value:

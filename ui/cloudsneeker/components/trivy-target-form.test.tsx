@@ -4,9 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TrivyTargetForm } from "./trivy-target-form";
 
-const { createMock, pushMock } = vi.hoisted(() => ({
+const { createMock, pushMock, branchesMock } = vi.hoisted(() => ({
   createMock: vi.fn(),
   pushMock: vi.fn(),
+  branchesMock: vi.fn(),
+}));
+
+vi.mock("@/cloudsneeker/actions/appsec", () => ({
+  listRepositoryBranches: branchesMock,
 }));
 
 vi.mock("@/cloudsneeker/actions/trivy", () => ({
@@ -64,6 +69,18 @@ describe("TrivyTargetForm", () => {
   beforeEach(() => {
     createMock.mockReset();
     pushMock.mockReset();
+    branchesMock.mockReset();
+    branchesMock.mockResolvedValue({
+      data: [
+        { id: "main", type: "b", attributes: { name: "main", default: true } },
+        {
+          id: "develop",
+          type: "b",
+          attributes: { name: "develop", default: false },
+        },
+      ],
+      meta: { default_branch: "main", truncated: false },
+    });
   });
 
   it("starts as a code repository scan with every repository scan type", () => {
@@ -133,5 +150,80 @@ describe("TrivyTargetForm", () => {
         },
       }),
     );
+  });
+
+  it("lists the source's branches with the default first", async () => {
+    const user = userEvent.setup();
+    render(<TrivyTargetForm providers={providers} />);
+
+    const branches = await screen.findByRole("combobox", { name: "Branches" });
+    expect(branchesMock).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    expect(
+      within(branches).getByText("Default branch (main)"),
+    ).toBeInTheDocument();
+    await user.click(branches);
+    const names = within(screen.getByRole("listbox"))
+      .getAllByRole("option")
+      .map((item) => item.textContent ?? "");
+    expect(names[0]).toMatch(/^main/);
+    expect(names).toContain("develop");
+  });
+
+  it("creates one target per selected branch", async () => {
+    const user = userEvent.setup();
+    createMock
+      .mockResolvedValueOnce({ data: { id: "t-1" } })
+      .mockResolvedValueOnce({ data: { id: "t-2" } });
+    render(<TrivyTargetForm providers={providers} />);
+
+    await user.type(screen.getByLabelText("Name"), "App repo");
+    await user.type(
+      screen.getByLabelText("Repository URL"),
+      "git@bitbucket.org:acme/app.git",
+    );
+    await user.click(await screen.findByRole("combobox", { name: "Branches" }));
+    await user.click(screen.getByRole("option", { name: /^main/ }));
+    await user.click(screen.getByRole("option", { name: "develop" }));
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Create target" }));
+
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(createMock.mock.calls.map(([payload]) => payload.name)).toEqual([
+      "App repo @ main",
+      "App repo @ develop",
+    ]);
+    expect(createMock.mock.calls[1][0].config).toMatchObject({
+      repository_url: "git@bitbucket.org:acme/app.git",
+      branch: "develop",
+    });
+    expect(pushMock).toHaveBeenCalledWith("/application-security");
+  });
+
+  it("lets the branch be typed when the listing fails", async () => {
+    const user = userEvent.setup();
+    branchesMock.mockResolvedValue({
+      error: "The Git server refused the key.",
+    });
+    createMock.mockResolvedValue({ data: { id: "t-1" } });
+    render(<TrivyTargetForm providers={providers} />);
+
+    await user.type(screen.getByLabelText("Name"), "App repo");
+    await user.type(
+      screen.getByLabelText("Repository URL"),
+      "git@bitbucket.org:acme/app.git",
+    );
+    expect(
+      await screen.findByText(/The Git server refused the key\./),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Branches/), "release");
+    await user.click(screen.getByRole("button", { name: "Create target" }));
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock.mock.calls[0][0]).toMatchObject({
+      name: "App repo",
+      config: { branch: "release" },
+    });
   });
 });

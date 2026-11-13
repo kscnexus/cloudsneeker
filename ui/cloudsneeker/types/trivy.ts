@@ -61,6 +61,8 @@ export interface TrivyTargetConfig {
   images?: string[];
   image?: string;
   repository_url?: string;
+  /** Branch a repository or static analysis target scans; empty = default. */
+  branch?: string;
   url?: string;
   path?: string;
   archive_b64?: string;
@@ -107,6 +109,8 @@ export interface TrivyRunSummary {
   finding_count?: number | null;
   sbom_id?: string | null;
   partial?: boolean;
+  /** Branch the run scanned (Git targets). */
+  branch?: string;
 }
 
 export interface TrivyRunCoverage {
@@ -169,6 +173,28 @@ export interface TrivyRunAttributes {
   stats?: TrivyRunStats;
   cancel_requested_at?: string | null;
   has_artifact?: boolean;
+  /** Branch the run scanned; empty when unknown or not a Git target. */
+  branch?: string;
+}
+
+/** One branch of a code repository source. */
+export interface RepositoryBranchAttributes {
+  name: string;
+  /** The repository's default branch (remote HEAD). */
+  default: boolean;
+}
+
+export interface RepositoryBranchResource {
+  id: string;
+  type: string;
+  attributes: RepositoryBranchAttributes;
+}
+
+/** Branches of a source, default branch first. */
+export interface RepositoryBranchList {
+  branches: string[];
+  defaultBranch: string;
+  truncated: boolean;
 }
 
 export interface TrivyRunResource {

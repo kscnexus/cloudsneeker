@@ -12,6 +12,7 @@ import {
   formatAppSecDate,
   workspaceForCategory,
 } from "@/cloudsneeker/lib/appsec";
+import { branchDisplay } from "@/cloudsneeker/lib/repository-branches";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import {
@@ -21,6 +22,7 @@ import {
   type AppSecFindingDetailAttributes,
   type AppSecResource,
 } from "@/cloudsneeker/types/appsec";
+import { TRIVY_MODE } from "@/cloudsneeker/types/trivy";
 import { cn } from "@/lib/utils";
 
 import { AppSecTriageControl } from "./appsec-triage-control";
@@ -285,6 +287,15 @@ export const AppSecFindingDetail = ({
                 </Link>
               ),
             },
+            ...(finding.target_type === TRIVY_MODE.REPO ||
+            finding.target_type === TRIVY_MODE.SAST
+              ? [
+                  {
+                    label: "Branch",
+                    value: branchDisplay(finding.target_branch),
+                  },
+                ]
+              : []),
             {
               label: "Asset type",
               value: labelForTrivyMode(finding.target_type),
