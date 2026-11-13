@@ -1420,16 +1420,16 @@ class AppSecPlatformViewSet(AppSecViewSet):
         try:
             listing = list_repository_branches(provider.uid, provider)
         except RepositoryBranchError as exc:
+            # Error responses are wrapped in ``{"errors": ...}`` by the
+            # JSON:API renderer, so the body is the error list itself.
             return Response(
-                {
-                    "errors": [
-                        {
-                            "status": "502",
-                            "code": "repository_unreachable",
-                            "detail": scrub_engine_text(str(exc)),
-                        }
-                    ]
-                },
+                [
+                    {
+                        "status": "502",
+                        "code": "repository_unreachable",
+                        "detail": scrub_engine_text(str(exc)),
+                    }
+                ],
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response(
