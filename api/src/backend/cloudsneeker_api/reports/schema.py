@@ -56,6 +56,8 @@ class ReportFilters:
             (``STATUS_SCOPES``); ``None`` counts failed, unmuted findings.
         options: Report-specific options (assessment period, sections,
             frameworks, stale threshold).
+        target_id: Application Security target the report is limited to.
+        target_name: Name of that target (cover title and file name).
     """
 
     provider_ids: list[str] = field(default_factory=list)
@@ -67,6 +69,8 @@ class ReportFilters:
     trend_points: int = 10
     options: dict[str, Any] = field(default_factory=dict)
     status_scope: str | None = None
+    target_id: str | None = None
+    target_name: str | None = None
 
     def severities(self) -> list[str]:
         """Return the severities kept by ``severity_floor``, most severe first."""
@@ -86,6 +90,8 @@ class ReportFilters:
             "scan_id": self.scan_id,
             "trend_points": self.trend_points,
             "options": dict(self.options),
+            "target_id": self.target_id,
+            "target_name": self.target_name,
         }
         if self.status_scope:
             payload["status_scope"] = self.status_scope

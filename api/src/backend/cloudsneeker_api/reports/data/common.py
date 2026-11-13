@@ -222,6 +222,16 @@ def scope_scans(
         queryset = queryset.filter(completed_at__gte=filters.date_from)
     if filters.date_to:
         queryset = queryset.filter(completed_at__lte=filters.date_to)
+    if filters.target_id:
+        from cloudsneeker_api.models import TrivyRun
+
+        queryset = queryset.filter(
+            id__in=TrivyRun.objects.filter(
+                tenant_id=tenant_id, target_id=filters.target_id
+            )
+            .exclude(scan_id=None)
+            .values("scan_id")
+        )
 
     parts: list[Q] = []
     if scope.cloud:

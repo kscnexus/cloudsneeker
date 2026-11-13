@@ -179,6 +179,94 @@ class TestReportRunsApi:
         assert document["attributes"]["report_type"] == "executive"
         assert "data" not in document["attributes"]
 
+    def _target(self, tenant, provider, name, mode):
+        from cloudsneeker_api.models import TrivyTarget
+
+        with rls_transaction(str(tenant.id)):
+            return TrivyTarget.objects.create(
+                tenant_id=tenant.id, name=name, mode=mode, provider=provider
+            )
+
+    def _create(self, client, report_type, params, formats=None):
+        with patch("cloudsneeker_api.reports.runs.transaction.on_commit"):
+            return client.post(
+                reverse("report-runs-list"),
+                data=_body(
+                    "report-runs",
+                    {
+                        "report_type": report_type,
+                        "params": params,
+                        "formats": formats or ["pdf"],
+                    },
+                ),
+                content_type=JSONAPI,
+            )
+
+    def test_target_report_is_pinned_and_named_after_the_target(
+        self, authenticated_client, tenants_fixture, provider_factory, report_dir
+    ):
+        tenant = tenants_fixture[0]
+        provider = provider_factory("iac")
+        target = self._target(tenant, provider, "Payments API", "repo")
+
+        response = self._create(
+            authenticated_client, "sca", {"target_id": str(target.id)}
+        )
+
+        assert response.status_code == 202, response.content
+        params = response.json()["data"]["attributes"]["params"]
+        assert params["target_id"] == str(target.id)
+        assert params["target_name"] == "Payments API"
+        assert params["provider_ids"] == [str(provider.id)]
+
+        run_id = response.json()["data"]["id"]
+        process_report_run(tenant_id=str(tenant.id), run_id=run_id)
+        download = authenticated_client.get(
+            reverse("report-runs-download", kwargs={"pk": run_id}) + "?format=pdf"
+        )
+        assert download.status_code == 200
+        assert "payments-api-sca-" in download["Content-Disposition"]
+
+    @pytest.mark.parametrize(
+        "report_type,mode",
+        [("sca", "sast"), ("sast", "repo")],
+    )
+    def test_target_mode_must_match_report(
+        self, authenticated_client, tenants_fixture, provider_factory, report_type, mode
+    ):
+        tenant = tenants_fixture[0]
+        target = self._target(tenant, provider_factory("iac"), "wrong-mode", mode)
+        response = self._create(
+            authenticated_client, report_type, {"target_id": str(target.id)}
+        )
+        assert response.status_code == 400
+        assert "does not cover" in response.content.decode()
+
+    def test_unknown_target_is_rejected(self, authenticated_client):
+        from uuid import uuid4
+
+        response = self._create(authenticated_client, "sast", {"target_id": str(uuid4())})
+        assert response.status_code == 400
+
+    def test_limited_role_cannot_report_on_hidden_target(
+        self,
+        authenticated_client_no_permissions_rbac,
+        tenants_fixture,
+        provider_factory,
+    ):
+        tenant = tenants_fixture[0]
+        visible = provider_factory("iac")
+        hidden = provider_factory("iac")
+        user = authenticated_client_no_permissions_rbac.user
+        _grant_provider(tenant, user, visible)
+        target = self._target(tenant, hidden, "hidden-repo", "sast")
+        response = self._create(
+            authenticated_client_no_permissions_rbac,
+            "sast",
+            {"target_id": str(target.id)},
+        )
+        assert response.status_code == 403
+
     def test_download_before_ready(self, authenticated_client, tenants_fixture):
         tenant = tenants_fixture[0]
         with patch("cloudsneeker_api.reports.runs.transaction.on_commit"):

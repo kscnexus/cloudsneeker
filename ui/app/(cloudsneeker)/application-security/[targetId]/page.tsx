@@ -2,14 +2,16 @@ import { ScanSearch } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import {
-  getTrivyTarget,
-  listTrivyRuns,
-} from "@/cloudsneeker/actions/trivy";
+import { getTrivyTarget, listTrivyRuns } from "@/cloudsneeker/actions/trivy";
 import { AppSecurityRunList } from "@/cloudsneeker/components/app-security-run-list";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { TargetReportDownloadButton } from "@/cloudsneeker/components/target-report-download-button";
 import { TrivyScanButton } from "@/cloudsneeker/components/trivy-scan-button";
+import {
+  reportTypeForTargetMode,
+  TARGET_REPORT_LABEL,
+} from "@/cloudsneeker/lib/target-reports";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import type {
@@ -45,6 +47,7 @@ export default async function TrivyTargetDetailPage({
     sort: "-inserted_at",
   });
   const runs = (runsResponse?.data ?? []) as TrivyRunResource[];
+  const reportType = reportTypeForTargetMode(target.attributes.mode);
 
   return (
     <ContentLayout title={target.attributes.name} icon={<ScanSearch />}>
@@ -71,6 +74,18 @@ export default async function TrivyTargetDetailPage({
             <Button asChild variant="ghost" size="sm">
               <Link href={appSecurityHref(targetId, "edit")}>Edit</Link>
             </Button>
+            {reportType ? (
+              <TargetReportDownloadButton
+                label={`Download ${TARGET_REPORT_LABEL[reportType]}`}
+                jobs={[
+                  {
+                    targetId,
+                    targetName: target.attributes.name,
+                    reportType,
+                  },
+                ]}
+              />
+            ) : null}
             <TrivyScanButton targetId={targetId} />
           </>
         }

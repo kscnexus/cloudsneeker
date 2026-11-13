@@ -130,6 +130,10 @@ export interface ReportParams {
   sections?: string[];
   stale_days?: number;
   frameworks?: string[];
+  /** SCA and SAST only: limit the report to one Application Security target. */
+  target_id?: string | null;
+  /** Set by the API from `target_id`; names the downloaded file. */
+  target_name?: string | null;
 }
 
 export interface ReportTypeAttributes {

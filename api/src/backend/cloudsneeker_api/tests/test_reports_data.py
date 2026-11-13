@@ -515,3 +515,52 @@ class TestGovernanceAndExecutive:
         assert data.headline.startswith(f"Overall security grade {data.grade}")
         assert data.remediation[0]["action"].startswith("Fix the 2 critical issue(s)")
         assert any("secret" in item["action"] for item in data.remediation)
+
+
+@pytest.mark.django_db
+class TestTargetScope:
+    def _target_scan(self, tenant, provider, name, mode):
+        from cloudsneeker_api.models import TrivyRun, TrivyTarget
+
+        scan = _trivy(tenant.id, provider, mode)
+        target = TrivyTarget.objects.create(
+            tenant_id=tenant.id, name=name, mode=mode, provider=provider
+        )
+        TrivyRun.objects.create(
+            tenant_id=tenant.id,
+            target=target,
+            provider=provider,
+            status=TrivyRun.Status.COMPLETED,
+            finished_at=NOW,
+            scan_id=scan.id,
+        )
+        return target, scan
+
+    def test_report_reads_only_the_target_scans(self, tenants_fixture, provider_factory):
+        tenant = tenants_fixture[0]
+        first = provider_factory(Provider.ProviderChoices.IAC.value)
+        second = provider_factory(Provider.ProviderChoices.IAC.value)
+        target, scan = self._target_scan(tenant, first, "web-repo", "repo")
+        _, other = self._target_scan(tenant, second, "api-repo", "repo")
+        _finding(scan, "CVE-2024-1", "high", raw={"VulnerabilityID": "CVE-2024-1"})
+        _finding(other, "CVE-2024-2", "critical", raw={"VulnerabilityID": "CVE-2024-2"})
+
+        data = _assemble(
+            tenant, "sca", target_id=str(target.id), target_name=target.name
+        )
+
+        rows = next(t for t in data.tables if t.key == "findings").rows
+        assert [row["cve"] for row in rows] == ["CVE-2024-1"]
+        assert data.title.endswith(": web-repo")
+
+    def test_target_without_scans_is_empty(self, tenants_fixture, provider_factory):
+        from cloudsneeker_api.models import TrivyTarget
+
+        tenant = tenants_fixture[0]
+        provider = provider_factory(Provider.ProviderChoices.IAC.value)
+        _trivy(tenant.id, provider, "sast")
+        target = TrivyTarget.objects.create(
+            tenant_id=tenant.id, name="new-sast", mode="sast", provider=provider
+        )
+        data = _assemble(tenant, "sast", target_id=str(target.id))
+        assert data.is_empty

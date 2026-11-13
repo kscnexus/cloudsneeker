@@ -224,6 +224,39 @@ class TestValidateParams:
         with pytest.raises(ReportParamsError, match="Unknown parameter"):
             validate_params("executive", {"scan_id": str(uuid4())})
 
+    @pytest.mark.parametrize("report_type", ["sca", "sast"])
+    def test_sca_and_sast_accept_target(self, report_type):
+        target_id = str(uuid4())
+        params = validate_params(report_type, {"target_id": target_id.upper()})
+        assert params["target_id"] == target_id
+        assert "target_id" in get_report_type(report_type).to_dict()["parameters"][
+            "optional"
+        ]
+
+    def test_target_only_for_application_reports(self):
+        with pytest.raises(ReportParamsError, match="Unknown parameter"):
+            validate_params("cloud_posture", {"target_id": str(uuid4())})
+
+    def test_rejects_invalid_target(self):
+        with pytest.raises(ReportParamsError, match="target_id must be a UUID"):
+            validate_params("sca", {"target_id": "repo-1"})
+
+    def test_target_name_comes_from_server_only(self):
+        params = validate_params("sast", {"target_name": "spoofed"})
+        assert "target_name" not in params
+        assert params["target_id"] is None
+
+    def test_target_round_trips_into_filters(self):
+        target_id = str(uuid4())
+        params = {
+            **validate_params("sca", {"target_id": target_id}),
+            "target_name": "web",
+        }
+        filters = filters_from_params(params)
+        assert filters.target_id == target_id
+        assert filters.target_name == "web"
+        assert filters.to_dict()["target_name"] == "web"
+
     def test_rejects_non_mapping(self):
         with pytest.raises(ReportParamsError, match="params must be an object"):
             validate_params("executive", ["a"])
@@ -245,6 +278,16 @@ class TestFilenameAndSchema:
     def test_filename_uses_brand_slug_and_date(self):
         name = report_filename("cloud_posture", "pdf", datetime(2026, 10, 29, tzinfo=UTC))
         assert name == "cloudsneeker-cloud-posture-2026-10-29.pdf"
+
+    def test_filename_uses_target_name(self):
+        name = report_filename(
+            "sca", "pdf", datetime(2026, 11, 13, tzinfo=UTC), "Payments API / main"
+        )
+        assert name == "payments-api-main-sca-2026-11-13.pdf"
+
+    def test_filename_falls_back_to_brand_for_blank_target(self):
+        name = report_filename("sast", "csv", datetime(2026, 11, 13, tzinfo=UTC), "  ")
+        assert name == "cloudsneeker-sast-2026-11-13.csv"
 
     def test_severities_without_floor(self):
         assert ReportFilters().severities() == list(catalog.SEVERITY_ORDER)

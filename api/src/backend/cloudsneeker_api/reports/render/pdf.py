@@ -234,6 +234,8 @@ def cover(b: Builder, data: ReportData) -> list:
     ]
     if filters.compliance_id:
         facts.append(("Framework", filters.compliance_id))
+    if filters.target_name:
+        facts.append(("Target", filters.target_name))
     if filters.status_scope:
         facts.append(
             (

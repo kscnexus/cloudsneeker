@@ -7,6 +7,7 @@ import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecOverviewPanel } from "@/cloudsneeker/components/appsec-overview";
 import { LoadError } from "@/cloudsneeker/components/appsec-ui";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
+import { TargetReportDownloadButton } from "@/cloudsneeker/components/target-report-download-button";
 import { APPSEC_SEGMENT, attributesOf } from "@/cloudsneeker/lib/appsec";
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import type { AppSecOverview } from "@/cloudsneeker/types/appsec";
@@ -20,6 +21,7 @@ export default function ApplicationSecurityOverviewPage() {
         description="Security posture of your applications: vulnerable dependencies, misconfigurations, secrets, license risk and code weaknesses across repositories, images, archives, SBOMs and clusters."
         actions={
           <>
+            <TargetReportDownloadButton label="Download SCA and SAST reports" />
             <Button asChild size="sm" variant="outline">
               <Link href={appSecurityHref(APPSEC_SEGMENT.SCANS)}>Scans</Link>
             </Button>

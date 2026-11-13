@@ -117,7 +117,11 @@ def assemble_findings_report(
     """
     data = ReportData(
         report_type=spec.report_type,
-        title=spec.title,
+        title=(
+            f"{spec.title}: {filters.target_name}"
+            if filters.target_name
+            else spec.title
+        ),
         generated_at=timezone.now(),
         filters=filters,
     )

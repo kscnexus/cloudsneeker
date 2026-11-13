@@ -28,6 +28,7 @@ from cloudsneeker_api.reports.data import assemble_report
 from cloudsneeker_api.reports.render import get_renderer
 from cloudsneeker_api.reports.schema import ReportData
 from cloudsneeker_api.reports.sources import drop_inapplicable_sources
+from cloudsneeker_api.reports.targets import resolve_target_scope
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -87,6 +88,7 @@ def enqueue_report_run(
     )
     selected = validate_formats(formats)
     with rls_transaction(tenant_id):
+        normalized = resolve_target_scope(str(tenant_id), report_type, normalized)
         run = ReportRun.objects.create(
             tenant_id=tenant_id,
             report_type=report_type,
@@ -176,7 +178,9 @@ def write_artifacts(
             )
     for fmt in formats:
         content = get_renderer(fmt)(data)
-        filename = report_filename(report_type, fmt, data.generated_at)
+        filename = report_filename(
+            report_type, fmt, data.generated_at, data.filters.target_name
+        )
         target = directory / filename
         target.write_bytes(content)
         paths[fmt] = str(target.relative_to(report_root()).as_posix())
