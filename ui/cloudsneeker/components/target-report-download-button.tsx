@@ -11,20 +11,23 @@ import {
 import {
   describeReportProgress,
   isFinishedReportStatus,
-  runWithConcurrency,
   type TargetReportJob,
   type TargetReportProgress,
 } from "@/cloudsneeker/lib/target-reports";
 import { reportDownloadHref } from "@/cloudsneeker/routes";
-import { REPORT_FORMAT, REPORT_RUN_STATUS } from "@/cloudsneeker/types/reports";
+import {
+  REPORT_FORMAT,
+  REPORT_RUN_STATUS,
+  type ReportRunStatus,
+} from "@/cloudsneeker/types/reports";
 import { Button } from "@/components/shadcn";
 
-const START_CONCURRENCY = 4;
-const STATUS_BATCH = 50;
 const POLL_INTERVAL_MS = 3000;
-const DOWNLOAD_GAP_MS = 600;
-/** Give up waiting on runs that never finish (stuck worker). */
-const MAX_WAIT_MS = 30 * 60 * 1000;
+/** Pause between reports so a long batch never floods the API or database. */
+const JOB_GAP_MS = 1000;
+/** Give up on a run that never finishes (stuck worker) and move on. */
+const MAX_WAIT_PER_RUN_MS = 10 * 60 * 1000;
+const MAX_FAILED_NAMES = 5;
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -93,67 +96,59 @@ export const TargetReportDownloadButton = ({
     const total = list.length;
     let ready = 0;
     let failed = 0;
+    const failedNames: string[] = [];
+    let lastError: string | null = null;
     const update = () => setProgress({ total, ready, failed });
     update();
 
-    let downloads = Promise.resolve();
-    const queueDownload = (runId: string) => {
-      downloads = downloads.then(async () => {
-        if (stopRef.current) return;
-        triggerDownload(reportDownloadHref(runId, REPORT_FORMAT.PDF));
-        await wait(DOWNLOAD_GAP_MS);
-      });
+    const markFailed = (job: TargetReportJob, reason: string | null) => {
+      failed += 1;
+      failedNames.push(job.targetName);
+      if (reason) lastError = reason;
+      update();
     };
 
-    const pending = new Set<string>();
-    let lastStartError: string | null = null;
-    await runWithConcurrency(
-      list,
-      START_CONCURRENCY,
-      async (job) => {
-        const started = await startTargetReport(job.targetId, job.reportType);
-        if ("error" in started) {
-          failed += 1;
-          lastStartError = started.error;
-          update();
-          return;
-        }
-        pending.add(started.runId);
-      },
-      () => stopRef.current,
-    );
-
-    const deadline = Date.now() + MAX_WAIT_MS;
-    while (pending.size > 0 && !stopRef.current && Date.now() < deadline) {
-      await wait(POLL_INTERVAL_MS);
-      const ids = Array.from(pending);
-      for (let index = 0; index < ids.length; index += STATUS_BATCH) {
-        const statuses = await getTargetReportStatuses(
-          ids.slice(index, index + STATUS_BATCH),
-        );
-        for (const [runId, status] of Object.entries(statuses)) {
-          if (!isFinishedReportStatus(status)) continue;
-          pending.delete(runId);
-          if (status === REPORT_RUN_STATUS.COMPLETED) {
-            ready += 1;
-            queueDownload(runId);
-          } else {
-            failed += 1;
-          }
-        }
+    // One report at a time: start it, wait for it, download it, then move
+    // on. Bulk runs of hundreds of targets stay within the database's
+    // connection limit this way.
+    for (const job of list) {
+      if (stopRef.current) break;
+      const started = await startTargetReport(job.targetId, job.reportType);
+      if ("error" in started) {
+        markFailed(job, started.error);
+        await wait(JOB_GAP_MS);
+        continue;
       }
-      update();
+      const deadline = Date.now() + MAX_WAIT_PER_RUN_MS;
+      let status: ReportRunStatus = REPORT_RUN_STATUS.PENDING;
+      while (
+        !isFinishedReportStatus(status) &&
+        !stopRef.current &&
+        Date.now() < deadline
+      ) {
+        await wait(POLL_INTERVAL_MS);
+        const statuses = await getTargetReportStatuses([started.runId]);
+        status = statuses[started.runId] ?? REPORT_RUN_STATUS.FAILED;
+      }
+      if (status === REPORT_RUN_STATUS.COMPLETED) {
+        ready += 1;
+        update();
+        triggerDownload(reportDownloadHref(started.runId, REPORT_FORMAT.PDF));
+      } else if (!stopRef.current) {
+        markFailed(job, null);
+      }
+      await wait(JOB_GAP_MS);
     }
-    await downloads;
 
-    if (pending.size > 0 && !stopRef.current) {
-      failed += pending.size;
-      update();
+    if (failedNames.length > 0) {
+      const shown = failedNames.slice(0, MAX_FAILED_NAMES).join(", ");
+      const more =
+        failedNames.length > MAX_FAILED_NAMES
+          ? ` and ${failedNames.length - MAX_FAILED_NAMES} more`
+          : "";
       setError(
-        "Some reports are still being prepared. Find them later on the Reports page.",
+        `${lastError && ready === 0 ? `${lastError} ` : ""}Not downloaded: ${shown}${more}.`,
       );
-    } else if (lastStartError && ready === 0) {
-      setError(lastStartError);
     }
     setRunning(false);
   };

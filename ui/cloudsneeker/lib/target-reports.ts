@@ -92,24 +92,3 @@ export const describeReportProgress = ({
       : `${ready} of ${total} reports downloaded`;
   return failed > 0 ? `${base} (${failed} failed)` : base;
 };
-
-/** Run `worker` over `items` with at most `limit` calls in flight. */
-export const runWithConcurrency = async <T>(
-  items: T[],
-  limit: number,
-  worker: (item: T, index: number) => Promise<void>,
-  shouldStop: () => boolean = () => false,
-): Promise<void> => {
-  let next = 0;
-  const lanes = Array.from(
-    { length: Math.max(1, Math.min(limit, items.length)) },
-    async () => {
-      while (next < items.length && !shouldStop()) {
-        const index = next;
-        next += 1;
-        await worker(items[index], index);
-      }
-    },
-  );
-  await Promise.all(lanes);
-};
