@@ -76,7 +76,7 @@ describe("design tokens", () => {
       "ring",
       "card",
     ]) {
-      expect(tokensCss).toMatch(new RegExp(`--color-${name}: var\\(--`));
+      expect(tokensCss).toContain(`--color-${name}: var(--`);
     }
   });
 

@@ -43,6 +43,13 @@ app.kubernetes.io/component: {{ .component }}
 {{- default (printf "%s-secrets" (include "cloudsneeker.fullname" .)) .Values.existingSecret -}}
 {{- end -}}
 
+{{/*
+Container security context shared by every workload.
+*/}}
+{{- define "cloudsneeker.containerSecurityContext" -}}
+{{- toYaml .Values.containerSecurityContext }}
+{{- end -}}
+
 {{- define "cloudsneeker.image" -}}
 {{- printf "%s/%s:%s" .root.Values.image.registry .component .root.Values.image.tag -}}
 {{- end -}}

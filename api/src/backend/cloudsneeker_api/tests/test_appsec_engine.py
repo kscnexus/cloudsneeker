@@ -260,6 +260,28 @@ class TestRunUnit:
             )
         return outcome, process, sleeps
 
+    def test_no_attempt_is_an_engine_failure_not_an_assertion(self, tmp_path):
+        with (
+            patch.object(engine, "run_process") as process,
+            patch("cloudsneeker_api.services.vuln_db.scan_cache_env", return_value={}),
+        ):
+            outcome = engine.run_unit(
+                unit=self._unit(),
+                index=0,
+                mode="repo",
+                options={"scanners": ["vuln"]},
+                policy_items=[],
+                work_dir=tmp_path,
+                artifact_dir=tmp_path / "artifacts",
+                limits={**LIMITS, "max_attempts": 0},
+                is_cancelled=lambda: False,
+                binary="/usr/local/bin/trivy",
+                sleep=lambda _: None,
+            )
+        process.assert_not_called()
+        assert outcome.failure.kind == failures.FAILURE_ENGINE
+        assert outcome.parsed is None
+
     def test_success_parses_masks_and_stores(self, tmp_path):
         outcome, process, _ = self._run(
             tmp_path, _process_result(tmp_path, report=REPORT)
