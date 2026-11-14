@@ -26,10 +26,15 @@ spec:
         runAsNonRoot: true
         runAsUser: 1001
         runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ui
           image: {{ include "cloudsneeker.image" (dict "root" . "component" "ui") }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "cloudsneeker.containerSecurityContext" . | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.ui.port }}
@@ -68,6 +73,16 @@ spec:
             periodSeconds: 10
           resources:
             {{- toYaml .Values.ui.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

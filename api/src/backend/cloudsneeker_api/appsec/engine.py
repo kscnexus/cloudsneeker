@@ -963,7 +963,13 @@ def run_unit(
             sleep(min(POLL_SECONDS, delay - waited))
             waited += POLL_SECONDS
 
-    assert result is not None
+    if result is None:
+        # Only reachable when max_attempts is below 1. A check rather than an
+        # assert, which `python -O` strips.
+        outcome.failure = failures.failure(
+            failures.FAILURE_ENGINE, "The scanner was not started."
+        )
+        return outcome
     try:
         report = read_report(result.stdout_path, limits["max_report_bytes"])
     except EngineError as exc:
