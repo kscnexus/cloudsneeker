@@ -736,6 +736,38 @@ class TestLifecycleRules:
         assert not partial.establishes_absence("vulnerability", "high", True)
         assert partial.to_dict()["reasons"] == ["image b failed"]
 
+    def test_unanalyzed_files_keep_their_findings_open(self):
+        coverage = lifecycle.coverage_for(
+            {"scanners": ["sast"]}, unknown_paths=["app/broken.py"]
+        )
+        assert coverage.complete
+        assert coverage.establishes_absence("code", "medium", None, path="app/ok.py")
+        assert not coverage.establishes_absence(
+            "code", "medium", None, path="app/broken.py"
+        )
+        assert coverage.to_dict()["unknown_paths"] == ["app/broken.py"]
+
+    def test_sast_coverage_from_opengrep_errors(self):
+        clean = engine.sast_coverage({"results": [], "errors": []}, {})
+        assert clean.complete and not clean.unknown_paths
+        # File-level errors leave the rest of the tree as evidence.
+        partial = engine.sast_coverage(
+            {"errors": [{"path": "a.py"}, {"path": "b.js"}, {"path": "a.py"}]}, {}
+        )
+        assert partial.complete
+        assert partial.unknown_paths == {"a.py", "b.js"}
+        assert partial.reasons == [
+            "2 files could not be analyzed; their findings stay open."
+        ]
+        # An error not tied to a file (a rule, the engine) says nothing about
+        # any file, so no finding can be closed.
+        broken = engine.sast_coverage({"errors": [{"path": "a.py"}, {}]}, {})
+        assert not broken.complete
+        assert broken.reasons == ["Some files could not be analyzed."]
+        # Excluded paths were never looked at.
+        excluded = engine.sast_coverage({"errors": []}, {"exclude": ["tests/**"]})
+        assert not excluded.complete
+
     def test_rbac_and_sast_categories(self):
         assert lifecycle.coverage_for({"scanners": ["rbac"]}).categories == {
             "misconfiguration"
