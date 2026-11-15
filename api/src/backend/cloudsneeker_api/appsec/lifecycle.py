@@ -8,11 +8,13 @@ separate axis kept in ``FindingTriage``.
 A finding is marked fixed only when its absence is evidence: the scan
 completed, ran the scanner for the finding's category, was not narrowed by
 path, package or resource filters, and its severity filter (and "fixed
-only" filter) would have let the finding through.
+only" filter) would have let the finding through. A file the scanner could
+not analyze is no evidence either: findings in it keep their state.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -48,6 +50,8 @@ NARROWING_OPTIONS = (
 )
 
 BATCH = 500
+# Unknown paths kept in a run's stored coverage; reconciliation uses all of them.
+MAX_UNKNOWN_PATHS_STORED = 200
 
 STATE_NEW = "new"
 STATE_OPEN = "open"
@@ -65,10 +69,16 @@ class Coverage:
     fixed_only: bool = False
     complete: bool = True
     reasons: list[str] = field(default_factory=list)
+    # Files the scanner could not analyze (parse errors, timeouts).
+    unknown_paths: set[str] = field(default_factory=set)
 
-    def establishes_absence(self, category: str, severity: str, fix_available) -> bool:
+    def establishes_absence(
+        self, category: str, severity: str, fix_available, path: str = ""
+    ) -> bool:
         """True when a finding missing from this scan can be called fixed."""
         if not self.complete or category not in self.categories:
+            return False
+        if path and path in self.unknown_paths:
             return False
         if self.severities is not None and severity not in self.severities:
             return False
@@ -89,11 +99,16 @@ class Coverage:
             "fixed_only": self.fixed_only,
             "complete": self.complete,
             "reasons": self.reasons,
+            "unknown_paths": sorted(self.unknown_paths)[:MAX_UNKNOWN_PATHS_STORED],
         }
 
 
 def coverage_for(
-    options: dict[str, Any], *, complete: bool = True, reasons: list[str] | None = None
+    options: dict[str, Any],
+    *,
+    complete: bool = True,
+    reasons: list[str] | None = None,
+    unknown_paths: Iterable[str] = (),
 ) -> Coverage:
     """Build the coverage of a scan from its resolved options.
 
@@ -102,8 +117,14 @@ def coverage_for(
         complete: False when part of the scan failed (an image of a list, a
             cluster resource).
         reasons: Why the scan is incomplete.
+        unknown_paths: Files the scanner could not analyze; missing findings
+            in them are not called fixed.
     """
-    coverage = Coverage(complete=complete, reasons=list(reasons or []))
+    coverage = Coverage(
+        complete=complete,
+        reasons=list(reasons or []),
+        unknown_paths={path for path in unknown_paths if path},
+    )
     for scanner in options.get("scanners") or []:
         category = SCANNER_CATEGORY.get(scanner)
         if category:
@@ -379,7 +400,7 @@ def reconcile(
         if fingerprint in reported or row.state == STATE_FIXED:
             continue
         if not coverage.establishes_absence(
-            row.category, row.severity, row.fix_available
+            row.category, row.severity, row.fix_available, path=row.file_path
         ):
             continue
         row.state = STATE_FIXED

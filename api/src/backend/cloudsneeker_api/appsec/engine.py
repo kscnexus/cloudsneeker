@@ -1436,9 +1436,40 @@ def _pin_branch(target, branch: str, using: str) -> None:
         logger.warning("Could not record the branch of target %s", target.id)
 
 
+def sast_coverage(report: dict[str, Any], config: dict[str, Any]):
+    """What an OpenGrep run can prove absent.
+
+    An error tied to a file (parse error, per-file timeout) makes only that
+    file unknown: findings elsewhere that the run no longer reports are fixed.
+    An error without a file (a rule or the engine itself) or excluded paths
+    leave the whole run incomplete, so it closes nothing.
+    """
+    from cloudsneeker_api.appsec import lifecycle
+
+    errors = report.get("errors")
+    errors = errors if isinstance(errors, list) else []
+    paths = [error.get("path") if isinstance(error, dict) else None for error in errors]
+    unknown = {path for path in paths if isinstance(path, str) and path}
+    unscoped = any(not (isinstance(path, str) and path) for path in paths)
+    reasons = []
+    if unscoped:
+        reasons.append("Some files could not be analyzed.")
+    elif unknown:
+        count = len(unknown)
+        reasons.append(
+            f"{count} file{'s' if count != 1 else ''} could not be analyzed; "
+            "their findings stay open."
+        )
+    return lifecycle.coverage_for(
+        {"scanners": ["sast"]},
+        complete=not unscoped and not config.get("exclude"),
+        reasons=reasons,
+        unknown_paths=unknown,
+    )
+
+
 def _execute_code_scan(run, target, provider, config, using):
     """Static analysis: the existing OpenGrep path plus the finding lifecycle."""
-    from cloudsneeker_api.appsec import lifecycle
     from cloudsneeker_api.models import TrivyRun
     from cloudsneeker_api.services import trivy as hub
     from cloudsneeker_api.services.sast import run_opengrep_scan
@@ -1459,13 +1490,7 @@ def _execute_code_scan(run, target, provider, config, using):
     fingerprint_by_uid = {
         finding.legacy_uid: finding.fingerprint for finding in findings
     }
-    errors = report.get("errors")
-    incomplete = isinstance(errors, list) and len(errors) > 0
-    coverage = lifecycle.coverage_for(
-        {"scanners": ["sast"]},
-        complete=not incomplete and not config.get("exclude"),
-        reasons=["Some files could not be analyzed."] if incomplete else [],
-    )
+    coverage = sast_coverage(report, config)
 
     def shared_rows_for(uids: dict[str, str]) -> list[dict[str, Any]]:
         shared = []
