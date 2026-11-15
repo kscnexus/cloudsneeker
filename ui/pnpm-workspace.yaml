@@ -21,7 +21,7 @@ overrides:
   # Next.js 16.3.6 requests sharp ^0.35.4; pinned to fix
   # GHSA-rgj7-g3m4-5g8c (libheif). This override controls resolution;
   # keep it aligned with the direct dependency in package.json.
-  "sharp": "0.35.4"
+  "sharp": "0.35.5"
   "lodash-es": "4.18.1"
   # GHSA-88fw-hqm2-52qc (CORS reflects any Origin with credentials), CVE-2026-59896
   # (hono/jsx SSR context leak) and the 4.12.34 batch: CORS ReDoS via
@@ -29,10 +29,10 @@ overrides:
   # Language middleware algorithmic DoS, Proxy Helper keeping `Connection` headers.
   # Node adapter 1.19.17 fixes serve-static path traversal via `%5C` on Windows
   # (1.19.15 was published without provenance and trips `trustPolicy: no-downgrade`).
-  "hono": "4.12.34"
-  "@hono/node-server": "1.19.17"
+  "hono": "4.13.16"
+  "@hono/node-server": "2.1.3"
   "@isaacs/brace-expansion": "5.0.1"
-  "fast-xml-parser": "5.8.0"
+  "fast-xml-parser": "5.12.0"
   "serialize-javascript": "7.0.5"
   # GHSA-6g55-p6wh-862q (sourceMappingURL path traversal reads arbitrary .map files)
   # and its incomplete-fix follow-up when `from` is unset, both closed in 8.5.23.
@@ -62,7 +62,7 @@ overrides:
   # does not float past StepSecurity's 7-day npm cooldown gate.
   "browserslist": "4.28.7"
   "caniuse-lite": "1.0.30001792"
-  "baseline-browser-mapping": "2.10.29"
+  "baseline-browser-mapping": "2.11.0"
   "minimatch@<4": "3.1.4"
   "minimatch@>=9 <10": "9.0.7"
   "minimatch@>=10": "10.2.3"
@@ -70,7 +70,7 @@ overrides:
   "ajv@>=8": "8.18.0"
   # 6.16.0 fixes the bracket-key comma array-limit bypass and DoS via an
   # attacker-controlled isBuffer.
-  "qs": "6.16.0"
+  "qs": "6.16.1"
   # 8.2.2 dropped provenance attestation; 8.3.1+ restored it. Pinned to skip 8.2.2
   # under `trustPolicy: no-downgrade`.
   "express-rate-limit": "8.5.1"
@@ -84,7 +84,7 @@ overrides:
   # GHSA-cmwh-pvxp-8882 (permanent ALLOWED_ATTR pollution via setConfig()); 3.4.13
   # also closes the CUSTOM_ELEMENT_HANDLING afterSanitizeElements bypass and the
   # IN_PLACE hook removal that left a detached subtree executable.
-  "dompurify": "3.4.13"
+  "dompurify": "3.4.17"
 
   # Advisories flagged by `pnpm audit` on 2026-09-08. Every pin below is the
   # oldest patched release and was published more than 7 days before that date,
@@ -92,26 +92,45 @@ overrides:
   # brace-expansion: three DoS advisories (exponential `{}` expansion, unbounded
   # expansion length OOM, unbounded intermediate arrays bypassing the
   # CVE-2026-14257 mitigation). 1.x via eslint > minimatch, 5.x via @sentry > glob.
-  "brace-expansion@<2": "1.1.18"
-  "brace-expansion@>=5": "5.0.9"
+  "brace-expansion@<2": "1.1.19"
+  "brace-expansion@>=5": "5.0.10"
   # fast-uri (via ajv): host confusion through backslash authority delimiters,
   # failed IDN canonicalization and percent-encoded scheme normalization, plus SSRF
   # via malformed IPv6 normalization and repeated hostname percent-decoding.
-  "fast-uri": "3.1.6"
+  "fast-uri": "3.1.7"
   # ip-address (via express-rate-limit): SSRF / trust-boundary bypasses from
   # leading-zero octets, CIDR suffixes and IPv4-mapped / NAT64 misclassification.
-  "ip-address": "10.3.1"
+  "ip-address": "10.5.1"
   # mermaid (via streamdown): prototype pollution in config APIs and Architecture
   # diagrams, CSS injection into sibling elements, XY Chart infinite loop and
   # radar diagram DoS.
   "mermaid": "11.16.1"
   # body-parser (via express): invalid `limit` silently disabled size enforcement.
-  "body-parser": "2.3.0"
+  "body-parser": "2.4.0"
   # @humanfs/node (via eslint): recursive copy followed symlinks outside the tree.
   "@humanfs/node": "0.16.8"
   # js-yaml: quadratic CPU in `!!omap` resolution (CVE-2026-59870 not backported
   # to 4.3.0). Direct dep is already 4.3.1; the override lifts eslint's copy too.
-  "js-yaml": "4.3.1"
+  "js-yaml": "4.3.2"
+
+  # AppSec SCA findings on 2026-11-14 (Trivy repo scan of this tree). Each pin is the
+  # oldest patched release and was published more than 7 days earlier, so it clears
+  # StepSecurity's npm cooldown gate. The bumps above (sharp, hono, @hono/node-server,
+  # fast-xml-parser, baseline-browser-mapping, qs, dompurify, brace-expansion, fast-uri,
+  # ip-address, body-parser, js-yaml) come from the same scan.
+  # Not pinned: glob 14 / minimatch 11 (their parents @sentry/bundler-plugin-core and
+  # @typescript-eslint/typescript-estree require ^13 / ^10, build-time only) and
+  # katex 0.18 (rehype-katex requires ^0.16, low severity).
+  # proxy-addr (via express): critical advisory fixed in 2.0.8.
+  "proxy-addr": "2.0.8"
+  # @modelcontextprotocol/sdk (via @langchain/mcp-adapters): high advisory fixed in 1.31.0.
+  "@modelcontextprotocol/sdk": "1.31.0"
+  # source-map-js (via postcss, tailwind): high advisory fixed in 1.2.2.
+  "source-map-js": "1.2.2"
+  # postcss-selector-parser 6.x (via @tailwindcss/typography): fixed in 6.1.5.
+  "postcss-selector-parser@<7": "6.1.5"
+  # @ai-sdk/provider-utils (via ai, @ai-sdk/react): fixed in 4.0.33.
+  "@ai-sdk/provider-utils": "4.0.33"
 
 # --- Level 1: Minimum Release Age ---
 # Packages must be published for at least 1 day before they can be installed.

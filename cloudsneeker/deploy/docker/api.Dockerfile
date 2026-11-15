@@ -153,3 +153,7 @@ RUN uv pip install --python /home/prowler/.venv/bin/python --no-deps --reinstall
 ENV UV_NO_SYNC=1
 
 WORKDIR /home/prowler/backend
+
+# One image runs the API, the worker and beat. Each role's probe is defined by its
+# orchestrator (compose healthcheck, Helm liveness/readiness), so the image sets none.
+HEALTHCHECK NONE

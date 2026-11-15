@@ -32,6 +32,12 @@ RUN pip install --no-cache-dir "uv==${UV_VERSION}" \
 
 FROM scratch AS tree
 COPY --from=rebrand /src /
+USER 65534:65534
 
 FROM scratch AS wheel
 COPY --from=rebrand /wheels /
+
+# Export-only stages: never run as containers. Declared for scanners that read
+# the final stage as an image.
+USER 65534:65534
+HEALTHCHECK NONE

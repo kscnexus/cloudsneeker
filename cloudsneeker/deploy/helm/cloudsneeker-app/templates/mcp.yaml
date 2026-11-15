@@ -24,10 +24,15 @@ spec:
         runAsNonRoot: true
         runAsUser: 1001
         runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: mcp
           image: {{ include "cloudsneeker.image" (dict "root" . "component" "mcp") }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "cloudsneeker.containerSecurityContext" . | nindent 12 }}
           args: ["uvicorn", "--host", "0.0.0.0", "--port", {{ .Values.mcp.port | quote }}]
           ports:
             - name: http
@@ -53,6 +58,16 @@ spec:
             periodSeconds: 10
           resources:
             {{- toYaml .Values.mcp.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/prowler/.cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

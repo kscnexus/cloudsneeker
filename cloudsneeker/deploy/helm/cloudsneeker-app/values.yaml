@@ -6,7 +6,10 @@
 # read from `existingSecret`, which must carry the same keys.
 
 image:
-  registry: cloudsneeker
+  # Release images are published as <registry>/<component>:<tag>
+  # (.github/workflows/cloudsneeker-release.yml). Point this at your mirror if you
+  # pull through a private registry.
+  registry: ghcr.io/kscnexus
   tag: stable
   pullPolicy: IfNotPresent
   pullSecrets: []
@@ -113,11 +116,23 @@ serviceAccount:
   name: ""
   annotations: {}
 
+# The API image's `prowler` user is UID/GID 1000; the UI and MCP images use 1001
+# (set in their templates). Changing them breaks file ownership inside the images.
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
   runAsGroup: 1000
   fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Applied to every container. The root filesystem is read-only; each pod mounts
+# emptyDir volumes where its process writes (/tmp, caches, Next.js cache).
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
 
 nodeSelector: {}
 tolerations: []

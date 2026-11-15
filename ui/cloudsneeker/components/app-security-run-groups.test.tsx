@@ -57,7 +57,7 @@ describe("AppSecurityRunGroups", () => {
     render(<AppSecurityRunGroups groups={groupRunsByTarget(runs)} />);
 
     expect(
-      screen.getByText(new RegExp(`Latest ${SCANS_PER_TARGET} scans`)),
+      screen.getByText(`Latest ${SCANS_PER_TARGET} scans`, { exact: false }),
     ).toBeInTheDocument();
   });
 
