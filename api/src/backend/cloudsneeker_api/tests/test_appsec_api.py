@@ -207,9 +207,15 @@ class TestLifecycle:
 
     def test_absence_in_an_unanalyzed_file_is_not_a_fix(self, target):
         _scan(target, _report([_vuln(), _vuln("CVE-2024-0002")]))
-        rows = {row.rule_id: row for row in AppSecFinding.objects.filter(target=target)}
-        broken = rows["CVE-2024-0001"].file_path
-        assert broken and broken == rows["CVE-2024-0002"].file_path
+        # Code findings carry the file they were found in; put one finding in
+        # a file the next scan cannot analyze and one in a file it can.
+        AppSecFinding.objects.filter(target=target, rule_id="CVE-2024-0001").update(
+            file_path="app/broken.py"
+        )
+        AppSecFinding.objects.filter(target=target, rule_id="CVE-2024-0002").update(
+            file_path="app/ok.py"
+        )
+        broken = "app/broken.py"
         run = _run(target)
         engine.persist_results(
             tenant_id=str(target.tenant_id),
@@ -229,8 +235,9 @@ class TestLifecycle:
             scan_name="scan",
             using=MainRouter.admin_db,
         )
-        # The file was not analyzed, so missing findings in it stay open.
-        assert set(_state(target).values()) == {"new"}
+        # Missing from an unanalyzed file: unknown, keeps its state. Missing
+        # from an analyzed file: fixed.
+        assert _state(target) == {"CVE-2024-0001": "new", "CVE-2024-0002": "fixed"}
         _scan(target, _report([]))
         assert set(_state(target).values()) == {"fixed"}
 
