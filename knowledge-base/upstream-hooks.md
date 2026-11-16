@@ -223,6 +223,7 @@ Rules run at build time against a copy of the tree (`cloudsneeker/deploy/docker/
 | `aws-scan-role-name`, `aws-scan-role-connection-test-file`, `cloudformation-template-*` | `ProwlerScan` role, template contact and text | UI, `permissions/templates/**` |
 | `asff-product-field-names` | `ProwlerResourceName` → `CloudsneekerResourceName` | `prowler/lib/outputs/asff/asff.py` |
 | `mcp-app-namespace`, `mcp-tool-prefix` | MCP namespace and tool prefix → `slug` | `mcp_server/**` |
+| `iac-provider-display-name`, `iac-provider-help-copy` | `iac` provider label "Infrastructure as Code" → "Code Repository" (the provider key stays `iac`) | the eight UI files that hold the label or a map keyed by it, and `ui/lib/external-urls.ts`. If upstream adds another map keyed by the label, add that file to the rule. |
 
 Excluded on purpose: `NOTICE`, `LICENSE`, changelogs, lockfiles, tests, migrations, `docs/` (upstream Mintlify site), `cloudsneeker/testing.py`.
 
