@@ -359,6 +359,14 @@ const PROVIDER_GUIDES = {
         title: "Paste App ID and key",
         body: "Enter the App ID and the full content of the .pem file, including the BEGIN and END lines.",
       },
+      {
+        title: "Use the exact account name",
+        body: "The provider's account must be the login the app is installed on: the name in github.com/<login>, not a display name. A pending installation request does not count; an organization owner has to approve it.",
+      },
+      {
+        title: "Scan code with the same connection",
+        body: "For code scanning, also allow Contents: Read, then go to Integrations > GitHub repositories and pick the repositories. They need no token of their own.",
+      },
     ],
     security: [
       "Delete the downloaded .pem once it is saved here.",
@@ -395,6 +403,10 @@ const PROVIDER_GUIDES = {
     summary:
       "Read access to the Git repository. Public repositories need no credential.",
     steps: [
+      {
+        title: "GitHub: reuse your GitHub connection",
+        body: "A github.com repository of an organization or user you already connected as a GitHub provider needs no token: leave the access token empty, or pick repositories under Integrations > GitHub repositories.",
+      },
       {
         title: "HTTPS: create a read-only token",
         body: "Create a token that can only read the repository:",
