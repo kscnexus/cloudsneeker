@@ -173,6 +173,42 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   revoked), they are the tenant's only member, and their email matches the
   invitation. Every other invitation, including upstream flows that accept
   into an empty tenant, keeps the member role.
+* User password reset (`services/password_reset.py`):
+  `POST operator/tenants/{tenant_id}/users/{user_id}/password-reset`
+  (`owner` or `support`; capability `reset_passwords` in `operator/me`).
+  The user must be a member of that tenant (404 otherwise). The API
+  generates a random 20-character temporary password that passes
+  `AUTH_PASSWORD_VALIDATORS`, saves only its hash with `set_password`, and
+  returns it once in `meta.temporary_password` with `Cache-Control:
+  no-store`. It is never logged or stored in clear text. The reset also
+  blacklists every outstanding refresh token of the user (simplejwt
+  `token_blacklist`), so no session can refresh, and clears the per-account
+  sign-in lockout (`login_guard.clear_failures`, `cloudsneeker-shared`
+  cache; a cache outage does not stop the reset and the response says
+  `lockout_cleared: false`). It writes `user.password_reset` to the operator
+  audit log (`changed_fields: ["password"]`, revoked session count, method;
+  no email and no secret) and `operator.password_reset` to the customer's
+  audit log. The operator's own account and accounts of active platform
+  operators answer 409, so an operator cannot take over another operator's
+  role. Non-operators, including tenant admins, get 404 like every other
+  operator route (the console does not advertise itself); operators with
+  the `billing` or `read_only` role get 403. UI: a "Reset password" button
+  on each member of `/operator/customers/[tenantId]` (hidden for the
+  operator's own row and for roles without the capability) opens a
+  confirmation dialog, then shows the temporary password once; closing the
+  dialog discards it.
+  Why a temporary password and not a reset link: there is no password-reset
+  token flow in the codebase, and email delivery (`EmailDeliveryConfig`) is
+  configured per tenant for alerts, not for platform mail. The operator
+  sends the password over a trusted channel.
+  Limits: access tokens already issued stay valid until they expire
+  (`DJANGO_ACCESS_TOKEN_LIFETIME`, 30 minutes by default); with
+  `CLOUDSNEEKER_REFRESH_GRACE_SECONDS` a refresh that ran in the last 60
+  seconds can be replayed from the cache within that window. The user is
+  not forced to change the temporary password at next sign-in (no such flag
+  exists on the upstream `User`); they change it from their profile. The
+  password applies to every organization the user belongs to, and MFA
+  enrolment is kept.
 * Daily task `cloudsneeker-operator-daily` (Celery beat, registered by the
   migration): expires subscriptions whose `ends_at` (or trial end) passed and
   writes one `UsageSnapshot` per tenant and day.
@@ -181,8 +217,8 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   (organization, admin email, plan, status, dates; shows the invitation link
   on success), `/operator/customers/[tenantId]` (administrator invitation
   card with a new-link form while nobody has joined, subscription editor
-  with feature toggles and limit overrides, usage bars, daily usage, members,
-  recent scans, history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
+  with feature toggles and limit overrides, usage bars, daily usage, members
+  with a password reset action, recent scans, history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
   features outside the plan, a banner for read-only subscriptions and plans
   ending within 7 days, and a plan card on the profile page.
 

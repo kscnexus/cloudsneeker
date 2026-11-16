@@ -59,6 +59,7 @@ from cloudsneeker_api.views_operator import (  # Operator console (Phase 1)
     OperatorTenantInvitationView,
     OperatorTenantListView,
     OperatorTenantUsageView,
+    OperatorUserPasswordResetView,
 )
 from cloudsneeker_api.views_reports import (
     ReportRunViewSet,
@@ -190,6 +191,11 @@ operator_urlpatterns = [
         "operator/tenants/<uuid:tenant_id>/invitations",
         OperatorTenantInvitationView.as_view(),
         name="operator-tenant-invitation",
+    ),
+    path(
+        "operator/tenants/<uuid:tenant_id>/users/<uuid:user_id>/password-reset",
+        OperatorUserPasswordResetView.as_view(),
+        name="operator-user-password-reset",
     ),
     path(
         "operator/subscriptions/<uuid:tenant_id>",

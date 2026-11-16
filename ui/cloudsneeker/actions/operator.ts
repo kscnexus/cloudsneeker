@@ -96,6 +96,17 @@ export const resendAdminInvitation = async (
   return result;
 };
 
+/**
+ * One-time temporary password for a member of the tenant. The API ends the
+ * user's sessions and clears their sign-in lockout. The password is only in
+ * the result: show it once and never store it.
+ */
+export const resetUserPassword = async (tenantId: string, userId: string) =>
+  write(
+    "POST",
+    `/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}/password-reset`,
+  );
+
 export const listTenantUsageSnapshots = async (tenantId: string, days = 30) =>
   read(`/tenants/${encodeURIComponent(tenantId)}/usage-snapshots`, {
     "filter[days]": String(days),
