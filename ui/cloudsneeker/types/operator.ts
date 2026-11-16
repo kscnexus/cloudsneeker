@@ -68,6 +68,7 @@ export const OPERATOR_CAPABILITY = {
   SUSPEND_TENANTS: "suspend_tenants",
   MANAGE_PLANS: "manage_plans",
   VIEW_OPERATORS: "view_operators",
+  RESET_PASSWORDS: "reset_passwords",
 } as const;
 
 export type OperatorCapability =

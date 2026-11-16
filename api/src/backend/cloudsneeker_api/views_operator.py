@@ -8,7 +8,8 @@ The operator API is for the people who run the platform, not for customers:
 * ``CLOUDSNEEKER_OPERATOR_ENABLED=false`` turns the whole API off (404).
 * Reads are open to every operator role; subscription and plan changes need
   ``owner`` or ``billing``; suspending or cancelling a tenant and listing the
-  operators need ``owner``.
+  operators need ``owner``; resetting a user's password needs ``owner`` or
+  ``support``.
 * Every change writes an ``OperatorAuditEvent`` (field names, never values)
   and, for subscriptions, a ``SubscriptionEvent`` plus an entry in the
   customer's own audit log.
@@ -34,7 +35,7 @@ from cloudsneeker_api.serializers_operator import (
     PlanWriteSerializer,
     SubscriptionUpdateSerializer,
 )
-from cloudsneeker_api.services import customers
+from cloudsneeker_api.services import customers, password_reset
 from cloudsneeker_api.services import entitlements as service
 from cloudsneeker_api.services import plan_catalog as catalog
 from cloudsneeker_api.views import JSONAPIDocumentRenderer
@@ -65,6 +66,9 @@ READ_ROLES = frozenset(
 )
 BILLING_ROLES = frozenset({catalog.OPERATOR_ROLE_OWNER, catalog.OPERATOR_ROLE_BILLING})
 OWNER_ROLES = frozenset({catalog.OPERATOR_ROLE_OWNER})
+PASSWORD_RESET_ROLES = frozenset(
+    {catalog.OPERATOR_ROLE_OWNER, catalog.OPERATOR_ROLE_SUPPORT}
+)
 # Statuses only an owner may set.
 OWNER_ONLY_STATUSES = frozenset({catalog.STATUS_SUSPENDED, catalog.STATUS_CANCELLED})
 
@@ -84,6 +88,7 @@ TYPE_SUBSCRIPTION_EVENT = f"{JSON_API_TYPE_PREFIX}subscription-events"
 TYPE_PLAN = f"{JSON_API_TYPE_PREFIX}plans"
 TYPE_USAGE = f"{JSON_API_TYPE_PREFIX}usage-snapshots"
 TYPE_OPERATOR_AUDIT = f"{JSON_API_TYPE_PREFIX}operator-audit-events"
+TYPE_PASSWORD_RESET = f"{JSON_API_TYPE_PREFIX}password-resets"
 
 # Role -> what the console lets that role do (sent to the UI by ``/me``).
 ROLE_CAPABILITIES = {
@@ -93,9 +98,10 @@ ROLE_CAPABILITIES = {
         "suspend_tenants",
         "manage_plans",
         "view_operators",
+        "reset_passwords",
     ],
     catalog.OPERATOR_ROLE_BILLING: ["view", "manage_subscriptions", "manage_plans"],
-    catalog.OPERATOR_ROLE_SUPPORT: ["view"],
+    catalog.OPERATOR_ROLE_SUPPORT: ["view", "reset_passwords"],
     catalog.OPERATOR_ROLE_READ_ONLY: ["view"],
 }
 
@@ -868,6 +874,87 @@ class OperatorTenantUsageView(OperatorAPIView):
                 ]
             }
         )
+
+
+# --- User password reset -----------------------------------------------------------
+
+
+@extend_schema(
+    tags=[OPERATOR_TAG],
+    summary="Reset a user's password",
+    description=(
+        "Gives a member of the tenant a random one-time temporary password, "
+        "returned once in `meta.temporary_password` and never stored in clear "
+        "text or logged. Blacklists the user's refresh tokens (access tokens "
+        "already issued expire on their own) and clears the sign-in lockout. "
+        "The password applies to every organization the user belongs to. "
+        "Platform operators' accounts and your own cannot be reset (409). "
+        "Needs the owner or support role."
+    ),
+    request=None,
+    responses={
+        200: OpenApiResponse(description="Temporary password in `meta`"),
+        403: OpenApiResponse(description="Role not allowed"),
+        404: OpenApiResponse(description="Unknown tenant or not a member"),
+        409: OpenApiResponse(description="Account cannot be reset here"),
+    },
+)
+class OperatorUserPasswordResetView(OperatorAPIView):
+    write_roles = PASSWORD_RESET_ROLES
+
+    def post(self, request, tenant_id, user_id):
+        tenant = _tenant_or_404(tenant_id)
+        user = password_reset.tenant_member(tenant.id, user_id)
+        if user is None:
+            raise NotFound("User not found in this tenant.")
+        try:
+            result = password_reset.reset_password(user, actor=request.user)
+        except password_reset.PasswordResetError as error:
+            raise Conflict(str(error)) from None
+        metadata = {
+            "tenant_name": tenant.name,
+            "revoked_sessions": result.revoked_sessions,
+            "lockout_cleared": result.lockout_cleared,
+            "method": "temporary_password",
+        }
+        record_operator_event(
+            request,
+            "user.password_reset",
+            tenant_id=tenant.id,
+            target_type="user",
+            target_id=str(user.id),
+            changed_fields=["password"],
+            metadata=metadata,
+        )
+        from cloudsneeker_api.audit import record_event
+
+        record_event(
+            str(tenant.id),
+            "operator.password_reset",
+            request=request,
+            target_type="user",
+            target_id=str(user.id),
+            status_code=200,
+            metadata={"operator": True},
+        )
+        response = Response(
+            {
+                "data": resource(
+                    TYPE_PASSWORD_RESET,
+                    user.id,
+                    {
+                        "user_id": str(user.id),
+                        "email": user.email,
+                        "revoked_sessions": result.revoked_sessions,
+                        "lockout_cleared": result.lockout_cleared,
+                    },
+                ),
+                "meta": {"temporary_password": result.temporary_password},
+            }
+        )
+        response["Cache-Control"] = "no-store"
+        response["Pragma"] = "no-cache"
+        return response
 
 
 # --- Subscriptions -------------------------------------------------------------------
