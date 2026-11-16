@@ -36,7 +36,7 @@ export const BitbucketIntegrationCard = () => {
         <p className="text-text-neutral-secondary text-sm">
           Connect a Bitbucket Cloud workspace or a Bitbucket Data Center project
           with one read-only token, pick the repositories, and they are added as
-          Infrastructure as Code providers.
+          Code Repository providers.
         </p>
       </CardContent>
     </Card>

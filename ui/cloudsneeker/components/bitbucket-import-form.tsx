@@ -625,7 +625,7 @@ export const BitbucketImportForm = () => {
       {resultList.length > 0 && !isImporting && (
         <Alert variant={problemCount > 0 ? "warning" : "success"}>
           <AlertDescription>
-            {addedCount} added as Infrastructure as Code providers.
+            {addedCount} added as Code Repository providers.
             {problemCount > 0 && ` ${problemCount} not added; see the status.`}
             {addedCount > 0 && (
               <>
