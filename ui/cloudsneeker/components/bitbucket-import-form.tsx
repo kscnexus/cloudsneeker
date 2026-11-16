@@ -7,6 +7,7 @@ import {
   importBitbucketRepositories,
   listBitbucketRepositories,
 } from "@/cloudsneeker/actions/bitbucket";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button";
 import {
   BITBUCKET_IMPORT_BATCH_SIZE,
   chunk,
@@ -263,6 +264,10 @@ export const BitbucketImportForm = () => {
 
   return (
     <div className="flex flex-col gap-6">
+      <IntegrationSetupGuideButton
+        integration="bitbucket"
+        className="self-start"
+      />
       <div
         className="flex flex-wrap gap-2"
         role="group"

@@ -8,6 +8,7 @@ import {
   saveSlackAppConfig,
   type SlackAppConfigResource,
 } from "@/cloudsneeker/actions/slack-app";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button";
 import { Button, Input, Label } from "@/components/shadcn";
 import { useToast } from "@/components/shadcn/toast/use-toast";
 
@@ -93,6 +94,7 @@ export const SlackAppConfigForm = ({
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
+      <IntegrationSetupGuideButton integration="slack" className="self-start" />
       <p className="text-text-neutral-secondary text-sm">
         Create a Slack app at{" "}
         <a
