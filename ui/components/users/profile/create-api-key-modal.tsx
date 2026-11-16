@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import { createApiKey } from "@/actions/api-keys/api-keys";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button"; // cloudsneeker-hook
 import { useToast } from "@/components/shadcn";
 import { CustomInput } from "@/components/shadcn/custom";
 import { CustomLink } from "@/components/shadcn/custom/custom-link";
@@ -103,6 +104,11 @@ export const CreateApiKeyModal = ({
               Read the docs
             </CustomLink>
           </p>
+          {/* cloudsneeker-hook: in-app setup guide */}
+          <IntegrationSetupGuideButton
+            integration="api-key"
+            className="self-start"
+          />
 
           <div className="flex w-full justify-center gap-6">
             <CustomInput

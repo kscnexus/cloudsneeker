@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 
 import { createSamlConfig, updateSamlConfig } from "@/actions/integrations";
 import { BRAND } from "@/cloudsneeker/brand"; // cloudsneeker-hook
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button"; // cloudsneeker-hook
 import { AddIcon } from "@/components/icons";
 import {
   Button,
@@ -425,6 +426,11 @@ export const SamlConfigForm = ({
             Read the docs
           </CustomLink>
         </div>
+        {/* cloudsneeker-hook: in-app setup guide */}
+        <IntegrationSetupGuideButton
+          integration="saml"
+          className="self-start"
+        />
         <input type="hidden" name="id" value={samlConfig?.id || ""} />
         <CustomInput
           control={form.control}
