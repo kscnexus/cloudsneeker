@@ -216,7 +216,7 @@ def github_connection_scan_kwargs(provider: Provider) -> dict[str, str]:
     """
     try:
         token = _borrowed_token(provider)
-    except GithubConnectionError as error:
+    except Exception as error:  # noqa: BLE001 - a lookup failure must not stop the scan
         logger.warning("GitHub connection unavailable for %s: %s", provider.id, error)
         return {}
     if not token:
