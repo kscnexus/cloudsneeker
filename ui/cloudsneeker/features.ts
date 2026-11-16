@@ -42,6 +42,11 @@ export const CLOUDSNEEKER_FEATURES = {
   /** Add the repositories of a Bitbucket workspace as IaC providers at once. */
   bitbucketImport: true,
   /**
+   * Pick repositories of a GitHub connection as IaC providers; their scans
+   * borrow a token from that connection instead of storing one.
+   */
+  githubRepositories: true,
+  /**
    * Executive Overview at `/`: a platform summary linking to the Cloud
    * Security, Application Security and Governance dashboards. The upstream
    * cloud widgets move to `/cloud-security`.

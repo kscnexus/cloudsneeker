@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Control } from "react-hook-form";
 
-import { BITBUCKET_IMPORT_ROUTE } from "@/cloudsneeker/routes";
+import {
+  BITBUCKET_IMPORT_ROUTE,
+  GITHUB_REPOSITORIES_ROUTE,
+} from "@/cloudsneeker/routes";
 import {
   WizardInputField,
   WizardTextareaField,
@@ -30,6 +33,11 @@ export const IacCredentialsForm = ({
           Bitbucket workspace?{" "}
           <Link href={BITBUCKET_IMPORT_ROUTE} className="underline">
             Import its repositories
+          </Link>
+          . A github.com repository of an account you connected as a GitHub
+          provider needs no token here:{" "}
+          <Link href={GITHUB_REPOSITORIES_ROUTE} className="underline">
+            pick its repositories
           </Link>
           .
         </div>
