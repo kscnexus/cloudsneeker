@@ -224,6 +224,14 @@ class TestScanAndConnectionKwargs:
         ):
             assert github_connection_scan_kwargs(_source()) == {}
 
+    def test_scan_runs_without_a_token_when_the_lookup_breaks(self):
+        with patch.object(
+            github_connection,
+            "find_github_provider",
+            side_effect=RuntimeError("database unavailable"),
+        ):
+            assert github_connection_scan_kwargs(_source()) == {}
+
     def test_connection_test_gets_the_borrowed_token(self):
         provider = _github_provider({"personal_access_token": "github_pat_saved"})
         with patch.object(
