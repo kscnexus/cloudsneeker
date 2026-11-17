@@ -69,6 +69,7 @@ from cloudsneeker_api.views_reports import (
     SharedReportView,
 )
 from cloudsneeker_api.views_search import GlobalSearchViewSet  # Global search
+from cloudsneeker_api.views_seeker_ai import SeekerAiRequestViewSet
 from cloudsneeker_api.views_slack import (
     SlackChannelsView,
     SlackOAuthAuthorizeUrlView,
@@ -141,6 +142,10 @@ router.register(r"audit-events", AuditEventViewSet, basename="audit-events")
 router.register(r"finding-triages", FindingTriageViewSet, basename="finding-triages")
 router.register(r"area-findings", AreaFindingViewSet, basename="area-findings")
 router.register(r"search", GlobalSearchViewSet, basename="global-search")
+# Assistant request metering (EB-080).
+router.register(
+    r"seeker-ai/requests", SeekerAiRequestViewSet, basename="seeker-ai-requests"
+)
 
 # Paths keyed by the finding UID that the inherited findings UI calls. ``path``
 # accepts UIDs with ``/`` (the UI URL-encodes them; Django decodes before
