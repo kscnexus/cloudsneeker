@@ -201,6 +201,12 @@ table.border-spacing-y-4
   background: var(--sidebar-active-bar);
 }
 
+/* The underline marks the active tab; the upstream divider between tabs is
+   a second, competing mark, so it is dropped. */
+[data-slot="tabs-trigger"] {
+  border-right-width: 0;
+}
+
 /* Form labels ---------------------------------------------------------- */
 
 [data-slot="field-label"] {

@@ -42,7 +42,7 @@ interface StandardFiltersProps {
 }
 
 const FILTER_GRID_CLASS =
-  "w-full gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+  "w-full gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5";
 
 /**
  * The Cloud Security Findings filter bar for any list: searchable
