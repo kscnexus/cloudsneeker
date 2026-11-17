@@ -232,3 +232,25 @@ export const cancelAppSecScan = async (runId: string) =>
     "cloudsneeker-trivy-runs",
     {},
   );
+
+// --- Code sources from Git connections ---
+
+/** GitHub connections with the repositories imported from each. */
+export const listSourceConnections = async () =>
+  read("/appsec-source-connections");
+
+/** Repositories a GitHub connection can read (uses its saved credentials). */
+export const listConnectionRepositories = async (connectionId: string) =>
+  read(`/appsec-source-connections/${id(connectionId)}/repositories`);
+
+/** Import repositories of a GitHub connection as code repository sources. */
+export const importConnectionRepositories = async (
+  connectionId: string,
+  cloneUrls: string[],
+) =>
+  write(
+    "POST",
+    `/appsec-source-connections/${id(connectionId)}/import`,
+    "cloudsneeker-appsec-source-connections",
+    { clone_urls: cloneUrls },
+  );

@@ -277,6 +277,9 @@ class AppSecFinding(CloudsneekerRLSModel):
         TrivyTarget, on_delete=models.CASCADE, related_name="appsec_findings"
     )
     fingerprint = models.CharField(max_length=64)
+    # Extra branch the finding was found on (``TrivyRun.branch``). Empty: the
+    # target's main branch, which every list and figure reads by default.
+    branch = models.CharField(max_length=255, blank=True, default="")
     # UID of the shared ``Finding`` rows and of ``FindingTriage``.
     uid = models.CharField(max_length=300)
     category = models.CharField(max_length=32, choices=Category.choices)
@@ -345,8 +348,8 @@ class AppSecFinding(CloudsneekerRLSModel):
         constraints = [
             _rls(),
             models.UniqueConstraint(
-                fields=("tenant_id", "target", "fingerprint"),
-                name="unique_cs_appsec_finding_fingerprint",
+                fields=("tenant_id", "target", "branch", "fingerprint"),
+                name="unique_cs_appsec_finding_branch_fingerprint",
             ),
         ]
         indexes = [

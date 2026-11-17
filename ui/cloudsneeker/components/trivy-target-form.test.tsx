@@ -65,7 +65,10 @@ const providers = [
 
 const scanTypes = () => screen.getByRole("combobox", { name: "Scan types" });
 
-describe("TrivyTargetForm", () => {
+// The form tests type whole values; on a loaded machine (commit hooks run
+// many test files at once) they pass 5 s, and a timed-out test then leaks
+// its create call into the next one.
+describe("TrivyTargetForm", { timeout: 20_000 }, () => {
   beforeEach(() => {
     createMock.mockReset();
     pushMock.mockReset();
@@ -147,35 +150,49 @@ describe("TrivyTargetForm", () => {
         config: {
           scanners: ["vuln", "misconfig", "secret"],
           repository_url: "https://github.com/acme/app",
+          sast: { rulesets: ["auto"], exclude: [] },
         },
       }),
     );
   });
 
-  it("lists the source's branches with the default first", async () => {
+  it("runs static analysis in the repository target unless turned off", async () => {
     const user = userEvent.setup();
+    createMock.mockResolvedValue({ data: { id: "t-1" } });
     render(<TrivyTargetForm providers={providers} />);
 
-    const branches = await screen.findByRole("combobox", { name: "Branches" });
+    expect(screen.getByLabelText(/Static analysis \(SAST\)/)).toBeChecked();
+    expect(
+      screen.getByRole("group", { name: "Rule packs" }),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Name"), "App repo");
+    await user.type(
+      screen.getByLabelText("Repository URL"),
+      "https://github.com/acme/app",
+    );
+    await user.click(screen.getByLabelText(/Static analysis \(SAST\)/));
+    await user.click(screen.getByRole("button", { name: "Create target" }));
+
+    expect(createMock.mock.calls[0][0].config).not.toHaveProperty("sast");
+  });
+
+  it("lists the source's branches with the default first", async () => {
+    render(<TrivyTargetForm providers={providers} />);
+
+    const branch = await screen.findByRole("combobox", { name: /Main branch/ });
     expect(branchesMock).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
     );
-    expect(
-      within(branches).getByText("Default branch (main)"),
-    ).toBeInTheDocument();
-    await user.click(branches);
-    const names = within(screen.getByRole("listbox"))
+    const names = within(branch)
       .getAllByRole("option")
       .map((item) => item.textContent ?? "");
-    expect(names[0]).toMatch(/^main/);
+    expect(names[0]).toBe("Default branch (main)");
     expect(names).toContain("develop");
   });
 
-  it("creates one target per selected branch", async () => {
+  it("creates one target for the main branch and the other branches", async () => {
     const user = userEvent.setup();
-    createMock
-      .mockResolvedValueOnce({ data: { id: "t-1" } })
-      .mockResolvedValueOnce({ data: { id: "t-2" } });
+    createMock.mockResolvedValue({ data: { id: "t-1" } });
     render(<TrivyTargetForm providers={providers} />);
 
     await user.type(screen.getByLabelText("Name"), "App repo");
@@ -183,22 +200,26 @@ describe("TrivyTargetForm", () => {
       screen.getByLabelText("Repository URL"),
       "git@bitbucket.org:acme/app.git",
     );
-    await user.click(await screen.findByRole("combobox", { name: "Branches" }));
-    await user.click(screen.getByRole("option", { name: /^main/ }));
-    await user.click(screen.getByRole("option", { name: "develop" }));
-    await user.keyboard("{Escape}");
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: /Main branch/ }),
+      "develop",
+    );
+    await user.type(
+      screen.getByLabelText(/Other branches/),
+      "release/*{enter}hotfix",
+    );
     await user.click(screen.getByRole("button", { name: "Create target" }));
 
-    expect(createMock).toHaveBeenCalledTimes(2);
-    expect(createMock.mock.calls.map(([payload]) => payload.name)).toEqual([
-      "App repo @ main",
-      "App repo @ develop",
-    ]);
-    expect(createMock.mock.calls[1][0].config).toMatchObject({
-      repository_url: "git@bitbucket.org:acme/app.git",
-      branch: "develop",
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock.mock.calls[0][0]).toMatchObject({
+      name: "App repo",
+      config: {
+        repository_url: "git@bitbucket.org:acme/app.git",
+        branch: "develop",
+        branches: ["release/*", "hotfix"],
+      },
     });
-    expect(pushMock).toHaveBeenCalledWith("/application-security");
+    expect(pushMock).toHaveBeenCalledWith("/application-security/t-1");
   });
 
   it("lets the branch be typed when the listing fails", async () => {
@@ -217,7 +238,7 @@ describe("TrivyTargetForm", () => {
     expect(
       await screen.findByText(/The Git server refused the key\./),
     ).toBeInTheDocument();
-    await user.type(screen.getByLabelText(/Branches/), "release");
+    await user.type(screen.getByLabelText(/Main branch/), "release");
     await user.click(screen.getByRole("button", { name: "Create target" }));
 
     expect(createMock).toHaveBeenCalledTimes(1);

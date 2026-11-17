@@ -1,9 +1,9 @@
 """Git branches of an Application Security repository source.
 
 Repository (dependency) and static analysis targets read one branch of the
-linked IaC provider's repository. A target's ``config.branch`` names it; an
-empty value means the repository's default branch. One target scans one
-branch, so scanning several branches means one target per branch.
+linked IaC provider's repository. A target's ``config.branch`` names its main
+branch; an empty value means the repository's default branch. Extra branches
+(``config.branches``) are scanned by the same target, see ``branch_policy``.
 
 Branches are listed with ``git ls-remote`` (Dulwich) using the provider's
 token or SSH key, so the listing works for Bitbucket, GitHub, GitLab, Azure
@@ -43,11 +43,13 @@ class RepositoryBranches:
         branches: Branch names, the default branch first, then by name.
         default_branch: Branch the remote ``HEAD`` points to ("" if unknown).
         truncated: More than ``MAX_BRANCHES`` branches exist.
+        commits: Head commit of each listed branch.
     """
 
     branches: list[str] = field(default_factory=list)
     default_branch: str = ""
     truncated: bool = False
+    commits: dict[str, str] = field(default_factory=dict)
 
 
 def normalize_branch(value: Any) -> str:
@@ -135,10 +137,18 @@ def parse_remote_refs(result: Any) -> RepositoryBranches:
     if default:
         names.remove(default)
         names.insert(0, default)
+    listed = names[:MAX_BRANCHES]
+    commits: dict[str, str] = {}
+    if isinstance(refs, dict):
+        for ref, sha in refs.items():
+            name = _text(ref)
+            if name.startswith(HEADS_PREFIX) and sha:
+                commits[name[len(HEADS_PREFIX) :]] = _text(sha)
     return RepositoryBranches(
-        branches=names[:MAX_BRANCHES],
+        branches=listed,
         default_branch=default,
         truncated=len(names) > MAX_BRANCHES,
+        commits={name: commits[name] for name in listed if name in commits},
     )
 
 
@@ -337,6 +347,7 @@ def backfill_target_branches(tenant_id: str) -> dict[str, int]:
                 tenant_id=tenant_id,
                 target_id__in=[target.id for target in targets],
                 status=TrivyRun.Status.COMPLETED,
+                branch="",
             )
             .order_by("target_id", "-finished_at")
             .values("target_id", "summary", "output", "options")

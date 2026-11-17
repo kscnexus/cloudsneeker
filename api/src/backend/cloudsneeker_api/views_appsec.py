@@ -838,7 +838,11 @@ class AppSecFindingViewSet(AppSecViewSet):
     http_method_names = ["get", "head", "options"]
 
     def _filtered(self):
-        queryset = queries.findings_queryset(self.tenant_id, self.visible)
+        queryset = queries.findings_queryset(
+            self.tenant_id,
+            self.visible,
+            branch=queries.branch_param(self.request.query_params),
+        )
         try:
             queryset = queries.filter_findings(
                 queryset, self.request.query_params, now=timezone.now()
@@ -864,9 +868,9 @@ class AppSecFindingViewSet(AppSecViewSet):
         responses={200: OpenApiResponse(description="Finding")},
     )
     def retrieve(self, request, pk=None, *args, **kwargs):
-        base = queries.findings_queryset(self.tenant_id, self.visible).select_related(
-            "target", "target__application"
-        )
+        base = queries.findings_queryset(
+            self.tenant_id, self.visible, branch=None
+        ).select_related("target", "target__application")
         finding = base.filter(id=_uuid(pk)).first()
         if finding is None:
             raise NotFound("Finding not found.")
@@ -912,7 +916,7 @@ class AppSecFindingViewSet(AppSecViewSet):
             ],
         }
         runs = TrivyRun.objects.filter(
-            tenant_id=self.tenant_id, target=finding.target
+            tenant_id=self.tenant_id, target=finding.target, branch=finding.branch
         ).order_by("-inserted_at")[:10]
         document["attributes"]["recent_scans"] = [
             {
@@ -932,7 +936,9 @@ class AppSecFindingViewSet(AppSecViewSet):
     )
     @action(detail=False, methods=["get"], url_path="summary", url_name="summary")
     def summary(self, request):
-        queryset = queries.findings_queryset(self.tenant_id, self.visible)
+        queryset = queries.findings_queryset(
+            self.tenant_id, self.visible, branch=queries.branch_param(request.query_params)
+        )
         params = request.query_params.copy()
         # The summary reports every state and suppression itself.
         params["filter[state__in]"] = "new,open,reopened,fixed"
@@ -947,6 +953,9 @@ class AppSecFindingViewSet(AppSecViewSet):
         summary = queries.findings_summary(scoped, now=timezone.now())
         # Options of the filter bar: values that have findings in this scope.
         summary["facets"] = queries.findings_facets(workspace)
+        summary["branches"] = queries.finding_branches(
+            self.tenant_id, self.visible, request.query_params
+        )
         return Response(
             {
                 "data": {

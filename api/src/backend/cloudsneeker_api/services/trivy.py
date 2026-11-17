@@ -331,6 +331,17 @@ def validate_target_config(
                 "access token (and username) on the IaC provider instead."
             )
         cfg["repository_url"] = url
+        from cloudsneeker_api.services.sast import normalize_repo_sast
+
+        sast = normalize_repo_sast(cfg.get("sast"))
+        if sast is None:
+            cfg.pop("sast", None)
+        else:
+            cfg["sast"] = sast
+    elif cfg.get("sast") not in (None, False):
+        raise TrivyHubError("config.sast is only supported on code repository targets.")
+    else:
+        cfg.pop("sast", None)
 
     if mode in ARCHIVE_MODES:
         # Scanning a worker path would let a tenant read the worker's disk;
@@ -367,7 +378,27 @@ def validate_target_config(
         cfg = validate_sast_config(cfg)
 
     _validate_branch(mode, cfg)
+    _validate_branch_patterns(mode, cfg)
     return cfg
+
+
+def _validate_branch_patterns(mode: str, cfg: dict[str, Any]) -> None:
+    """Validate ``config.branches`` (extra branches) in place."""
+    from cloudsneeker_api.services.branch_policy import (
+        BranchPolicyError,
+        normalize_branch_patterns,
+    )
+
+    try:
+        patterns = normalize_branch_patterns(cfg.get("branches"))
+    except BranchPolicyError as exc:
+        raise TrivyHubError(str(exc)) from None
+    if not patterns:
+        cfg.pop("branches", None)
+        return
+    if mode not in REPOSITORY_URL_MODES or not cfg.get("repository_url"):
+        raise TrivyHubError("config.branches needs a repository URL.")
+    cfg["branches"] = patterns
 
 
 def _validate_branch(mode: str, cfg: dict[str, Any]) -> None:
@@ -556,6 +587,13 @@ def _repo_credentials(provider: Provider) -> tuple[str, str | None]:
         or ""
     )
     username = secret.get("username") or secret.get("github_username") or None
+    if not token:
+        # Imported from a GitHub connection: use the connection's credentials.
+        from cloudsneeker_api.services.github_source import linked_credentials
+
+        linked = linked_credentials(provider)
+        if linked is not None:
+            return linked
     return str(token), (str(username) if username else None)
 
 
@@ -881,9 +919,21 @@ def enqueue_trivy_run(
     target_id: str,
     trigger: str = TrivyRun.Trigger.MANUAL,
     triggered_by_id: str | None = None,
+    branch: str | None = None,
+    all_branches: bool = False,
 ) -> TrivyRun:
-    """Create a pending Trivy run and enqueue the worker after commit."""
-    from cloudsneeker_api.tasks import trivy_scan_task
+    """Create a pending Trivy run and enqueue the worker after commit.
+
+    Args:
+        branch: Scan only this branch of a Git target (on demand, whether or
+            not ``config.branches`` names it). ``None``: the main branch, then
+            the extra branches of ``config.branches`` (queued by
+            ``cloudsneeker-appsec-branch-runs``).
+        all_branches: Queue extra branches even when their head commit was
+            already scanned.
+    """
+    from cloudsneeker_api.services.repo_branches import normalize_branch
+    from cloudsneeker_api.tasks import appsec_branch_runs_task, trivy_scan_task
 
     if trigger not in {TrivyRun.Trigger.MANUAL, TrivyRun.Trigger.SCHEDULED}:
         raise TrivyHubError(f"Unknown Trivy run trigger: {trigger}")
@@ -894,10 +944,19 @@ def enqueue_trivy_run(
         )
         config = validate_target_config(target.mode, target.config, strict=False)
         assert_provider_matches_mode(target.provider, target.mode, config)
+        try:
+            run_branch_name = normalize_branch(branch)
+        except ValueError as exc:
+            raise TrivyHubError(str(exc)) from None
+        if run_branch_name and not config.get("repository_url"):
+            raise TrivyHubError("Only repository targets can scan a branch.")
+        if run_branch_name == str(config.get("branch") or ""):
+            run_branch_name = ""
         active = TrivyRun.objects.filter(
             tenant_id=tenant_id,
             target_id=target_id,
             status__in=[TrivyRun.Status.PENDING, TrivyRun.Status.RUNNING],
+            branch=run_branch_name,
         ).count()
         max_concurrent = int(os.environ.get("TRIVY_HUB_MAX_CONCURRENT_PER_TARGET", "2"))
         if active >= max_concurrent:
@@ -923,12 +982,24 @@ def enqueue_trivy_run(
             status=TrivyRun.Status.PENDING,
             trigger=trigger,
             triggered_by_id=triggered_by_id,
+            branch=run_branch_name,
         )
 
     run_id = str(run.id)
-    transaction.on_commit(
-        lambda: trivy_scan_task.delay(tenant_id=tenant_id, run_id=run_id)
-    )
+    fan_out = branch is None and bool(config.get("branches"))
+
+    def dispatch() -> None:
+        trivy_scan_task.delay(tenant_id=tenant_id, run_id=run_id)
+        if fan_out:
+            appsec_branch_runs_task.delay(
+                tenant_id=tenant_id,
+                target_id=str(target_id),
+                trigger=trigger,
+                triggered_by_id=triggered_by_id,
+                force=all_branches,
+            )
+
+    transaction.on_commit(dispatch)
     return run
 
 

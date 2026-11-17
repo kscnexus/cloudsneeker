@@ -161,6 +161,27 @@ def appsec_record_branches_task(tenant_id: str):
     return backfill_target_branches(tenant_id)
 
 
+@shared_task(base=RLSTask, name="cloudsneeker-appsec-branch-runs", queue="scans")
+@set_tenant(keep_tenant=True)
+def appsec_branch_runs_task(
+    tenant_id: str,
+    target_id: str,
+    trigger: str = "manual",
+    triggered_by_id: str | None = None,
+    force: bool = False,
+):
+    """Queue one run per extra branch (``config.branches``) of a target."""
+    from cloudsneeker_api.services.branch_policy import queue_branch_runs
+
+    return queue_branch_runs(
+        tenant_id=tenant_id,
+        target_id=target_id,
+        trigger=trigger,
+        triggered_by_id=triggered_by_id,
+        force=force,
+    )
+
+
 @shared_task(name="cloudsneeker-appsec-retention", queue="celery")
 def appsec_retention_task():
     """Celery Beat entrypoint: apply raw report and fixed finding retention."""

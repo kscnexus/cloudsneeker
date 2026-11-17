@@ -35,8 +35,9 @@ const plural = (count: number, word: keyof typeof WORD_PLURALS) =>
   `${count} ${count === 1 ? word : WORD_PLURALS[word]}`;
 
 /**
- * Scans every connected repository for every category: a code repository
- * scan and a static analysis scan each, creating any target that is missing.
+ * Scans every connected repository for every category with one code
+ * repository target each (static analysis included), creating any that is
+ * missing.
  */
 export const ScanAllRepositoriesButton = () => {
   const router = useRouter();
@@ -126,7 +127,7 @@ export const ScanAllRepositoriesButton = () => {
 
             {items && items.length > 0 && !progress ? (
               <p>
-                {`This will start ${plural(items.length, "scan")} on ${plural(repositoryCount, "repository")}: a code repository scan with every scanner and a static analysis scan of the source code for each.`}
+                {`This will start ${plural(items.length, "scan")} on ${plural(repositoryCount, "repository")}: one scan per repository covering dependencies, secrets, misconfigurations, licenses and static analysis of the source code.`}
                 {toCreate > 0
                   ? ` ${plural(toCreate, "target")} will be created first.`
                   : ""}{" "}

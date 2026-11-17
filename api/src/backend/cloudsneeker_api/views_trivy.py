@@ -13,6 +13,7 @@ from cloudsneeker_api.serializers_trivy import (
     TrivyTargetWriteSerializer,
 )
 from cloudsneeker_api.services.brand_text import scrub_engine_text
+from cloudsneeker_api.services.target_merge import TargetMergeError, merge_targets
 from cloudsneeker_api.services.trivy import (
     TrivyHubError,
     enqueue_trivy_run,
@@ -59,7 +60,7 @@ class TrivyRunFilter(filters.FilterSet):
 
     class Meta:
         model = TrivyRun
-        fields = ["status", "target", "provider", "trigger"]
+        fields = ["status", "target", "provider", "trigger", "branch"]
 
     def filter_archived(self, queryset, name, value):
         return queryset.filter(archived_at__isnull=not value)
@@ -152,14 +153,23 @@ class TrivyTargetViewSet(BaseRLSViewSet):
         parser_classes=[LenientJSONAPIParser, JSONParser],
     )
     def scan(self, request, pk=None):
-        """Enqueue a Trivy Hub scan for this target."""
+        """Enqueue a scan of this target.
+
+        Optional body attributes: ``branch`` scans one branch of a Git
+        target; ``all_branches`` queues every extra branch, scanned or not.
+        Without them the main branch runs, then the changed extra branches.
+        """
         target = self.get_object()
         triggered_by_id = getattr(request.user, "id", None)
+        body = request.data if isinstance(request.data, dict) else {}
+        branch = body.get("branch")
         try:
             run = enqueue_trivy_run(
                 tenant_id=str(request.tenant_id),
                 target_id=str(target.id),
                 triggered_by_id=str(triggered_by_id) if triggered_by_id else None,
+                branch=branch if branch not in (None, "") else None,
+                all_branches=body.get("all_branches") is True,
             )
         except TrivyHubError as exc:
             return Response(
@@ -177,6 +187,48 @@ class TrivyTargetViewSet(BaseRLSViewSet):
         return Response(
             TrivyRunSerializer(run, context=self.get_serializer_context()).data,
             status=status.HTTP_202_ACCEPTED,
+        )
+
+
+    @extend_schema(
+        tags=["Trivy"],
+        summary="Merge duplicate targets of the same repository into this one",
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="merge",
+        parser_classes=[LenientJSONAPIParser, JSONParser],
+    )
+    def merge(self, request, pk=None):
+        """Fold ``source_target_ids`` into this target with their history.
+
+        Static analysis targets turn static analysis on here; targets of
+        other branches become extra branches (``config.branches``).
+        """
+        target = self.get_object()
+        body = request.data if isinstance(request.data, dict) else {}
+        source_ids = body.get("source_target_ids")
+        if not isinstance(source_ids, list) or not all(
+            isinstance(item, str) for item in source_ids
+        ):
+            raise ValidationError(
+                {"source_target_ids": "A list of target ids is required."}
+            )
+        try:
+            merge_targets(
+                tenant_id=str(request.tenant_id),
+                target_id=str(target.id),
+                source_ids=source_ids,
+            )
+        except TargetMergeError as exc:
+            return Response(
+                {"errors": [{"detail": str(exc), "code": "merge_not_possible"}]},
+                status=status.HTTP_409_CONFLICT,
+            )
+        target = TrivyTarget.objects.select_related("provider").get(pk=target.pk)
+        return Response(
+            TrivyTargetSerializer(target, context=self.get_serializer_context()).data
         )
 
 

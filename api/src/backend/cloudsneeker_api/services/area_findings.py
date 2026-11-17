@@ -296,23 +296,35 @@ def scan_sources(tenant_id: str, role: Role, area: str) -> dict[str, Source]:
     if area == AREA.APPLICATION_SECURITY:
         runs = (
             _visible(TrivyRun.objects.filter(tenant_id=tenant_id), role)
-            .filter(status=TrivyRun.Status.COMPLETED, scan_id__isnull=False)
+            .filter(status=TrivyRun.Status.COMPLETED, scan_id__isnull=False, branch="")
             .order_by("target_id", F("finished_at").desc(nulls_last=True))
             .distinct("target_id")
             .values(
-                "scan_id", "target_id", "target__name", "target__mode", "provider_id"
+                "scan_id",
+                "code_scan_id",
+                "target_id",
+                "target__name",
+                "target__mode",
+                "provider_id",
             )
         )
-        return {
-            str(row["scan_id"]): Source(
-                kind="target",
-                id=str(row["target_id"]),
-                name=row["target__name"],
-                provider_id=str(row["provider_id"]),
-                mode=row["target__mode"],
-            )
-            for row in runs
-        }
+        sources: dict[str, Source] = {}
+        for row in runs:
+            # A repository target that also runs static analysis writes its
+            # code rows to a second scan, read as the ``sast`` stream.
+            for scan_id, mode in (
+                (row["scan_id"], row["target__mode"]),
+                (row["code_scan_id"], "sast"),
+            ):
+                if scan_id:
+                    sources[str(scan_id)] = Source(
+                        kind="target",
+                        id=str(row["target_id"]),
+                        name=row["target__name"],
+                        provider_id=str(row["provider_id"]),
+                        mode=mode,
+                    )
+        return sources
     scans = (
         _visible(Scan.all_objects.filter(tenant_id=tenant_id), role)
         .filter(state=StateChoices.COMPLETED)
@@ -1003,4 +1015,7 @@ def enabled_categories(tenant_id: str, role: Role) -> list[str]:
             target["mode"], config.get("scanners"), strict=False
         )
         found |= target_categories(target["mode"], scanners)
+        if isinstance(config.get("sast"), dict):
+            # A repository target that also runs static analysis.
+            found |= target_categories("sast", ())
     return [category for category in SECURITY_CATEGORIES if category in found]

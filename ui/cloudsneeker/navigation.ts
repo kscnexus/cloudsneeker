@@ -348,6 +348,11 @@ const appSecurityItems = (pathname: string): NavigationItem[] => {
     ]),
     collapsible("Scan setup", SlidersHorizontal, [
       childLink(
+        appSecurityHref(APPSEC_SEGMENT.SOURCES),
+        "Code sources",
+        pathname,
+      ),
+      childLink(
         appSecurityHref(APPSEC_SEGMENT.PROFILES),
         "Scan profiles",
         pathname,

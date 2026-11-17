@@ -657,6 +657,14 @@ class TrivyRun(CloudsneekerRLSModel):
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     scan_id = models.UUIDField(null=True, blank=True)
+    # Shared Scan holding the static analysis rows of a repository target
+    # that also runs static analysis (``config.sast``); ``scan_id`` holds the
+    # rest. Two scans keep each stream's ``scanner_args.mode``.
+    code_scan_id = models.UUIDField(null=True, blank=True)
+    # Branch this run scanned, when it is one of the target's extra branches
+    # (``config.branches``). Empty: the target's main branch (``config.branch``,
+    # or the repository default). Only main-branch runs write shared rows.
+    branch = models.CharField(max_length=255, blank=True, default="")
     summary = models.JSONField(default=dict, blank=True)
     output = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True, default="")
@@ -706,6 +714,47 @@ class TrivyRun(CloudsneekerRLSModel):
 
     class JSONAPIMeta:
         resource_name = f"{JSON_API_TYPE_PREFIX}trivy-runs"
+
+
+class RepositoryConnection(CloudsneekerRLSModel):
+    """A code repository source (IaC provider) imported from a Git connection.
+
+    The repository reads the connection's credentials (a GitHub provider's
+    token or GitHub App), so the token is entered once, on the connection.
+    Prowler's own provider and secret tables are not changed.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    inserted_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    repository = models.OneToOneField(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_repository_connection",
+    )
+    connection = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="cloudsneeker_connected_repositories",
+    )
+    # ``owner/name`` on the Git host.
+    full_name = models.CharField(max_length=300)
+    # The repository's ProviderSecret is a copy of the connection's token,
+    # kept in step when the connection's secret changes (``signals``).
+    secret_managed = models.BooleanField(default=False)
+
+    class Meta(CloudsneekerRLSModel.Meta):
+        db_table = f"{TABLE_PREFIX}repository_connections"
+        constraints = [
+            RowLevelSecurityConstraint(
+                field="tenant_id",
+                name="rls_on_%(class)s",
+                statements=["SELECT", "INSERT", "UPDATE", "DELETE"],
+            ),
+        ]
+
+    class JSONAPIMeta:
+        resource_name = f"{JSON_API_TYPE_PREFIX}repository-connections"
 
 
 class ReportSchedule(CloudsneekerRLSModel):

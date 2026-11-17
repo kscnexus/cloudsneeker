@@ -4,6 +4,7 @@ import { auth } from "@/auth.config";
 import {
   getAppSecCapabilities,
   listAppSecProfiles,
+  listSourceConnections,
 } from "@/cloudsneeker/actions/appsec";
 import type {
   AppSecProfileOption,
@@ -11,11 +12,13 @@ import type {
 } from "@/cloudsneeker/components/appsec-application-form";
 import { attributesOf } from "@/cloudsneeker/lib/appsec";
 import { responseList } from "@/cloudsneeker/lib/findings-links";
+import type { SourceConnectionOption } from "@/cloudsneeker/lib/source-options";
 import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import type {
   AppSecCapabilities,
   AppSecProfileAttributes,
   AppSecResource,
+  SourceConnectionAttributes,
 } from "@/cloudsneeker/types/appsec";
 
 interface TargetResource {
@@ -66,3 +69,15 @@ export const loadProfileOptions = async (): Promise<AppSecProfileOption[]> =>
 
 export const loadCapabilities = async (): Promise<AppSecCapabilities | null> =>
   attributesOf<AppSecCapabilities>(await getAppSecCapabilities());
+
+/** GitHub connections and the code repository sources imported from each. */
+export const loadSourceConnections = async (): Promise<
+  SourceConnectionOption[]
+> =>
+  responseList<AppSecResource<SourceConnectionAttributes>>(
+    await listSourceConnections(),
+  ).map((connection) => ({
+    id: connection.id,
+    label: connection.attributes.alias || connection.attributes.uid,
+    repositoryIds: connection.attributes.repository_ids ?? [],
+  }));

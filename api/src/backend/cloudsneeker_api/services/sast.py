@@ -142,6 +142,60 @@ def validate_sast_config(cfg: dict[str, Any]) -> dict[str, Any]:
     return cfg
 
 
+def normalize_repo_sast(value: Any) -> dict[str, list[str]] | None:
+    """Validate ``config.sast`` of a repository target.
+
+    A repository target runs static analysis in the same run when this is
+    set, instead of needing a second (SAST) target for the same repository.
+
+    Args:
+        value: ``True``, ``False``/``None``, or ``{"rulesets", "exclude"}``.
+
+    Returns:
+        ``{"rulesets", "exclude"}``, or ``None`` when static analysis is off.
+
+    Raises:
+        TrivyHubError: When the value or a field is invalid.
+    """
+    if value is None or value is False or value == {}:
+        return None
+    if value is True:
+        value = {}
+    if not isinstance(value, dict):
+        raise TrivyHubError(
+            "config.sast must be true, false or an object with rulesets and exclude."
+        )
+    if value.get("enabled") is False:
+        return None
+    return {
+        "rulesets": _normalize_rulesets(value.get("rulesets")),
+        "exclude": _normalize_exclude(value.get("exclude")),
+    }
+
+
+def repo_sast_config(config: dict[str, Any]) -> dict[str, Any] | None:
+    """SAST config for the static analysis step of a repository target.
+
+    Args:
+        config: Validated repository target config.
+
+    Returns:
+        A config :func:`run_opengrep_scan` accepts, or ``None`` when the
+        target does not run static analysis.
+    """
+    sast = config.get("sast")
+    if not isinstance(sast, dict) or not config.get("repository_url"):
+        return None
+    cfg: dict[str, Any] = {
+        "repository_url": config["repository_url"],
+        "rulesets": list(sast.get("rulesets") or [AUTO_RULESET]),
+        "exclude": list(sast.get("exclude") or []),
+    }
+    if config.get("branch"):
+        cfg["branch"] = config["branch"]
+    return cfg
+
+
 def _normalize_rulesets(value: Any) -> list[str]:
     """Return a de-duplicated ruleset list, ``["auto"]`` when unset.
 

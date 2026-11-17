@@ -17,6 +17,7 @@ import {
   FormField,
 } from "@/cloudsneeker/components/form-layout";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { SourcePicker } from "@/cloudsneeker/components/source-picker";
 import {
   CUSTODIAN_BUILDER_RESOURCE,
   CUSTODIAN_BUILDER_RESOURCES,
@@ -34,6 +35,7 @@ import {
   packsForProvider,
   templatesForProvider,
 } from "@/cloudsneeker/lib/custodian-templates";
+import type { SourceOption } from "@/cloudsneeker/lib/source-options";
 import {
   CARD_LIST_CLASS,
   FORM_CHECK_CLASS,
@@ -44,11 +46,7 @@ import {
 import { governanceHref } from "@/cloudsneeker/routes";
 import { Button, Input, Textarea } from "@/components/shadcn";
 
-interface ProviderOption {
-  id: string;
-  label: string;
-  providerType?: string;
-}
+type ProviderOption = SourceOption;
 
 interface CustodianPolicyFormProps {
   providers: ProviderOption[];
@@ -230,21 +228,12 @@ export const CustodianPolicyForm = ({
           label="Cloud provider"
           error={errors.providerId?.message}
         >
-          <select
+          <SourcePicker
             id="custodian-provider"
-            className={FORM_SELECT_CLASS}
+            sources={providers}
+            emptyLabel="No supported providers connected"
             {...form.register("providerId")}
-          >
-            {providers.length === 0 ? (
-              <option value="">No supported providers connected</option>
-            ) : (
-              providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.label}
-                </option>
-              ))
-            )}
-          </select>
+          />
         </FormField>
       </SectionCard>
 

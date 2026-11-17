@@ -55,7 +55,9 @@ describe("ScanAllRepositoriesButton", () => {
     expect(
       await screen.findByText(/start 4 scans on 2 repositories/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/static analysis scan/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/static analysis of the source code/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/3 targets will be created/i)).toBeInTheDocument();
     expect(batchMock).not.toHaveBeenCalled();
   });

@@ -20,7 +20,6 @@ from cloudsneeker_api.views_appsec import (  # ASPM
     AppSecScanProfileViewSet,
 )
 from cloudsneeker_api.views_area_findings import AreaFindingViewSet  # Area findings
-from cloudsneeker_api.views_search import GlobalSearchViewSet  # Global search
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
 from cloudsneeker_api.views_content_releases import ContentReleasesView  # EB-049
@@ -67,12 +66,14 @@ from cloudsneeker_api.views_reports import (
     ReportTypeViewSet,
     SharedReportView,
 )
+from cloudsneeker_api.views_search import GlobalSearchViewSet  # Global search
 from cloudsneeker_api.views_slack import (
     SlackChannelsView,
     SlackOAuthAuthorizeUrlView,
     SlackOAuthExchangeView,
 )
 from cloudsneeker_api.views_slack_app import SlackAppConfigViewSet
+from cloudsneeker_api.views_sources import AppSecSourceConnectionViewSet
 from cloudsneeker_api.views_sso import SsoPolicyView  # SAML hardening (EB-009)
 from cloudsneeker_api.views_triage import (
     FindingTriageViewSet,  # Finding triage (EB-010)
@@ -122,6 +123,11 @@ router.register(r"appsec-findings", AppSecFindingViewSet, basename="appsec-findi
 router.register(r"appsec-sboms", AppSecSbomViewSet, basename="appsec-sboms")
 router.register(
     r"appsec-components", AppSecComponentViewSet, basename="appsec-components"
+)
+router.register(
+    r"appsec-source-connections",
+    AppSecSourceConnectionViewSet,
+    basename="appsec-source-connections",
 )
 router.register(r"appsec", AppSecPlatformViewSet, basename="appsec")
 # --- End ASPM ---

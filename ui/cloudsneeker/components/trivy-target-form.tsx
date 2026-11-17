@@ -18,17 +18,19 @@ import {
 import { RepositoryBranchField } from "@/cloudsneeker/components/repository-branch-field";
 import { SbomSourceFields } from "@/cloudsneeker/components/sbom-source-fields";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
-import {
-  branchDisplay,
-  targetsForBranches,
-} from "@/cloudsneeker/lib/repository-branches";
+import { SourcePicker } from "@/cloudsneeker/components/source-picker";
+import type {
+  SourceConnectionOption,
+  SourceOption,
+} from "@/cloudsneeker/lib/source-options";
 import {
   buildTrivyConfig,
   CODE_ARCHIVE_ACCEPT,
   CODE_ARCHIVE_HELP,
   isArchiveMode,
   isSupportedCodeArchive,
-  readsRepository,
+  MAX_EXTRA_BRANCHES,
+  runsStaticAnalysis,
   SAST_SOURCE,
   toggleSastRuleset,
   trivyTargetFormSchema,
@@ -76,11 +78,7 @@ const SAST_SOURCE_OPTIONS = [
 
 const EXCLUDE_PLACEHOLDER = ["tests/**", "**/*.min.js"].join("\n");
 
-interface ProviderOption {
-  id: string;
-  label: string;
-  providerType?: string;
-}
+type ProviderOption = SourceOption;
 
 interface SelectOption {
   value: string;
@@ -89,6 +87,8 @@ interface SelectOption {
 
 interface TrivyTargetFormProps {
   providers: ProviderOption[];
+  /** GitHub connections; their repositories are grouped under them. */
+  connections?: SourceConnectionOption[];
   /** Scan profiles to choose from (`value` is the profile reference). */
   profiles?: SelectOption[];
   /** Applications the target can belong to. */
@@ -116,6 +116,7 @@ const providersForMode = (
 
 export const TrivyTargetForm = ({
   providers,
+  connections = [],
   initialValues,
   targetId,
   defaultProviderId,
@@ -144,6 +145,8 @@ export const TrivyTargetForm = ({
       images: "",
       repositoryUrl: "",
       branches: [],
+      extraBranches: "",
+      staticAnalysis: true,
       archiveB64: "",
       sbom: "",
       namespace: "",
@@ -164,6 +167,10 @@ export const TrivyTargetForm = ({
     name: "scheduleEnabled",
   });
   const sastSource = useWatch({ control: form.control, name: "sastSource" });
+  const staticAnalysis = useWatch({
+    control: form.control,
+    name: "staticAnalysis",
+  });
   const providerId =
     useWatch({ control: form.control, name: "providerId" }) ?? "";
   const branches: string[] =
@@ -185,9 +192,26 @@ export const TrivyTargetForm = ({
       providerId={providerId}
       value={branches}
       onChange={setBranches}
-      multiple={!targetId}
+      multiple={false}
       error={branchError}
     />
+  );
+  const extraBranchesField = (
+    <FormField
+      id="trivy-extra-branches"
+      label="Other branches"
+      optional
+      help={`Names or patterns such as develop or release/*, one per line (at most ${MAX_EXTRA_BRANCHES}). Every scan also scans these branches when they changed, in this same target.`}
+      error={form.formState.errors.extraBranches?.message}
+    >
+      <Textarea
+        id="trivy-extra-branches"
+        rows={3}
+        className="font-mono text-xs"
+        placeholder={["develop", "release/*"].join("\n")}
+        {...form.register("extraBranches")}
+      />
+    </FormField>
   );
   const sbom = useWatch({ control: form.control, name: "sbom" }) ?? "";
   const scanners: TrivyScanner[] =
@@ -250,39 +274,18 @@ export const TrivyTargetForm = ({
       return;
     }
 
-    // One target per selected branch, created one after another.
-    const planned = readsRepository(values.mode, values.sastSource)
-      ? targetsForBranches(values.name, values.branches)
-      : [{ name: values.name, branch: "" }];
-    const created: string[] = [];
-    const failed: string[] = [];
-    for (const item of planned) {
-      const result = await createTrivyTarget(
-        payloadFor(item.name, item.branch),
-      );
-      const message = errorText(result);
-      if (message) {
-        failed.push(
-          planned.length > 1
-            ? `${branchDisplay(item.branch)}: ${message}`
-            : message,
-        );
-      } else if (result?.data?.id) {
-        created.push(String(result.data.id));
-      }
-    }
+    // One target covers every branch: the main one plus "Other branches".
+    const result = await createTrivyTarget(
+      payloadFor(values.name, values.branches[0] ?? ""),
+    );
     setSaving(false);
-    if (failed.length > 0) {
-      setError(
-        created.length > 0
-          ? `Created ${created.length} of ${planned.length} targets. ${failed.join(" ")}`
-          : failed.join(" "),
-      );
+    const message = errorText(result);
+    if (message) {
+      setError(message);
       return;
     }
-    router.push(
-      created.length === 1 ? appSecurityHref(created[0]) : appSecurityHref(),
-    );
+    const createdId = result?.data?.id ? String(result.data.id) : "";
+    router.push(createdId ? appSecurityHref(createdId) : appSecurityHref());
     router.refresh();
   });
 
@@ -384,26 +387,18 @@ export const TrivyTargetForm = ({
           label="Provider"
           help={
             requiredTypes.length > 0
-              ? `Requires a ${requiredTypes.map(labelForProviderType).join(" / ")} source. Create one under Providers if the list is empty.`
+              ? `Requires a ${requiredTypes.map(labelForProviderType).join(" / ")} source. Repositories of a GitHub connection are listed under it; import more under Code sources.`
               : "Findings attach to the selected provider account."
           }
           error={errors.providerId?.message}
         >
-          <select
+          <SourcePicker
             id="trivy-provider"
-            className={FORM_SELECT_CLASS}
+            sources={filteredProviders}
+            connections={connections}
+            emptyLabel="No matching providers"
             {...form.register("providerId")}
-          >
-            {filteredProviders.length === 0 ? (
-              <option value="">No matching providers</option>
-            ) : (
-              filteredProviders.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.label}
-                </option>
-              ))
-            )}
-          </select>
+          />
         </FormField>
 
         {applications.length > 0 ? (
@@ -522,6 +517,25 @@ export const TrivyTargetForm = ({
         ) : null}
 
         {mode === TRIVY_MODE.REPO ? branchField : null}
+        {mode === TRIVY_MODE.REPO ? extraBranchesField : null}
+
+        {mode === TRIVY_MODE.REPO ? (
+          <label htmlFor="trivy-static-analysis" className={FORM_CHOICE_CLASS}>
+            <input
+              id="trivy-static-analysis"
+              type="checkbox"
+              className={FORM_CHECK_CLASS}
+              {...form.register("staticAnalysis")}
+            />
+            <span className="flex min-w-0 flex-col">
+              Static analysis (SAST)
+              <span className="text-text-neutral-tertiary text-xs">
+                Also analyze the source code for security bugs in the same scan.
+                No separate static analysis target is needed.
+              </span>
+            </span>
+          </label>
+        ) : null}
 
         {isArchiveMode(mode) ? (
           <FormField
@@ -565,62 +579,71 @@ export const TrivyTargetForm = ({
         ) : null}
       </SectionCard>
 
-      {mode === TRIVY_MODE.SAST ? (
+      {runsStaticAnalysis(mode, staticAnalysis) ? (
         <SectionCard
-          title="Source code"
-          description="Where the code comes from and which rule packs run."
+          title={mode === TRIVY_MODE.SAST ? "Source code" : "Static analysis"}
+          description={
+            mode === TRIVY_MODE.SAST
+              ? "Where the code comes from and which rule packs run. To scan a repository's dependencies too, use a code repository target with static analysis turned on instead."
+              : "Rule packs the static analysis step runs on the same checkout."
+          }
         >
-          <FormChoiceGroup legend="Source">
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
-              {SAST_SOURCE_OPTIONS.map((option) => (
-                <label
-                  key={option.value}
-                  htmlFor={`trivy-sast-source-${option.value}`}
-                  className={FORM_CHOICE_CLASS}
+          {mode === TRIVY_MODE.SAST ? (
+            <>
+              <FormChoiceGroup legend="Source">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
+                  {SAST_SOURCE_OPTIONS.map((option) => (
+                    <label
+                      key={option.value}
+                      htmlFor={`trivy-sast-source-${option.value}`}
+                      className={FORM_CHOICE_CLASS}
+                    >
+                      <input
+                        id={`trivy-sast-source-${option.value}`}
+                        type="radio"
+                        value={option.value}
+                        className={FORM_CHECK_CLASS}
+                        {...form.register("sastSource")}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </FormChoiceGroup>
+
+              {sastSource === SAST_SOURCE.ARCHIVE ? (
+                <FormField
+                  id="trivy-sast-archive"
+                  label="Code archive"
+                  help={archiveHelp}
+                  error={errors.archiveB64?.message}
                 >
-                  <input
-                    id={`trivy-sast-source-${option.value}`}
-                    type="radio"
-                    value={option.value}
-                    className={FORM_CHECK_CLASS}
-                    {...form.register("sastSource")}
+                  <Input
+                    id="trivy-sast-archive"
+                    type="file"
+                    accept={CODE_ARCHIVE_ACCEPT}
+                    onChange={onArchiveSelected}
                   />
-                  {option.label}
-                </label>
-              ))}
-            </div>
-          </FormChoiceGroup>
+                </FormField>
+              ) : (
+                <FormField
+                  id="trivy-sast-repo"
+                  label="Repository URL"
+                  help="Use the repository saved on the selected source. Access tokens stay on the source, never in the URL."
+                  error={errors.repositoryUrl?.message}
+                >
+                  <Input
+                    id="trivy-sast-repo"
+                    placeholder="https://github.com/acme/app"
+                    {...form.register("repositoryUrl")}
+                  />
+                </FormField>
+              )}
 
-          {sastSource === SAST_SOURCE.ARCHIVE ? (
-            <FormField
-              id="trivy-sast-archive"
-              label="Code archive"
-              help={archiveHelp}
-              error={errors.archiveB64?.message}
-            >
-              <Input
-                id="trivy-sast-archive"
-                type="file"
-                accept={CODE_ARCHIVE_ACCEPT}
-                onChange={onArchiveSelected}
-              />
-            </FormField>
-          ) : (
-            <FormField
-              id="trivy-sast-repo"
-              label="Repository URL"
-              help="Use the repository saved on the selected source. Access tokens stay on the source, never in the URL."
-              error={errors.repositoryUrl?.message}
-            >
-              <Input
-                id="trivy-sast-repo"
-                placeholder="https://github.com/acme/app"
-                {...form.register("repositoryUrl")}
-              />
-            </FormField>
-          )}
-
-          {sastSource === SAST_SOURCE.ARCHIVE ? null : branchField}
+              {sastSource === SAST_SOURCE.ARCHIVE ? null : branchField}
+              {sastSource === SAST_SOURCE.ARCHIVE ? null : extraBranchesField}
+            </>
+          ) : null}
 
           <FormChoiceGroup legend="Rule packs" error={errors.rulesets?.message}>
             <div className="grid gap-2 sm:grid-cols-2">

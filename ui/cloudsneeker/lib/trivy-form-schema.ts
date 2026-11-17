@@ -25,6 +25,19 @@ export type SastSource = (typeof SAST_SOURCE)[keyof typeof SAST_SOURCE];
 // Bounds from `validate_sast_config` (`services/sast.py`).
 export const SAST_MAX_EXCLUDE_PATTERNS = 50;
 export const SAST_MAX_EXCLUDE_LENGTH = 200;
+// Bound from `normalize_branch_patterns` (`services/branch_policy.py`).
+export const MAX_EXTRA_BRANCHES = 50;
+
+/** Extra branch names and patterns, one per line or comma-separated. */
+export const parseBranchPatterns = (value: string): string[] =>
+  Array.from(
+    new Set(
+      value
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
 
 const SAST_RULESET_VALUES = Object.values(SAST_RULESET);
 const TRIVY_SCANNER_VALUES = Object.values(TRIVY_SCANNER);
@@ -64,6 +77,28 @@ export const parseExcludePatterns = (value: string): string[] =>
 export const isArchiveMode = (mode: TrivyMode): boolean =>
   mode === TRIVY_MODE.FS || mode === TRIVY_MODE.ROOTFS;
 
+/** True when the form reads a Git repository (so a branch applies). */
+export function readsRepository(
+  mode: TrivyMode,
+  sastSource: SastSource | undefined,
+): boolean {
+  return (
+    mode === TRIVY_MODE.REPO ||
+    (mode === TRIVY_MODE.SAST && sastSource !== SAST_SOURCE.ARCHIVE)
+  );
+}
+
+/** True when the target runs static analysis (its own mode, or the toggle). */
+export function runsStaticAnalysis(
+  mode: TrivyMode,
+  staticAnalysis: boolean | undefined,
+): boolean {
+  return (
+    mode === TRIVY_MODE.SAST ||
+    (mode === TRIVY_MODE.REPO && Boolean(staticAnalysis))
+  );
+}
+
 export const trivyTargetFormSchema = z
   .object({
     name: z.string().trim().min(3).max(100),
@@ -85,11 +120,15 @@ export const trivyTargetFormSchema = z
       .default(defaultScannersForMode(TRIVY_MODE.REPO)),
     images: z.string().optional().default(""),
     repositoryUrl: z.string().optional().default(""),
-    /**
-     * Branches to scan; empty scans the repository's default branch. A new
-     * target with several branches is saved as one target per branch.
-     */
+    /** Main branch (one item); empty scans the repository's default branch. */
     branches: z.array(z.string().trim().min(1).max(200)).optional().default([]),
+    /**
+     * Extra branches the same target scans: names or patterns such as
+     * `release/*`, one per line. Each scan queues the changed ones.
+     */
+    extraBranches: z.string().optional().default(""),
+    /** Repository targets: also run static analysis (SAST) in each scan. */
+    staticAnalysis: z.boolean().optional().default(false),
     archiveB64: z.string().optional().default(""),
     sbom: z.string().optional().default(""),
     namespace: z.string().optional().default(""),
@@ -156,8 +195,19 @@ export const trivyTargetFormSchema = z
         message: "SBOM content is required for sbom mode.",
       });
     }
-    if (values.mode === TRIVY_MODE.SAST) {
+    if (
+      readsRepository(values.mode, values.sastSource) &&
+      parseBranchPatterns(values.extraBranches).length > MAX_EXTRA_BRANCHES
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["extraBranches"],
+        message: `At most ${MAX_EXTRA_BRANCHES} branch names or patterns are allowed.`,
+      });
+    }
+    if (runsStaticAnalysis(values.mode, values.staticAnalysis)) {
       if (
+        values.mode === TRIVY_MODE.SAST &&
         values.sastSource === SAST_SOURCE.REPOSITORY &&
         !values.repositoryUrl.trim()
       ) {
@@ -168,6 +218,7 @@ export const trivyTargetFormSchema = z
         });
       }
       if (
+        values.mode === TRIVY_MODE.SAST &&
         values.sastSource === SAST_SOURCE.ARCHIVE &&
         !values.archiveB64.trim()
       ) {
@@ -230,40 +281,36 @@ const scannersToSave = (
   return scannersForMode(mode).filter((name) => selected.includes(name));
 };
 
-/** True when the form reads a Git repository (so a branch applies). */
-export const readsRepository = (
-  mode: TrivyMode,
-  sastSource: SastSource | undefined,
-): boolean =>
-  mode === TRIVY_MODE.REPO ||
-  (mode === TRIVY_MODE.SAST && sastSource !== SAST_SOURCE.ARCHIVE);
+/** `rulesets` and `exclude` of the static analysis settings. */
+const sastRules = (values: TrivyTargetFormValues) => ({
+  rulesets: values.rulesets.length > 0 ? values.rulesets : [SAST_RULESET.AUTO],
+  exclude: parseExcludePatterns(values.exclude),
+});
 
 /**
  * Target config from the form. `preserved` holds saved keys the form does
  * not edit (scan option overrides), so an edit does not drop them. `branch`
- * is the one branch this target scans (the first selected by default).
+ * is the target's main branch; `extraBranches` adds the other branches the
+ * same target scans.
  */
 export const buildTrivyConfig = (
   values: TrivyTargetFormValues,
   preserved: Record<string, unknown> = {},
   branch: string = values.branches[0] ?? "",
 ): Record<string, unknown> => {
-  const branchConfig =
-    readsRepository(values.mode, values.sastSource) && branch.trim()
-      ? { branch: branch.trim() }
-      : {};
+  const readsGit = readsRepository(values.mode, values.sastSource);
+  const extra = readsGit ? parseBranchPatterns(values.extraBranches) : [];
+  const branchConfig: Record<string, unknown> = {
+    ...(readsGit && branch.trim() ? { branch: branch.trim() } : {}),
+    ...(extra.length > 0 ? { branches: extra } : {}),
+  };
   if (values.mode === TRIVY_MODE.SAST) {
     // The static analysis engine has no scanner list; sending one is ignored.
     const source =
       values.sastSource === SAST_SOURCE.ARCHIVE
         ? { archive_b64: values.archiveB64.trim() }
         : { repository_url: values.repositoryUrl.trim(), ...branchConfig };
-    return {
-      ...source,
-      rulesets:
-        values.rulesets.length > 0 ? values.rulesets : [SAST_RULESET.AUTO],
-      exclude: parseExcludePatterns(values.exclude),
-    };
+    return { ...source, ...sastRules(values) };
   }
   const config: Record<string, unknown> = {
     ...preserved,
@@ -283,6 +330,7 @@ export const buildTrivyConfig = (
   if (values.mode === TRIVY_MODE.REPO) {
     config.repository_url = values.repositoryUrl.trim();
     Object.assign(config, branchConfig);
+    if (values.staticAnalysis) config.sast = sastRules(values);
   }
   if (isArchiveMode(values.mode)) {
     if (values.archiveB64.trim()) {

@@ -129,9 +129,32 @@ def visible_targets(tenant_id: str, visible_providers: set[str] | None) -> Query
     return queryset
 
 
-def findings_queryset(tenant_id: str, visible_providers: set[str] | None) -> QuerySet:
-    """Findings a role can read, with ``triage_status`` and ``severity_rank``."""
+ALL_BRANCHES = "*"
+
+
+def branch_param(params) -> str | None:
+    """Branch a findings request reads: ``filter[branch]``.
+
+    Empty or missing: the main branch of each target. ``*``: every branch.
+    """
+    value = str(params.get("filter[branch]") or "").strip()
+    if value == ALL_BRANCHES:
+        return None
+    return value
+
+
+def findings_queryset(
+    tenant_id: str, visible_providers: set[str] | None, *, branch: str | None = ""
+) -> QuerySet:
+    """Findings a role can read, with ``triage_status`` and ``severity_rank``.
+
+    Args:
+        branch: Extra branch to read; "" (default) reads each target's main
+            branch, so figures and reports follow it; ``None`` reads all.
+    """
     queryset = AppSecFinding.objects.filter(tenant_id=tenant_id)
+    if branch is not None:
+        queryset = queryset.filter(branch=branch)
     if visible_providers is not None:
         queryset = queryset.filter(target__provider_id__in=list(visible_providers))
     triage = FindingTriage.objects.filter(
@@ -255,6 +278,7 @@ def finding_row(finding, *, detail: bool = False) -> dict[str, Any]:
     """Attributes of a finding for the API."""
     row = {
         "uid": finding.uid,
+        "branch": finding.branch,
         "category": finding.category,
         "finding_type": finding.finding_type,
         "scanner": finding.scanner,
@@ -384,6 +408,27 @@ def findings_facets(queryset: QuerySet) -> dict[str, list[str]]:
         "targets": distinct("target_id"),
         "applications": distinct("target__application_id"),
     }
+
+
+def finding_branches(
+    tenant_id: str, visible_providers: set[str] | None, params
+) -> list[str]:
+    """Extra branches with findings, for the branch picker.
+
+    Limited to ``filter[target]`` / ``filter[target__in]`` when set. The
+    main branch ("") is not listed; it is always available.
+    """
+    queryset = AppSecFinding.objects.filter(tenant_id=tenant_id).exclude(branch="")
+    if visible_providers is not None:
+        queryset = queryset.filter(target__provider_id__in=list(visible_providers))
+    target = params.get("filter[target]")
+    if target:
+        queryset = queryset.filter(target_id=target)
+    targets = _uuids(params.get("filter[target__in]"), "target__in")
+    if targets:
+        queryset = queryset.filter(target_id__in=targets)
+    values = queryset.order_by().values_list("branch", flat=True).distinct()
+    return sorted(values)[:200]
 
 
 def latest_sbom_ids(tenant_id: str, targets: QuerySet) -> list[str]:
