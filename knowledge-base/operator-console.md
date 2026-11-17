@@ -135,8 +135,22 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   schedules, assistant, finding triage, audit log, integrations, SAML, API
   keys, and any API-key request without `api_access`); `plan_limit_reached`
   on create of providers, invitations (members plus pending invitations count
-  against users), application security targets and report schedules. All are
-  JSON:API 403 errors with `meta`.
+  against users), application security targets and report schedules, and on
+  the two monthly allowances (EB-080): a scan start (`POST /scans`,
+  `POST /trivy-targets/<id>/scan`) once `scans_per_month` is used, and an
+  assistant request (`POST /seeker-ai/requests`) once
+  `seeker_ai_requests_per_month` is used. Usage is the count since the first
+  instant of the current UTC month, the same number the usage bars show; a
+  limit of none is never refused. All are JSON:API 403 errors with `meta`
+  (`limit`, `max`, `usage` for limits).
+* Assistant requests: the chat runs in the web app, so its route
+  (`ui/app/api/lighthouse/analyst/route.ts`, hook) calls
+  `POST /api/v1/seeker-ai/requests` before each chat request
+  (`views_seeker_ai.py`). A 201 is written to the audit log as
+  `seeker_ai.request`, and the monthly count is the number of those
+  successful events; there is no other counter. A 403 is shown in the chat
+  as an error and the model is not called. Any other answer lets the chat
+  run (fail open).
 * Operator API (`CLOUDSNEEKER_OPERATOR_ENABLED=false` turns it off; non
   operators and API keys get 404): `operator/me`, `operator/tenants` (filters
   search, status, plan, expiring_within_days, over_limit; `meta.summary`),
@@ -222,8 +236,13 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   features outside the plan, a banner for read-only subscriptions and plans
   ending within 7 days, and a plan card on the profile page.
 
-Known gaps: assistant requests are not counted yet (reported as not
-tracked); scans per month and assistant requests are shown but not enforced;
+Known gaps: scheduled scans started by Celery beat count towards
+`scans_per_month` but are not stopped at the limit (only API scan starts are
+refused); the limit check and the record are two steps, so parallel requests
+can pass the limit by a few; assistant requests are counted from audit
+events, so `AUDIT_LOG_RETENTION_DAYS` below 31 undercounts them; the hosted
+chat (sessions API, cloud builds only) and server-side AI features (policy
+drafting, report narrative) are not metered;
 SAST is a feature key but application security targets are gated as a whole;
 the entitlement cache is per process (no shared cache is configured); no
 MFA or IP allow-list on the operator routes yet (WAF rule and EB-008 below);

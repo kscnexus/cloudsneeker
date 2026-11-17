@@ -209,6 +209,9 @@ export const subscriptionBanner = (
   };
 };
 
+/** Share of a limit from which usage bars warn. */
+export const LIMIT_WARNING_RATIO = 0.8;
+
 export interface LimitUsage {
   key: PlanLimit;
   label: string;
@@ -217,6 +220,8 @@ export interface LimitUsage {
   /** 0..1 of the limit, `null` when unlimited or not tracked. */
   ratio: number | null;
   over: boolean;
+  /** At or above `LIMIT_WARNING_RATIO` of the limit, and not over it. */
+  warning: boolean;
 }
 
 /** One row per limit: usage against the limit, for usage bars. */
@@ -237,15 +242,25 @@ export const limitUsageRows = (
             ? 1
             : 0
           : Math.min(1, used / limit);
+    const over = used !== null && limit !== null && used > limit;
     return {
       key,
       label: PLAN_LIMIT_LABEL[key],
       used,
       limit,
       ratio,
-      over: used !== null && limit !== null && used > limit,
+      over,
+      warning: !over && ratio !== null && ratio >= LIMIT_WARNING_RATIO,
     };
   });
 
 export const formatLimit = (limit: number | null | undefined): string =>
   typeof limit === "number" ? limit.toLocaleString("en-GB") : "Unlimited";
+
+/** Short note under a usage bar that is close to, at, or over its limit. */
+export const limitUsageNote = (row: LimitUsage): string | null => {
+  if (row.over) return "Over the plan limit";
+  if (!row.warning || row.ratio === null) return null;
+  if (row.ratio >= 1) return "Plan limit reached";
+  return `${Math.floor(row.ratio * 100)}% of the plan limit used`;
+};

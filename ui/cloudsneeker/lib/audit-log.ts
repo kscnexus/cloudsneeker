@@ -52,6 +52,7 @@ const NAMESPACE_LABEL: Record<string, string> = {
   processor: "processor",
   saml_config: "SSO configuration",
   lighthouse_config: `${BRAND.assistantName} settings`,
+  seeker_ai: BRAND.assistantName,
   mute_rule: "mute rule",
   scan: "scan",
   scan_schedule: "scan schedule",
@@ -120,6 +121,7 @@ const ACTION_LABEL: Record<string, string> = {
   "report.generate": "Generated report",
   "integration.jira_dispatch": "Sent findings to Jira",
   "integration.slack_connect": "Connected Slack",
+  "seeker_ai.request": `Asked ${BRAND.assistantName}`,
 };
 
 const humanize = (value: string): string =>
