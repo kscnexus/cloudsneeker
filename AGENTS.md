@@ -55,6 +55,17 @@ Use these skills for detailed patterns on-demand:
 | `gh-aw` | GitHub Agentic Workflows (gh-aw) | [SKILL.md](skills/gh-aw/SKILL.md) |
 | `skill-creator` | Create new AI agent skills | [SKILL.md](skills/skill-creator/SKILL.md) |
 
+### Cloudsneeker Skills
+
+| Skill | Description | URL |
+|-------|-------------|-----|
+| `cloudsneeker-feature` | Where Cloudsneeker code goes, upstream hooks, brand gate | [SKILL.md](skills/cloudsneeker-feature/SKILL.md) |
+| `cloudsneeker-ship` | PR, CI, automatic deploy, verification on the deployed site, rollback | [SKILL.md](skills/cloudsneeker-ship/SKILL.md) |
+| `cloudsneeker-backlog` | Work one backlog item (EB-###) from pick to verified release | [SKILL.md](skills/cloudsneeker-backlog/SKILL.md) |
+| `cloudsneeker-upstream-sync` | Merge an upstream Prowler release and restore the hooks | [SKILL.md](skills/cloudsneeker-upstream-sync/SKILL.md) |
+
+If your tool does not list a skill by name, read its `SKILL.md` from the URL column before starting the work. `skills/setup.sh` links the skills into each assistant's own folder; the links are not committed.
+
 ### Auto-invoke Skills
 
 When performing these actions, ALWAYS invoke the corresponding skill FIRST:
@@ -64,11 +75,14 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Add changelog entry for a PR or feature | `prowler-changelog` |
 | Adding ConfigRequirements guardrails to compliance requirements | `prowler-compliance` |
 | Adding DRF pagination or permissions | `django-drf` |
+| Adding a Cloudsneeker feature (model, endpoint, task, page, navigation) | `cloudsneeker-feature` |
 | Adding a compliance output formatter (per-provider class + table dispatcher) | `prowler-compliance` |
+| Adding client-visible text, URLs, or product names (brand gate) | `cloudsneeker-feature` |
 | Adding indexes or constraints to database tables | `django-migration-psql` |
 | Adding new providers | `prowler-provider` |
 | Adding privilege escalation detection queries | `prowler-attack-paths-query` |
 | Adding services to existing providers | `prowler-provider` |
+| Adding, re-prioritising, or closing backlog items | `cloudsneeker-backlog` |
 | Adding, updating, or removing a tour definition (*.tour.ts) | `prowler-tour` |
 | After creating/modifying a skill | `skill-sync` |
 | App Router / Server Actions | `nextjs-16` |
@@ -95,6 +109,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Debug why a GitHub Actions job is failing | `prowler-ci` |
 | Debugging gh-aw compilation errors | `gh-aw` |
 | Editing a UI file containing data-tour-id attributes | `prowler-tour` |
+| Editing an upstream Prowler file for Cloudsneeker work (hooks) | `cloudsneeker-feature` |
 | Fill .github/pull_request_template.md (Context/Description/Steps to review/Checklist) | `prowler-pr` |
 | Fixing bug | `tdd` |
 | Fixing compliance JSON bugs (duplicate IDs, empty Section, stale refs) | `prowler-compliance` |
@@ -105,6 +120,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Inspect PR CI checks and gates (.github/workflows/*) | `prowler-ci` |
 | Inspect PR CI workflows (.github/workflows/*): conventional-commit, pr-check-changelog, pr-conflict-checker, labeler | `prowler-pr` |
 | Mapping checks to compliance controls | `prowler-compliance` |
+| Merging an upstream Prowler release into Cloudsneeker | `cloudsneeker-upstream-sync` |
 | Mocking AWS with moto in tests | `prowler-test-sdk` |
 | Modifying API responses | `jsonapi` |
 | Modifying component | `tdd` |
@@ -112,14 +128,18 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Refactoring code | `tdd` |
 | Regenerate AGENTS.md Auto-invoke tables (sync.sh) | `skill-sync` |
 | Renaming or removing a data-tour-id attribute value | `prowler-tour` |
+| Resolving a merge conflict in an inherited Prowler file | `cloudsneeker-upstream-sync` |
 | Restructuring routes or layouts covered by a tour | `prowler-tour` |
 | Review PR requirements: template, title conventions, changelog gate | `prowler-pr` |
 | Review changelog format and conventions | `prowler-changelog` |
 | Reviewing JSON:API compliance | `jsonapi` |
 | Reviewing Prowler UI components | `prowler-ui` |
 | Reviewing compliance framework PRs | `prowler-compliance-review` |
+| Rolling back a Cloudsneeker release | `cloudsneeker-ship` |
 | Running makemigrations or pgmakemigrations | `django-migration-psql` |
+| Shipping a Cloudsneeker change (PR, CI, deploy) | `cloudsneeker-ship` |
 | Syncing compliance framework with upstream catalog | `prowler-compliance` |
+| Testing MCP tools or models | `prowler-test-mcp` |
 | Testing RLS tenant isolation | `prowler-test-api` |
 | Testing hooks or utilities | `vitest` |
 | Troubleshoot why a skill is missing from AGENTS.md auto-invoke | `skill-sync` |
@@ -133,6 +153,8 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Updating existing Attack Paths queries | `prowler-attack-paths-query` |
 | Updating existing checks and metadata | `prowler-sdk-check` |
 | Using Zustand stores | `zustand-5` |
+| Verifying a Cloudsneeker change on the deployed site | `cloudsneeker-ship` |
+| Working an enterprise backlog item (EB-###) | `cloudsneeker-backlog` |
 | Working on MCP server tools | `prowler-mcp` |
 | Working on Prowler UI structure (actions/adapters/types/hooks) | `prowler-ui` |
 | Working on task | `tdd` |
@@ -140,6 +162,7 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Working with Tailwind classes | `tailwind-4` |
 | Writing Playwright E2E tests | `playwright` |
 | Writing Prowler API tests | `prowler-test-api` |
+| Writing Prowler MCP server tests | `prowler-test-mcp` |
 | Writing Prowler SDK tests | `prowler-test-sdk` |
 | Writing Prowler UI E2E tests | `prowler-test-ui` |
 | Writing Python tests with pytest | `pytest` |
@@ -160,6 +183,8 @@ Cloudsneeker is this repository's product name. The codebase is a derivative of 
 New Cloudsneeker features go in `cloudsneeker/`, `api/src/backend/cloudsneeker_api/`, or `ui/app/(cloudsneeker)/`. Code in those directories uses the same style, standards, and structure as the matching Prowler component. Read that component's `AGENTS.md` and skill before writing. The map is [`knowledge-base/coding-standards.md`](knowledge-base/coding-standards.md).
 
 A feature is unfinished until its unit tests cover the new behavior, related feature suites still pass, and the Amazon S3, AWS Security Hub, Jira, and Slack integration tests pass when the change can affect their data. See [`knowledge-base/feature-verification.md`](knowledge-base/feature-verification.md).
+
+A change is verified on the deployed site, not on a developer PC: pull request, "Cloudsneeker: Tests", merge, automatic deploy, then a signed-in check. Follow [`skills/cloudsneeker-ship/SKILL.md`](skills/cloudsneeker-ship/SKILL.md). Open work and its order are in [`knowledge-base/saas-launch-plan.md`](knowledge-base/saas-launch-plan.md) and [`knowledge-base/enterprise-backlog.md`](knowledge-base/enterprise-backlog.md).
 
 Auth, admin, credentials, UI stores, and audit stay on Prowler (`User`, `Role`, `ProviderSecret`, `ui/store/`, `Scan`, `Finding`). Call those APIs. Do not change existing Prowler checks, migrations, or API types to carry Cloudsneeker work. Merge upstream Prowler by keeping its files and re-applying [`knowledge-base/upstream-hooks.md`](knowledge-base/upstream-hooks.md). Do not push this tree to `prowler-cloud/prowler`.
 

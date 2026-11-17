@@ -1,6 +1,6 @@
 # Feature Verification
 
-Every feature ships with unit tests, a compatibility check against the features it can affect, and a pass of the integrations that consume the same data. The gate is in `.cursor/rules/feature-verification.mdc`.
+Every feature ships with unit tests, a compatibility check against the features it can affect, and a pass of the integrations that consume the same data. The release procedure that applies these gates is `skills/cloudsneeker-ship/SKILL.md`.
 
 ## Unit Tests
 
