@@ -11,14 +11,17 @@ import {
 } from "@/cloudsneeker/lib/bitbucket-import";
 import {
   buildConnectionSecret,
+  buildGithubTargetBody,
   parseGithubConnections,
   parseGithubListing,
 } from "@/cloudsneeker/lib/github-repositories";
+import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import {
   BITBUCKET_IMPORT_STATUS,
   type BitbucketImportResult,
 } from "@/cloudsneeker/types/bitbucket";
 import type {
+  GithubAddOptions,
   GithubConnection,
   GithubRepositoryListing,
   GithubRepositoryToAdd,
@@ -78,6 +81,7 @@ export const listGithubRepositories = async (
 
 const addOne = async (
   repository: GithubRepositoryToAdd,
+  options: GithubAddOptions,
   headers: Record<string, string>,
 ): Promise<BitbucketImportResult & { planLimit?: boolean }> => {
   const repositoryUrl = repository.repository_url;
@@ -127,16 +131,39 @@ const addOne = async (
     };
   }
 
+  // The target is what lists the repository in Application Security. The
+  // source stays when the target cannot be created, and the row says why.
+  const targetResponse = await fetch(`${apiBaseUrl}/trivy-targets`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(
+      buildGithubTargetBody(providerId, repository, options),
+    ),
+  });
+  if (!targetResponse.ok) {
+    const reason = firstErrorDetail(
+      await readJson(targetResponse),
+      "Could not create the scan target.",
+    );
+    return {
+      repositoryUrl,
+      status: BITBUCKET_IMPORT_STATUS.ADDED,
+      providerId,
+      message: `Added without a scan target: ${reason}`,
+    };
+  }
+
   return { repositoryUrl, status: BITBUCKET_IMPORT_STATUS.ADDED, providerId };
 };
 
 /**
- * Adds each repository as an Infrastructure as Code provider with no token of
- * its own; scans use the GitHub connection of the repository's owner. Stops
- * at the plan's provider limit.
+ * Adds each repository as a repository source with no token of its own, plus
+ * a code repository scan target; scans use the GitHub connection of the
+ * repository's owner. Stops at the plan's provider limit.
  */
 export const addGithubRepositories = async (
   repositories: GithubRepositoryToAdd[],
+  options: GithubAddOptions,
 ): Promise<BitbucketImportResult[] | { error: string }> => {
   const headers = await getAuthHeaders({ contentType: true });
   const results: BitbucketImportResult[] = [];
@@ -152,7 +179,11 @@ export const addGithubRepositories = async (
         });
         continue;
       }
-      const { planLimit, ...result } = await addOne(repository, headers);
+      const { planLimit, ...result } = await addOne(
+        repository,
+        options,
+        headers,
+      );
       if (planLimit) limitMessage = result.message;
       results.push(result);
     }
@@ -163,6 +194,7 @@ export const addGithubRepositories = async (
     if (addedIds.length > 0) {
       await startProviderConnectionChecks(addedIds);
       revalidatePath("/providers");
+      revalidatePath(PRODUCT_ROUTE.APPLICATION_SECURITY);
     }
     return results;
   } catch (error) {

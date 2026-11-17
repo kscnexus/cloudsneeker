@@ -16,6 +16,7 @@ import {
   defaultGithubSelection,
   filterGithubRepositories,
 } from "@/cloudsneeker/lib/github-repositories";
+import { PRODUCT_ROUTE } from "@/cloudsneeker/routes";
 import {
   BITBUCKET_IMPORT_STATUS,
   type BitbucketImportResult,
@@ -75,6 +76,7 @@ export const GithubRepositoriesForm = ({
   const [error, setError] = useState("");
   const [isListing, setIsListing] = useState(false);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const [dailySchedule, setDailySchedule] = useState(true);
 
   if (connections.length === 0) {
     return (
@@ -159,13 +161,17 @@ export const GithubRepositoriesForm = ({
     const chosen = listing.repositories
       .filter((repository) => selected.has(repository.repository_url))
       .map(({ full_name, repository_url }) => ({ full_name, repository_url }));
+    const options = {
+      dailySchedule,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    };
     setError("");
     setProgress({ done: 0, total: chosen.length });
     const collected: Record<string, BitbucketImportResult> = { ...results };
     try {
       let done = 0;
       for (const batch of chunk(chosen, BITBUCKET_IMPORT_BATCH_SIZE)) {
-        const outcome = await addGithubRepositories(batch);
+        const outcome = await addGithubRepositories(batch, options);
         if ("error" in outcome) {
           setError(outcome.error);
           break;
@@ -323,6 +329,19 @@ export const GithubRepositoriesForm = ({
             </div>
           )}
 
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="github-daily-schedule"
+              size="sm"
+              checked={dailySchedule}
+              disabled={isImporting}
+              onCheckedChange={(value) => setDailySchedule(value === true)}
+            />
+            <Label htmlFor="github-daily-schedule">
+              Scan each added repository every day at 02:00
+            </Label>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
@@ -335,7 +354,9 @@ export const GithubRepositoriesForm = ({
             </Button>
             {addedCount > 0 && (
               <Button asChild variant="outline">
-                <Link href="/providers">Go to providers</Link>
+                <Link href={PRODUCT_ROUTE.APPLICATION_SECURITY}>
+                  Go to Application Security
+                </Link>
               </Button>
             )}
           </div>
@@ -345,7 +366,7 @@ export const GithubRepositoriesForm = ({
       {resultList.length > 0 && !isImporting && (
         <Alert variant={problemCount > 0 ? "warning" : "success"}>
           <AlertDescription>
-            {addedCount} added as Infrastructure as Code providers.
+            {addedCount} added, each with a code repository scan target.
             {problemCount > 0 && ` ${problemCount} not added; see the status.`}
             {addedCount > 0 &&
               " They store no token: scans use this GitHub connection. Connection checks have started."}
