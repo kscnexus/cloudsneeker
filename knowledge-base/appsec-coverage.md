@@ -31,7 +31,7 @@ Scan engine: Trivy 0.74.0 (pinned and checksum verified in `api/Dockerfile`). Th
 | --- | --- | --- | --- | --- | --- |
 | Code repository (`repo`) | `repository` | vuln, misconfig, secret, license | vuln, secret | json, sarif, cyclonedx, spdx-json | No |
 | Filesystem (uploaded archive) (`fs`) | `filesystem` | vuln, misconfig, secret, license | vuln, secret | json, sarif, cyclonedx, spdx-json | No |
-| Infrastructure as Code repository (`iac`) | `repository` | vuln, misconfig, secret, license | misconfig, secret, vuln | json, sarif, cyclonedx, spdx-json | No |
+| Misconfiguration policies (repository) (`iac`) | `repository` | vuln, misconfig, secret, license | misconfig, secret, vuln | json, sarif, cyclonedx, spdx-json | No |
 | Root filesystem (uploaded archive) (`rootfs`) | `rootfs` | vuln, misconfig, secret, license | vuln, secret | json, sarif, cyclonedx, spdx-json | No |
 | Container image (`image`) | `image` | vuln, misconfig, secret, license | vuln, secret | json, sarif, cyclonedx, spdx-json | No |
 | SBOM document (`sbom`) | `sbom` | vuln, license | vuln | json, sarif, cyclonedx, spdx-json | No |
@@ -40,7 +40,7 @@ Scan engine: Trivy 0.74.0 (pinned and checksum verified in `api/Dockerfile`). Th
 Not offered:
 
 * Virtual machine image (`vm`): The engine (experimental) reads a local VMDK file or an AWS AMI or EBS snapshot. Disk images are too large for the upload path and the AWS form needs a per-tenant role with EBS direct API access; neither is built.
-* Configuration-only scan (`config`): Covered by the misconfiguration scanner on repository, filesystem and Infrastructure as Code targets.
+* Configuration-only scan (`config`): Covered by the misconfiguration scanner on repository, filesystem and misconfiguration policy targets.
 
 ## Options by Target Type
 
@@ -91,7 +91,7 @@ An option is listed for a target type only when that command accepts the flag. P
 | Virtual machine image | Missing | The engine (experimental) reads a local VMDK file or an AWS AMI or EBS snapshot. Disk images are too large for the upload path and the AWS form needs a per-tenant role with EBS direct API access; neither is built. |
 | Kubernetes cluster | Implemented | Cluster report parsed per resource; namespace and kind filters; node collector off by default. Experimental in the engine. |
 | SBOM document | Implemented | CycloneDX JSON and SPDX (JSON, tag-value). |
-| Infrastructure as Code repository | Implemented | Repository scan with the misconfiguration scanner on by default. |
+| Misconfiguration policies (repository) | Implemented | Repository scan with the misconfiguration scanner on by default. |
 
 ### Vulnerabilities
 
@@ -189,4 +189,4 @@ An option is listed for a target type only when that command accepts the flag. P
 | --- | --- | --- |
 | JSON, SARIF, CycloneDX, SPDX | Implemented | Per scan, from the stored report. Cluster scans export JSON only (engine limit). |
 | CSV and JSON finding exports | Implemented | From the findings list, with the active filters. |
-| PDF and Excel reports | Partially Implemented | The existing report catalog (dependencies, containers, Infrastructure as Code, secrets, static analysis, executive) is unchanged. License, SBOM and remediation-tracking reports are not added. |
+| PDF and Excel reports | Partially Implemented | The existing report catalog (dependencies, containers, misconfigurations, secrets, static analysis, executive) is unchanged. License, SBOM and remediation-tracking reports are not added. |
