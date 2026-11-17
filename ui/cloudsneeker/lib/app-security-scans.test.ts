@@ -43,7 +43,7 @@ describe("scan type labels", () => {
     expect(SCAN_TYPE_LABEL.repo).toBe("Code repository");
     expect(SCAN_TYPE_LABEL.fs).toBe("Filesystem");
     expect(SCAN_TYPE_LABEL.image).toBe("Container image");
-    expect(SCAN_TYPE_LABEL.iac).toBe("Infrastructure as code");
+    expect(SCAN_TYPE_LABEL.iac).toBe("Misconfiguration policies");
     expect(SCAN_TYPE_LABEL.sbom).toBe("SBOM");
     expect(SCAN_TYPE_LABEL.k8s).toBe("Kubernetes");
     expect(SCAN_TYPE_LABEL.sast).toBe("Static analysis");

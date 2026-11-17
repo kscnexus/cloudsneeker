@@ -233,8 +233,8 @@ optional = true
 # source code, secrets, SBOMs and templates, so its display name is
 # "Code Repository". The provider key stays `iac`. The files below hold the
 # label and the maps keyed by it, so they must be rewritten together.
-# "Infrastructure as Code" as a scan category (reports, dashboards) lives in
-# Cloudsneeker-owned files and is left alone.
+# Cloudsneeker-owned files call the scan category "Misconfigurations"
+# (reports, dashboards), not "Infrastructure as Code".
 [[rule]]
 id = "iac-provider-help-copy"
 pattern = 'Infrastructure as Code repository'

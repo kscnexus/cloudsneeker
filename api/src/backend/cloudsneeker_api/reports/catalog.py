@@ -194,7 +194,7 @@ REPORT_TYPES: dict[str, ReportType] = {
         ),
         ReportType(
             id=IAC,
-            name="Infrastructure as Code",
+            name="Misconfigurations",
             description=(
                 "Misconfigurations in Terraform, CloudFormation, Kubernetes "
                 "manifests, and other templates."

@@ -1,4 +1,4 @@
-"""Infrastructure as Code report data."""
+"""Misconfigurations report data."""
 
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ SCOPE = ScanScope(
 
 SPEC = FindingsReportSpec(
     report_type=IAC,
-    title="Infrastructure as Code Report",
+    title="Misconfigurations Report",
     scope=SCOPE,
-    noun="IaC misconfigurations",
+    noun="misconfigurations",
     empty_state=(
-        "No Infrastructure as Code scans in scope. Connect a repository and "
-        "run an IaC scan to populate this report."
+        "No misconfiguration scans in scope. Connect a repository and run a "
+        "scan with the misconfiguration scanner to populate this report."
     ),
     # Misconfigurations only: vulnerabilities and secrets have their own reports.
     exclude_q=(VULNERABILITY_Q, SECRET_Q),
@@ -31,7 +31,7 @@ SPEC = FindingsReportSpec(
 
 
 def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
-    """Assemble the IaC report.
+    """Assemble the Misconfigurations report.
 
     Args:
         tenant_id: Tenant UUID string.

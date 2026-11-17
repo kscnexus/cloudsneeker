@@ -23,7 +23,7 @@ export const TrivyTargetList = ({ targets }: TrivyTargetListProps) => {
       <EmptyState
         icon={<ScanSearch />}
         title="No targets yet"
-        description="Add a code repository, Infrastructure as Code, container image, code archive, source code, SBOM, or Kubernetes target. Results land in Findings next to your cloud security results."
+        description="Add a code repository, misconfiguration policy, container image, code archive, source code, SBOM, or Kubernetes target. Results land in Findings next to your cloud security results."
         action={
           <Button asChild size="sm">
             <Link href={appSecurityHref("new")}>Create a target</Link>

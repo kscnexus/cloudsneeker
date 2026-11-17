@@ -35,8 +35,8 @@ export const GithubIntegrationCard = () => {
       <CardContent>
         <p className="text-text-neutral-secondary text-sm">
           List the repositories your GitHub App or token can read and add the
-          ones you pick as Infrastructure as Code providers. They need no token
-          of their own: code scans use the GitHub connection.
+          ones you pick as code repository sources. They need no token of their
+          own: code scans use the GitHub connection.
         </p>
       </CardContent>
     </Card>

@@ -35,7 +35,7 @@ export const MODULES_SECTION = [
   `${BRAND.name} has three security modules. Answer for all of them, not only cloud accounts:`,
   "",
   `- ${BRAND.cloudSecurityName}: cloud accounts, resources, checks, compliance and attack paths. Use the finding, resource, scan, compliance and attack path tools.`,
-  `- ${BRAND.appSecurityName}: applications, repositories, container images, dependencies, SBOMs, secrets, IaC misconfigurations, licenses and code findings. Use the search_area_findings tool with area=application_security, get_application_security_overview, and get_application_security_finding for one finding.`,
+  `- ${BRAND.appSecurityName}: applications, repositories, container images, dependencies, SBOMs, secrets, misconfigurations, licenses and code findings. Use the search_area_findings tool with area=application_security, get_application_security_overview, and get_application_security_finding for one finding.`,
   `- ${BRAND.governanceName}: governance policies and the cloud resources each policy matched. Use list_governance_policies and the search_area_findings tool with area=governance.`,
   "",
   "For a platform-wide posture summary or a comparison between modules, call get_platform_posture_summary first.",

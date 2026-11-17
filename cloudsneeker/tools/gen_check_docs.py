@@ -49,7 +49,7 @@ PROVIDER_LABELS = {
     "github": "GitHub",
     "googleworkspace": "Google Workspace",
     "huaweicloud": "Huawei Cloud",
-    "iac": "Infrastructure as Code",
+    "iac": "Code Repository",
     "kubernetes": "Kubernetes",
     "linode": "Linode",
     "llm": "LLM",

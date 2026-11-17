@@ -29,7 +29,7 @@ export const SCAN_TYPE_LABEL: Record<TrivyMode, string> = {
   [TRIVY_MODE.FS]: "Filesystem",
   [TRIVY_MODE.ROOTFS]: "Root filesystem archive",
   [TRIVY_MODE.IMAGE]: "Container image",
-  [TRIVY_MODE.IAC]: "Infrastructure as code",
+  [TRIVY_MODE.IAC]: "Misconfiguration policies",
   [TRIVY_MODE.SBOM]: "SBOM",
   [TRIVY_MODE.K8S]: "Kubernetes",
   [TRIVY_MODE.SAST]: "Static analysis",

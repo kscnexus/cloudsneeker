@@ -35,7 +35,7 @@ CATEGORY_POLICY = "policy_violation"
 CATEGORY_LABELS: dict[str, str] = {
     CATEGORY_CLOUD_CONFIG: "Cloud configuration",
     CATEGORY_VULNERABILITY: "Vulnerable dependency",
-    CATEGORY_MISCONFIGURATION: "Infrastructure-as-code misconfiguration",
+    CATEGORY_MISCONFIGURATION: "Misconfiguration",
     CATEGORY_SECRET: "Exposed secret",
     CATEGORY_LICENSE: "License risk",
     CATEGORY_CODE: "Source code weakness",

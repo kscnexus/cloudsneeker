@@ -149,7 +149,7 @@ TARGETS: dict[str, dict[str, Any]] = {
         ),
     },
     "iac": {
-        "label": "Infrastructure as Code repository",
+        "label": "Misconfiguration policies (repository)",
         "command": "repository",
         "experimental": False,
         "scanners": (SCANNER_VULN, SCANNER_MISCONFIG, SCANNER_SECRET, SCANNER_LICENSE),
@@ -271,7 +271,7 @@ UNAVAILABLE_TARGETS: dict[str, dict[str, str]] = {
         "status": "not_applicable",
         "reason": (
             "Covered by the misconfiguration scanner on repository, "
-            "filesystem and Infrastructure as Code targets."
+            "filesystem and misconfiguration policy targets."
         ),
     },
 }
@@ -489,7 +489,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "options": {"scanners": [SCANNER_SECRET]},
     },
     "iac": {
-        "name": "Infrastructure as Code",
+        "name": "Misconfigurations",
         "description": "Configuration checks for Terraform, CloudFormation, "
         "Kubernetes, Helm, Dockerfile, ARM and Ansible, plus secrets.",
         "target_types": ["repo", "fs", "iac"],
@@ -578,7 +578,7 @@ FEATURES: list[dict[str, str]] = [
     },
     {
         "area": "Targets",
-        "feature": "Infrastructure as Code repository",
+        "feature": "Misconfiguration policies (repository)",
         "status": STATUS_IMPLEMENTED,
         "detail": "Repository scan with the misconfiguration scanner on by default.",
     },
@@ -954,7 +954,7 @@ FEATURES: list[dict[str, str]] = [
         "feature": "PDF and Excel reports",
         "status": STATUS_PARTIAL,
         "detail": "The existing report catalog (dependencies, containers, "
-        "Infrastructure as Code, secrets, static analysis, executive) is "
+        "misconfigurations, secrets, static analysis, executive) is "
         "unchanged. License, SBOM and remediation-tracking reports are not added.",
     },
 ]

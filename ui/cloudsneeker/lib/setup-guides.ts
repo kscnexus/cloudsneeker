@@ -399,7 +399,7 @@ const PROVIDER_GUIDES = {
     ],
   },
   iac: {
-    title: "Infrastructure as code: repository access",
+    title: "Code repository: repository access",
     summary:
       "Read access to the Git repository. Public repositories need no credential.",
     steps: [

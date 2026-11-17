@@ -53,7 +53,7 @@ describe("securityCategoryTabs", () => {
 describe("securityCategoryShort", () => {
   it("labels known categories and dashes the rest", () => {
     expect(securityCategoryShort("sca")).toBe("SCA");
-    expect(securityCategoryShort("iac")).toBe("IaC");
+    expect(securityCategoryShort("iac")).toBe("Misconfig");
     expect(securityCategoryShort("")).toBe("—");
     expect(securityCategoryShort(undefined)).toBe("—");
   });
