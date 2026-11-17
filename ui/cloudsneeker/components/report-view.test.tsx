@@ -8,7 +8,11 @@ import { EXECUTIVE_REPORT_FIXTURE } from "./report-view.fixture";
 // Charts need layout measurements jsdom does not provide; assert the data
 // handed to them instead.
 vi.mock("@/components/graphs", () => ({
-  HorizontalBarChart: ({ data }: { data: { name: string; value: number }[] }) => (
+  HorizontalBarChart: ({
+    data,
+  }: {
+    data: { name: string; value: number }[];
+  }) => (
     <ul data-testid="severity-chart">
       {data.map((item) => (
         <li key={item.name}>{`${item.name}: ${item.value}`}</li>
@@ -44,6 +48,25 @@ describe("ReportView", () => {
     );
     expect(screen.getByTestId("trend-chart")).toHaveTextContent("2 points");
     expect(screen.getByText(/High and above/)).toBeInTheDocument();
+    expect(
+      screen.getByText("42 failing · 310 passing · 3 muted"),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves out the pass/fail caption when a report has no totals", () => {
+    render(
+      <ReportView
+        report={{
+          ...EXECUTIVE_REPORT_FIXTURE,
+          status_totals: { pass: 0, fail: 0, muted: 0, manual: 0 },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("severity-chart")).toHaveTextContent(
+      "Critical: 5",
+    );
+    expect(screen.queryByText(/failing ·/)).not.toBeInTheDocument();
   });
 
   it("shows risks with business impact, posture and next actions", () => {
@@ -53,7 +76,9 @@ describe("ReportView", () => {
       screen.getByText("S3 bucket allows public access"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Customer data could be read by anyone on the internet."),
+      screen.getByText(
+        "Customer data could be read by anyone on the internet.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText("Cloud posture")).toBeInTheDocument();
     expect(
@@ -91,7 +116,9 @@ describe("ReportView", () => {
       />,
     );
 
-    expect(screen.getByText("No static analysis scans yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No static analysis scans yet."),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("severity-chart")).not.toBeInTheDocument();
   });
 

@@ -113,7 +113,13 @@ export const ReportView = ({
   const compliance = report.compliance ?? [];
   const actionsList = report.remediation ?? [];
   const tables = report.tables ?? [];
-  const status = report.status_totals;
+  // Reports read from inventories (licenses, SBOM, remediation) have no
+  // pass/fail totals; an all-zero caption would contradict the bars.
+  const status =
+    report.status_totals &&
+    Object.values(report.status_totals).some((count) => Number(count) > 0)
+      ? report.status_totals
+      : undefined;
 
   return (
     <article

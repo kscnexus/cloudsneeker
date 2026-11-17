@@ -67,6 +67,22 @@ describe("buildAppSecDownloadHeaders", () => {
     expect(headers.get("set-cookie")).toBeNull();
   });
 
+  it("keeps the length of an uncompressed body", () => {
+    const headers = buildAppSecDownloadHeaders(
+      new Headers({ "content-length": "2048" }),
+      "sbom.json",
+    );
+    expect(headers.get("content-length")).toBe("2048");
+  });
+
+  it("drops the compressed length fetch() already decompressed", () => {
+    const headers = buildAppSecDownloadHeaders(
+      new Headers({ "content-length": "524", "content-encoding": "gzip" }),
+      "sbom.json",
+    );
+    expect(headers.get("content-length")).toBeNull();
+  });
+
   it("falls back to a file name", () => {
     const headers = buildAppSecDownloadHeaders(new Headers(), "sbom.json");
     expect(headers.get("content-disposition")).toBe(
