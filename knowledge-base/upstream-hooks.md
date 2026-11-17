@@ -73,7 +73,7 @@ Test-side hooks (SDK): `tests/conftest.py` applies `cloudsneeker.testing.UPSTREA
 | `api/Dockerfile` | `openssh-client` in the first `apt-get install` list, with a `# cloudsneeker-hook` comment above the `RUN` | Dulwich's SSH transport runs the `ssh` client. Installed explicitly, so the later purge of `git` keeps it. |
 | `api/utils.py` | `from cloudsneeker_api.ecr_auth import apply_ecr_auth, ecr_connection_kwargs`; `get_prowler_provider_kwargs` IaC branch passes `username` when the secret has one, image branch starts with `prowler_provider_kwargs = apply_ecr_auth(provider.uid, prowler_provider_kwargs)`; `prowler_provider_connection_test` IaC branch passes `username`, image branch starts with `ecr_failure, prowler_provider_kwargs = ecr_connection_kwargs(...)` and returns `ecr_failure` when set | ECR tokens expire after 12 hours, so the worker mints one per scan / connection test (`ecr:GetAuthorizationToken`, optional `sts:AssumeRole` with `ExternalId`) when the uid is an ECR host and no static registry credentials are stored. `ecr_role_arn` / `ecr_external_id` are stripped before `ImageProvider`. |
 | `api/utils.py` (SSH) | `from cloudsneeker_api.secret_extras import iac_ssh_kwargs`; the IaC branches of `get_prowler_provider_kwargs` and `prowler_provider_connection_test` add `iac_ssh_kwargs(secret)` | Scans and connection checks pass the stored SSH key to `IacProvider`. |
-| `Dockerfile` | `RUN chmod +x ./docker-entrypoint.sh` after the entrypoint copy | The exported build tree does not keep the executable bit. | |
+| `Dockerfile` | `RUN chmod +x ./docker-entrypoint.sh` after the entrypoint copy | The exported build tree does not keep the executable bit. |
 
 Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_api.testing.upstream_compat_brand`, which swaps `cloudsneeker_api.brand.brand` for `cloudsneeker.testing.UPSTREAM_COMPAT_ENV` values in every test outside `cloudsneeker_api/` (so `test_reports_ens.py` still finds "Prowler" in the PDF footer). `.github/workflows/cloudsneeker-tests.yml` deselects `TestScheduleViewSet::test_schedule_invalid_method_list[get]`: the Cloudsneeker `ScheduleViewSet` serves `GET /schedules` on purpose, so the upstream OSS 405 expectation cannot hold. `api/tests/test_views.py`, `tasks/tests/test_integrations.py`, and `tasks/tests/test_reports_base.py` assert against `cloudsneeker_api.brand` values. `cloudsneeker_api/tests/` covers the brand helpers, the app registration, `/api/v1/cloudsneeker/brand`, and the OpenAPI entry.
 
@@ -138,7 +138,7 @@ Test-side hooks (API): `conftest.py` imports the autouse fixture `cloudsneeker_a
 | `app/(prowler)/compliance/_components/cross-provider-hub-link.tsx` | `href={docsUrl(`compliance/${id}`)}` | Resolves to the generated framework page in `cloudsneeker/docs`. |
 | `app/api/health/route.ts` | `serviceId: BRAND.serviceId` | `cloudsneeker-ui`. |
 | `lib/external-urls.ts` | `PROWLER_HUB_URL = BRAND.docsUrl`; `PROWLER_CF_TEMPLATE_URL = BRAND.cloudformationTemplateUrl`; `BILLING_URL`; `DOCS_URLS` built with `docsUrl()` | Keep upstream export names. |
-| `lib/cloud-upgrade.ts` | `CLOUD_SIGN_UP_URL = BRAND.websiteUrl`; `PRICING_URL = BRAND.pricingUrl || BRAND.websiteUrl` | — |
+| `lib/cloud-upgrade.ts` | `CLOUD_SIGN_UP_URL = BRAND.websiteUrl`; `PRICING_URL = BRAND.pricingUrl \|\| BRAND.websiteUrl` | — |
 | `lib/deployment.ts` | `PROWLER_CLOUD_ONLY_TOOLTIP = BRAND.unavailableFeatureCopy`; `isGroupedJiraDispatchEnabled` also checks `jiraGroupedDispatch` | Keep the export names. |
 | `lib/schedules.ts` (`getScanScheduleCapability`) | ADVANCED when `advancedScheduling` is on | Weekly/monthly/interval schedules without cloud edition. |
 | `api/v1/urls.py` | `ScheduleViewSet` imported from `cloudsneeker_api.views_schedules` | Full `/schedules` API extends the OSS daily-only viewset; `daily` stays the upstream action. |
@@ -272,6 +272,13 @@ See [Platform Integration Audit](platform-integration/PLATFORM_INTEGRATION_AUDIT
 | `ui/lib/lighthouse-v1/allowed-tools.ts` | `...CLOUDSNEEKER_AREA_TOOLS` in `ALLOWED_TOOLS` | One spread plus the import. |
 | `mcp_server/prowler_mcp_server/prowler_app/server.py` | Second `load_all_tools` for `prowler_mcp_server.cloudsneeker.tools` | One line after the upstream loader. |
 | `api/src/backend/cloudsneeker_api/signals.py` (Cloudsneeker file) | `post_save` / `post_delete` on upstream `MuteRule` | Not an upstream edit; listed because it reacts to an upstream model. |
+
+## Agent Guidance (`AGENTS.md`, `skills/`)
+
+| File | Hook | Re-apply by |
+| --- | --- | --- |
+| `AGENTS.md` | "Cloudsneeker Skills" table above the auto-invoke table; the Cloudsneeker paragraphs at the top of "Project Overview"; `cloudsneeker-*` rows in the auto-invoke table | Take upstream, re-add the table and paragraphs, then run `skills/skill-sync/assets/sync.sh` to regenerate the rows. |
+| `skills/cloudsneeker-*/` (Cloudsneeker directories) | Four skills beside the upstream ones | Not an upstream edit; listed because `skill-sync` reads them. |
 
 ## Adding a Hook
 
