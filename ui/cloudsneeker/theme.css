@@ -553,6 +553,15 @@ header.sticky.top-0 {
   }
 }
 
+/* Phones: buttons and tabs are at least 44px tall, the minimum comfortable
+   touch target. Layout above the `sm` breakpoint is unchanged. */
+@media (max-width: 39.99rem) {
+  main [data-slot="button"],
+  main [data-slot="tabs-trigger"] {
+    min-height: 2.75rem;
+  }
+}
+
 /* Import findings dialog: status lines after the how-to steps read as
    callouts instead of bare paragraphs. */
 [data-slot="cli-import-steps"] ~ p {

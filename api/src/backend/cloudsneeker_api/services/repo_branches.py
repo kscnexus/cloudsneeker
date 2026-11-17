@@ -168,12 +168,19 @@ def list_repository_branches(
         RepositoryBranchError: The repository could not be reached or read;
             the message never carries a token.
     """
-    from cloudsneeker_api.services.trivy import _repo_credentials, repo_ssh_args
+    from cloudsneeker_api.services.trivy import (
+        TrivyHubError,
+        _repo_credentials,
+        repo_ssh_args,
+    )
 
     url = str(repository_url or "").strip()
     if not url:
         raise RepositoryBranchError("The source has no repository URL.")
-    token, username = _repo_credentials(provider)
+    try:
+        token, username = _repo_credentials(provider)
+    except TrivyHubError as exc:
+        raise RepositoryBranchError(str(exc)) from None
     auth_url = authenticated_clone_url(url, token or None, username)
     secrets = tuple(item for item in (auth_url, token) if item and item != url)
     try:

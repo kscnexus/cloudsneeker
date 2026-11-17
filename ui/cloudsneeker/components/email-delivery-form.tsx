@@ -8,6 +8,7 @@ import {
   testEmailDeliveryConfig,
   type EmailDeliveryConfigResource,
 } from "@/cloudsneeker/actions/email-delivery";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button";
 import { Button, Input, Label } from "@/components/shadcn";
 import { useToast } from "@/components/shadcn/toast/use-toast";
 
@@ -120,7 +121,8 @@ export const EmailDeliveryForm = ({ initial }: EmailDeliveryFormProps) => {
       setPassword("");
       toast({
         title: "SMTP settings removed",
-        description: "Alert emails will not send until you configure SMTP again.",
+        description:
+          "Alert emails will not send until you configure SMTP again.",
       });
     } finally {
       setIsDeleting(false);
@@ -129,6 +131,7 @@ export const EmailDeliveryForm = ({ initial }: EmailDeliveryFormProps) => {
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
+      <IntegrationSetupGuideButton integration="email" className="self-start" />
       <div className="flex items-center gap-2">
         <input
           id="email-enabled"

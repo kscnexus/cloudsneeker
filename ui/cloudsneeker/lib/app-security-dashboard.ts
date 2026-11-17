@@ -4,6 +4,10 @@
 
 import { appSecurityHref } from "@/cloudsneeker/routes";
 import {
+  APPSEC_CATEGORY,
+  type AppSecCategory,
+} from "@/cloudsneeker/types/appsec";
+import {
   TRIVY_MODE,
   TRIVY_RUN_STATUS,
   type TrivyMode,
@@ -31,7 +35,7 @@ export const APP_SECURITY_CATEGORY_PARAM = "category";
 /** Scanner name a target needs to count under Secrets. */
 const SECRET_SCANNER = "secret";
 
-/** Scanner name a repository or archive needs to count under IaC. */
+/** Scanner name a repository or archive needs to count under Misconfigurations. */
 const MISCONFIG_SCANNER = "misconfig";
 
 /** Scanners a target runs when its config does not list any (API default). */
@@ -44,6 +48,9 @@ export interface AppSecurityCategoryDefinition {
   modes: readonly TrivyMode[];
   /** Only targets that run this scanner belong to the category. */
   scanner?: string;
+  /** Finding categories the area counts; every category when unset (the
+   * target type alone defines the area). */
+  findingCategories?: readonly AppSecCategory[];
 }
 
 export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
@@ -54,12 +61,17 @@ export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
       description:
         "Vulnerable open-source packages in repositories and code archives.",
       modes: [TRIVY_MODE.REPO, TRIVY_MODE.FS],
+      findingCategories: [
+        APPSEC_CATEGORY.VULNERABILITY,
+        APPSEC_CATEGORY.LICENSE,
+      ],
     },
     {
       id: APP_SECURITY_CATEGORY.CODE,
       label: "Code (SAST)",
       description: "Security bugs in your own source code.",
       modes: [TRIVY_MODE.SAST],
+      findingCategories: [APPSEC_CATEGORY.CODE],
     },
     {
       id: APP_SECURITY_CATEGORY.CONTAINERS,
@@ -69,10 +81,12 @@ export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
     },
     {
       id: APP_SECURITY_CATEGORY.IAC,
-      label: "Infrastructure as Code",
-      description: "Misconfigured Terraform, CloudFormation and manifests.",
+      label: "Misconfigurations",
+      description:
+        "Insecure settings in Terraform, CloudFormation, Kubernetes manifests and Dockerfiles.",
       modes: [TRIVY_MODE.IAC, TRIVY_MODE.REPO, TRIVY_MODE.FS],
       scanner: MISCONFIG_SCANNER,
+      findingCategories: [APPSEC_CATEGORY.MISCONFIGURATION],
     },
     {
       id: APP_SECURITY_CATEGORY.SECRETS,
@@ -80,12 +94,17 @@ export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
       description: "Keys, tokens and passwords committed to code or images.",
       modes: [TRIVY_MODE.REPO, TRIVY_MODE.FS, TRIVY_MODE.IAC, TRIVY_MODE.IMAGE],
       scanner: SECRET_SCANNER,
+      findingCategories: [APPSEC_CATEGORY.SECRET],
     },
     {
       id: APP_SECURITY_CATEGORY.SBOM,
       label: "SBOM",
       description: "Known vulnerabilities in the components an SBOM lists.",
       modes: [TRIVY_MODE.SBOM],
+      findingCategories: [
+        APPSEC_CATEGORY.VULNERABILITY,
+        APPSEC_CATEGORY.LICENSE,
+      ],
     },
     {
       id: APP_SECURITY_CATEGORY.KUBERNETES,
@@ -215,7 +234,10 @@ export interface AppSecurityCategorySummary {
   label: string;
   description: string;
   targetCount: number;
-  /** Findings from each matching target's latest completed scan. */
+  /** Matching targets with a completed scan. */
+  scannedTargetCount: number;
+  /** Open findings of the area's own categories on its scanned targets;
+   * `null` when the counts could not be loaded. */
   findingCount: number | null;
   href: string;
 }
@@ -239,7 +261,33 @@ interface AppSecurityDashboardInput {
   runs: TrivyRunResource[];
   /** Total runs reported by the API; defaults to `runs.length`. */
   runTotal?: number | null;
+  /** Open findings per target, then per category (license notices left
+   * out); `null` or absent when they could not be loaded. */
+  findingCounts?: TargetCategoryCounts | null;
 }
+
+/** Open findings per target id, then per finding category. */
+export type TargetCategoryCounts = Record<
+  string,
+  Partial<Record<AppSecCategory, number>>
+>;
+
+/** Findings of the area's categories over the given targets. */
+export const countAreaFindings = (
+  definition: AppSecurityCategoryDefinition,
+  targetIds: string[],
+  counts: TargetCategoryCounts,
+): number => {
+  let total = 0;
+  for (const targetId of targetIds) {
+    const byCategory = counts[targetId] ?? {};
+    const categories =
+      definition.findingCategories ??
+      (Object.keys(byCategory) as AppSecCategory[]);
+    for (const category of categories) total += byCategory[category] ?? 0;
+  }
+  return total;
+};
 
 const sumFindings = (runs: TrivyRunResource[]): number | null => {
   let total: number | null = null;
@@ -254,6 +302,7 @@ export const buildAppSecurityDashboard = ({
   targets,
   runs,
   runTotal,
+  findingCounts,
 }: AppSecurityDashboardInput): AppSecurityDashboard => {
   const targetIds = new Set(targets.map((target) => target.id));
   const latestByTarget = latestCompletedRunByTarget(runs);
@@ -277,15 +326,20 @@ export const buildAppSecurityDashboard = ({
     const matching = targets.filter((target) =>
       targetMatchesCategory(target, definition.id),
     );
-    const matchingRuns = matching
-      .map((target) => latestByTarget.get(target.id))
-      .filter((run): run is TrivyRunResource => Boolean(run));
+    // A run's own count covers every category, so it cannot say what one
+    // area holds; the per-category counts can.
+    const scannedIds = matching
+      .map((target) => target.id)
+      .filter((targetId) => latestByTarget.has(targetId));
     return {
       id: definition.id,
       label: definition.label,
       description: definition.description,
       targetCount: matching.length,
-      findingCount: sumFindings(matchingRuns),
+      scannedTargetCount: scannedIds.length,
+      findingCount: findingCounts
+        ? countAreaFindings(definition, scannedIds, findingCounts)
+        : null,
       href: appSecurityCategoryHref(definition.id),
     };
   });

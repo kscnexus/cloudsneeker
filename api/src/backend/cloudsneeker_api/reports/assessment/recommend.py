@@ -61,7 +61,7 @@ _PLACEHOLDER = re.compile(r"<[A-Z][A-Z0-9_]*>")
 SUGGESTED_OWNERS: dict[str, str] = {
     CATEGORY_CLOUD_CONFIG: "Cloud platform team",
     CATEGORY_VULNERABILITY: "Owning application team",
-    CATEGORY_MISCONFIGURATION: "Infrastructure-as-code owners",
+    CATEGORY_MISCONFIGURATION: "Configuration owners",
     CATEGORY_SECRET: "Owning application team with security",
     CATEGORY_LICENSE: "Engineering lead with legal",
     CATEGORY_CODE: "Owning application team",
@@ -133,7 +133,7 @@ POTENTIAL_IMPACT: dict[str, str] = {
 
 PREVENTION: dict[str, list[str]] = {
     CATEGORY_CLOUD_CONFIG: [
-        "Define the resource in infrastructure as code with the secure setting.",
+        "Set the secure value in the template or manifest that defines the resource.",
         "Enforce the setting with an organization-level guardrail where the "
         "provider supports one.",
         "Keep a daily scheduled scan and alert on new critical or high results.",

@@ -42,6 +42,9 @@ export type ProductRoute = (typeof PRODUCT_ROUTE)[keyof typeof PRODUCT_ROUTE];
 /** Bitbucket workspace import, beside the other integrations. */
 export const BITBUCKET_IMPORT_ROUTE = "/integrations/bitbucket";
 
+/** Repository picker for a GitHub connection, beside the other integrations. */
+export const GITHUB_REPOSITORIES_ROUTE = "/integrations/github";
+
 // Earlier releases served these areas under engine-named paths. They redirect
 // to the product route with the same sub-path and query.
 export const LEGACY_PRODUCT_ROUTE = {

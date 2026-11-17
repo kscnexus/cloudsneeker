@@ -57,46 +57,8 @@ def _mute_rule_changed(sender, instance, using=None, **kwargs):
     _on_commit(_sync, using=using, robust=True)
 
 
-def _provider_secret_saved(sender, instance, using=None, **kwargs):
-    # A GitHub connection's new token is copied to the repositories imported
-    # from it (services/github_source.py). After commit, robust, so a failure
-    # never breaks the credentials API.
-    provider_id = instance.provider_id
-    tenant_id = str(instance.tenant_id)
-
-    def _sync():
-        import logging
-
-        from api.db_utils import rls_transaction
-        from api.models import Provider
-        from cloudsneeker_api.services.github_source import sync_managed_secrets
-
-        with rls_transaction(tenant_id):
-            connection = (
-                Provider.objects.filter(id=provider_id, provider="github")
-                .select_related("secret")
-                .first()
-            )
-            if connection is None:
-                return
-            try:
-                sync_managed_secrets(connection)
-            except Exception:  # noqa: BLE001
-                logging.getLogger(__name__).exception(
-                    "Repository secrets not refreshed for %s", provider_id
-                )
-
-    _on_commit(_sync, using=using, robust=True)
-
-
 def connect() -> None:
-    from api.models import Invitation, MuteRule, ProviderSecret, User
-
-    post_save.connect(
-        _provider_secret_saved,
-        sender=ProviderSecret,
-        dispatch_uid="cloudsneeker_api.github_connection_secret_sync",
-    )
+    from api.models import Invitation, MuteRule, User
 
     post_save.connect(
         _mute_rule_changed,

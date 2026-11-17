@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Control, useForm } from "react-hook-form";
 
 import { createIntegration, updateIntegration } from "@/actions/integrations";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button"; // cloudsneeker-hook
 import {
   PROVIDER_TYPE_DATA,
   ProviderTypeIcon,
@@ -564,6 +565,8 @@ export const SecurityHubIntegrationForm = ({
             >
               Read the docs
             </CustomLink>
+            {/* cloudsneeker-hook: in-app setup guide */}
+            <IntegrationSetupGuideButton integration="security-hub" />
           </div>
           {renderStepContent()}
         </div>

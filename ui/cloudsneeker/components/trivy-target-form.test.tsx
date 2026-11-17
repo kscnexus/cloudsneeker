@@ -92,7 +92,7 @@ describe("TrivyTargetForm", { timeout: 20_000 }, () => {
     expect(screen.getByLabelText("Mode")).toHaveValue("repo");
     for (const label of [
       "Vulnerabilities",
-      "Misconfigurations (IaC)",
+      "Misconfigurations",
       "Secrets",
       "Licenses",
     ]) {

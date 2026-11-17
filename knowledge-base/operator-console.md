@@ -135,8 +135,22 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   schedules, assistant, finding triage, audit log, integrations, SAML, API
   keys, and any API-key request without `api_access`); `plan_limit_reached`
   on create of providers, invitations (members plus pending invitations count
-  against users), application security targets and report schedules. All are
-  JSON:API 403 errors with `meta`.
+  against users), application security targets and report schedules, and on
+  the two monthly allowances (EB-080): a scan start (`POST /scans`,
+  `POST /trivy-targets/<id>/scan`) once `scans_per_month` is used, and an
+  assistant request (`POST /seeker-ai/requests`) once
+  `seeker_ai_requests_per_month` is used. Usage is the count since the first
+  instant of the current UTC month, the same number the usage bars show; a
+  limit of none is never refused. All are JSON:API 403 errors with `meta`
+  (`limit`, `max`, `usage` for limits).
+* Assistant requests: the chat runs in the web app, so its route
+  (`ui/app/api/lighthouse/analyst/route.ts`, hook) calls
+  `POST /api/v1/seeker-ai/requests` before each chat request
+  (`views_seeker_ai.py`). A 201 is written to the audit log as
+  `seeker_ai.request`, and the monthly count is the number of those
+  successful events; there is no other counter. A 403 is shown in the chat
+  as an error and the model is not called. Any other answer lets the chat
+  run (fail open).
 * Operator API (`CLOUDSNEEKER_OPERATOR_ENABLED=false` turns it off; non
   operators and API keys get 404): `operator/me`, `operator/tenants` (filters
   search, status, plan, expiring_within_days, over_limit; `meta.summary`),
@@ -173,6 +187,42 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   revoked), they are the tenant's only member, and their email matches the
   invitation. Every other invitation, including upstream flows that accept
   into an empty tenant, keeps the member role.
+* User password reset (`services/password_reset.py`):
+  `POST operator/tenants/{tenant_id}/users/{user_id}/password-reset`
+  (`owner` or `support`; capability `reset_passwords` in `operator/me`).
+  The user must be a member of that tenant (404 otherwise). The API
+  generates a random 20-character temporary password that passes
+  `AUTH_PASSWORD_VALIDATORS`, saves only its hash with `set_password`, and
+  returns it once in `meta.temporary_password` with `Cache-Control:
+  no-store`. It is never logged or stored in clear text. The reset also
+  blacklists every outstanding refresh token of the user (simplejwt
+  `token_blacklist`), so no session can refresh, and clears the per-account
+  sign-in lockout (`login_guard.clear_failures`, `cloudsneeker-shared`
+  cache; a cache outage does not stop the reset and the response says
+  `lockout_cleared: false`). It writes `user.password_reset` to the operator
+  audit log (`changed_fields: ["password"]`, revoked session count, method;
+  no email and no secret) and `operator.password_reset` to the customer's
+  audit log. The operator's own account and accounts of active platform
+  operators answer 409, so an operator cannot take over another operator's
+  role. Non-operators, including tenant admins, get 404 like every other
+  operator route (the console does not advertise itself); operators with
+  the `billing` or `read_only` role get 403. UI: a "Reset password" button
+  on each member of `/operator/customers/[tenantId]` (hidden for the
+  operator's own row and for roles without the capability) opens a
+  confirmation dialog, then shows the temporary password once; closing the
+  dialog discards it.
+  Why a temporary password and not a reset link: there is no password-reset
+  token flow in the codebase, and email delivery (`EmailDeliveryConfig`) is
+  configured per tenant for alerts, not for platform mail. The operator
+  sends the password over a trusted channel.
+  Limits: access tokens already issued stay valid until they expire
+  (`DJANGO_ACCESS_TOKEN_LIFETIME`, 30 minutes by default); with
+  `CLOUDSNEEKER_REFRESH_GRACE_SECONDS` a refresh that ran in the last 60
+  seconds can be replayed from the cache within that window. The user is
+  not forced to change the temporary password at next sign-in (no such flag
+  exists on the upstream `User`); they change it from their profile. The
+  password applies to every organization the user belongs to, and MFA
+  enrolment is kept.
 * Daily task `cloudsneeker-operator-daily` (Celery beat, registered by the
   migration): expires subscriptions whose `ends_at` (or trial end) passed and
   writes one `UsageSnapshot` per tenant and day.
@@ -181,13 +231,18 @@ task definition runs `list`, `revoke` and other `manage.py` commands.
   (organization, admin email, plan, status, dates; shows the invitation link
   on success), `/operator/customers/[tenantId]` (administrator invitation
   card with a new-link form while nobody has joined, subscription editor
-  with feature toggles and limit overrides, usage bars, daily usage, members,
-  recent scans, history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
+  with feature toggles and limit overrides, usage bars, daily usage, members
+  with a password reset action, recent scans, history), `/operator/plans`, `/operator/audit`. Tenant app: sidebar hides
   features outside the plan, a banner for read-only subscriptions and plans
   ending within 7 days, and a plan card on the profile page.
 
-Known gaps: assistant requests are not counted yet (reported as not
-tracked); scans per month and assistant requests are shown but not enforced;
+Known gaps: scheduled scans started by Celery beat count towards
+`scans_per_month` but are not stopped at the limit (only API scan starts are
+refused); the limit check and the record are two steps, so parallel requests
+can pass the limit by a few; assistant requests are counted from audit
+events, so `AUDIT_LOG_RETENTION_DAYS` below 31 undercounts them; the hosted
+chat (sessions API, cloud builds only) and server-side AI features (policy
+drafting, report narrative) are not metered;
 SAST is a feature key but application security targets are gated as a whole;
 the entitlement cache is per process (no shared cache is configured); no
 MFA or IP allow-list on the operator routes yet (WAF rule and EB-008 below);

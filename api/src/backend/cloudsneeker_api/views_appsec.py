@@ -1442,7 +1442,7 @@ class AppSecPlatformViewSet(AppSecViewSet):
                 "provider_id",
                 str,
                 required=True,
-                description="Code repository (IaC) source to list branches of.",
+                description="Code repository source to list branches of.",
             )
         ],
         responses={

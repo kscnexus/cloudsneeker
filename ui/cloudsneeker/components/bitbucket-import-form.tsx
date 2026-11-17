@@ -7,6 +7,7 @@ import {
   importBitbucketRepositories,
   listBitbucketRepositories,
 } from "@/cloudsneeker/actions/bitbucket";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button";
 import {
   BITBUCKET_IMPORT_BATCH_SIZE,
   chunk,
@@ -263,6 +264,10 @@ export const BitbucketImportForm = () => {
 
   return (
     <div className="flex flex-col gap-6">
+      <IntegrationSetupGuideButton
+        integration="bitbucket"
+        className="self-start"
+      />
       <div
         className="flex flex-wrap gap-2"
         role="group"
@@ -620,7 +625,7 @@ export const BitbucketImportForm = () => {
       {resultList.length > 0 && !isImporting && (
         <Alert variant={problemCount > 0 ? "warning" : "success"}>
           <AlertDescription>
-            {addedCount} added as Infrastructure as Code providers.
+            {addedCount} added as Code Repository providers.
             {problemCount > 0 && ` ${problemCount} not added; see the status.`}
             {addedCount > 0 && (
               <>

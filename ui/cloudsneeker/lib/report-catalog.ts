@@ -62,7 +62,7 @@ const REPORT_COPY: Record<
       "Vulnerabilities, exposed secrets, and misconfigurations in images and Kubernetes workloads.",
   },
   [REPORT_TYPE_ID.IAC]: {
-    title: "Infrastructure as Code",
+    title: "Misconfigurations",
     description:
       "Misconfigurations caught in templates before they reach production.",
   },

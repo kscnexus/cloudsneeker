@@ -19,10 +19,7 @@ import { RepositoryBranchField } from "@/cloudsneeker/components/repository-bran
 import { SbomSourceFields } from "@/cloudsneeker/components/sbom-source-fields";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
 import { SourcePicker } from "@/cloudsneeker/components/source-picker";
-import type {
-  SourceConnectionOption,
-  SourceOption,
-} from "@/cloudsneeker/lib/source-options";
+import type { SourceOption } from "@/cloudsneeker/lib/source-options";
 import {
   buildTrivyConfig,
   CODE_ARCHIVE_ACCEPT,
@@ -87,8 +84,6 @@ interface SelectOption {
 
 interface TrivyTargetFormProps {
   providers: ProviderOption[];
-  /** GitHub connections; their repositories are grouped under them. */
-  connections?: SourceConnectionOption[];
   /** Scan profiles to choose from (`value` is the profile reference). */
   profiles?: SelectOption[];
   /** Applications the target can belong to. */
@@ -116,7 +111,6 @@ const providersForMode = (
 
 export const TrivyTargetForm = ({
   providers,
-  connections = [],
   initialValues,
   targetId,
   defaultProviderId,
@@ -387,7 +381,7 @@ export const TrivyTargetForm = ({
           label="Provider"
           help={
             requiredTypes.length > 0
-              ? `Requires a ${requiredTypes.map(labelForProviderType).join(" / ")} source. Repositories of a GitHub connection are listed under it; import more under Code sources.`
+              ? `Requires a ${requiredTypes.map(labelForProviderType).join(" / ")} source. Repositories are listed under the GitHub connection of their owner; add more under Integrations, GitHub.`
               : "Findings attach to the selected provider account."
           }
           error={errors.providerId?.message}
@@ -395,7 +389,7 @@ export const TrivyTargetForm = ({
           <SourcePicker
             id="trivy-provider"
             sources={filteredProviders}
-            connections={connections}
+            context={providers}
             emptyLabel="No matching providers"
             {...form.register("providerId")}
           />

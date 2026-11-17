@@ -167,6 +167,9 @@ export interface AppSecFindingsSummary {
   active: number;
   by_severity: Record<string, number>;
   by_category: Record<string, number>;
+  /** Open findings per target id, then per category; license findings only
+   * when forbidden or restricted. */
+  by_target_category?: Record<string, Partial<Record<AppSecCategory, number>>>;
   by_priority: Record<string, number>;
   by_state: Record<string, number>;
   by_triage_status: Record<string, number>;
@@ -528,31 +531,4 @@ export interface AppSecSettings {
   retention: AppSecRetention;
   default_profiles: Record<string, string>;
   updated_at: string | null;
-}
-
-/** A GitHub connection that code repository sources can be imported from. */
-export interface SourceConnectionAttributes {
-  provider: string;
-  uid: string;
-  alias?: string | null;
-  repository_count: number;
-  /** Code repository sources (provider ids) imported from it. */
-  repository_ids: string[];
-}
-
-/** A repository a connection can read. */
-export interface SourceRepositoryAttributes {
-  full_name: string;
-  clone_url: string;
-  ssh_url: string;
-  private: boolean;
-  archived: boolean;
-  default_branch: string;
-  already_added: boolean;
-}
-
-export interface SourceImportResult {
-  created: string[];
-  linked: string[];
-  skipped: string[];
 }

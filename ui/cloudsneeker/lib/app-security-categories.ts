@@ -37,8 +37,8 @@ export const SECURITY_CATEGORY_INFO: Record<
     description: "Credentials, keys and tokens committed to source.",
   },
   [SECURITY_CATEGORY.IAC]: {
-    label: "Infrastructure as code (IaC)",
-    short: "IaC",
+    label: "Misconfigurations",
+    short: "Misconfig",
     description: "Insecure Terraform, CloudFormation and Kubernetes settings.",
   },
   [SECURITY_CATEGORY.CONTAINER]: {

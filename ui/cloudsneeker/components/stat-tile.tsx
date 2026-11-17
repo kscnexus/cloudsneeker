@@ -73,7 +73,7 @@ export const StatTile = ({
         aria-hidden="true"
         className={cn("absolute inset-y-0 left-0 w-1", TONE_ACCENT_CLASS[tone])}
       />
-      <div className="flex h-full flex-col gap-1 py-4 pr-4 pl-5">
+      <div className="flex h-full flex-col gap-1 py-3 pr-3 pl-4 sm:py-4 sm:pr-4 sm:pl-5">
         <div className="flex items-center justify-between gap-2">
           <span className="text-text-neutral-secondary text-xs font-medium tracking-wide uppercase">
             {label}

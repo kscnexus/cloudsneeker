@@ -113,6 +113,7 @@ RESOURCE_NAMESPACES = {
     "report-schedules": "report_schedule",
     "report-share-links": "report.share_link",
     "finding-triages": "finding_triage",
+    "seeker-ai-requests": "seeker_ai",
 }
 
 # URL names of non-router views -> (namespace, verb by HTTP method or None).
@@ -154,6 +155,8 @@ ACTION_OVERRIDES = {
     ("integration", "connection"): "integration.connection_test",
     ("provider", "connection"): "provider.connection_test",
     ("integration", "dispatches"): "integration.jira_dispatch",
+    # Counted against the monthly assistant allowance (``entitlements``).
+    ("seeker_ai", "create"): "seeker_ai.request",
 }
 
 # Target type recorded for each namespace (defaults to the namespace).

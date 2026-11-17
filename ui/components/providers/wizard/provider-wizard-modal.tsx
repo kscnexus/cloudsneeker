@@ -2,6 +2,7 @@
 
 import { ExternalLink, Info, Loader2 } from "lucide-react";
 
+import { ProviderSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button"; // cloudsneeker-hook
 import { showDocumentationLinks } from "@/cloudsneeker/docs-links"; // cloudsneeker-hook
 import { AzureOrgSetupForm } from "@/components/providers/organizations/azure-org-setup-form";
 import { GcpOrgSetupForm } from "@/components/providers/organizations/gcp-org-setup-form";
@@ -122,11 +123,21 @@ export function ProviderWizardModal({
         <DialogTitle className="text-lg font-semibold">
           {modalTitle}
         </DialogTitle>
+        {/* cloudsneeker-hook: in-app credential setup guide */}
+        <ProviderSetupGuideButton
+          providerType={providerTypeHint}
+          className="self-start"
+        />
         {showDocumentationLinks() && (
           <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
             <Info className="size-4 shrink-0" />
             <span>For assistance connecting a Provider visit</span>
-            <Button variant="link" size="link-sm" className="h-auto p-0" asChild>
+            <Button
+              variant="link"
+              size="link-sm"
+              className="h-auto p-0"
+              asChild
+            >
               <a href={docsLink} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="size-3.5 shrink-0" />
                 <span>{`${docsDestination} Documentation`}</span>

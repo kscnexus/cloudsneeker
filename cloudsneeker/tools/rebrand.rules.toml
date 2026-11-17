@@ -228,3 +228,31 @@ pattern = '"prowler_(?!mcp_server)'
 replacement = '"{slug}_'
 include = ["mcp_server/**/*.py"]
 optional = true
+
+# The `iac` provider is a connected Git repository scanned for dependencies,
+# source code, secrets, SBOMs and templates, so its display name is
+# "Code Repository". The provider key stays `iac`. The files below hold the
+# label and the maps keyed by it, so they must be rewritten together.
+# Cloudsneeker-owned files call the scan category "Misconfigurations"
+# (reports, dashboards), not "Infrastructure as Code".
+[[rule]]
+id = "iac-provider-help-copy"
+pattern = 'Infrastructure as Code repository'
+replacement = "code repository"
+include = ["ui/lib/external-urls.ts"]
+optional = true
+
+[[rule]]
+id = "iac-provider-display-name"
+pattern = 'Infrastructure as Code'
+replacement = "Code Repository"
+include = [
+  "ui/types/providers.ts",
+  "ui/lib/charts/colors.ts",
+  "ui/components/graphs/scatter-plot.tsx",
+  "ui/components/icons/providers-badge/index.ts",
+  "ui/components/icons/providers-badge/provider-type-icon.tsx",
+  "ui/components/shadcn/entities/get-provider-logo.tsx",
+  "ui/components/filters/custom-provider-inputs.tsx",
+  "ui/app/**/query-builder/_lib/node-visuals.ts",
+]

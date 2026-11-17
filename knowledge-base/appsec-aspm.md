@@ -117,7 +117,6 @@ All under `/api/v1/`. The plan feature `application_security` gates every `appse
 | `appsec/capabilities` | GET | Target, scanner and option matrix; coverage |
 | `appsec/engine` | GET | Engine version, vulnerability data, limits, queue, failures |
 | `appsec/settings` | GET, PATCH | Risk, deadlines, retention, default profiles |
-| `appsec-source-connections`, `/{id}/repositories`, `/{id}/import` | GET, POST | GitHub connections as code sources (see Code sources) |
 | `trivy-targets/{id}/merge` | POST | Fold duplicate targets of the same source into this one |
 | `appsec/repository-branches?provider_id=` | GET | Branches of a code repository source, default first (`manage_scans`; 502 when the repository cannot be read) |
 | `appsec-applications` | GET, POST, PATCH, DELETE | Application inventory (`target_ids` assigns assets) |
@@ -173,17 +172,14 @@ A code repository target runs static analysis in the same run when `config.sast`
 
 The target page lists the candidates under **Duplicate targets of this repository**.
 
-### Code sources from a GitHub connection
+### Source picker
 
-A GitHub provider (the posture connection) is also the source of code repositories (`services/github_source.py`, page **Scan setup → Code sources**):
+Every create form (Application Security targets, governance policies) picks its source with the same grouped picker (`ui/cloudsneeker/components/source-picker.tsx`, grouping in `ui/cloudsneeker/lib/source-options.ts`):
 
-* `GET /appsec-source-connections` lists GitHub connections with the repositories imported from each.
-* `GET /appsec-source-connections/{id}/repositories` lists the repositories the connection can read (token: `/user/repos`; GitHub App: an installation token, `/installation/repositories`). Needs `manage_providers`.
-* `POST /appsec-source-connections/{id}/import` with `clone_urls` creates an IaC provider per repository and links it (`RepositoryConnection`). A repository already added is linked instead.
-* A token connection's token is copied to the repository's own secret (so upstream paths that read provider secrets work) and the copy is refreshed when the connection's secret changes (`signals._provider_secret_saved`). A GitHub App token expires within the hour, so it is never copied: `trivy._repo_credentials` mints one when the repository has no token of its own.
-* Every create form picks its source with the same grouped picker (`components/source-picker.tsx`): repositories under the GitHub connection they came from, the rest by type.
+* A code repository source at `https://github.com/<owner>/...` is listed under the GitHub connection whose uid is `<owner>`. This is the same rule the API uses to lend it that connection's credentials (`github_connection.github_owner`).
+* The other code repositories, then every other provider type, each get a group of their own.
 
-Not done: GitHub Enterprise Server hosts (the GitHub provider has no host field), and grouping imported repositories under their connection on the upstream Providers page.
+Repositories of a GitHub connection are listed and added on **Integrations → GitHub** (`views_github.py`, `services/github_repositories.py`).
 
 ## UI
 

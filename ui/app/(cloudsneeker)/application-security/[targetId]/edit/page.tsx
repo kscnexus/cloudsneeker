@@ -6,10 +6,7 @@ import { listAppSecApplications } from "@/cloudsneeker/actions/appsec";
 import { getTrivyTarget } from "@/cloudsneeker/actions/trivy";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
-import {
-  loadProfileOptions,
-  loadSourceConnections,
-} from "@/cloudsneeker/lib/appsec-server";
+import { loadProfileOptions } from "@/cloudsneeker/lib/appsec-server";
 import { responseList } from "@/cloudsneeker/lib/findings-links";
 import { sourceOption } from "@/cloudsneeker/lib/source-options";
 import {
@@ -58,13 +55,13 @@ export default async function EditTrivyTargetPage({
   // Repository targets keep their static analysis settings under `sast`.
   const rules =
     target.attributes.mode === TRIVY_MODE.SAST ? config : (config.sast ?? {});
-  const [providersResponse, profiles, applicationsResponse, connections] =
-    await Promise.all([
+  const [providersResponse, profiles, applicationsResponse] = await Promise.all(
+    [
       getProviders({ pageSize: 100 }),
       loadProfileOptions(),
       listAppSecApplications({ "page[size]": "100" }),
-      loadSourceConnections(),
-    ]);
+    ],
+  );
   const applications = responseList<
     AppSecResource<AppSecApplicationAttributes>
   >(applicationsResponse).map((application) => ({
@@ -123,7 +120,6 @@ export default async function EditTrivyTargetPage({
       <PageHeader description="Changes apply from the next scan. Earlier scan results stay as they were." />
       <TrivyTargetForm
         providers={providers}
-        connections={connections}
         profiles={profiles.map((item) => ({
           value: item.ref,
           label: item.name,

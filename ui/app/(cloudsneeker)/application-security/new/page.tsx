@@ -6,10 +6,7 @@ import { BRAND } from "@/cloudsneeker/brand";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
 import { APP_SECURITY_PROVIDER_PARAM } from "@/cloudsneeker/lib/app-security-dashboard";
-import {
-  loadProfileOptions,
-  loadSourceConnections,
-} from "@/cloudsneeker/lib/appsec-server";
+import { loadProfileOptions } from "@/cloudsneeker/lib/appsec-server";
 import { responseList } from "@/cloudsneeker/lib/findings-links";
 import { sourceOption } from "@/cloudsneeker/lib/source-options";
 import type {
@@ -27,13 +24,13 @@ export default async function NewTrivyTargetPage({
   searchParams,
 }: NewTrivyTargetPageProps) {
   const requestedProvider = (await searchParams)[APP_SECURITY_PROVIDER_PARAM];
-  const [providersResponse, profiles, applicationsResponse, connections] =
-    await Promise.all([
+  const [providersResponse, profiles, applicationsResponse] = await Promise.all(
+    [
       getProviders({ pageSize: 100 }),
       loadProfileOptions(),
       listAppSecApplications({ "page[size]": "100" }),
-      loadSourceConnections(),
-    ]);
+    ],
+  );
   const applications = responseList<
     AppSecResource<AppSecApplicationAttributes>
   >(applicationsResponse).map((application) => ({
@@ -50,7 +47,6 @@ export default async function NewTrivyTargetPage({
       <PageHeader description="Pick what to scan and the connected source it reads. Findings land in Findings with the rest of your results." />
       <TrivyTargetForm
         providers={providers}
-        connections={connections}
         profiles={profiles.map((item) => ({
           value: item.ref,
           label: item.name,

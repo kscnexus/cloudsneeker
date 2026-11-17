@@ -59,7 +59,7 @@ Tailwind's 4px scale. Defaults:
 
 - Page content: `ContentLayout` (`py-4`, navbar above). Sections stack with `gap-6`.
 - Section card: header `px-4 py-3 sm:px-5`, body `p-4 sm:p-5`, `gap-3` between items.
-- KPI rows: `grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4`.
+- KPI rows: `grid grid-cols-2 gap-3 lg:grid-cols-4` (two per row on phones, one row of four once the content area is 64rem wide). Breakpoints follow the content area, not the window: with the sidebar open a 1440px window is the `lg` tier, so `xl:` only applies on very wide screens. At most six `StatTile`s above a list; further numbers go in one `StatStrip`.
 - Table cells: `px-3 py-2` (Cloudsneeker tables), `0.625rem` vertical (upstream tables via CSS).
 - Forms: one column, `max-w-3xl`, `gap-6` between sections, `gap-1.5` label to control.
 
@@ -83,8 +83,9 @@ Use these instead of building a new variant:
 | Page intro, record facts, page actions | `PageHeader` (`description`, `meta`, `actions`) |
 | Labelled block on a page | `SectionCard` |
 | KPI | `StatTile` (tone, link, selected) |
+| Supporting numbers under the KPIs | `StatStrip` (one compact row; items can link) |
 | Severity proportion + drill-down | `SeverityBreakdown` |
-| Nothing to show | `EmptyState` (icon, title, one-line description, optional action) |
+| Nothing to show | `EmptyState` (icon, title, one-line description, optional action). Inside a `SectionCard` it drops its dashed frame, so there is never a box in a box. |
 | Error from an action or a load | `FormAlert` (`role="alert"`) |
 | Form layout | `FormField`, `FormChoiceGroup`, `FormActions` (`form-layout.tsx`) |
 | Run / job state | `RunStatusBadge` |
@@ -93,7 +94,9 @@ Use these instead of building a new variant:
 | Detail of a row | Side sheet (`components/shadcn/sheet`), not a new route |
 | Buttons, inputs, selects, dialogs, tabs, tooltips, badges | `components/shadcn/*` |
 
-Buttons: `default` (primary, one per view), `outline` (secondary), `ghost` (tertiary, toolbar), `destructive` (with a confirmation dialog). Sizes `sm` in headers and tables, `default` in forms.
+Tabs: `ProductPageTabs` puts page actions on the tab row, right-aligned (stacked under the tabs on phones). `SectionCard` actions stay beside the title and description.
+
+Buttons: `default` (primary, one per view; repeated card actions such as the report catalog use `outline`), `outline` (secondary), `ghost` (tertiary, toolbar), `destructive` (with a confirmation dialog). Sizes `sm` in headers and tables, `default` in forms.
 
 ## Patterns
 
@@ -117,7 +120,8 @@ Buttons: `default` (primary, one per view), `outline` (secondary), `ghost` (tert
 - Sidebar is fixed from 64rem (`lg`); below, the mobile sheet sidebar.
 - Tables scroll inside their own frame; the page never scrolls sideways.
 - Dialogs fit 375px (`max-height: calc(100dvh - 2rem)`, inner scroll) and button rows wrap.
-- KPI grids go 1 -> 2 -> 4 columns (`sm`, `xl`); `PageHeader` actions wrap under the description on phones.
+- KPI grids go 2 -> 4 columns (`lg`); `PageHeader` actions wrap under the description on phones.
+- Below `sm`, buttons and tabs in the page content are at least 44px tall (`theme.css`).
 
 ## Not covered yet
 

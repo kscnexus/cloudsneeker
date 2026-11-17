@@ -12,7 +12,7 @@ export default function BitbucketImportPage() {
 
   return (
     <ContentLayout title="Bitbucket">
-      <PageHeader description="List the repositories one token can read and add the ones you pick as Infrastructure as Code providers. Each provider keeps the token as its credentials, so private repositories clone during scans. Use a read-only token: Cloudsneeker only clones." />
+      <PageHeader description="List the repositories one token can read and add the ones you pick as Code Repository providers. Each provider keeps the token as its credentials, so private repositories clone during scans. Use a read-only token: Cloudsneeker only clones." />
       <BitbucketImportForm />
     </ContentLayout>
   );

@@ -11,12 +11,12 @@ export const TRIVY_MODE_OPTIONS = [
     value: TRIVY_MODE.REPO,
     label: "Code repository",
     description:
-      "Scan a Git repository for vulnerable dependencies, secrets, Infrastructure as Code misconfigurations and licenses.",
+      "Scan a Git repository for vulnerable dependencies, secrets, misconfigurations and licenses.",
     providerTypes: ["iac"] as const,
   },
   {
     value: TRIVY_MODE.IAC,
-    label: "Infrastructure as Code (repository policies)",
+    label: "Misconfiguration policies (repository)",
     description:
       "Check the Terraform, CloudFormation and Kubernetes files in a repository source against cloud security policies.",
     providerTypes: ["iac"] as const,
@@ -72,7 +72,7 @@ export const TRIVY_SCANNER_OPTIONS = [
   },
   {
     value: TRIVY_SCANNER.MISCONFIG,
-    label: "Misconfigurations (IaC)",
+    label: "Misconfigurations",
     description: "Terraform, CloudFormation, Kubernetes and Dockerfile issues.",
   },
   {

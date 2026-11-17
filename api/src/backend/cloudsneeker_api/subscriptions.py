@@ -10,7 +10,8 @@ and answers with a JSON:API 403 for:
   the user's own profile and password, and the operator API stay open);
 * ``feature_not_in_plan``: a path that belongs to a feature the plan lacks;
 * ``plan_limit_reached``: creating a provider, invitation, application
-  security target or report schedule at the plan limit.
+  security target or report schedule at the plan limit, or starting a scan
+  or an assistant request once the month's allowance is used.
 
 Anything unexpected (bad token, missing tables, database errors) is logged
 and the request continues: the view still authenticates and authorizes.
@@ -66,6 +67,7 @@ FEATURE_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
     ("attack-paths", catalog.FEATURE_ATTACK_PATHS),
     ("compliance-overviews", catalog.FEATURE_COMPLIANCE),
     ("lighthouse", catalog.FEATURE_SEEKER_AI),
+    ("seeker-ai", catalog.FEATURE_SEEKER_AI),
     ("finding-triages", catalog.FEATURE_FINDING_TRIAGE),
     ("audit-events", catalog.FEATURE_AUDIT_LOG),
     ("integrations", catalog.FEATURE_INTEGRATIONS),
@@ -85,6 +87,20 @@ LIMITED_COLLECTIONS = {
     ),
     "report-schedules": (catalog.LIMIT_REPORT_SCHEDULES, "report_schedules"),
 }
+
+# Monthly allowances: POST path -> (limit key, usage key). Usage is the count
+# since the first instant of the current UTC month, the same number the usage
+# bars show.
+SEEKER_AI_REQUESTS_PATH = "seeker-ai/requests"
+METERED_PATHS = {
+    "scans": (catalog.LIMIT_SCANS_PER_MONTH, "scans_this_month"),
+    SEEKER_AI_REQUESTS_PATH: (
+        catalog.LIMIT_SEEKER_AI_REQUESTS_PER_MONTH,
+        "seeker_ai_requests_this_month",
+    ),
+}
+# ``trivy-targets/<id>/scan`` starts a scan too and counts as one.
+TARGET_SCAN_PATH = re.compile(r"^trivy-targets/[^/]+/scan$")
 
 FEATURE_LABELS = {
     catalog.FEATURE_CLOUD_POSTURE: "Cloud posture",
@@ -107,6 +123,8 @@ LIMIT_LABELS = {
     catalog.LIMIT_USERS: "users",
     catalog.LIMIT_APPLICATION_SECURITY_TARGETS: "application security targets",
     catalog.LIMIT_REPORT_SCHEDULES: "report schedules",
+    catalog.LIMIT_SCANS_PER_MONTH: "scans",
+    catalog.LIMIT_SEEKER_AI_REQUESTS_PER_MONTH: "assistant requests",
 }
 
 
@@ -136,6 +154,13 @@ def feature_for_path(path: str) -> str | None:
         if path.startswith(prefix):
             return feature
     return None
+
+
+def metered_limit_for_path(path: str) -> tuple[str, str] | None:
+    """``(limit key, usage key)`` when a POST to ``path`` uses a monthly allowance."""
+    if TARGET_SCAN_PATH.match(path):
+        return METERED_PATHS["scans"]
+    return METERED_PATHS.get(path)
 
 
 def is_exempt(path: str) -> bool:
@@ -264,6 +289,23 @@ def decide(request, path: str, identity: RequestIdentity, entitlements):
                     "Plan limit reached",
                     f"The {entitlements.plan_name} plan allows {limit} {label}; "
                     f"this organization already has {used}.",
+                    {"limit": limit_key, "max": limit, "usage": used},
+                )
+
+    metered = metered_limit_for_path(path) if method == "POST" else None
+    if metered:
+        limit_key, usage_key = metered
+        limit = entitlements.limit(limit_key)
+        if limit is not None:
+            used = service.usage_for_tenant(identity.tenant_id).get(usage_key) or 0
+            if used >= limit:
+                label = LIMIT_LABELS.get(limit_key, limit_key)
+                return error_response(
+                    CODE_PLAN_LIMIT_REACHED,
+                    "Plan limit reached",
+                    f"The {entitlements.plan_name} plan allows {limit} {label} "
+                    f"per month; this organization has used {used} this month. "
+                    "The count resets on the first day of next month.",
                     {"limit": limit_key, "max": limit, "usage": used},
                 )
     return None

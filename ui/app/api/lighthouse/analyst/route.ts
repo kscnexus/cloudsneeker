@@ -3,6 +3,7 @@ import { createUIMessageStreamResponse, UIMessage } from "ai";
 
 import { getTenantConfig } from "@/actions/lighthouse-v1/lighthouse";
 import { auth } from "@/auth.config";
+import { seekerAiAllowanceResponse } from "@/cloudsneeker/lib/seeker-ai-allowance"; // cloudsneeker-hook
 import { getErrorMessage } from "@/lib/helper";
 import {
   CHAIN_OF_THOUGHT_ACTIONS,
@@ -44,6 +45,10 @@ export async function POST(req: Request) {
     if (!session?.accessToken) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // cloudsneeker-hook: count the request against the plan's monthly allowance.
+    const allowanceResponse = await seekerAiAllowanceResponse();
+    if (allowanceResponse) return allowanceResponse;
 
     const accessToken = session.accessToken;
 

@@ -38,7 +38,6 @@ export const APPSEC_SEGMENT = {
   SBOMS: "sboms",
   PROFILES: "profiles",
   SETTINGS: "settings",
-  SOURCES: "sources",
 } as const;
 export type AppSecSegment =
   (typeof APPSEC_SEGMENT)[keyof typeof APPSEC_SEGMENT];

@@ -28,7 +28,7 @@ RULES_DIR_ENV = "OPENGREP_RULES_DIR"
 
 # (id, label, environment variable or package) for each bundled engine.
 ENGINE_ENV = (
-    ("scanner", "Vulnerability and IaC scanner", "TRIVY_VERSION"),
+    ("scanner", "Vulnerability and misconfiguration scanner", "TRIVY_VERSION"),
     ("code_analyzer", "Code analyzer", "CLOUDSNEEKER_OPENGREP_VERSION"),
     ("governance", "Governance engine", "CLOUDSNEEKER_C7N_VERSION"),
     ("workflow_scanner", "CI workflow scanner", "ZIZMOR_VERSION"),

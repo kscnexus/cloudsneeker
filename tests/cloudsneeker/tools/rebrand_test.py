@@ -68,6 +68,31 @@ def tree(tmp_path: Path) -> Path:
         "mcp_server/prowler_mcp_server/x.py",
         'import "prowler_mcp_server.tools"\n',
     )
+    _write(
+        tmp_path,
+        "ui/types/providers.ts",
+        'export const names = { iac: "Infrastructure as Code" };\n',
+    )
+    _write(
+        tmp_path,
+        "ui/components/icons/providers-badge/index.ts",
+        'export const badges = { "Infrastructure as Code": IacProviderBadge };\n',
+    )
+    _write(
+        tmp_path,
+        "ui/app/(prowler)/attack-paths/(workflow)/query-builder/_lib/node-visuals.ts",
+        'const iac = { description: "Infrastructure as Code" };\n',
+    )
+    _write(
+        tmp_path,
+        "ui/lib/external-urls.ts",
+        'const iac = "Need help scanning your Infrastructure as Code repository?";\n',
+    )
+    _write(
+        tmp_path,
+        "ui/app/(cloudsneeker)/reports/catalog.ts",
+        'const title = "Infrastructure as Code";\n',
+    )
     _write(tmp_path, "NOTICE", "Cloudsneeker is derived from Prowler.\n")
     _write(tmp_path, "docs/x.mdx", "Prowler docs\n")
     _write(tmp_path, "api/src/backend/api/migrations/0001.py", 'x = "Prowler"\n')
@@ -157,6 +182,30 @@ class TestRun:
             encoding="utf-8"
         ) == 'import "prowler_mcp_server.tools"\n'
 
+    def test_iac_provider_is_named_code_repository(self, tree: Path):
+        rebrand.run(tree, rebrand.load_rules(RULES, Brand()), apply=True)
+
+        def read(relative: str) -> str:
+            return (tree / relative).read_text(encoding="utf-8")
+
+        # The label and the maps keyed by it change together.
+        assert read("ui/types/providers.ts") == (
+            'export const names = { iac: "Code Repository" };\n'
+        )
+        assert '"Code Repository": IacProviderBadge' in read(
+            "ui/components/icons/providers-badge/index.ts"
+        )
+        assert 'description: "Code Repository"' in read(
+            "ui/app/(prowler)/attack-paths/(workflow)/query-builder/_lib/node-visuals.ts"
+        )
+        assert read("ui/lib/external-urls.ts") == (
+            'const iac = "Need help scanning your code repository?";\n'
+        )
+        # The scan category keeps its name outside the provider files.
+        assert "Infrastructure as Code" in read(
+            "ui/app/(cloudsneeker)/reports/catalog.ts"
+        )
+
     def test_excluded_paths_untouched(self, tree: Path):
         rebrand.run(tree, rebrand.load_rules(RULES, Brand()), apply=True)
 
@@ -209,7 +258,8 @@ class TestMain:
         _write(
             tree,
             "ui/lib/external-urls.ts",
-            "// CloudFormation template URL for the ProwlerScan role.\n",
+            "// CloudFormation template URL for the ProwlerScan role.\n"
+            'const iac = "Need help scanning your Infrastructure as Code repository?";\n',
         )
         _write(
             tree,

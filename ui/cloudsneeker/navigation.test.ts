@@ -527,7 +527,6 @@ describe("withCloudsneekerNavigation area findings", () => {
       "/application-security/sboms",
     ]);
     expect(children("Scan setup")).toEqual([
-      "/application-security/sources",
       "/application-security/profiles",
       "/application-security/settings",
     ]);
