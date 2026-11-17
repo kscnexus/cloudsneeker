@@ -28,7 +28,10 @@ from cloudsneeker_api.appsec.queries import (
 from cloudsneeker_api.models import FindingTriage
 from cloudsneeker_api.models_appsec import AppSecFinding
 from cloudsneeker_api.reports.catalog import REMEDIATION
-from cloudsneeker_api.reports.data.common import max_detail_rows
+from cloudsneeker_api.reports.data.common import (
+    ACTIONABLE_LICENSE_CATEGORIES,
+    max_detail_rows,
+)
 from cloudsneeker_api.reports.schema import ReportData, ReportFilters, ReportTable
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
@@ -93,8 +96,15 @@ def report_period(filters: ReportFilters, now):
 
 
 def scoped_findings(tenant_id: str, filters: ReportFilters) -> QuerySet:
-    """Application findings of the providers in scope, severity floor applied."""
-    queryset = findings_queryset(tenant_id, set(filters.provider_ids) or None)
+    """Application findings of the providers in scope, severity floor applied.
+
+    License findings count only when the license is forbidden or restricted;
+    the others are inventory with nothing to fix.
+    """
+    queryset = findings_queryset(tenant_id, set(filters.provider_ids) or None).filter(
+        ~Q(category=AppSecFinding.Category.LICENSE)
+        | Q(details__license_category__in=ACTIONABLE_LICENSE_CATEGORIES)
+    )
     if filters.severity_floor:
         queryset = queryset.filter(severity__in=filters.severities())
     return queryset

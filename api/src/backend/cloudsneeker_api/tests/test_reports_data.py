@@ -87,6 +87,17 @@ def _finding(
     )
 
 
+def _license(scan, name, category, severity):
+    """A license record as a repository or image scan writes it."""
+    return _finding(
+        scan,
+        name,
+        severity,
+        raw={"Name": name, "Category": category, "PkgName": f"pkg-{name}"},
+        services=["license"],
+    )
+
+
 def _assemble(tenant, report_type, **filters):
     with rls_transaction(str(tenant.id)):
         return assemble_report(str(tenant.id), report_type, ReportFilters(**filters))
@@ -314,6 +325,27 @@ class TestApplicationSecurityReports:
         assert data.kpis["misconfigurations"] == 1
         assert data.kpis["images_in_scope"] == 1
 
+    def test_licenses_stay_out_of_iac_and_container(self, tenants_fixture, provider_factory):
+        tenant = tenants_fixture[0]
+        repo = provider_factory(Provider.ProviderChoices.IAC.value)
+        scan = _trivy(tenant.id, repo, "repo")
+        _finding(scan, "AVD-AWS-0086", "high", raw={"ID": "AVD-AWS-0086"}, services=["config"])
+        _license(scan, "MIT", "notice", "low")
+        _license(scan, "AGPL-3.0", "restricted", "high")
+        image = provider_factory(Provider.ProviderChoices.IMAGE.value)
+        image_scan = _trivy(tenant.id, image, "image")
+        _finding(image_scan, "DS002", "low", raw={"ID": "DS002"})
+        _license(image_scan, "ISC", "notice", "low")
+        _license(image_scan, "GPL-3.0", "restricted", "high")
+
+        iac = _assemble(tenant, "iac")
+        container = _assemble(tenant, "container")
+
+        assert iac.status_totals["fail"] == 1
+        assert iac.top_risks[0]["check_id"] == "AVD-AWS-0086"
+        assert container.kpis["misconfigurations"] == 1
+        assert container.kpis["license_issues"] == 1
+
     def test_sast_reads_sast_mode(self, tenants_fixture, provider_factory):
         tenant = tenants_fixture[0]
         repo = provider_factory(Provider.ProviderChoices.IAC.value)
@@ -487,6 +519,10 @@ class TestGovernanceAndExecutive:
         app = _trivy(tenant.id, repo, "repo")
         _finding(app, "CVE-2024-9", "high", raw={"VulnerabilityID": "CVE-2024-9"})
         _finding(app, "gh-token", "critical", raw={"RuleID": "gh-token"}, services=["secret"])
+        # License notices are inventory, not issues: they must not change the
+        # counts below.
+        _license(app, "MIT", "notice", "low")
+        _license(app, "Apache-2.0", "notice", "low")
         ComplianceOverviewSummary.objects.create(
             tenant_id=tenant.id,
             scan=cloud,

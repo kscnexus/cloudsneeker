@@ -15,6 +15,12 @@ Scan scoping:
   modes, so the latest scan is kept per ``(provider, mode)`` stream; a plain
   engine scan of an IaC or image provider counts as the ``iac`` / ``image``
   stream, the same one a Trivy Hub ``iac`` / ``image`` target feeds.
+
+License findings: a repository scan records every license it sees as a
+finding, most of them notice or permissive (MIT, ISC, Apache-2.0). Only
+forbidden and restricted licenses are issues; ``findings_for`` drops the rest
+so they do not count as open issues, lower the grade, or fill the findings
+tables of other reports. The License report reads them separately.
 """
 
 from __future__ import annotations
@@ -98,6 +104,12 @@ SECRET_Q = (
     | Q(categories__contains=["secrets"])
     | Q(raw_result__has_key="RuleID")
 )
+# License categories that are issues; every other category is inventory.
+ACTIONABLE_LICENSE_CATEGORIES: tuple[str, ...] = ("forbidden", "restricted")
+LICENSE_Q = Q(resource_services__contains=["license"])
+# Shared rows carry no category column; the engine maps forbidden and
+# restricted to critical and high, and every other category below that.
+LICENSE_NOTICE_Q = LICENSE_Q & ~Q(severity__in=["critical", "high"])
 
 FINDING_COLUMNS: list[tuple[str, str]] = [
     ("severity", "Severity"),
@@ -349,6 +361,9 @@ def findings_for(
 ) -> QuerySet:
     """Return findings of the given scans with the severity floor applied.
 
+    License findings that are not forbidden or restricted are left out (see
+    the module docstring).
+
     Args:
         tenant_id: Tenant UUID string.
         scan_ids: Scans to read.
@@ -362,7 +377,7 @@ def findings_for(
     """
     queryset = Finding.all_objects.filter(
         tenant_id=tenant_id, scan_id__in=list(scan_ids)
-    )
+    ).exclude(LICENSE_NOTICE_Q)
     severities = filters.severities()
     if len(severities) < len(SEVERITY_ORDER):
         queryset = queryset.filter(severity__in=severities)
