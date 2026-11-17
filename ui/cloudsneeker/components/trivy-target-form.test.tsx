@@ -89,7 +89,7 @@ describe("TrivyTargetForm", () => {
     expect(screen.getByLabelText("Mode")).toHaveValue("repo");
     for (const label of [
       "Vulnerabilities",
-      "Misconfigurations (IaC)",
+      "Misconfigurations",
       "Secrets",
       "Licenses",
     ]) {

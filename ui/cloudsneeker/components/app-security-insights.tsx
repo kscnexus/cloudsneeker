@@ -45,7 +45,7 @@ const AREA = FINDING_AREA.APPLICATION_SECURITY;
 const RISKY_TARGET_LIMIT = 6;
 const FAILED_SCAN_LIMIT = 5;
 
-/** Categories shown under Code security (SCA, SAST, secrets, IaC, SBOM). */
+/** Categories shown under Code security (SCA, SAST, secrets, misconfigurations, SBOM). */
 const CODE_CATEGORIES: readonly AppSecurityCategory[] = [
   APP_SECURITY_CATEGORY.DEPENDENCIES,
   APP_SECURITY_CATEGORY.CODE,
@@ -302,7 +302,7 @@ export const AppSecurityInsights = ({
 
         <SectionCard
           title="Code security"
-          description="Dependencies (SCA), source code (SAST), secrets, Infrastructure as Code and SBOMs."
+          description="Dependencies (SCA), source code (SAST), secrets, misconfigurations and SBOMs."
         >
           <BarList
             label="Findings by scan type"

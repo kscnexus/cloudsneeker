@@ -35,7 +35,7 @@ export const APP_SECURITY_CATEGORY_PARAM = "category";
 /** Scanner name a target needs to count under Secrets. */
 const SECRET_SCANNER = "secret";
 
-/** Scanner name a repository or archive needs to count under IaC. */
+/** Scanner name a repository or archive needs to count under Misconfigurations. */
 const MISCONFIG_SCANNER = "misconfig";
 
 /** Scanners a target runs when its config does not list any (API default). */
@@ -81,8 +81,9 @@ export const APP_SECURITY_CATEGORIES: readonly AppSecurityCategoryDefinition[] =
     },
     {
       id: APP_SECURITY_CATEGORY.IAC,
-      label: "Infrastructure as Code",
-      description: "Misconfigured Terraform, CloudFormation and manifests.",
+      label: "Misconfigurations",
+      description:
+        "Insecure settings in Terraform, CloudFormation, Kubernetes manifests and Dockerfiles.",
       modes: [TRIVY_MODE.IAC, TRIVY_MODE.REPO, TRIVY_MODE.FS],
       scanner: MISCONFIG_SCANNER,
       findingCategories: [APPSEC_CATEGORY.MISCONFIGURATION],
