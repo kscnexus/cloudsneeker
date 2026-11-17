@@ -21,7 +21,7 @@ export const EmptyState = ({
   <div
     data-slot="empty-state"
     className={cn(
-      "border-border-neutral-tertiary flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center",
+      "border-border-neutral-tertiary flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center [[data-slot=section-card]_&]:border-0 [[data-slot=section-card]_&]:py-6",
       className,
     )}
   >

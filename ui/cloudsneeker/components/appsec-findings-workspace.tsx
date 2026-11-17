@@ -85,6 +85,7 @@ import { SortSelect } from "./standard/sort-select";
 import { StandardFilters } from "./standard/standard-filters";
 import type { StandardFilter } from "./standard/standard-filters.utils";
 import { StandardTableCard } from "./standard/standard-table-card";
+import { StatStrip } from "./stat-strip";
 import { StatTile } from "./stat-tile";
 
 interface AppSecFindingsWorkspaceProps {
@@ -165,72 +166,76 @@ const SummaryTiles = ({
   const isVulnerabilities =
     workspace.category === APPSEC_CATEGORY.VULNERABILITY;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <StatTile
-        label="Active"
-        value={summary.active}
-        hint="New, open and reopened"
-        href={href({})}
-      />
-      <StatTile
-        label="Critical"
-        value={severity.critical ?? 0}
-        tone="critical"
-        href={href({ severities: ["critical"] })}
-      />
-      <StatTile
-        label="High"
-        value={severity.high ?? 0}
-        tone="high"
-        href={href({ severities: ["high"] })}
-      />
-      <StatTile
-        label="Urgent priority"
-        value={summary.by_priority.urgent ?? 0}
-        tone="danger"
-        hint="Calculated, not scanner severity"
-        href={href({ priorities: ["urgent"] })}
-      />
-      <StatTile
-        label="Past deadline"
-        value={summary.overdue}
-        tone="warning"
-        href={href({ overdue: true })}
-      />
-      <StatTile
-        label="Fixed"
-        value={summary.by_state.fixed ?? 0}
-        tone="success"
-        hint={`${summary.suppressed} suppressed`}
-        href={href({ states: ["fixed"] })}
-      />
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <StatTile
+          label="Active"
+          value={summary.active}
+          hint="New, open and reopened"
+          href={href({})}
+        />
+        <StatTile
+          label="Critical"
+          value={severity.critical ?? 0}
+          tone="critical"
+          href={href({ severities: ["critical"] })}
+        />
+        <StatTile
+          label="High"
+          value={severity.high ?? 0}
+          tone="high"
+          href={href({ severities: ["high"] })}
+        />
+        <StatTile
+          label="Urgent priority"
+          value={summary.by_priority.urgent ?? 0}
+          tone="danger"
+          hint="Calculated, not scanner severity"
+          href={href({ priorities: ["urgent"] })}
+        />
+        <StatTile
+          label="Past deadline"
+          value={summary.overdue}
+          tone="warning"
+          href={href({ overdue: true })}
+        />
+        <StatTile
+          label="Fixed"
+          value={summary.by_state.fixed ?? 0}
+          tone="success"
+          hint={`${summary.suppressed} suppressed`}
+          href={href({ states: ["fixed"] })}
+        />
+      </div>
       {isVulnerabilities ? (
-        <>
-          <StatTile
-            label="Instances"
-            value={summary.vulnerabilities.instances}
-            hint="Vulnerability, package and location"
-          />
-          <StatTile
-            label="Unique advisories"
-            value={summary.vulnerabilities.unique_ids}
-          />
-          <StatTile
-            label="Affected packages"
-            value={summary.vulnerabilities.affected_packages}
-          />
-          <StatTile
-            label="Fix available"
-            value={summary.vulnerabilities.fixable}
-            tone="success"
-            href={href({ fix: APPSEC_FIX_FILTER.AVAILABLE })}
-          />
-          <StatTile
-            label="No fix yet"
-            value={summary.vulnerabilities.unfixed}
-            href={href({ fix: APPSEC_FIX_FILTER.NONE })}
-          />
-        </>
+        <StatStrip
+          label="Vulnerability detail"
+          items={[
+            {
+              label: "Instances",
+              value: summary.vulnerabilities.instances,
+              hint: "Vulnerability, package and location",
+            },
+            {
+              label: "Unique advisories",
+              value: summary.vulnerabilities.unique_ids,
+            },
+            {
+              label: "Affected packages",
+              value: summary.vulnerabilities.affected_packages,
+            },
+            {
+              label: "Fix available",
+              value: summary.vulnerabilities.fixable,
+              href: href({ fix: APPSEC_FIX_FILTER.AVAILABLE }),
+            },
+            {
+              label: "No fix yet",
+              value: summary.vulnerabilities.unfixed,
+              href: href({ fix: APPSEC_FIX_FILTER.NONE }),
+            },
+          ]}
+        />
       ) : null}
     </div>
   );

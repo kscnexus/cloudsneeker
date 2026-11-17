@@ -174,7 +174,7 @@ export const AppSecurityInsights = ({
       >
         <ul
           aria-label="Vulnerability figures"
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
         >
           <li className="min-w-0">
             <StatTile

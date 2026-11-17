@@ -42,7 +42,7 @@ export const ScanProfilesSummary = ({
       aria-label="Scan profile figures"
       data-slot="scan-profiles-summary"
       data-cloudsneeker-surface={CLOUDSNEEKER_SURFACE.SCAN_PROFILES}
-      className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4"
     >
       <li className="min-w-0">
         <StatTile
