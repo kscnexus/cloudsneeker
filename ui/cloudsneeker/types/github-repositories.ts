@@ -27,3 +27,11 @@ export interface GithubRepositoryToAdd {
   full_name: string;
   repository_url: string;
 }
+
+/** How the picker sets up the scan target of each repository it adds. */
+export interface GithubAddOptions {
+  /** Run the new code repository target every day. */
+  dailySchedule: boolean;
+  /** IANA timezone the daily schedule runs in. */
+  timezone: string;
+}

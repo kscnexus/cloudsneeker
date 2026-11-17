@@ -100,13 +100,44 @@ describe("GithubRepositoriesForm", () => {
     );
     await user.click(screen.getByRole("button", { name: "Add 1 repository" }));
 
-    expect(addMock).toHaveBeenCalledWith([
-      { full_name: "acme/api", repository_url: "https://github.com/acme/api" },
-    ]);
+    expect(addMock).toHaveBeenCalledWith(
+      [
+        {
+          full_name: "acme/api",
+          repository_url: "https://github.com/acme/api",
+        },
+      ],
+      { dailySchedule: true, timezone: expect.any(String) },
+    );
     expect(
-      await screen.findByText(/1 added as Infrastructure as Code providers/),
+      await screen.findByText(
+        /1 added, each with a code repository scan target/,
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/token/i)).not.toBeInTheDocument();
+  });
+
+  it("adds without a schedule when daily scans are switched off", async () => {
+    const user = userEvent.setup();
+    listMock.mockResolvedValue({
+      repositories: [repo("acme/api")],
+      truncated: false,
+    });
+    addMock.mockResolvedValue([]);
+    render(<GithubRepositoriesForm connections={[CONNECTION]} />);
+    await list(user);
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Scan each added repository every day at 02:00",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Add 1 repository" }));
+
+    expect(addMock).toHaveBeenCalledWith(expect.any(Array), {
+      dailySchedule: false,
+      timezone: expect.any(String),
+    });
   });
 
   it("shows why the listing failed", async () => {
