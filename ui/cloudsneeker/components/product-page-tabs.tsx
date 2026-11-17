@@ -40,15 +40,15 @@ export const ProductPageTabs = ({
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange}>
       <div className="flex flex-col gap-[18px]">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <TabsList>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <TabsList className="sm:w-auto sm:flex-1">
             {tabs.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
                 {tab.label}
               </TabsTrigger>
             ))}
           </TabsList>
-          {actions}
+          {actions ? <div className="shrink-0">{actions}</div> : null}
         </div>
         {tabs.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>

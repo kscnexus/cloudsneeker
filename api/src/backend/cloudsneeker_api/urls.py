@@ -20,7 +20,6 @@ from cloudsneeker_api.views_appsec import (  # ASPM
     AppSecScanProfileViewSet,
 )
 from cloudsneeker_api.views_area_findings import AreaFindingViewSet  # Area findings
-from cloudsneeker_api.views_search import GlobalSearchViewSet  # Global search
 from cloudsneeker_api.views_audit import AuditEventViewSet  # Audit log (EB-007)
 from cloudsneeker_api.views_bitbucket import BitbucketRepositoriesView
 from cloudsneeker_api.views_content_releases import ContentReleasesView  # EB-049
@@ -39,6 +38,7 @@ from cloudsneeker_api.views_features import (
     IngestionViewSet,
     ScanConfigurationViewSet,
 )
+from cloudsneeker_api.views_github import GithubRepositoriesView
 from cloudsneeker_api.views_mfa import (  # Multi-factor authentication (EB-008)
     MfaDisableView,
     MfaEnrolmentConfirmView,
@@ -59,6 +59,7 @@ from cloudsneeker_api.views_operator import (  # Operator console (Phase 1)
     OperatorTenantInvitationView,
     OperatorTenantListView,
     OperatorTenantUsageView,
+    OperatorUserPasswordResetView,
 )
 from cloudsneeker_api.views_reports import (
     ReportRunViewSet,
@@ -67,6 +68,8 @@ from cloudsneeker_api.views_reports import (
     ReportTypeViewSet,
     SharedReportView,
 )
+from cloudsneeker_api.views_search import GlobalSearchViewSet  # Global search
+from cloudsneeker_api.views_seeker_ai import SeekerAiRequestViewSet
 from cloudsneeker_api.views_slack import (
     SlackChannelsView,
     SlackOAuthAuthorizeUrlView,
@@ -139,6 +142,10 @@ router.register(r"audit-events", AuditEventViewSet, basename="audit-events")
 router.register(r"finding-triages", FindingTriageViewSet, basename="finding-triages")
 router.register(r"area-findings", AreaFindingViewSet, basename="area-findings")
 router.register(r"search", GlobalSearchViewSet, basename="global-search")
+# Assistant request metering (EB-080).
+router.register(
+    r"seeker-ai/requests", SeekerAiRequestViewSet, basename="seeker-ai-requests"
+)
 
 # Paths keyed by the finding UID that the inherited findings UI calls. ``path``
 # accepts UIDs with ``/`` (the UI URL-encodes them; Django decodes before
@@ -190,6 +197,11 @@ operator_urlpatterns = [
         "operator/tenants/<uuid:tenant_id>/invitations",
         OperatorTenantInvitationView.as_view(),
         name="operator-tenant-invitation",
+    ),
+    path(
+        "operator/tenants/<uuid:tenant_id>/users/<uuid:user_id>/password-reset",
+        OperatorUserPasswordResetView.as_view(),
+        name="operator-user-password-reset",
     ),
     path(
         "operator/subscriptions/<uuid:tenant_id>",
@@ -269,6 +281,11 @@ urlpatterns = [
         "bitbucket/repositories",
         BitbucketRepositoriesView.as_view(),
         name="bitbucket-repositories",
+    ),
+    path(
+        "github/providers/<uuid:pk>/repositories",
+        GithubRepositoriesView.as_view(),
+        name="github-repositories",
     ),
     path("content-versions", ContentVersionsView.as_view(), name="content-versions"),
     path("content-releases", ContentReleasesView.as_view(), name="content-releases"),

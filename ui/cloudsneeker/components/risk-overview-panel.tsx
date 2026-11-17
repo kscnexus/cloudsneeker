@@ -216,7 +216,7 @@ export const RiskOverviewPanel = ({
 
       <ul
         aria-label="Score by area"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
       >
         {model.domains.map((domain) => (
           <li key={domain.domain} className="min-w-0">

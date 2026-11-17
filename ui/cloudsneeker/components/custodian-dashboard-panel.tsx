@@ -22,7 +22,7 @@ export const CustodianDashboardPanel = ({
     <div className="flex flex-col gap-6">
       <ul
         aria-label="Key figures"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
       >
         <li className="min-w-0">
           <StatTile
@@ -87,13 +87,19 @@ export const CustodianDashboardPanel = ({
                 <div className="flex flex-wrap gap-3">
                   <Link
                     href={item.findingsHref}
-                    className={cn("text-text-neutral-secondary text-xs", LINK_CLASS)}
+                    className={cn(
+                      "text-text-neutral-secondary text-xs",
+                      LINK_CLASS,
+                    )}
                   >
                     View findings
                   </Link>
                   <Link
                     href={item.newPolicyHref}
-                    className={cn("text-button-tertiary text-xs font-medium", LINK_CLASS)}
+                    className={cn(
+                      "text-button-tertiary text-xs font-medium",
+                      LINK_CLASS,
+                    )}
                   >
                     Create governance dry-run
                   </Link>
@@ -111,8 +117,8 @@ export const CustodianDashboardPanel = ({
         >
           {metrics.recentRuns.length === 0 ? (
             <p className="text-text-neutral-secondary text-sm">
-              No dry-runs yet. Create a policy and run a dry-run to populate
-              the dashboard.
+              No dry-runs yet. Create a policy and run a dry-run to populate the
+              dashboard.
             </p>
           ) : (
             <ul className={CARD_LIST_CLASS}>
@@ -121,7 +127,10 @@ export const CustodianDashboardPanel = ({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Link
                       href={governanceHref(row.policyId, "runs", row.runId)}
-                      className={cn("text-text-neutral-primary min-w-0 text-sm font-medium break-words", LINK_CLASS)}
+                      className={cn(
+                        "text-text-neutral-primary min-w-0 text-sm font-medium break-words",
+                        LINK_CLASS,
+                      )}
                     >
                       {row.policyName}
                     </Link>
@@ -174,7 +183,10 @@ export const CustodianDashboardPanel = ({
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <Link
                       href={governanceHref(row.policyId)}
-                      className={cn("text-text-neutral-primary truncate text-sm font-medium", LINK_CLASS)}
+                      className={cn(
+                        "text-text-neutral-primary truncate text-sm font-medium",
+                        LINK_CLASS,
+                      )}
                     >
                       {row.policyName}
                     </Link>
@@ -210,7 +222,10 @@ export const CustodianDashboardPanel = ({
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <Link
                     href={governanceHref(row.policyId, "runs", row.runId)}
-                    className={cn("text-text-neutral-primary truncate text-sm font-medium", LINK_CLASS)}
+                    className={cn(
+                      "text-text-neutral-primary truncate text-sm font-medium",
+                      LINK_CLASS,
+                    )}
                   >
                     {row.policyName}
                   </Link>

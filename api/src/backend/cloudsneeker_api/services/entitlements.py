@@ -31,7 +31,13 @@ USAGE_LIMIT_KEYS = {
     "application_security_targets": catalog.LIMIT_APPLICATION_SECURITY_TARGETS,
     "scans_this_month": catalog.LIMIT_SCANS_PER_MONTH,
     "report_schedules": catalog.LIMIT_REPORT_SCHEDULES,
+    "seeker_ai_requests_this_month": catalog.LIMIT_SEEKER_AI_REQUESTS_PER_MONTH,
 }
+
+# Audit action written for each accepted assistant request
+# (``POST /api/v1/seeker-ai/requests``). The audit log is the only record of
+# assistant requests, so the monthly count reads it.
+SEEKER_AI_REQUEST_ACTION = "seeker_ai.request"
 
 # Subscription fields an operator may change, and how history records them.
 EDITABLE_FIELDS = (
@@ -355,11 +361,16 @@ def usage_by_tenant(
     """Usage counts per tenant id, from existing tables in a few grouped queries.
 
     ``users`` counts members plus pending invitations, since both take a seat.
-    Assistant requests are not recorded anywhere yet and are reported as
-    ``None``.
+    Assistant requests are the successful ``seeker_ai.request`` audit events of
+    the month, so an audit retention shorter than a month undercounts them.
     """
     from api.models import Finding, Invitation, Membership, Provider, Scan
-    from cloudsneeker_api.models import ReportRun, ReportSchedule, TrivyTarget
+    from cloudsneeker_api.models import (
+        AuditEvent,
+        ReportRun,
+        ReportSchedule,
+        TrivyTarget,
+    )
 
     alias = _admin_db()
     start = month_start(now)
@@ -376,6 +387,14 @@ def usage_by_tenant(
     )
     reports = _grouped_counts(
         ReportRun.objects.using(alias).filter(inserted_at__gte=start), tenant_ids
+    )
+    assistant_requests = _grouped_counts(
+        AuditEvent.objects.using(alias).filter(
+            action=SEEKER_AI_REQUEST_ACTION,
+            outcome=AuditEvent.Outcome.SUCCESS,
+            inserted_at__gte=start,
+        ),
+        tenant_ids,
     )
     findings = (
         _grouped_counts(
@@ -403,7 +422,7 @@ def usage_by_tenant(
             "report_schedules": schedules.get(tenant_id, 0),
             "scans_this_month": scans.get(tenant_id, 0),
             "reports_this_month": reports.get(tenant_id, 0),
-            "seeker_ai_requests_this_month": None,
+            "seeker_ai_requests_this_month": assistant_requests.get(tenant_id, 0),
         }
         if include_findings:
             counts["findings_this_month"] = findings.get(tenant_id, 0)

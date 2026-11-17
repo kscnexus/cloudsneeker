@@ -416,7 +416,7 @@ class TestEntitlementService:
         assert usage["members"] == 1
         assert usage["users"] == 1
         assert usage["application_security_targets"] == 0
-        assert usage["seeker_ai_requests_this_month"] is None
+        assert usage["seeker_ai_requests_this_month"] == 0
         assert service.usage_for_tenant(str(tenants_fixture[2].id))["members"] == 0
 
 

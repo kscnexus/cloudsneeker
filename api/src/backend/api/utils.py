@@ -22,6 +22,10 @@ from cloudsneeker_api.ecr_auth import (  # cloudsneeker-hook
     apply_ecr_auth,
     ecr_connection_kwargs,
 )
+from cloudsneeker_api.github_connection import (  # cloudsneeker-hook
+    github_connection_scan_kwargs,
+    github_connection_test_kwargs,
+)
 from cloudsneeker_api.secret_extras import iac_ssh_kwargs  # cloudsneeker-hook
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
@@ -252,6 +256,9 @@ def get_prowler_provider_kwargs(
         prowler_provider_kwargs.update(
             iac_ssh_kwargs(provider.secret.secret)
         )  # cloudsneeker-hook
+        prowler_provider_kwargs.update(
+            github_connection_scan_kwargs(provider)
+        )  # cloudsneeker-hook
     elif provider.provider == Provider.ProviderChoices.MONGODBATLAS.value:
         prowler_provider_kwargs = {
             **prowler_provider_kwargs,
@@ -420,6 +427,11 @@ def prowler_provider_connection_test(provider: Provider) -> Connection:
         iac_test_kwargs.update(
             iac_ssh_kwargs(prowler_provider_kwargs)
         )  # cloudsneeker-hook
+        # cloudsneeker-hook: borrow a token from the tenant's GitHub connection
+        github_failure, github_kwargs = github_connection_test_kwargs(provider)
+        if github_failure:  # cloudsneeker-hook
+            return github_failure  # cloudsneeker-hook
+        iac_test_kwargs.update(github_kwargs)  # cloudsneeker-hook
         return prowler_provider.test_connection(**iac_test_kwargs)
     elif provider.provider == Provider.ProviderChoices.OPENSTACK.value:
         openstack_kwargs = {

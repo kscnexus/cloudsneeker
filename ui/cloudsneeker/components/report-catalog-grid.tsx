@@ -182,7 +182,12 @@ export const ReportCatalogGrid = ({
                 {entry.description}
               </p>
               <div>
-                <Button type="button" size="sm" onClick={() => openFor(entry)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openFor(entry)}
+                >
                   Generate
                 </Button>
               </div>

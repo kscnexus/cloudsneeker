@@ -38,6 +38,10 @@ from cloudsneeker.git_ssh import GitSshError, is_ssh_url, ssh_secret_args
 from cloudsneeker.git_ssh import clone as git_clone
 from cloudsneeker_api.appsec import capabilities as appsec_caps
 from cloudsneeker_api.appsec.options import OptionError, validate_options
+from cloudsneeker_api.github_connection import (
+    GithubConnectionError,
+    apply_github_connection,
+)
 from cloudsneeker_api.models import TrivyRun, TrivyTarget
 from cloudsneeker_api.services.vuln_db import scan_cache_env
 from django.db import transaction
@@ -545,10 +549,21 @@ def _kubeconfig_env(provider: Provider, work_dir: Path) -> dict[str, str]:
 
 
 def _repo_credentials(provider: Provider) -> tuple[str, str | None]:
-    """Return ``(token, username)`` from the linked IaC provider secret."""
+    """Return ``(token, username)`` for the linked IaC provider.
+
+    A ``github.com`` repository without a credential of its own uses the
+    tenant's GitHub connection (:mod:`cloudsneeker_api.github_connection`).
+
+    Raises:
+        TrivyHubError: The GitHub connection exists but cannot issue a token.
+    """
     secret = {}
     if getattr(provider, "secret", None) is not None:
         secret = provider.secret.secret or {}
+    try:
+        secret = apply_github_connection(provider, secret)
+    except GithubConnectionError as error:
+        raise TrivyHubError(str(error)) from None
     token = (
         secret.get("access_token")
         or secret.get("personal_access_token")

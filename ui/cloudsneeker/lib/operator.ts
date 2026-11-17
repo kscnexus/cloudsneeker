@@ -397,6 +397,12 @@ export const customerPayload = (
   return { payload, error: null };
 };
 
+/** `meta.temporary_password` of a password reset response. */
+export const temporaryPasswordFromMeta = (response: unknown): string | null => {
+  const value = asRecord(asRecord(response)?.meta)?.temporary_password;
+  return typeof value === "string" && value ? value : null;
+};
+
 /** `meta.invitation` of a create or resend response. */
 export const invitationFromMeta = (
   response: unknown,

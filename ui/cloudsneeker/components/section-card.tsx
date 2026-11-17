@@ -30,7 +30,7 @@ export const SectionCard = ({
     className={cn("min-w-0 gap-0 shadow-sm", className)}
   >
     <div className="border-border-neutral-secondary flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
-      <div className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 basis-64 flex-col gap-0.5">
         <h2 className="text-text-neutral-primary text-base font-semibold">
           {title}
         </h2>
@@ -39,10 +39,14 @@ export const SectionCard = ({
         ) : null}
       </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+        </div>
       ) : null}
     </div>
-    <div className={cn("flex min-w-0 flex-col gap-3 p-4 sm:p-5", contentClassName)}>
+    <div
+      className={cn("flex min-w-0 flex-col gap-3 p-4 sm:p-5", contentClassName)}
+    >
       {children}
     </div>
   </Card>

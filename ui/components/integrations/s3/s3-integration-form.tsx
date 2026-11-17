@@ -8,6 +8,7 @@ import type { Control } from "react-hook-form";
 import { useForm } from "react-hook-form";
 
 import { createIntegration, updateIntegration } from "@/actions/integrations";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button"; // cloudsneeker-hook
 import {
   PROVIDER_TYPE_DATA,
   ProviderTypeIcon,
@@ -505,6 +506,8 @@ export const S3IntegrationForm = ({
             >
               Read the docs
             </CustomLink>
+            {/* cloudsneeker-hook: in-app setup guide */}
+            <IntegrationSetupGuideButton integration="s3" />
           </div>
           {renderStepContent()}
         </div>

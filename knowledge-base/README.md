@@ -25,5 +25,8 @@ Read these pages in order when you are new to the repository:
 18. [Application Security Posture Management](appsec-aspm.md) — scan engine, finding lifecycle, inventory, profiles, policies, API, operations and rollback
 19. [Application Security Coverage](appsec-coverage.md) — generated matrix of what the scan engine supports and what is implemented, partial, missing, unsupported or not applicable
 20. [Platform Integration Audit](platform-integration/PLATFORM_INTEGRATION_AUDIT.md) — how the three modules connect to findings, alerts, mutelist, reports, Seeker AI and RBAC; issue log and integration matrix
+21. [SaaS Launch Plan](saas-launch-plan.md) — the order open backlog items ship in, and the owner decisions that block launch
+22. [Enterprise Backlog](enterprise-backlog.md) — every open and finished item with acceptance criteria
+23. [AI-First Assessment](ai-first-assessment.md) — 2026-11-17 review of the repository's agent setup and the product's AI surface
 
-Agent rules for day-to-day coding stay in the root [`AGENTS.md`](../AGENTS.md) and in each component `AGENTS.md`. Cursor rules in [`.cursor/rules/`](../.cursor/rules/) enforce the upstream split on every session. Skills under [`skills/`](../skills/) hold the patterns those rules point to. Use this knowledge base for orientation, then open the matching skill before changing code.
+Agent rules for day-to-day coding stay in the root [`AGENTS.md`](../AGENTS.md) and in each component `AGENTS.md`. The `cloudsneeker-*` skills under [`skills/`](../skills/) hold the Cloudsneeker procedures: where code goes (`cloudsneeker-feature`), how a change ships (`cloudsneeker-ship`), how a backlog item is worked (`cloudsneeker-backlog`), and how upstream is merged (`cloudsneeker-upstream-sync`). The other skills hold the Prowler patterns. Use this knowledge base for orientation, then open the matching skill before changing code.
