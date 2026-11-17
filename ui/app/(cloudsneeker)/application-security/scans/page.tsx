@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { getFindings } from "@/actions/findings/findings";
 import { getProviders } from "@/actions/providers/providers";
+import { getAppSecFindingsSummary } from "@/cloudsneeker/actions/appsec";
 import { listTrivyRuns } from "@/cloudsneeker/actions/trivy";
 import { BRAND } from "@/cloudsneeker/brand";
 import { AppSecurityDashboardPanel } from "@/cloudsneeker/components/app-security-dashboard-panel";
@@ -37,7 +38,7 @@ import {
   SCAN_HISTORY_PARAM,
   type ScanHistoryView,
 } from "@/cloudsneeker/lib/app-security-scan-history";
-import { APPSEC_SEGMENT } from "@/cloudsneeker/lib/appsec";
+import { APPSEC_SEGMENT, attributesOf } from "@/cloudsneeker/lib/appsec";
 import {
   openFindingsHref,
   responseCount,
@@ -57,6 +58,7 @@ import {
 } from "@/cloudsneeker/lib/trivy-modes";
 import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import { appSecurityHref } from "@/cloudsneeker/routes";
+import type { AppSecFindingsSummary } from "@/cloudsneeker/types/appsec";
 import {
   REPORT_SEVERITY_ORDER,
   type ReportSeverity,
@@ -174,14 +176,16 @@ const SSRAppSecurityWorkspace = async ({
   historyPage: string | string[] | undefined;
   listFilters: ListFilters;
 }) => {
-  const [loadedTargets, runsResponse, sources] = await Promise.all([
-    loadAllTargets(),
-    listTrivyRuns({
-      "page[size]": DASHBOARD_RUN_PAGE_SIZE,
-      sort: "-inserted_at",
-    }),
-    loadSources(),
-  ]);
+  const [loadedTargets, runsResponse, sources, summaryResponse] =
+    await Promise.all([
+      loadAllTargets(),
+      listTrivyRuns({
+        "page[size]": DASHBOARD_RUN_PAGE_SIZE,
+        sort: "-inserted_at",
+      }),
+      loadSources(),
+      getAppSecFindingsSummary(),
+    ]);
   if (!loadedTargets) {
     // A failed request must not read as "no targets yet".
     return (
@@ -204,6 +208,10 @@ const SSRAppSecurityWorkspace = async ({
     targets,
     runs,
     runTotal: responseCount(runsResponse),
+    // Open findings per target and category; each area tile adds up its own.
+    findingCounts:
+      attributesOf<AppSecFindingsSummary>(summaryResponse)
+        ?.by_target_category ?? null,
   });
   const severityTotals = await loadSeverityTotals(dashboard.latestScanIds);
   const unscannedRepositories = repositorySourcesWithoutTarget(

@@ -167,6 +167,9 @@ export interface AppSecFindingsSummary {
   active: number;
   by_severity: Record<string, number>;
   by_category: Record<string, number>;
+  /** Open findings per target id, then per category; license findings only
+   * when forbidden or restricted. */
+  by_target_category?: Record<string, Partial<Record<AppSecCategory, number>>>;
   by_priority: Record<string, number>;
   by_state: Record<string, number>;
   by_triage_status: Record<string, number>;

@@ -134,9 +134,11 @@ export const AppSecurityDashboardPanel = ({
                   hint={
                     category.targetCount === 0
                       ? category.description
-                      : category.findingCount === null
+                      : category.scannedTargetCount === 0
                         ? `${category.targetCount === 1 ? "Target" : "Targets"} not scanned yet`
-                        : `${category.findingCount} findings in the latest scans`
+                        : category.findingCount === null
+                          ? "Finding counts unavailable"
+                          : `${category.findingCount.toLocaleString("en-US")} ${category.findingCount === 1 ? "finding" : "findings"} in the latest scans`
                   }
                   href={
                     selected ? appSecurityCategoryHref(null) : category.href

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { APPSEC_CATEGORY } from "@/cloudsneeker/types/appsec";
 import {
   TRIVY_MODE,
   TRIVY_RUN_STATUS,
@@ -17,6 +18,8 @@ import {
   appSecurityCategoryHref,
   appSecurityTabHref,
   buildAppSecurityDashboard,
+  categoryDefinition,
+  countAreaFindings,
   filterTargetsByCategory,
   getAppSecurityCategory,
   getAppSecurityTab,
@@ -198,6 +201,10 @@ describe("buildAppSecurityDashboard", () => {
       targets,
       runs,
       runTotal: 42,
+      findingCounts: {
+        a: { vulnerability: 5, secret: 2 },
+        b: { code: 3 },
+      },
     });
 
     expect(dashboard).toMatchObject({
@@ -220,15 +227,70 @@ describe("buildAppSecurityDashboard", () => {
     );
     expect(byId.dependencies).toMatchObject({
       targetCount: 1,
-      findingCount: 7,
+      scannedTargetCount: 1,
+      findingCount: 5,
     });
     expect(byId.code).toMatchObject({ targetCount: 1, findingCount: 3 });
     expect(byId.containers).toMatchObject({
       targetCount: 1,
+      scannedTargetCount: 0,
+      findingCount: 0,
+    });
+    expect(byId.secrets).toMatchObject({ targetCount: 2, findingCount: 2 });
+    expect(byId.kubernetes.targetCount).toBe(0);
+  });
+
+  it("gives each area its own findings instead of every finding of its targets", () => {
+    // A repository holds dependency, IaC, secret and license findings; each
+    // area tile must show only its share, not the repository's total.
+    const targets = [
+      target("repo", TRIVY_MODE.REPO),
+      target("fs", TRIVY_MODE.FS, { scanners: ["vuln"] }),
+      target("image", TRIVY_MODE.IMAGE),
+    ];
+    const runs = [
+      run("r3", "image", TRIVY_RUN_STATUS.COMPLETED, 9),
+      run("r2", "fs", TRIVY_RUN_STATUS.COMPLETED, 4),
+      run("r1", "repo", TRIVY_RUN_STATUS.COMPLETED, 1655),
+    ];
+
+    const dashboard = buildAppSecurityDashboard({
+      targets,
+      runs,
+      findingCounts: {
+        repo: {
+          vulnerability: 300,
+          misconfiguration: 120,
+          secret: 30,
+          license: 50,
+        },
+        fs: { vulnerability: 4 },
+        image: { vulnerability: 6, secret: 1, misconfiguration: 2 },
+      },
+    });
+    const count = (id: string) =>
+      dashboard.categories.find((item) => item.id === id)?.findingCount;
+
+    expect(count(APP_SECURITY_CATEGORY.DEPENDENCIES)).toBe(354);
+    expect(count(APP_SECURITY_CATEGORY.IAC)).toBe(120);
+    expect(count(APP_SECURITY_CATEGORY.SECRETS)).toBe(31);
+    expect(count(APP_SECURITY_CATEGORY.CONTAINERS)).toBe(9);
+    expect(count(APP_SECURITY_CATEGORY.CODE)).toBe(0);
+  });
+
+  it("leaves area counts unknown when the counts could not be loaded", () => {
+    const dashboard = buildAppSecurityDashboard({
+      targets: [target("a", TRIVY_MODE.REPO)],
+      runs: [run("r1", "a", TRIVY_RUN_STATUS.COMPLETED, 12)],
+      findingCounts: null,
+    });
+    const dependencies = dashboard.categories.find(
+      (item) => item.id === APP_SECURITY_CATEGORY.DEPENDENCIES,
+    );
+    expect(dependencies).toMatchObject({
+      scannedTargetCount: 1,
       findingCount: null,
     });
-    expect(byId.secrets.targetCount).toBe(2);
-    expect(byId.kubernetes.targetCount).toBe(0);
   });
 
   it("falls back to the loaded runs when the API sends no total", () => {
@@ -277,5 +339,35 @@ describe("repositorySourcesWithoutTarget", () => {
         [],
       ),
     ).toEqual([]);
+  });
+});
+
+describe("countAreaFindings", () => {
+  const counts = {
+    a: { vulnerability: 3, license: 2, secret: 1 },
+    b: { misconfiguration: 4 },
+  };
+
+  it("adds only the area's own categories", () => {
+    const dependencies = categoryDefinition(APP_SECURITY_CATEGORY.DEPENDENCIES);
+    const secrets = categoryDefinition(APP_SECURITY_CATEGORY.SECRETS);
+    expect(dependencies?.findingCategories).toEqual([
+      APPSEC_CATEGORY.VULNERABILITY,
+      APPSEC_CATEGORY.LICENSE,
+    ]);
+    expect(countAreaFindings(dependencies!, ["a", "b"], counts)).toBe(5);
+    expect(countAreaFindings(secrets!, ["a", "b"], counts)).toBe(1);
+  });
+
+  it("adds every category for an area defined by target type alone", () => {
+    const containers = categoryDefinition(APP_SECURITY_CATEGORY.CONTAINERS);
+    expect(containers?.findingCategories).toBeUndefined();
+    expect(countAreaFindings(containers!, ["a", "b"], counts)).toBe(10);
+  });
+
+  it("counts nothing for targets without findings", () => {
+    const iac = categoryDefinition(APP_SECURITY_CATEGORY.IAC);
+    expect(countAreaFindings(iac!, ["missing"], counts)).toBe(0);
+    expect(countAreaFindings(iac!, [], counts)).toBe(0);
   });
 });

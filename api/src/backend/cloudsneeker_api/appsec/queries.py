@@ -39,6 +39,9 @@ SEVERITIES = ("critical", "high", "medium", "low", "informational", "unknown")
 CATEGORIES = ("vulnerability", "misconfiguration", "secret", "license", "code")
 # Triage statuses that take a finding out of the work queue.
 CLOSED_TRIAGE = ("resolved", "risk_accepted", "false_positive")
+# License findings that are issues; the rest (permissive, notice, unknown)
+# only record which license a package uses.
+ACTIONABLE_LICENSE_CATEGORIES = ("forbidden", "restricted")
 MAX_PAGE_SIZE = 100
 EXPORT_MAX_ROWS = 20000
 
@@ -323,6 +326,32 @@ def _count_by(queryset: QuerySet, field: str) -> dict[str, int]:
     }
 
 
+def actionable_findings(queryset: QuerySet) -> QuerySet:
+    """``queryset`` without license findings that are not forbidden or restricted."""
+    return queryset.filter(
+        ~Q(category="license")
+        | Q(details__license_category__in=ACTIONABLE_LICENSE_CATEGORIES)
+    )
+
+
+def counts_by_target_category(queryset: QuerySet) -> dict[str, dict[str, int]]:
+    """Actionable findings per target, then per category.
+
+    Feeds the per-area tiles: each area adds up its own categories over its
+    own targets. License notices are left out (see ``actionable_findings``).
+    """
+    counts: dict[str, dict[str, int]] = {}
+    rows = (
+        actionable_findings(queryset)
+        .values("target_id", "category")
+        .annotate(count=Count("id"))
+        .order_by()
+    )
+    for row in rows:
+        counts.setdefault(str(row["target_id"]), {})[row["category"]] = row["count"]
+    return counts
+
+
 def findings_summary(queryset: QuerySet, *, now: datetime) -> dict[str, Any]:
     """Figures for one filtered findings view.
 
@@ -336,6 +365,7 @@ def findings_summary(queryset: QuerySet, *, now: datetime) -> dict[str, Any]:
         "active": active.count(),
         "by_severity": _count_by(active, "severity"),
         "by_category": _count_by(active, "category"),
+        "by_target_category": counts_by_target_category(active),
         "by_priority": _count_by(active, "priority"),
         "by_state": _count_by(queryset.filter(suppressed=False), "state"),
         "by_triage_status": _count_by(active, "triage_status"),
