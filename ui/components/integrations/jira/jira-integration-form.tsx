@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import { createIntegration, updateIntegration } from "@/actions/integrations";
+import { IntegrationSetupGuideButton } from "@/cloudsneeker/components/setup-guide-button"; // cloudsneeker-hook
 import { useToast } from "@/components/shadcn";
 import { CustomInput } from "@/components/shadcn/custom";
 import { CustomLink } from "@/components/shadcn/custom/custom-link";
@@ -232,6 +233,8 @@ export const JiraIntegrationForm = ({
             >
               Read the docs
             </CustomLink>
+            {/* cloudsneeker-hook: in-app setup guide */}
+            <IntegrationSetupGuideButton integration="jira" />
           </div>
           {renderForm()}
         </div>

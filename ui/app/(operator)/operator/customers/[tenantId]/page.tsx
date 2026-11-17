@@ -8,6 +8,7 @@ import {
 } from "@/cloudsneeker/actions/operator";
 import { AdminInvitationCard } from "@/cloudsneeker/components/admin-invitation-card";
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
+import { MemberPasswordResetDialog } from "@/cloudsneeker/components/member-password-reset-dialog";
 import { OperatorLoadError } from "@/cloudsneeker/components/operator-shell";
 import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
@@ -99,6 +100,10 @@ export default async function OperatorCustomerPage({
     operatorCan(me, OPERATOR_CAPABILITY.MANAGE_SUBSCRIPTIONS) &&
     plans.length > 0;
   const snapshots = responseList<UsageSnapshotResource>(usageResponse);
+  const canResetPasswords = operatorCan(
+    me,
+    OPERATOR_CAPABILITY.RESET_PASSWORDS,
+  );
 
   return (
     <>
@@ -219,8 +224,19 @@ export default async function OperatorCustomerPage({
                   <span className="text-text-neutral-primary min-w-0 truncate">
                     {member.email}
                   </span>
-                  <span className="text-text-neutral-tertiary text-xs">
-                    {member.role} · last sign-in {formatTime(member.last_login)}
+                  <span className="flex items-center gap-2">
+                    <span className="text-text-neutral-tertiary text-xs">
+                      {member.role} · last sign-in{" "}
+                      {formatTime(member.last_login)}
+                    </span>
+                    {canResetPasswords &&
+                    member.email.toLowerCase() !== me?.email.toLowerCase() ? (
+                      <MemberPasswordResetDialog
+                        tenantId={tenant.id}
+                        userId={member.user_id}
+                        email={member.email}
+                      />
+                    ) : null}
                   </span>
                 </li>
               ))}
