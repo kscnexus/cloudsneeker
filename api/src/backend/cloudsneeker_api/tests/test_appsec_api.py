@@ -387,6 +387,64 @@ class TestFindingsApi:
             "unfixed": 1,
         }
         assert summary["by_category"] == {"vulnerability": 3}
+        assert summary["by_target_category"] == {str(target.id): {"vulnerability": 3}}
+
+    def test_summary_counts_each_target_category_without_license_notices(
+        self, authenticated_client, target
+    ):
+        licenses = {
+            "Target": "package-lock.json",
+            "Class": "license",
+            "Type": "npm",
+            "Licenses": [
+                {
+                    "Severity": "HIGH",
+                    "Category": "restricted",
+                    "PkgName": "readline",
+                    "Name": "GPL-3.0",
+                },
+                {
+                    "Severity": "CRITICAL",
+                    "Category": "forbidden",
+                    "PkgName": "agpl-lib",
+                    "Name": "AGPL-3.0",
+                },
+                {
+                    "Severity": "LOW",
+                    "Category": "notice",
+                    "PkgName": "a",
+                    "Name": "MIT",
+                },
+                {
+                    "Severity": "LOW",
+                    "Category": "notice",
+                    "PkgName": "b",
+                    "Name": "ISC",
+                },
+                {"Severity": "UNKNOWN", "Category": "unknown", "FilePath": "LICENSE"},
+            ],
+        }
+        report = _report([_vuln(), _vuln("CVE-2024-0002")], [SECRET])
+        report["Results"].append(licenses)
+        _scan(target, report, options={"scanners": ["vuln", "secret", "license"]})
+        image = TrivyTarget.objects.create(
+            tenant_id=target.tenant_id,
+            provider=target.provider,
+            name="shop image",
+            mode="image",
+            config={"image": "shop:latest"},
+        )
+        _scan(image, _report([_vuln("CVE-2024-0009")]))
+
+        summary = _get(authenticated_client, "appsec-findings-summary").json()["data"][
+            "attributes"
+        ]
+        assert summary["by_target_category"] == {
+            str(target.id): {"vulnerability": 2, "secret": 1, "license": 2},
+            str(image.id): {"vulnerability": 1},
+        }
+        # The category totals still list every license finding.
+        assert summary["by_category"]["license"] == 5
 
     def test_combined_filters_return_the_matching_rows(
         self, authenticated_client, target

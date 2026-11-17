@@ -45,6 +45,7 @@ const dashboard = buildAppSecurityDashboard({
     },
   ],
   runTotal: 1,
+  findingCounts: { t1: { code: 6 } },
 });
 
 describe("AppSecurityDashboardPanel", () => {
@@ -103,5 +104,24 @@ describe("AppSecurityDashboardPanel", () => {
     expect(
       screen.queryByRole("region", { name: "Open findings by severity" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("says when area counts are unavailable rather than unscanned", () => {
+    render(
+      <AppSecurityDashboardPanel
+        dashboard={{
+          ...dashboard,
+          categories: dashboard.categories.map((category) => ({
+            ...category,
+            findingCount: null,
+          })),
+        }}
+        activeCategory={null}
+        severityTotals={null}
+      />,
+    );
+
+    const code = screen.getByRole("link", { name: /Code \(SAST\)/ });
+    expect(within(code).getByText("Finding counts unavailable")).toBeVisible();
   });
 });
