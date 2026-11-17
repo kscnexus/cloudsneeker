@@ -296,7 +296,7 @@ def _cloud_commands(finding: NormalizedFinding) -> list[dict[str, str]]:
     for key, label in (
         ("cli", "CLI"),
         ("terraform", "Terraform"),
-        ("nativeiac", "Native IaC"),
+        ("nativeiac", "Native template"),
     ):
         code = clean_text(finding.remediation_code.get(key), limit=1500)
         if not code or code.startswith(("http://", "https://")):
