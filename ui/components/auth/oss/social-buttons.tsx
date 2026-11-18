@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 
 import {
+  isSocialProviderReady,
+  socialProviderName,
+} from "@/cloudsneeker/lib/social-providers"; // cloudsneeker-hook
+import {
   GithubIcon,
   GoogleIcon,
   GoogleMonoIcon,
@@ -56,6 +60,8 @@ const SocialButton = ({
       ) : (
         <a href={provider.url} className="flex items-center justify-center">
           <provider.enabledIcon aria-hidden="true" />
+          {/* cloudsneeker-hook: visible name */}
+          <span>{socialProviderName(provider.label)}</span>
         </a>
       )}
     </Button>
@@ -146,7 +152,8 @@ export const SocialButtons = ({
 
   return (
     <>
-      {providers.map((provider) => (
+      {/* cloudsneeker-hook: only providers that are set up */}
+      {providers.filter(isSocialProviderReady).map((provider) => (
         <SocialButton
           key={provider.key}
           provider={provider}

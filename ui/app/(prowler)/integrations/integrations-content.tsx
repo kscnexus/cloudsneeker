@@ -1,13 +1,13 @@
+import { BitbucketIntegrationCard } from "@/cloudsneeker/components/bitbucket-integration-card"; // cloudsneeker-hook
+import { EmailDeliveryCard } from "@/cloudsneeker/components/email-delivery-card"; // cloudsneeker-hook
+import { GithubIntegrationCard } from "@/cloudsneeker/components/github-integration-card"; // cloudsneeker-hook
+import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { ApiKeyLinkCard } from "@/components/integrations/api-key/api-key-link-card";
 import { JiraIntegrationCard } from "@/components/integrations/jira/jira-integration-card";
 import { S3IntegrationCard } from "@/components/integrations/s3/s3-integration-card";
 import { SecurityHubIntegrationCard } from "@/components/integrations/security-hub/security-hub-integration-card";
 import { SlackIntegrationCard } from "@/components/integrations/slack/slack-integration-card";
 import { SsoLinkCard } from "@/components/integrations/sso/sso-link-card";
-import { BitbucketIntegrationCard } from "@/cloudsneeker/components/bitbucket-integration-card"; // cloudsneeker-hook
-import { GithubIntegrationCard } from "@/cloudsneeker/components/github-integration-card"; // cloudsneeker-hook
-import { EmailDeliveryCard } from "@/cloudsneeker/components/email-delivery-card"; // cloudsneeker-hook
-import { isCloudsneekerFeatureEnabled } from "@/cloudsneeker/features"; // cloudsneeker-hook
 import { isCloud } from "@/lib/shared/env";
 
 /**
@@ -24,7 +24,8 @@ export function IntegrationsContent() {
         </p>
       </div>
 
-      <div className="grid gap-6">
+      {/* cloudsneeker-hook: data-cs-integrations scopes the card restyle */}
+      <div className="grid gap-6" data-cs-integrations="">
         {/* Amazon S3 Integration */}
         <S3IntegrationCard />
 

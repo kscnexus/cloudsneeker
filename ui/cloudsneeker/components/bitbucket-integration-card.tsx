@@ -23,7 +23,7 @@ export const BitbucketIntegrationCard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center">
-            <Button asChild size="sm">
+            <Button asChild size="sm" variant="outline">
               <Link href={BITBUCKET_IMPORT_ROUTE}>
                 <SettingsIcon size={14} />
                 Import repositories

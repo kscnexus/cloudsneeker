@@ -14,6 +14,11 @@ vi.mock("./risk-overview-refresh-button", () => ({
   ),
 }));
 
+// Reloads the page while a run is prepared; needs the app router.
+vi.mock("@/components/scans/auto-refresh", () => ({
+  AutoRefresh: () => null,
+}));
+
 describe("RiskOverviewPanel", () => {
   it("shows the score, severity totals, areas, top risks and trend", () => {
     render(

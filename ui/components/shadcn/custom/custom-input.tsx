@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { Control, FieldPath, FieldValues } from "react-hook-form";
 
+import { authAutoComplete } from "@/cloudsneeker/lib/auth-fields"; // cloudsneeker-hook
 import { Field, FieldError, FieldLabel } from "@/components/shadcn/field/field";
 import { FormControl, FormField } from "@/components/shadcn/form";
 import { Input } from "@/components/shadcn/input/input";
@@ -108,6 +109,12 @@ export const CustomInput = <T extends FieldValues>({
                 disabled={isDisabled}
                 readOnly={isReadOnly}
                 aria-invalid={!!fieldState.error}
+                /* cloudsneeker-hook: autocomplete for password managers */
+                autoComplete={authAutoComplete({
+                  type,
+                  password,
+                  confirmPassword,
+                })}
                 className={cn(
                   "text-text-neutral-secondary",
                   isMaskedInput && "pr-10",
@@ -122,7 +129,8 @@ export const CustomInput = <T extends FieldValues>({
               <button
                 type="button"
                 onClick={toggleVisibility}
-                className="absolute top-1/2 right-3 -translate-y-1/2"
+                /* cloudsneeker-hook: 40px target */
+                className="absolute top-1/2 right-1 -translate-y-1/2 p-2"
                 aria-label={
                   inputType === "password" ? "Show password" : "Hide password"
                 }

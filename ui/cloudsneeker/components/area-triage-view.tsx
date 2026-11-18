@@ -8,6 +8,7 @@ import {
   areaTriagePageHref,
   areaTriageSearchParams,
 } from "@/cloudsneeker/lib/area-findings";
+import { countNoun } from "@/cloudsneeker/lib/count-noun";
 import {
   parseTriagePage,
   parseTriageStatus,
@@ -132,8 +133,8 @@ const SSRAreaTriageList = async ({
       title="Triaged findings"
       description={
         status
-          ? `${total} finding(s) marked ${triageStatusLabel(status)}.`
-          : `${total} triaged finding(s).`
+          ? `${countNoun(total, "finding")} marked ${triageStatusLabel(status)}.`
+          : `${countNoun(total, "triaged finding")}.`
       }
       actions={filter}
     >

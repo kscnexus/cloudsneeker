@@ -174,6 +174,13 @@ const FRAMEWORK_WORDS: Record<string, string> = {
   attack: "ATT&CK",
   ens: "ENS",
   rd2022: "RD2022",
+  nis2: "NIS2",
+  ccc: "CCC",
+  csa: "CSA",
+  ccm: "CCM",
+  c5: "C5",
+  oci: "OCI",
+  mongodbatlas: "MongoDB Atlas",
 };
 
 /** Inherited framework names carry the upstream product name; drop it. */

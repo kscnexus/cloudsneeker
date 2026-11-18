@@ -254,6 +254,9 @@ const SSRReportsWorkspace = async ({
           <SectionCard
             title="Recent reports"
             description="Open, download, or share a generated report."
+            // On phones the list people come back for comes before the
+            // catalog of 13 report cards.
+            className={runs.length > 0 ? "max-md:order-first" : undefined}
           >
             <div className="flex flex-col gap-4">
               <StandardFilters

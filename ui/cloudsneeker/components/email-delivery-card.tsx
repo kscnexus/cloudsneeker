@@ -22,7 +22,7 @@ export const EmailDeliveryCard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center">
-            <Button asChild size="sm">
+            <Button asChild size="sm" variant="outline">
               <Link href="/integrations/email">
                 <SettingsIcon size={14} />
                 Manage

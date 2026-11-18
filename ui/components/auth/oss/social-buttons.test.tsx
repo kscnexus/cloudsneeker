@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import { SocialButtons } from "./social-buttons";
 
 describe("SocialButtons", () => {
-  it("renders icon-only provider links that keep their accessible names", () => {
+  // cloudsneeker-hook: buttons show the provider name, and providers that are
+  // not set up are left out.
+  it("renders provider links with their names", () => {
     render(
       <SocialButtons
         googleAuthUrl="https://accounts.google.com/auth"
@@ -17,8 +19,8 @@ describe("SocialButtons", () => {
     const google = screen.getByRole("link", { name: "Continue with Google" });
     const github = screen.getByRole("link", { name: "Continue with Github" });
 
-    expect(google.textContent).toBe("");
-    expect(github.textContent).toBe("");
+    expect(google.textContent).toBe("Google");
+    expect(github.textContent).toBe("GitHub");
   });
 
   it("renders bundled provider logos without fetching icon data", () => {
@@ -38,14 +40,14 @@ describe("SocialButtons", () => {
     expect(github.querySelector("svg path")).toBeInTheDocument();
   });
 
-  it("keeps accessible names on disabled providers", () => {
+  it("leaves out providers that are not set up", () => {
     render(<SocialButtons />);
 
     expect(
-      screen.getByRole("button", { name: "Continue with Google" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Continue with Google" }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Continue with Github" }),
-    ).toBeDisabled();
+      screen.queryByRole("link", { name: "Continue with Github" }),
+    ).not.toBeInTheDocument();
   });
 });

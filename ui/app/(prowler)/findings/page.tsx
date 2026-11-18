@@ -7,6 +7,7 @@ import {
   getLatestFindingGroups,
 } from "@/actions/finding-groups";
 import { getScan, getScans } from "@/actions/scans";
+import { MobileFilters } from "@/cloudsneeker/components/mobile-filters"; // cloudsneeker-hook
 import {
   FindingsGroupTable,
   SkeletonTableFindings,
@@ -81,16 +82,19 @@ export default async function Findings({
     >
       <FilterTransitionWrapper>
         <div className="mb-6">
-          <Suspense fallback={<FindingsFiltersSkeleton />}>
-            <FindingsFiltersSection
-              filters={filters}
-              resolvedFilters={resolvedFilters}
-              hasHistoricalData={hasHistoricalData}
-              query={query}
-              encodedSort={encodedSort}
-              completedScans={completedScans}
-            />
-          </Suspense>
+          {/* cloudsneeker-hook: filters fold behind one button on phones */}
+          <MobileFilters>
+            <Suspense fallback={<FindingsFiltersSkeleton />}>
+              <FindingsFiltersSection
+                filters={filters}
+                resolvedFilters={resolvedFilters}
+                hasHistoricalData={hasHistoricalData}
+                query={query}
+                encodedSort={encodedSort}
+                completedScans={completedScans}
+              />
+            </Suspense>
+          </MobileFilters>
         </div>
         <Suspense fallback={<SkeletonTableFindings />}>
           <SSRDataTable

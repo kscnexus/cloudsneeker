@@ -123,6 +123,18 @@ const isRiskDomain = (value: unknown): value is RiskDomain =>
   typeof value === "string" &&
   (RISK_DOMAIN_ORDER as readonly string[]).includes(value);
 
+/** A risk view older than this is rebuilt when the Overview opens. */
+export const RISK_SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** The snapshot is older than a day, or its date cannot be read. */
+export const isRiskSnapshotStale = (
+  generatedAt: string | null | undefined,
+  now: number = Date.now(),
+): boolean => {
+  const time = generatedAt ? Date.parse(generatedAt) : Number.NaN;
+  return Number.isNaN(time) || now - time > RISK_SNAPSHOT_MAX_AGE_MS;
+};
+
 /** Newest completed executive run, or `null`. `runs` are newest first. */
 export const latestCompletedRun = (
   runs: ReportRunResource[],

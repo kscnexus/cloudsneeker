@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appSecEmptyMessage,
   actionError,
   APPSEC_FINDING_SORT,
   APPSEC_RESERVED_SEGMENTS,
@@ -331,5 +332,33 @@ describe("selectedIds", () => {
   it("splits a comma-separated filter", () => {
     expect(selectedIds("a, b,,a")).toEqual(["a", "b"]);
     expect(selectedIds(null)).toEqual([]);
+  });
+});
+
+describe("appSecEmptyMessage", () => {
+  const all = workspaceForSegment(APPSEC_SEGMENT.FINDINGS)!;
+
+  it("asks for a scan when nothing was ever found", () => {
+    expect(appSecEmptyMessage(all, null)).toEqual({
+      title: "No findings",
+      description: all.empty,
+      links: [],
+    });
+  });
+
+  it("says nothing is open when findings were fixed or suppressed", () => {
+    const message = appSecEmptyMessage(all, {
+      by_state: { fixed: 211 },
+      suppressed: 251,
+    });
+    expect(message.title).toBe("No open findings");
+    expect(message.description).toBe(
+      "Nothing needs fixing here: 211 findings fixed and 251 suppressed. New findings appear after the next scan.",
+    );
+    expect(message.links.map((link) => link.label)).toEqual([
+      "Show fixed",
+      "Show suppressed",
+    ]);
+    expect(message.links[0].href).toContain("fixed");
   });
 });

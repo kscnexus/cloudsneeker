@@ -15,6 +15,7 @@ from cloudsneeker_api.reports.data.common import (
     aggregate_findings,
     average_pass_pct,
     compliance_posture,
+    count_noun,
     findings_for,
     grade_for,
     latest_scan_ids,
@@ -105,10 +106,11 @@ def executive_headline(
         )
     parts = [f"Overall security grade {grade} ({score:.0f}/100)."]
     if open_issues == 0:
-        parts.append(f"No open issues across {sources} source(s).")
+        parts.append(f"No open issues across {count_noun(sources, 'source')}.")
     else:
         parts.append(
-            f"{open_issues} open issue(s) across {sources} source(s), "
+            f"{count_noun(open_issues, 'open issue')} across "
+            f"{count_noun(sources, 'source')}, "
             f"{critical} critical and {high} high."
         )
     if compliance_pct is not None:
@@ -149,7 +151,7 @@ def next_actions(
     if critical and risks:
         actions.append(
             (
-                f"Fix the {critical} critical issue(s), starting with "
+                f"Fix the {count_noun(critical, 'critical issue')}, starting with "
                 f"'{risks[0].get('title') or risks[0]['check_id']}'.",
                 "Critical issues are the most likely path to a breach.",
             )
@@ -157,7 +159,7 @@ def next_actions(
     if secrets_open:
         actions.append(
             (
-                f"Rotate and remove the {secrets_open} exposed secret(s).",
+                f"Rotate and remove the {count_noun(secrets_open, 'exposed secret')}.",
                 "Leaked credentials give attackers direct access.",
             )
         )
@@ -174,14 +176,15 @@ def next_actions(
     if high:
         actions.append(
             (
-                f"Schedule remediation of the {high} high-severity issue(s) this sprint.",
+                f"Schedule remediation of the {count_noun(high, 'high-severity issue')} "
+                "this sprint.",
                 "High issues often combine into a critical attack path.",
             )
         )
     if governance_kpis.get("policies_with_matches"):
         actions.append(
             (
-                f"Review the {governance_kpis['matched_resources']} resource(s) "
+                f"Review the {count_noun(governance_kpis['matched_resources'], 'resource')} "
                 "flagged by governance policies.",
                 "Policy drift adds cost and risk over time.",
             )
@@ -274,12 +277,12 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     data.trend = trend(tenant_id, filters, ALL_SCOPE)
 
     domain_rows = [
-        _domain_row("cloud", domain_scores["cloud"], cloud_stats, f"{len(cloud_ids)} account(s)"),
+        _domain_row("cloud", domain_scores["cloud"], cloud_stats, count_noun(len(cloud_ids), "account")),
         _domain_row(
             "application",
             domain_scores["application"],
             app_stats,
-            f"{len(app_ids)} target(s)",
+            count_noun(len(app_ids), "target"),
         ),
         {
             "domain": "compliance",
@@ -289,7 +292,7 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
             "open_issues": sum(item["failed"] for item in posture),
             "critical": 0,
             "high": 0,
-            "coverage": f"{len(posture)} framework(s)",
+            "coverage": count_noun(len(posture), "framework"),
         },
         {
             "domain": "governance",

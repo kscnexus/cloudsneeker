@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   type AppSecurityCategory,
   appSecurityCategoryHref,
@@ -47,6 +49,14 @@ export const AppSecurityDashboardPanel = ({
   const critical =
     severityTotals?.find((item) => item.severity === "critical")?.count ?? null;
   const { lastRun } = dashboard;
+  // Areas with targets get a tile; the rest are listed on one line, so
+  // empty areas do not look as important as covered ones.
+  const coveredCategories = dashboard.categories.filter(
+    (category) => category.targetCount > 0,
+  );
+  const uncoveredCategories = dashboard.categories.filter(
+    (category) => category.targetCount === 0,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,9 +132,9 @@ export const AppSecurityDashboardPanel = ({
       >
         <ul
           aria-label="Areas"
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {dashboard.categories.map((category) => {
+          {coveredCategories.map((category) => {
             const selected = activeCategory === category.id;
             return (
               <li key={category.id} className="min-w-0">
@@ -132,30 +142,39 @@ export const AppSecurityDashboardPanel = ({
                   label={category.label}
                   value={category.targetCount}
                   hint={
-                    category.targetCount === 0
-                      ? category.description
-                      : category.scannedTargetCount === 0
-                        ? `${category.targetCount === 1 ? "Target" : "Targets"} not scanned yet`
-                        : category.findingCount === null
-                          ? "Finding counts unavailable"
-                          : `${category.findingCount.toLocaleString("en-US")} ${category.findingCount === 1 ? "finding" : "findings"} in the latest scans`
+                    category.scannedTargetCount === 0
+                      ? `${category.targetCount === 1 ? "Target" : "Targets"} not scanned yet`
+                      : category.findingCount === null
+                        ? "Finding counts unavailable"
+                        : `${category.findingCount.toLocaleString("en-US")} ${category.findingCount === 1 ? "finding" : "findings"} in the latest scans`
                   }
                   href={
                     selected ? appSecurityCategoryHref(null) : category.href
                   }
                   selected={selected}
-                  tone={
-                    selected
-                      ? STAT_TILE_TONE.ACCENT
-                      : category.targetCount > 0
-                        ? STAT_TILE_TONE.INFO
-                        : STAT_TILE_TONE.NEUTRAL
-                  }
+                  tone={selected ? STAT_TILE_TONE.ACCENT : STAT_TILE_TONE.INFO}
                 />
               </li>
             );
           })}
         </ul>
+        {uncoveredCategories.length > 0 ? (
+          <p className="text-text-neutral-secondary mt-3 text-sm">
+            No targets yet:{" "}
+            {uncoveredCategories.map((category, index) => (
+              <span key={category.id}>
+                {index > 0 ? " · " : null}
+                <Link
+                  href={category.href}
+                  title={category.description}
+                  className="text-text-lighthouse underline-offset-4 hover:underline"
+                >
+                  {category.label}
+                </Link>
+              </span>
+            ))}
+          </p>
+        ) : null}
       </SectionCard>
     </div>
   );

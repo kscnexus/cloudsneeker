@@ -24,6 +24,7 @@ import {
   type AppSecFindingFilters,
   appSecFindingHref,
   appSecFindingLocation,
+  appSecEmptyMessage,
   appSecFindingsHref,
   appSecFindingsQuery,
   appSecFixSummary,
@@ -577,6 +578,7 @@ const SSRWorkspace = async ({
   const total = responseCount(response) ?? findings.length;
   const summary = attributesOf<AppSecFindingsSummary>(summaryResponse);
   const filtered = isAppSecFiltered(filters);
+  const emptyMessage = appSecEmptyMessage(workspace, summary);
   const sortOptions = Object.values(APPSEC_FINDING_SORT).map((sort) => ({
     value: sort,
     label: APPSEC_FINDING_SORT_LABEL[sort],
@@ -622,11 +624,11 @@ const SSRWorkspace = async ({
       >
         {findings.length === 0 ? (
           <EmptyState
-            title={filtered ? "No findings match" : "No findings"}
+            title={filtered ? "No findings match" : emptyMessage.title}
             description={
               filtered
                 ? "Clear a filter to see more findings."
-                : workspace.empty
+                : emptyMessage.description
             }
             action={
               filtered ? (
@@ -635,6 +637,14 @@ const SSRWorkspace = async ({
                     Clear filters
                   </Link>
                 </Button>
+              ) : emptyMessage.links.length > 0 ? (
+                <>
+                  {emptyMessage.links.map((link) => (
+                    <Button key={link.href} asChild size="sm" variant="outline">
+                      <Link href={link.href}>{link.label}</Link>
+                    </Button>
+                  ))}
+                </>
               ) : undefined
             }
           />

@@ -206,6 +206,62 @@ export const APPSEC_WORKSPACES: readonly AppSecWorkspace[] = [
   },
 ];
 
+export interface AppSecEmptyLink {
+  label: string;
+  href: string;
+}
+
+export interface AppSecEmptyMessage {
+  title: string;
+  description: string;
+  links: AppSecEmptyLink[];
+}
+
+const plural = (count: number, noun: string): string =>
+  `${count.toLocaleString("en-US")} ${noun}${count === 1 ? "" : "s"}`;
+
+/**
+ * What an unfiltered, empty workspace says. With fixed or suppressed
+ * findings the workspace has been scanned, so it must not tell the user to
+ * create a target; it says nothing is open and links to the closed ones.
+ */
+export const appSecEmptyMessage = (
+  workspace: AppSecWorkspace,
+  summary: { by_state?: Record<string, number>; suppressed?: number } | null,
+): AppSecEmptyMessage => {
+  const fixed = summary?.by_state?.[APPSEC_STATE.FIXED] ?? 0;
+  const suppressed = summary?.suppressed ?? 0;
+  if (fixed + suppressed === 0) {
+    return { title: "No findings", description: workspace.empty, links: [] };
+  }
+  const links: AppSecEmptyLink[] = [];
+  if (fixed > 0) {
+    links.push({
+      label: "Show fixed",
+      href: appSecFindingsHref(workspace.segment, {
+        states: [APPSEC_STATE.FIXED],
+      }),
+    });
+  }
+  if (suppressed > 0) {
+    links.push({
+      label: "Show suppressed",
+      href: appSecFindingsHref(workspace.segment, { suppressed: true }),
+    });
+  }
+  const closed = [
+    fixed > 0 ? `${plural(fixed, "finding")} fixed` : "",
+    suppressed > 0 ? `${suppressed.toLocaleString("en-US")} suppressed` : "",
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  return {
+    title: "No open findings",
+    description: `Nothing needs fixing here: ${closed}. New findings appear after the next scan.`,
+    links,
+  };
+};
+
 export const workspaceForSegment = (
   segment: string,
 ): AppSecWorkspace | undefined =>

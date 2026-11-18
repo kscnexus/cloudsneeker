@@ -60,7 +60,7 @@ describe("ReportSourcePicker", () => {
     expect(screen.queryByLabelText(/acme\/api/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/acme\/web/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("All 2 relevant source(s) you can see are included."),
+      screen.getByText("All 2 relevant sources you can see are included."),
     ).toBeInTheDocument();
   });
 
@@ -84,11 +84,11 @@ describe("ReportSourcePicker", () => {
     render(<Harness reportType="cloud_posture" initial={["aws", "repo"]} />);
     expect(screen.getByText("1 of 2 selected.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "1 selected source(s) do not apply",
+      "1 selected source does not apply",
     );
     await userEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(
-      screen.getByText("All 2 relevant source(s) you can see are included."),
+      screen.getByText("All 2 relevant sources you can see are included."),
     ).toBeInTheDocument();
   });
 

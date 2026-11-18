@@ -70,7 +70,9 @@ export const ReportSourcePicker = ({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-text-neutral-secondary text-xs">
           {chosen.length === 0
-            ? `All ${applicable.length} relevant source(s) you can see are included.`
+            ? applicable.length === 1
+              ? "The one relevant source you can see is included."
+              : `All ${applicable.length} relevant sources you can see are included.`
             : `${chosen.length} of ${applicable.length} selected.`}
         </p>
         {chosen.length > 0 ? (
@@ -81,8 +83,9 @@ export const ReportSourcePicker = ({
       </div>
       {leftOut > 0 ? (
         <p className="text-text-warning-primary text-xs" role="status">
-          {leftOut} selected source(s) do not apply to this report and will be
-          left out.
+          {leftOut === 1
+            ? "1 selected source does not apply to this report and will be left out."
+            : `${leftOut} selected sources do not apply to this report and will be left out.`}
         </p>
       ) : null}
       {applicable.length > SOURCE_SEARCH_THRESHOLD ? (

@@ -18,8 +18,10 @@ from cloudsneeker_api.reports.catalog import (
     validate_params,
 )
 from cloudsneeker_api.reports.data.common import (
+    CRITICAL_SCORE_CAP,
     FindingStats,
     business_impact,
+    count_noun,
     exception_label,
     grade_for,
     metadata_text,
@@ -325,9 +327,16 @@ class TestScoring:
         assert grade_for(None) == "N/A"
 
     def test_weighted_pass_ratio(self):
-        fail = {**empty_severity_counts(), "critical": 1}
-        passed = {**empty_severity_counts(), "critical": 9}
+        fail = {**empty_severity_counts(), "high": 1}
+        passed = {**empty_severity_counts(), "high": 9}
         assert security_score(fail, passed) == 90.0
+
+    def test_open_critical_caps_the_grade_at_c(self):
+        fail = {**empty_severity_counts(), "critical": 1}
+        passed = {**empty_severity_counts(), "critical": 999}
+        score = security_score(fail, passed)
+        assert score == CRITICAL_SCORE_CAP
+        assert grade_for(score) == "C"
 
     def test_exposure_only_decays(self):
         fail = {**empty_severity_counts(), "critical": 5}
@@ -414,9 +423,14 @@ class TestHeadlines:
         assert "Compliance averages 71%" in text
         assert "top five risks" in text
 
+    def test_count_noun(self):
+        assert count_noun(1, "source") == "1 source"
+        assert count_noun(4, "source") == "4 sources"
+        assert count_noun(0, "open issue") == "0 open issues"
+
     def test_executive_headline_clean(self):
         text = executive_headline("A", 99.0, 0, 0, 0, 2, None)
-        assert "No open issues across 2 source(s)." in text
+        assert "No open issues across 2 sources." in text
         assert "top five" not in text
 
 
@@ -439,7 +453,7 @@ class TestNextActions:
             has_application=False,
         )
         texts = [item["action"] for item in actions]
-        assert texts[0].startswith("Fix the 2 critical issue(s), starting with 'Root MFA'")
+        assert texts[0].startswith("Fix the 2 critical issues, starting with 'Root MFA'")
         assert any("exposed secret" in text for text in texts)
         assert any("cis" in text for text in texts)
         assert any("high-severity" in text for text in texts)

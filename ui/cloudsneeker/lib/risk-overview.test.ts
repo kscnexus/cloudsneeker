@@ -15,7 +15,9 @@ import {
   buildTopRisks,
   buildTrendBars,
   hasNewerActiveRun,
+  isRiskSnapshotStale,
   latestCompletedRun,
+  RISK_SNAPSHOT_MAX_AGE_MS,
   reportPayloadFrom,
   RISK_DOMAIN_ORDER,
 } from "./risk-overview";
@@ -182,5 +184,24 @@ describe("buildRiskOverview", () => {
     expect(model.domains).toHaveLength(4);
     expect(model.topRisks).toHaveLength(1);
     expect(model.severityTotals[1].count).toBe(37);
+  });
+});
+
+describe("isRiskSnapshotStale", () => {
+  const now = Date.parse("2026-11-18T12:00:00Z");
+
+  it("keeps a snapshot from the last day", () => {
+    expect(isRiskSnapshotStale("2026-11-18T01:00:00Z", now)).toBe(false);
+  });
+
+  it("rebuilds one older than a day or without a date", () => {
+    expect(
+      isRiskSnapshotStale(
+        new Date(now - RISK_SNAPSHOT_MAX_AGE_MS - 1).toISOString(),
+        now,
+      ),
+    ).toBe(true);
+    expect(isRiskSnapshotStale(null, now)).toBe(true);
+    expect(isRiskSnapshotStale("not a date", now)).toBe(true);
   });
 });

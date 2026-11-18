@@ -17,6 +17,7 @@ import {
   severitySummary,
 } from "@/cloudsneeker/lib/alert-history";
 import { formatAuditTime } from "@/cloudsneeker/lib/audit-log";
+import { countNoun } from "@/cloudsneeker/lib/count-noun";
 import {
   LIST_PARAM,
   type ListFilters,
@@ -55,7 +56,8 @@ const EventRow = ({ event }: { event: AlertEventItem }) => (
         {event.trigger === "daily" ? <Badge variant="tag">Daily</Badge> : null}
       </div>
       <p className="text-text-neutral-secondary text-xs">
-        {formatAuditTime(event.insertedAt)} · {event.total} finding(s)
+        {formatAuditTime(event.insertedAt)} ·{" "}
+        {countNoun(event.total, "finding")}
         {event.delivered ? " · notified" : " · not delivered"}
       </p>
       <div className="flex flex-wrap gap-2">

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,6 +21,7 @@ describe("RiskOverviewRefreshButton", () => {
   beforeEach(() => {
     createReportRunMock.mockReset();
     refreshMock.mockReset();
+    window.sessionStorage.clear();
   });
 
   it("starts an executive report and refreshes the page", async () => {
@@ -49,5 +50,24 @@ describe("RiskOverviewRefreshButton", () => {
       "Report limit reached.",
     );
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("starts a run on its own once for an out-of-date snapshot", async () => {
+    createReportRunMock.mockResolvedValue({ data: { id: "run-2" } });
+    const { unmount } = render(
+      <RiskOverviewRefreshButton label="Refresh" autoStartKey="run-1" />,
+    );
+    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
+    expect(createReportRunMock).toHaveBeenCalledTimes(1);
+    unmount();
+
+    // A second visit in the same session does not start another run.
+    render(<RiskOverviewRefreshButton label="Refresh" autoStartKey="run-1" />);
+    expect(createReportRunMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts nothing without an out-of-date snapshot", () => {
+    render(<RiskOverviewRefreshButton label="Refresh" />);
+    expect(createReportRunMock).not.toHaveBeenCalled();
   });
 });
