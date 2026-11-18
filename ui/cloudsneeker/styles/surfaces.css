@@ -28,10 +28,11 @@
   }
 }
 
-/* Ghost and outline buttons (sidebar items, toolbars) draw a 50% grey
-   ring on focus that is barely visible on the light canvas. They get the
+/* Ghost and outline buttons (toolbars) and sidebar links draw a 50% ring
+   on focus that is barely visible on the light canvas. They get the
    signal-blue focus outline instead. */
-[data-slot="button"][class*="focus-visible:ring-border-neutral"]:focus-visible {
+[data-slot="button"][class*="focus-visible:ring-border-neutral"]:focus-visible,
+[data-slot="navigation-button"]:focus-visible {
   outline: 2px solid var(--cs-focus-ring);
   outline-offset: 2px;
   --tw-ring-color: transparent;
