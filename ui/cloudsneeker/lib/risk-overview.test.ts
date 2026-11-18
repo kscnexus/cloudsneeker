@@ -17,10 +17,14 @@ import {
   hasNewerActiveRun,
   isRiskSnapshotStale,
   latestCompletedRun,
+  RISK_RUN_LOST_AFTER_MS,
   RISK_SNAPSHOT_MAX_AGE_MS,
   reportPayloadFrom,
   RISK_DOMAIN_ORDER,
 } from "./risk-overview";
+
+/** When every test run was queued (`inserted_at` below). */
+const QUEUED_AT = Date.parse("2026-10-28T09:00:00Z");
 
 const run = (id: string, status: ReportRunStatus): ReportRunResource => ({
   type: REPORT_RESOURCE_TYPE.REPORT_RUNS,
@@ -51,7 +55,24 @@ describe("latestCompletedRun / hasNewerActiveRun", () => {
     const latest = latestCompletedRun(runs);
 
     expect(latest?.id).toBe("done");
-    expect(hasNewerActiveRun(runs, latest)).toBe(true);
+    expect(hasNewerActiveRun(runs, latest, QUEUED_AT + 5 * 60 * 1000)).toBe(
+      true,
+    );
+  });
+
+  it("treats a run queued too long as lost, so Refresh comes back", () => {
+    const runs = [
+      run("lost", REPORT_RUN_STATUS.PENDING),
+      run("done", REPORT_RUN_STATUS.COMPLETED),
+    ];
+
+    expect(
+      hasNewerActiveRun(
+        runs,
+        latestCompletedRun(runs),
+        QUEUED_AT + RISK_RUN_LOST_AFTER_MS + 1,
+      ),
+    ).toBe(false);
   });
 
   it("ignores active runs older than the latest completed one", () => {
@@ -60,7 +81,9 @@ describe("latestCompletedRun / hasNewerActiveRun", () => {
       run("stuck", REPORT_RUN_STATUS.PENDING),
     ];
 
-    expect(hasNewerActiveRun(runs, latestCompletedRun(runs))).toBe(false);
+    expect(hasNewerActiveRun(runs, latestCompletedRun(runs), QUEUED_AT)).toBe(
+      false,
+    );
   });
 
   it("returns null without completed runs", () => {

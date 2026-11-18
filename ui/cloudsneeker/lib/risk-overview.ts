@@ -142,17 +142,27 @@ export const latestCompletedRun = (
   runs.find((run) => run.attributes.status === REPORT_RUN_STATUS.COMPLETED) ??
   null;
 
-/** A newer executive run is still being prepared. */
+/**
+ * A run still queued or running after this long is treated as lost (its
+ * job never reached a worker, e.g. while the queue was down). It must not
+ * hide Refresh or stop a new run from starting.
+ */
+export const RISK_RUN_LOST_AFTER_MS = 30 * 60 * 1000;
+
+/** A newer executive run is still being prepared (and is not lost). */
 export const hasNewerActiveRun = (
   runs: ReportRunResource[],
   latest: ReportRunResource | null,
+  now: number = Date.now(),
 ): boolean => {
   for (const run of runs) {
     if (latest && run.id === latest.id) return false;
-    if (
+    const active =
       run.attributes.status === REPORT_RUN_STATUS.PENDING ||
-      run.attributes.status === REPORT_RUN_STATUS.RUNNING
-    ) {
+      run.attributes.status === REPORT_RUN_STATUS.RUNNING;
+    if (!active) continue;
+    const queuedAt = Date.parse(run.attributes.inserted_at);
+    if (Number.isNaN(queuedAt) || now - queuedAt <= RISK_RUN_LOST_AFTER_MS) {
       return true;
     }
   }
