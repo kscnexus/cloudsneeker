@@ -77,7 +77,11 @@ const SETTINGS_CHILD_LABEL = {
 
 const OPERATIONS_LINKS = [
   { href: "/alerts", label: "Alerts", icon: Bell },
-  { href: "/scans/config", label: "Scan profiles", icon: SlidersHorizontal },
+  {
+    href: "/scans/config",
+    label: "Cloud scan profiles",
+    icon: SlidersHorizontal,
+  },
   { href: "/scans?import=1", label: "CLI Import", icon: Upload },
 ] as const satisfies readonly {
   href: string;
@@ -539,7 +543,12 @@ const regroupNavigation = (
       ])
     : null;
 
-  const operationsItems: (NavigationItem | undefined)[] = [takeLink("/scans")];
+  // "Cloud scans" and "Cloud scan profiles": Application Security has its
+  // own Scans and Scan profiles, so these say which product they belong to.
+  const cloudScans = takeLink("/scans");
+  const operationsItems: (NavigationItem | undefined)[] = [
+    cloudScans ? { ...cloudScans, label: "Cloud scans" } : undefined,
+  ];
   for (const link of OPERATIONS_LINKS) {
     const child = takeChild(link.href);
     if (!child) continue;
@@ -549,7 +558,7 @@ const regroupNavigation = (
       label: link.label,
       icon: link.icon,
       active: isRouteActive(pathname, child.href),
-      highlight: child.highlight,
+      // No "New" badge: these features have shipped.
       requiredPermission: child.requiredPermission,
     });
   }

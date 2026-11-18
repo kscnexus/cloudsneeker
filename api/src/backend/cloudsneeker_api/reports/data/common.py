@@ -65,6 +65,10 @@ SEVERITY_WEIGHTS: dict[str, float] = {
 # Weighted failures at which an exposure-only score (no PASS results) is 50.
 EXPOSURE_HALF_SCORE = 50.0
 
+# Highest score while any critical finding is open: a C at best, so a large
+# pass count cannot hide an open critical behind an A or B.
+CRITICAL_SCORE_CAP = 79.0
+
 GRADE_BANDS: tuple[tuple[float, str], ...] = (
     (90.0, "A"),
     (80.0, "B"),
@@ -482,7 +486,8 @@ def security_score(
     With PASS results (posture data) the score is the severity-weighted pass
     ratio. With failures only (vulnerability or secret data, where scanners
     never emit PASS) it decays with the weighted failure count:
-    ``100 / (1 + weighted / EXPOSURE_HALF_SCORE)``.
+    ``100 / (1 + weighted / EXPOSURE_HALF_SCORE)``. An open critical caps the
+    score at ``CRITICAL_SCORE_CAP``.
 
     Args:
         fail_by_severity: Failed findings per severity.
@@ -501,10 +506,20 @@ def security_score(
     if total_findings == 0:
         return None
     if weighted_pass > 0:
-        return round(100.0 * weighted_pass / (weighted_pass + weighted_fail), 1)
-    if weighted_fail == 0:
-        return 100.0
-    return round(100.0 / (1.0 + weighted_fail / EXPOSURE_HALF_SCORE), 1)
+        score = 100.0 * weighted_pass / (weighted_pass + weighted_fail)
+    elif weighted_fail == 0:
+        score = 100.0
+    else:
+        score = 100.0 / (1.0 + weighted_fail / EXPOSURE_HALF_SCORE)
+    if fail_by_severity.get("critical", 0) > 0:
+        score = min(score, CRITICAL_SCORE_CAP)
+    return round(score, 1)
+
+
+def count_noun(count: int, singular: str, plural: str | None = None) -> str:
+    """``1 issue`` / ``3 issues``: a count with the right noun form."""
+    noun = singular if count == 1 else (plural or f"{singular}s")
+    return f"{count} {noun}"
 
 
 def grade_for(score: float | None) -> str:

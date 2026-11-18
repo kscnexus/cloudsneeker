@@ -11,11 +11,13 @@ import type {
   RiskTopItem,
   RiskTrendBar,
 } from "@/cloudsneeker/lib/risk-overview";
+import { isRiskSnapshotStale } from "@/cloudsneeker/lib/risk-overview";
 import {
   CARD_LIST_CLASS,
   FOCUS_RING_CLASS,
 } from "@/cloudsneeker/lib/ui-classes";
 import { reportsHref } from "@/cloudsneeker/routes";
+import { AutoRefresh } from "@/components/scans/auto-refresh";
 import { Button } from "@/components/shadcn";
 import { cn } from "@/lib/utils";
 
@@ -46,9 +48,12 @@ const gradeTone = (score: number | null): StatTileTone => {
 };
 
 const RefreshingNote = () => (
-  <p className="text-text-neutral-tertiary text-xs" role="status">
-    Updating — reload the page in a minute to see the new score.
-  </p>
+  <>
+    <AutoRefresh hasExecutingScan />
+    <p className="text-text-neutral-tertiary text-xs" role="status">
+      Updating the risk view. The new score appears here when it is ready.
+    </p>
+  </>
 );
 
 const TopRiskList = ({ risks }: { risks: RiskTopItem[] }) => {
@@ -179,7 +184,14 @@ export const RiskOverviewPanel = ({
       description={`${RISK_OVERVIEW_DESCRIPTION} As of ${formatReportDate(model.generatedAt)}.`}
       actions={
         <>
-          {refreshing ? null : <RiskOverviewRefreshButton label="Refresh" />}
+          {refreshing ? null : (
+            <RiskOverviewRefreshButton
+              label="Refresh"
+              autoStartKey={
+                isRiskSnapshotStale(model.generatedAt) ? model.runId : undefined
+              }
+            />
+          )}
           <Button asChild variant="ghost" size="sm">
             <Link href={model.reportHref}>Full report</Link>
           </Button>

@@ -10,6 +10,7 @@ import {
   LIGHTHOUSE_CHAT_CONFIG_STATUS,
   loadLighthouseChatConfig,
 } from "@/app/(prowler)/lighthouse/_lib/load-chat-config";
+import { SeekerAiSetupNeeded } from "@/cloudsneeker/components/seeker-ai-setup-needed"; // cloudsneeker-hook
 import { LighthouseIcon } from "@/components/icons/Icons";
 import {
   APP_SIDEBAR_MODE,
@@ -79,7 +80,7 @@ export default async function AIChatbot({
   const hasConfig = await isLighthouseConfigured();
 
   if (!hasConfig) {
-    return redirect(LIGHTHOUSE_ROUTE.SETTINGS);
+    return <SeekerAiSetupNeeded />; // cloudsneeker-hook: explain, then connect
   }
 
   // Fetch provider configuration with default models

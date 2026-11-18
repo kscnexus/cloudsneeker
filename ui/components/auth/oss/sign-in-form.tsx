@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { authenticate } from "@/actions/auth";
 import { initiateSamlAuth } from "@/actions/integrations/saml";
 import { MfaCodeField } from "@/cloudsneeker/components/mfa-code-field"; // cloudsneeker-hook
+import { SignInHelp } from "@/cloudsneeker/components/sign-in-help"; // cloudsneeker-hook
 import {
   isMfaChallengeCode,
   type MfaChallengeCode,
@@ -276,12 +277,16 @@ export const SignInForm = ({
                   aria-hidden="true"
                   className="text-text-neutral-tertiary"
                 />
+                {/* cloudsneeker-hook: visible name */}
+                <span>SSO</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">Continue with SAML SSO</TooltipContent>
           </Tooltip>
         )}
       </div>
+      {/* cloudsneeker-hook: password help */}
+      <SignInHelp />
     </AuthLayout>
   );
 };

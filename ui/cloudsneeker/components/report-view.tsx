@@ -5,6 +5,7 @@
 
 import type { ReactNode } from "react";
 
+import { countNoun } from "@/cloudsneeker/lib/count-noun";
 import {
   reportTitle,
   STATUS_SCOPE_LABEL,
@@ -78,7 +79,7 @@ const filterSummary = (report: ReportPayload): string[] => {
   const { filters } = report;
   const parts: string[] = [];
   const providers = filters.provider_ids?.length ?? 0;
-  parts.push(providers === 0 ? "All sources" : `${providers} source(s)`);
+  parts.push(providers === 0 ? "All sources" : countNoun(providers, "source"));
   if (filters.date_from || filters.date_to) {
     parts.push(
       `${formatReportDay(filters.date_from) || "Start"} – ${formatReportDay(filters.date_to) || "today"}`,
@@ -231,8 +232,8 @@ export const ReportView = ({
                     {risk.title || risk.check_id}
                   </span>
                   <span className="text-text-neutral-tertiary ml-auto text-xs">
-                    {formatCell(risk.resources ?? 0)} resource(s) ·{" "}
-                    {formatCell(risk.findings ?? 0)} finding(s)
+                    {countNoun(risk.resources ?? 0, "resource")} ·{" "}
+                    {countNoun(risk.findings ?? 0, "finding")}
                   </span>
                 </div>
                 {risk.impact ? (
@@ -362,7 +363,9 @@ export const ReportView = ({
                       {item.severity
                         ? ` · ${severityLabel(item.severity)}`
                         : ""}
-                      {item.resources ? ` · ${item.resources} resource(s)` : ""}
+                      {item.resources
+                        ? ` · ${countNoun(item.resources, "resource")}`
+                        : ""}
                     </span>
                   ) : null}
                 </div>

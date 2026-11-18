@@ -179,7 +179,7 @@ describe("withCloudsneekerNavigation", () => {
       },
       {
         label: NAVIGATION_SECTION_LABEL.OPERATIONS,
-        items: ["Scans", "Alerts", "Scan profiles", "CLI Import"],
+        items: ["Cloud scans", "Alerts", "Cloud scan profiles", "CLI Import"],
       },
       {
         label: NAVIGATION_SECTION_LABEL.SETTINGS,
@@ -251,16 +251,15 @@ describe("withCloudsneekerNavigation", () => {
     );
 
     expect(operations?.items).toEqual([
-      expect.objectContaining({ label: "Scans", href: "/scans" }),
+      expect.objectContaining({ label: "Cloud scans", href: "/scans" }),
       expect.objectContaining({
         kind: NAVIGATION_ITEM_KIND.LINK,
         label: "Alerts",
         href: "/alerts",
         active: true,
-        highlight: true,
       }),
       expect.objectContaining({
-        label: "Scan profiles",
+        label: "Cloud scan profiles",
         href: "/scans/config",
         active: false,
       }),
@@ -272,6 +271,8 @@ describe("withCloudsneekerNavigation", () => {
     ]);
     for (const item of operations?.items ?? []) {
       expect(item.icon).toBeDefined();
+      // Shipped features carry no "New" badge.
+      expect(item).not.toHaveProperty("highlight", true);
     }
   });
 
@@ -603,7 +604,7 @@ describe("withCloudsneekerNavigation plan filtering", () => {
     expect(labels).not.toContain("Audit log");
     // Core pages never depend on the plan.
     expect(labels).toContain("Findings");
-    expect(labels).toContain("Scans");
+    expect(labels).toContain("Cloud scans");
   });
 
   it("drops a section or collapsible left empty", () => {

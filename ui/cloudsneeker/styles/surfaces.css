@@ -28,6 +28,15 @@
   }
 }
 
+/* Ghost and outline buttons (sidebar items, toolbars) draw a 50% grey
+   ring on focus that is barely visible on the light canvas. They get the
+   signal-blue focus outline instead. */
+[data-slot="button"][class*="focus-visible:ring-border-neutral"]:focus-visible {
+  outline: 2px solid var(--cs-focus-ring);
+  outline-offset: 2px;
+  --tw-ring-color: transparent;
+}
+
 /* Cards ---------------------------------------------------------------- */
 
 [data-slot="card"] {
@@ -229,6 +238,33 @@ table.border-spacing-y-4
   box-shadow: var(--cs-shadow-overlay);
 }
 
+/* Integrations --------------------------------------------------------- */
+/* Upstream integration cards repeat their one-line summary as a body
+   paragraph, and each has a filled "Manage" button. On the Integrations
+   list (one hook: `data-cs-integrations`) the repeat is hidden and the
+   repeated card action is an outline button, as the design system asks. */
+
+[data-cs-integrations]
+  [data-slot="card"]:has([data-slot="card-header"] p.text-nowrap)
+  > [data-slot="card-content"]:has(> p:only-child) {
+  display: none;
+}
+
+[data-cs-integrations]
+  [data-slot="card-header"]
+  [data-slot="button"].bg-button-primary {
+  border-color: var(--border-neutral-secondary);
+  background-color: var(--bg-neutral-secondary);
+  color: var(--text-neutral-primary);
+  font-weight: 500;
+}
+
+[data-cs-integrations]
+  [data-slot="card-header"]
+  [data-slot="button"].bg-button-primary:hover {
+  background-color: var(--bg-neutral-tertiary);
+}
+
 /* Phone ---------------------------------------------------------------- */
 
 @media (max-width: 39.99rem) {
@@ -246,6 +282,27 @@ table.border-spacing-y-4
   :is([data-slot="dialog-content"], [role="alertdialog"])
     div:has(> [data-slot="button"]) {
     flex-wrap: wrap;
+  }
+
+  /* The header shows only the current page, at the width it has, instead
+     of every level cut to a few characters. Parents stay in the sidebar. */
+  nav[aria-label="Breadcrumb"] ol > li:not(:last-child) {
+    display: none;
+  }
+
+  nav[aria-label="Breadcrumb"] ol > li:last-child .truncate {
+    max-width: calc(100vw - 11rem);
+  }
+
+  /* Truncated cell text (finding titles) wraps to two lines instead of
+     being cut to a few characters. */
+  [data-table-scroll-container] td .truncate {
+    display: -webkit-box;
+    min-width: 10rem;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }
 

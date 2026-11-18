@@ -13,6 +13,7 @@ import {
   areaFindingsPageHref,
   areaTriagePageHref,
 } from "@/cloudsneeker/lib/area-findings";
+import { countNoun } from "@/cloudsneeker/lib/count-noun";
 import { formatReportDate } from "@/cloudsneeker/lib/report-view";
 import { APP_SECURITY_SEGMENT, appSecurityHref } from "@/cloudsneeker/routes";
 import {
@@ -226,7 +227,7 @@ export const AppSecurityFindingDetail = ({
           <Field label="Notes">
             {finding.triage_notes_count > 0 ? (
               <LinkText href={areaTriagePageHref(area, null)}>
-                {`${finding.triage_notes_count} note(s)`}
+                {countNoun(finding.triage_notes_count, "note")}
               </LinkText>
             ) : (
               "No notes"

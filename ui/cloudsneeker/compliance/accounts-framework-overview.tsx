@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/cloudsneeker/components/empty-state";
 import { SectionCard } from "@/cloudsneeker/components/section-card";
+import { countNoun } from "@/cloudsneeker/lib/count-noun";
 import { loadComplianceFrameworks } from "@/cloudsneeker/lib/dashboard-data";
 import {
   rankFrameworksByGap,
@@ -71,7 +72,7 @@ export const AccountsFrameworkOverview = async ({
       </nav>
       <SectionCard
         title={`${selected?.label ?? providerType} frameworks across accounts`}
-        description={`Latest scan of each of ${selected?.accounts ?? 0} account(s). Frameworks with the most failed requirements first.`}
+        description={`Latest scan of each of ${countNoun(selected?.accounts ?? 0, "account")}. Frameworks with the most failed requirements first.`}
       >
         {rows === null ? (
           <p role="alert" className="text-text-error-primary text-sm">

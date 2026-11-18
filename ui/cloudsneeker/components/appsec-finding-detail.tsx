@@ -12,6 +12,7 @@ import {
   formatAppSecDate,
   workspaceForCategory,
 } from "@/cloudsneeker/lib/appsec";
+import { countNoun } from "@/cloudsneeker/lib/count-noun";
 import { branchDisplay } from "@/cloudsneeker/lib/repository-branches";
 import { labelForTrivyMode } from "@/cloudsneeker/lib/trivy-modes";
 import { appSecurityHref } from "@/cloudsneeker/routes";
@@ -320,7 +321,7 @@ export const AppSecFindingDetail = ({
             {
               label: "Reopened",
               value: finding.reopen_count
-                ? `${finding.reopen_count} time(s)`
+                ? countNoun(finding.reopen_count, "time")
                 : "",
             },
             {

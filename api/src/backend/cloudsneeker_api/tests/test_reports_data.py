@@ -513,7 +513,7 @@ class TestGovernanceAndExecutive:
             "governance",
         }
         assert data.headline.startswith(f"Overall security grade {data.grade}")
-        assert data.remediation[0]["action"].startswith("Fix the 2 critical issue(s)")
+        assert data.remediation[0]["action"].startswith("Fix the 2 critical issues")
         assert any("secret" in item["action"] for item in data.remediation)
 
 

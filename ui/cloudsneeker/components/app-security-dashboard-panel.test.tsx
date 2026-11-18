@@ -80,7 +80,13 @@ describe("AppSecurityDashboardPanel", () => {
     ).toBeInTheDocument();
 
     const areas = screen.getByRole("list", { name: "Areas" });
-    expect(within(areas).getAllByRole("link")).toHaveLength(7);
+    // Only the covered area is a tile; the six others are listed below.
+    expect(within(areas).getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByText(/No targets yet:/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Kubernetes" })).toHaveAttribute(
+      "href",
+      "/application-security/scans?category=kubernetes",
+    );
     expect(
       within(areas).getByRole("link", { name: /Code \(SAST\)/ }),
     ).toHaveAttribute("href", "/application-security/scans?category=code");

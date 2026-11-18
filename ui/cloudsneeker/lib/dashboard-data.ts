@@ -31,6 +31,7 @@ import {
   responseCount,
   responseList,
 } from "@/cloudsneeker/lib/findings-links";
+import { frameworkLabel } from "@/cloudsneeker/lib/report-view";
 import { loadAllTargets } from "@/cloudsneeker/lib/trivy-targets-data";
 import { appSecurityHref, governanceHref } from "@/cloudsneeker/routes";
 import type {
@@ -137,7 +138,9 @@ export const loadComplianceFrameworks = async (
       )
       .map((item) => ({
         id: item.complianceId,
-        label: item.label,
+        // From the id (`cis_5.0_aws`): it names the provider, so the same
+        // framework on two clouds is not two identical rows.
+        label: frameworkLabel(item.complianceId),
         passed: Number(item.requirementsPassed) || 0,
         failed: Number(item.requirementsFailed) || 0,
         manual: Number(item.requirementsManual) || 0,
