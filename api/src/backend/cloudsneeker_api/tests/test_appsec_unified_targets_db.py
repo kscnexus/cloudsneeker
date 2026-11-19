@@ -176,6 +176,7 @@ class TestRepositoryRunWithStaticAnalysis:
 class TestExtraBranches:
     def test_branch_findings_are_apart_and_write_no_shared_rows(self, target):
         _persist(target)
+        sboms = AppSecSbom.objects.filter(target=target).count()
         _run_row, stored = _persist(target, vulns=[], branch="dev")
         assert stored["scan_id"] is None and stored["sbom_id"] is None
         main = AppSecFinding.objects.get(target=target, branch="")
@@ -183,7 +184,8 @@ class TestExtraBranches:
         _persist(target, branch="dev")
         dev = AppSecFinding.objects.get(target=target, branch="dev")
         assert dev.uid != main.uid
-        assert AppSecSbom.objects.filter(target=target).count() == 1
+        # Other-branch runs keep no inventory.
+        assert AppSecSbom.objects.filter(target=target).count() == sboms
 
     def test_findings_api_reads_main_branch_by_default(
         self, authenticated_client, target
