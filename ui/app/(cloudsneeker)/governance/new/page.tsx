@@ -6,6 +6,7 @@ import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { CUSTODIAN_PROVIDER_FILTER } from "@/cloudsneeker/lib/custodian-providers";
 import { CUSTODIAN_SCHEDULE_PRESET } from "@/cloudsneeker/lib/custodian-schedule";
 import { CUSTODIAN_TEMPLATES } from "@/cloudsneeker/lib/custodian-templates";
+import { sourceOption } from "@/cloudsneeker/lib/source-options";
 import { ContentLayout } from "@/components/shadcn/content-layout";
 import type { SearchParamsProps } from "@/types";
 
@@ -26,16 +27,7 @@ export default async function NewCustodianPolicyPage({
     filters: { ...CUSTODIAN_PROVIDER_FILTER },
   });
 
-  const providers = (providersResponse?.data ?? []).map((provider) => ({
-    id: provider.id,
-    providerType: provider.attributes.provider,
-    label: [
-      provider.attributes.provider,
-      provider.attributes.alias || provider.attributes.uid || provider.id,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-  }));
+  const providers = (providersResponse?.data ?? []).map(sourceOption);
 
   const preferredProviders = template
     ? [

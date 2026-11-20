@@ -110,8 +110,9 @@ export const RepositoryBranchField = ({
   // Keep saved branches selectable even if the listing no longer has them.
   const options = Array.from(new Set([...(list?.branches ?? []), ...value]));
   const help = multiple
-    ? "Leave empty to scan the default branch. Each branch you pick becomes its own target, with its own scans, schedule and reports."
-    : "Changes apply from the next scan.";
+    ? "Leave empty to scan the default branch."
+    : "Findings, reports and alerts follow this branch. Add other branches below; the same target scans them.";
+  const singleLabel = "Main branch";
 
   if (!providerId) return null;
 
@@ -119,7 +120,7 @@ export const RepositoryBranchField = ({
     return (
       <FormField
         id={id}
-        label={multiple ? "Branches" : "Branch"}
+        label={multiple ? "Branches" : singleLabel}
         optional
         help={`${current.message} Type the branch ${multiple ? "names, one per line or comma-separated" : "name"}; leave empty for the default branch.`}
         error={error}
@@ -143,7 +144,7 @@ export const RepositoryBranchField = ({
 
   if (!list) {
     return (
-      <FormField id={id} label={multiple ? "Branches" : "Branch"} optional>
+      <FormField id={id} label={multiple ? "Branches" : singleLabel} optional>
         <p id={id} role="status" className="text-text-neutral-tertiary text-sm">
           Loading branches…
         </p>
@@ -159,7 +160,7 @@ export const RepositoryBranchField = ({
     return (
       <FormField
         id={id}
-        label="Branch"
+        label={singleLabel}
         optional
         help={`${help}${truncatedHelp}`}
         error={error}

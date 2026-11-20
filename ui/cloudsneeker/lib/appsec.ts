@@ -317,6 +317,8 @@ export const APPSEC_FINDING_PARAM = {
   APPLICATION: "filter[application__in]",
   ASSET_TYPE: "filter[target_type]",
   FIRST_SEEN: "filter[first_seen_days]",
+  /** Other branch of the targets; empty reads each target's main branch. */
+  BRANCH: "filter[branch]",
   RULE: "rule",
   PACKAGE: "package",
   SEARCH: "filter[search]",
@@ -397,6 +399,8 @@ export interface AppSecFindingFilters {
   assetTypes: string[];
   /** Found within the last N days. */
   firstSeenDays: number | null;
+  /** Other branch to read (`*` for every branch); null: main branch. */
+  branch: string | null;
   search: string;
   sort: AppSecFindingSort;
   page: number;
@@ -417,6 +421,7 @@ export const DEFAULT_APPSEC_FINDING_FILTERS: AppSecFindingFilters = {
   pkg: null,
   assetTypes: [],
   firstSeenDays: null,
+  branch: null,
   search: "",
   sort: APPSEC_FINDING_SORT.PRIORITY,
   page: 1,
@@ -500,6 +505,7 @@ export const parseAppSecFindingFilters = (
     pkg: first(searchParams[param.PACKAGE]).slice(0, 200) || null,
     assetTypes: csv(first(searchParams[param.ASSET_TYPE]), TARGET_MODES),
     firstSeenDays: APPSEC_FIRST_SEEN_DAYS.includes(days) ? days : null,
+    branch: first(searchParams[param.BRANCH]).slice(0, 200) || null,
     search: read(searchParams, param.SEARCH).slice(0, 200),
     sort: (Object.values(APPSEC_FINDING_SORT) as string[]).includes(sort)
       ? (sort as AppSecFindingSort)
@@ -539,6 +545,7 @@ export const appSecFindingsHref = (
     query.set(param.ASSET_TYPE, merged.assetTypes.join(","));
   if (merged.firstSeenDays)
     query.set(param.FIRST_SEEN, String(merged.firstSeenDays));
+  if (merged.branch) query.set(param.BRANCH, merged.branch);
   if (merged.rule) query.set(param.RULE, merged.rule);
   if (merged.pkg) query.set(param.PACKAGE, merged.pkg);
   if (merged.search) query.set(param.SEARCH, merged.search);
@@ -579,6 +586,7 @@ export const appSecFindingsQuery = (
     query["filter[target_type]"] = filters.assetTypes.join(",");
   if (filters.firstSeenDays)
     query["filter[first_seen_days]"] = String(filters.firstSeenDays);
+  if (filters.branch) query["filter[branch]"] = filters.branch;
   if (filters.rule) query["filter[rule_id]"] = filters.rule;
   if (filters.pkg) query["filter[pkg_name]"] = filters.pkg;
   if (filters.search) query["filter[search]"] = filters.search;
@@ -622,6 +630,7 @@ export const isAppSecFiltered = (filters: AppSecFindingFilters): boolean =>
   filters.application !== null ||
   filters.rule !== null ||
   filters.pkg !== null ||
+  filters.branch !== null ||
   filters.assetTypes.length > 0 ||
   filters.firstSeenDays !== null ||
   filters.search !== "";

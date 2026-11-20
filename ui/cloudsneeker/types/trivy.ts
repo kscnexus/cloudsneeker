@@ -61,8 +61,12 @@ export interface TrivyTargetConfig {
   images?: string[];
   image?: string;
   repository_url?: string;
-  /** Branch a repository or static analysis target scans; empty = default. */
+  /** Main branch of a repository or static analysis target; empty = default. */
   branch?: string;
+  /** Other branches the same target scans: names or patterns (`release/*`). */
+  branches?: string[];
+  /** Repository targets: static analysis runs in the same scan. */
+  sast?: TrivyTargetSastConfig;
   url?: string;
   path?: string;
   archive_b64?: string;
@@ -75,6 +79,11 @@ export interface TrivyTargetConfig {
   profile?: string;
   /** Scan options that override the profile. */
   options?: Record<string, unknown>;
+}
+
+export interface TrivyTargetSastConfig {
+  rulesets?: string[];
+  exclude?: string[];
 }
 
 export interface TrivyTargetAttributes {
@@ -111,6 +120,15 @@ export interface TrivyRunSummary {
   partial?: boolean;
   /** Branch the run scanned (Git targets). */
   branch?: string;
+  /** Static analysis step of a repository target. */
+  sast?: TrivyRunSastSummary;
+}
+
+export interface TrivyRunSastSummary {
+  status?: "completed" | "failed";
+  finding_count?: number;
+  duration_ms?: number;
+  error?: string;
 }
 
 export interface TrivyRunCoverage {
@@ -175,6 +193,10 @@ export interface TrivyRunAttributes {
   has_artifact?: boolean;
   /** Branch the run scanned; empty when unknown or not a Git target. */
   branch?: string;
+  /** Set when the run scanned one of the target's other branches. */
+  extra_branch?: string;
+  /** Shared scan of the static analysis rows of a repository target. */
+  code_scan_id?: string | null;
 }
 
 /** One branch of a code repository source. */

@@ -119,12 +119,13 @@ def latest_scan_ids(tenant_id: str) -> list[str]:
             tenant_id=tenant_id,
             status=TrivyRun.Status.COMPLETED,
             scan_id__isnull=False,
+            branch="",
         )
         .order_by("target_id", F("finished_at").desc(nulls_last=True))
         .distinct("target_id")
-        .values_list("scan_id", flat=True)
+        .values_list("scan_id", "code_scan_id")
     )
-    ids.extend(str(pk) for pk in app)
+    ids.extend(str(pk) for pair in app for pk in pair if pk)
     return ids
 
 
@@ -311,9 +312,9 @@ def evaluate_finding_rule(
 def _app_security_links(tenant_id: str, scan_ids: list[str]) -> list[str]:
     from cloudsneeker_api.models import TrivyRun
 
-    runs = TrivyRun.objects.filter(tenant_id=tenant_id, scan_id__in=scan_ids).values(
-        "id", "target_id"
-    )[:20]
+    runs = TrivyRun.objects.filter(
+        Q(scan_id__in=scan_ids) | Q(code_scan_id__in=scan_ids), tenant_id=tenant_id
+    ).values("id", "target_id")[:20]
     links = [app_security_run_link(run["target_id"], run["id"]) for run in runs]
     return links or [_ui("/application-security/findings")]
 

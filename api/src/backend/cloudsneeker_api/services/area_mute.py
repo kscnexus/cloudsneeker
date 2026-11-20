@@ -119,12 +119,13 @@ def latest_app_security_scan_ids(tenant_id: str) -> list[str]:
             tenant_id=tenant_id,
             status=TrivyRun.Status.COMPLETED,
             scan_id__isnull=False,
+            branch="",
         )
         .order_by("target_id", F("finished_at").desc(nulls_last=True))
         .distinct("target_id")
-        .values_list("scan_id", flat=True)
+        .values_list("scan_id", "code_scan_id")
     )
-    return [str(pk) for pk in runs]
+    return [str(pk) for pair in runs for pk in pair if pk]
 
 
 def mute_shared_rows(

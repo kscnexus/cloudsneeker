@@ -138,19 +138,59 @@ export const deleteTrivyTarget = async (targetId: string) => {
   }
 };
 
-export const scanTrivyTarget = async (targetId: string) => {
+export interface TrivyScanOptions {
+  /** Scan only this branch of a repository target. */
+  branch?: string;
+  /** Queue every extra branch, also those whose head was already scanned. */
+  allBranches?: boolean;
+}
+
+export const scanTrivyTarget = async (
+  targetId: string,
+  options: TrivyScanOptions = {},
+) => {
   const headers = await getAuthHeaders({ contentType: true });
   const url = new URL(`${apiBaseUrl}${TARGETS_PATH}/${targetId}/scan`);
+  const attributes: Record<string, unknown> = {};
+  if (options.branch?.trim()) attributes.branch = options.branch.trim();
+  if (options.allBranches) attributes.all_branches = true;
 
   try {
     const response = await fetch(url.toString(), {
       method: "POST",
       headers,
       body: JSON.stringify({
-        data: { type: "cloudsneeker-trivy-runs", attributes: {} },
+        data: { type: "cloudsneeker-trivy-runs", attributes },
       }),
     });
     const result = await handleApiResponse(response);
+    revalidatePath(`${REVALIDATE_PATH}/${targetId}`);
+    return result;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+/** Fold duplicate targets of the same repository into `targetId`. */
+export const mergeTrivyTargets = async (
+  targetId: string,
+  sourceTargetIds: string[],
+) => {
+  const headers = await getAuthHeaders({ contentType: true });
+  const url = new URL(`${apiBaseUrl}${TARGETS_PATH}/${targetId}/merge`);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        data: {
+          type: TARGET_TYPE,
+          attributes: { source_target_ids: sourceTargetIds },
+        },
+      }),
+    });
+    const result = await handleApiResponse(response, REVALIDATE_PATH);
     revalidatePath(`${REVALIDATE_PATH}/${targetId}`);
     return result;
   } catch (error) {

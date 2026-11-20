@@ -37,7 +37,7 @@ Read this before relying on the feature.
 
 ## Architecture
 
-```
+```text
 API (views_trivy, views_appsec)
   -> services.trivy.enqueue_trivy_run        validate, per-target and per-tenant limits
   -> Celery "scans" queue (existing)         cloudsneeker-trivy-scan
@@ -117,6 +117,7 @@ All under `/api/v1/`. The plan feature `application_security` gates every `appse
 | `appsec/capabilities` | GET | Target, scanner and option matrix; coverage |
 | `appsec/engine` | GET | Engine version, vulnerability data, limits, queue, failures |
 | `appsec/settings` | GET, PATCH | Risk, deadlines, retention, default profiles |
+| `trivy-targets/{id}/merge` | POST | Fold duplicate targets of the same source into this one |
 | `appsec/repository-branches?provider_id=` | GET | Branches of a code repository source, default first (`manage_scans`; 502 when the repository cannot be read) |
 | `appsec-applications` | GET, POST, PATCH, DELETE | Application inventory (`target_ids` assigns assets) |
 | `appsec-scan-profiles` | GET, POST, PATCH, DELETE | Profiles (built-in ones are read only) |
@@ -133,13 +134,52 @@ Existing contracts are unchanged: the new fields on `trivy-targets` and `trivy-r
 
 ### Branches
 
-Repository and static analysis targets that read a Git URL scan one branch: `config.branch`, or the repository's default branch when it is empty (every target created before this setting). Scanning several branches means one target per branch, so each branch has its own runs, schedule, findings and report. The create form lists the source's branches (`git ls-remote` with the source's token or SSH key, `services/repo_branches.py`) and saves one target per selected branch, named `<name> @ <branch>`.
+Repository and static analysis targets that read a Git URL have a **main branch**: `config.branch`, or the repository's default branch when it is empty (every target created before this setting). The create form lists the source's branches (`git ls-remote` with the source's token or SSH key, `services/repo_branches.py`).
+
+One target also covers **other branches** (`services/branch_policy.py`):
+
+* `config.branches` lists branch names or glob patterns (`develop`, `release/*`; at most 50).
+* A scan queues the main-branch run, then Celery `cloudsneeker-appsec-branch-runs` lists the remote branches with their head commits and queues one run per matching branch (`TrivyRun.branch`). A branch whose head commit is the one its latest completed run scanned (`summary.commit`) is skipped. At most `APPSEC_MAX_BRANCHES_PER_SCAN` (default 20) branches are queued per scan.
+* `POST /trivy-targets/{id}/scan` takes `branch` (scan one branch now, listed or not) or `all_branches: true` (queue every matching branch, changed or not).
+* Other-branch findings are stored with `AppSecFinding.branch` set. Every list, figure and report reads the main branch (`branch` empty) unless the findings API is asked with `filter[branch]=<name>` or `*`. The summary returns `branches`, the other branches with findings, for the picker on the findings pages.
+* Only main-branch runs write the shared `Scan` / `Finding` rows and the inventory, so reports, alerts and the S3, Security Hub, Jira and Slack integrations keep following the main branch. Other-branch triage is separate (a different UID).
+* Targets created before this, one per branch, can be merged (below).
 
 * SSH repositories are cloned with that branch (`depth=1`); HTTPS repository scans pass it as the engine's branch option. `config.branch` replaces any branch, tag or commit from a profile or `config.options`.
 * Each run records the branch it scanned in `summary.branch` (the default branch is read from the clone's `HEAD`), and `trivy-runs` returns it as `branch`. Findings carry `target_branch` (empty: default branch).
 * The branch is part of the target name (`<name> @ <branch>`), so every list, finding, report row, export, SBOM and scan name shows it. The API keeps the name in step: saving a branch adds it, changing it replaces it (`name_for_branch` in `services/repo_branches.py`).
 * Targets saved without a branch get it recorded (config and name) after their first scan, or at once with **Record branches** on the Scans page (`POST /appsec/record-branches`, Celery `cloudsneeker-appsec-record-branches`). That uses the branch the latest run recorded, else the repository's current default branch. A recorded branch is then fixed: if the repository's default branch changes later, edit the target. If the new name is already taken, the target keeps its old name.
 * Per-target SCA and SAST reports are titled and named `<target> @ <branch>`, so files read `<target>-<branch>-sca-<date>.pdf`. A default-branch target uses the branch its latest completed run recorded.
+
+### Static analysis in the repository target
+
+A code repository target runs static analysis in the same run when `config.sast` is set (`{"rulesets": [...], "exclude": [...]}`; `true` means automatic rule sets). No second static analysis target is needed for the same repository.
+
+* The engine runs, then OpenGrep clones the same branch and runs (`engine.run_code_step`). A static analysis failure is recorded in `summary.sast` and never discards the dependency results.
+* Coverage is per engine (`lifecycle.CombinedCoverage`): a failed static analysis step closes no code findings, and a failed dependency scan closes no dependency findings.
+* The static analysis rows go to a second shared scan with mode `sast` (`TrivyRun.code_scan_id`), so report streams, area findings, mute rules and alerts treat them exactly like a static analysis target's rows.
+* "Scan all repositories" creates one code repository target per repository with static analysis on. If a static analysis target already exists for that repository, the new target leaves static analysis to it.
+* The `sast` target type stays for uploaded code archives.
+
+### Merging duplicate targets
+
+`POST /trivy-targets/{id}/merge` with `source_target_ids` folds other targets of the same source into this one (`services/target_merge.py`), in one transaction:
+
+* A static analysis target turns `config.sast` on with its rule sets; its runs keep their shared rows as `code_scan_id`.
+* A target of another branch becomes one of `config.branches`; its findings keep that branch.
+* Findings, events and runs move; triage follows the unchanged UID. The source's inventory versions are dropped. Report schedules that named the source name the kept target.
+* Refused (409) for another source, an archive target, or findings that already exist on the same branch of the kept target.
+
+The target page lists the candidates under **Duplicate targets of this repository**.
+
+### Source picker
+
+Every create form (Application Security targets, governance policies) picks its source with the same grouped picker (`ui/cloudsneeker/components/source-picker.tsx`, grouping in `ui/cloudsneeker/lib/source-options.ts`):
+
+* A code repository source at `https://github.com/<owner>/...` is listed under the GitHub connection whose uid is `<owner>`. This is the same rule the API uses to lend it that connection's credentials (`github_connection.github_owner`).
+* The other code repositories, then every other provider type, each get a group of their own.
+
+Repositories of a GitHub connection are listed and added on **Integrations → GitHub** (`views_github.py`, `services/github_repositories.py`).
 
 ## UI
 

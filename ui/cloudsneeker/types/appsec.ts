@@ -179,6 +179,8 @@ export interface AppSecFindingsSummary {
   /** Values that have findings in the workspace (category) whatever the
    * other filters; the filter bar offers only these. */
   facets?: AppSecFindingFacets;
+  /** Other branches with findings (the main branch is always available). */
+  branches?: string[];
 }
 
 export interface AppSecFindingFacets {

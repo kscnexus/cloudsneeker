@@ -1040,15 +1040,23 @@ def persist_results(
     shared_rows_for,
     scan_name: str,
     using: str,
+    code_rows_for=None,
+    branch: str = "",
 ) -> dict[str, Any]:
     """Store findings, inventory and the shared rows in one transaction.
 
     Args:
         shared_rows_for: Callable ``uids -> list[row]`` building the shared
             ``Finding`` rows once UIDs are assigned.
+        code_rows_for: Same, for the static analysis rows of a repository
+            target that also runs static analysis. They go to a second
+            shared scan (mode ``sast``) so reports keep their streams.
+        branch: Extra branch the run scanned. Its findings are kept on the
+            target; no inventory or shared rows are written, so reports,
+            alerts and integrations keep following the main branch.
 
     Returns:
-        ``{"lifecycle", "scan_id", "sbom_id", "finding_count"}``.
+        ``{"lifecycle", "scan_id", "code_scan_id", "sbom_id", "finding_count"}``.
     """
     from cloudsneeker_api.appsec import inventory, lifecycle
     from cloudsneeker_api.appsec.risk import merge_risk_config, merge_sla_days
@@ -1071,7 +1079,16 @@ def persist_results(
             sla_days=merge_sla_days(settings_row.sla_days if settings_row else None),
             context=_application_context(target),
             using=using,
+            branch=branch,
         )
+        if branch:
+            return {
+                "lifecycle": outcome.to_dict(),
+                "scan_id": None,
+                "code_scan_id": None,
+                "sbom_id": None,
+                "finding_count": sum(1 for item in findings if not item.suppressed),
+            }
         record = inventory.store_inventory(
             tenant_id=tenant_id,
             target=target,
@@ -1097,21 +1114,38 @@ def persist_results(
             started_at=run.started_at,
             rows=rows,
         )
+        code_scan = None
+        code_rows: list[dict[str, Any]] = []
+        if code_rows_for is not None:
+            code_rows = code_rows_for(outcome.uids)
+            code_scan = import_trivy_report(
+                tenant_id=tenant_id,
+                provider=provider,
+                report={},
+                mode="sast",
+                scan_name=f"SAST: {target.name}",
+                started_at=run.started_at,
+                rows=code_rows,
+            )
     from cloudsneeker_api.services.alert_dispatch import enqueue_after_scan
     from cloudsneeker_api.services.area_mute import reconcile_scan
 
     # The provider scan applies the mutelist itself; application scans do it
     # here, before alerts read the rows.
-    try:
-        reconcile_scan(tenant_id, str(scan.id), str(target.id))
-    except Exception:  # noqa: BLE001 - muting must not fail a finished scan
-        logger.exception("Mute rules not applied to scan %s", scan.id)
-    enqueue_after_scan(tenant_id, scan_id=str(scan.id), using=using)
+    for shared in (scan, code_scan):
+        if shared is None:
+            continue
+        try:
+            reconcile_scan(tenant_id, str(shared.id), str(target.id))
+        except Exception:  # noqa: BLE001 - muting must not fail a finished scan
+            logger.exception("Mute rules not applied to scan %s", shared.id)
+        enqueue_after_scan(tenant_id, scan_id=str(shared.id), using=using)
     return {
         "lifecycle": outcome.to_dict(),
         "scan_id": str(scan.id),
+        "code_scan_id": str(code_scan.id) if code_scan else None,
         "sbom_id": str(record.id) if record else None,
-        "finding_count": len(rows),
+        "finding_count": len(rows) + len(code_rows),
     }
 
 
@@ -1219,6 +1253,7 @@ def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
             hub.assert_provider_matches_mode(provider, mode, config)
         except hub.TrivyHubError as exc:
             return _fail(run, using, failures.failure(failures.FAILURE_INPUT, str(exc)))
+        config = apply_run_branch(config, run.branch)
 
         if mode == "sast":
             return _execute_code_scan(run, target, provider, config, using)
@@ -1278,8 +1313,11 @@ def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
             )
             for index, unit in enumerate(units)
         ]
+        code = run_code_step(
+            config, provider, outcomes, lambda: cancel_requested(run, using)
+        )
         return _finish_engine_run(
-            run, target, provider, options, outcomes, artifact_dir, using
+            run, target, provider, options, outcomes, artifact_dir, using, code=code
         )
     except Exception as exc:  # noqa: BLE001 - the run must not stay "running"
         logger.exception("Application security scan failed unexpectedly run=%s", run_id)
@@ -1294,7 +1332,9 @@ def execute_run(*, tenant_id: str, run_id: str) -> dict[str, str]:
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
-def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, using):
+def _finish_engine_run(
+    run, target, provider, options, outcomes, artifact_dir, using, code=None
+):
     from cloudsneeker_api.appsec import lifecycle
     from cloudsneeker_api.appsec.shared_rows import shared_row
     from cloudsneeker_api.models import TrivyRun
@@ -1342,6 +1382,10 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
     coverage = lifecycle.coverage_for(
         options, complete=not reasons, reasons=reasons[:20]
     )
+    code_findings, code_rows_for, code_coverage = _code_step_results(code)
+    findings.extend(code_findings)
+    if code_coverage is not None:
+        coverage = lifecycle.combine_coverage(coverage, code_coverage)
     head = succeeded[0].parsed
     document_format = succeeded[0].unit.sbom_format
     metadata = dict(head.metadata)
@@ -1349,14 +1393,14 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
     if branch and not metadata.get("Branch"):
         # SSH clones are scanned as a directory, so the engine reports none.
         metadata["Branch"] = branch
-    if not (options.get("tag") or options.get("commit")):
+    if not (options.get("tag") or options.get("commit") or run.branch):
         _pin_branch(target, branch, using)
 
     def shared_rows_for(uids: dict[str, str]) -> list[dict[str, Any]]:
         return [
             shared_row(finding, uids[finding.fingerprint], mode=mode)
             for finding in findings
-            if not finding.suppressed
+            if not finding.suppressed and finding.category != parser.CATEGORY_CODE
         ]
 
     stored = persist_results(
@@ -1374,6 +1418,8 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
         shared_rows_for=shared_rows_for,
         scan_name=f"Trivy {mode}: {target.name}",
         using=using,
+        code_rows_for=code_rows_for,
+        branch=run.branch,
     )
     stats = parser.finding_stats(findings)
     stats.update(
@@ -1392,14 +1438,17 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
         status=TrivyRun.Status.COMPLETED,
         finished_at=timezone.now(),
         scan_id=stored["scan_id"],
+        code_scan_id=stored["code_scan_id"],
         summary={
+            **run_summary_base(run),
             "mode": mode,
             "path": "trivy_cli",
             "scan_id": stored["scan_id"],
             "finding_count": stored["finding_count"],
             "sbom_id": stored["sbom_id"],
-            "partial": bool(reasons),
+            "partial": bool(reasons) or bool(code and code.error),
             **({"branch": branch} if branch else {}),
+            **({"sast": code.summary(len(code_findings))} if code else {}),
         },
         output={
             "result_targets": targets[:50],
@@ -1419,6 +1468,117 @@ def _finish_engine_run(run, target, provider, options, outcomes, artifact_dir, u
         "run_id": str(run.id),
         "scan_id": stored["scan_id"],
     }
+
+
+@dataclass
+class CodeStep:
+    """Static analysis step of a repository target (``config.sast``)."""
+
+    config: dict[str, Any]
+    report: dict[str, Any] | None = None
+    error: str = ""
+    duration_ms: int = 0
+
+    def summary(self, finding_count: int) -> dict[str, Any]:
+        return {
+            "status": "failed" if self.error else "completed",
+            "finding_count": 0 if self.error else finding_count,
+            "duration_ms": self.duration_ms,
+            **({"error": self.error[:500]} if self.error else {}),
+        }
+
+
+def apply_run_branch(config: dict[str, Any], branch: str) -> dict[str, Any]:
+    """Point a Git target's config at the extra branch a run scans."""
+    if not branch or not config.get("repository_url"):
+        return config
+    return {**config, "branch": branch}
+
+
+def run_summary_base(run) -> dict[str, Any]:
+    """Summary keys set when the run was queued (the commit it expects)."""
+    commit = (run.summary or {}).get("commit")
+    return {"commit": commit} if commit else {}
+
+
+def run_code_step(config, provider, outcomes, is_cancelled) -> CodeStep | None:
+    """Run static analysis for a repository target that asks for it.
+
+    Skipped when the target does not run it, every engine unit failed, or
+    the run was cancelled. A failure is recorded, never raised: the
+    dependency results of the same run are still stored.
+    """
+    from cloudsneeker_api.services import trivy as hub
+    from cloudsneeker_api.services.brand_text import scrub_engine_text
+    from cloudsneeker_api.services.sast import repo_sast_config, run_opengrep_scan
+
+    sast_config = repo_sast_config(config)
+    if sast_config is None:
+        return None
+    if not any(item.parsed is not None for item in outcomes) or is_cancelled():
+        return None
+    step = CodeStep(config=sast_config)
+    started = time.monotonic()
+    try:
+        step.report = run_opengrep_scan(config=sast_config, provider=provider)
+    except hub.TrivyHubError as exc:
+        step.error = scrub_engine_text(str(exc)) or "Static analysis failed."
+    except Exception as exc:  # noqa: BLE001 - keep the dependency results
+        logger.exception("Static analysis step failed")
+        step.error = f"Static analysis could not run ({type(exc).__name__})."
+    step.duration_ms = int((time.monotonic() - started) * 1000)
+    return step
+
+
+def code_shared_rows(rows, findings):
+    """Builder ``uids -> rows`` of the shared rows of static analysis results."""
+    fingerprint_by_uid = {
+        finding.legacy_uid: finding.fingerprint for finding in findings
+    }
+
+    def build(uids: dict[str, str]) -> list[dict[str, Any]]:
+        shared = []
+        seen: set[str] = set()
+        for row in rows:
+            fingerprint = fingerprint_by_uid.get(row["uid"])
+            uid = uids.get(fingerprint or "", row["uid"])
+            if uid in seen:
+                continue
+            seen.add(uid)
+            shared.append({**row, "uid": uid})
+        return shared
+
+    return build
+
+
+def _code_step_results(code: CodeStep | None):
+    """``(findings, shared_rows_for, coverage)`` of a static analysis step.
+
+    A failed step reports no findings and a coverage that proves nothing,
+    so earlier static analysis findings keep their state.
+    """
+    from cloudsneeker_api.appsec import lifecycle
+    from cloudsneeker_api.services.trivy_import import (
+        opengrep_results_to_finding_rows,
+    )
+
+    if code is None:
+        return [], None, None
+    if code.report is None:
+        return (
+            [],
+            None,
+            lifecycle.Coverage(
+                complete=False, reasons=[f"Static analysis: {code.error}"]
+            ),
+        )
+    rows = opengrep_results_to_finding_rows(code.report)
+    findings = parser.parse_code_rows(rows)
+    return (
+        findings,
+        code_shared_rows(rows, findings),
+        sast_coverage(code.report, code.config),
+    )
 
 
 def _pin_branch(target, branch: str, using: str) -> None:
@@ -1484,25 +1644,12 @@ def _execute_code_scan(run, target, provider, config, using):
         report = run_opengrep_scan(config=config, provider=provider)
     except hub.TrivyHubError as exc:
         return _fail(run, using, failures.failure(failures.FAILURE_ENGINE, str(exc)))
-    _pin_branch(target, str(report.get("cloudsneeker_branch") or ""), using)
+    if not run.branch:
+        _pin_branch(target, str(report.get("cloudsneeker_branch") or ""), using)
     rows = opengrep_results_to_finding_rows(report)
     findings = parser.parse_code_rows(rows)
-    fingerprint_by_uid = {
-        finding.legacy_uid: finding.fingerprint for finding in findings
-    }
     coverage = sast_coverage(report, config)
-
-    def shared_rows_for(uids: dict[str, str]) -> list[dict[str, Any]]:
-        shared = []
-        seen: set[str] = set()
-        for row in rows:
-            fingerprint = fingerprint_by_uid.get(row["uid"])
-            uid = uids.get(fingerprint or "", row["uid"])
-            if uid in seen:
-                continue
-            seen.add(uid)
-            shared.append({**row, "uid": uid})
-        return shared
+    shared_rows_for = code_shared_rows(rows, findings)
 
     stored = persist_results(
         tenant_id=str(run.tenant_id),
@@ -1519,6 +1666,7 @@ def _execute_code_scan(run, target, provider, config, using):
         shared_rows_for=shared_rows_for,
         scan_name=f"SAST: {target.name}",
         using=using,
+        branch=run.branch,
     )
     stats = parser.finding_stats(findings)
     stats["lifecycle"] = stored["lifecycle"]
@@ -1529,6 +1677,7 @@ def _execute_code_scan(run, target, provider, config, using):
         finished_at=timezone.now(),
         scan_id=stored["scan_id"],
         summary={
+            **run_summary_base(run),
             "mode": "sast",
             "path": "trivy_cli",
             "scan_id": stored["scan_id"],

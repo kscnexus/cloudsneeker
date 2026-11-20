@@ -59,7 +59,7 @@ def resolve_target_scope(
     if target is None:
         raise ReportParamsError("target_id does not match a target.")
     modes = TARGET_MODES.get(report_type, frozenset())
-    if target.mode not in modes:
+    if target.mode not in modes and not runs_static_analysis(report_type, target):
         raise ReportParamsError(
             f"This report does not cover {target.get_mode_display()} targets."
         )
@@ -74,6 +74,16 @@ def resolve_target_scope(
         "provider_ids": [provider_id],
         TARGET_NAME_PARAM: branch_label(target.name, target_branch(tenant_id, target)),
     }
+
+
+def runs_static_analysis(report_type: str, target: TrivyTarget) -> bool:
+    """A repository target that also runs static analysis has a SAST report."""
+    config = target.config if isinstance(target.config, dict) else {}
+    return (
+        report_type == SAST
+        and target.mode == TrivyTarget.Mode.REPO
+        and isinstance(config.get("sast"), dict)
+    )
 
 
 def target_branch(tenant_id: str, target: TrivyTarget) -> str:
@@ -97,6 +107,7 @@ def target_branch(tenant_id: str, target: TrivyTarget) -> str:
             tenant_id=tenant_id,
             target_id=target.id,
             status=TrivyRun.Status.COMPLETED,
+            branch="",
         )
         .order_by("-finished_at")
         .values("summary", "output", "options")

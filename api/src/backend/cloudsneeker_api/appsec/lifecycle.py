@@ -143,6 +143,52 @@ def coverage_for(
 
 
 @dataclass
+class CombinedCoverage:
+    """Coverage of a run that ran more than one engine.
+
+    Each part answers for its own categories, so a failed static analysis
+    step does not stop the dependency scan from closing findings (and the
+    other way round).
+    """
+
+    parts: list[Coverage] = field(default_factory=list)
+
+    def establishes_absence(
+        self, category: str, severity: str, fix_available, path: str = ""
+    ) -> bool:
+        return any(
+            category in part.categories
+            and part.establishes_absence(category, severity, fix_available, path)
+            for part in self.parts
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        dicts = [part.to_dict() for part in self.parts]
+        severities = [item["severities"] for item in dicts]
+        unknown: set[str] = set()
+        for part in self.parts:
+            unknown |= part.unknown_paths
+        return {
+            "categories": sorted({c for item in dicts for c in item["categories"]}),
+            "severities": (
+                None
+                if any(item is None for item in severities)
+                else sorted({s for item in severities for s in item})
+            ),
+            "fixed_only": any(item["fixed_only"] for item in dicts),
+            "complete": all(item["complete"] for item in dicts),
+            "reasons": [reason for item in dicts for reason in item["reasons"]],
+            "unknown_paths": sorted(unknown)[:MAX_UNKNOWN_PATHS_STORED],
+            "parts": dicts,
+        }
+
+
+def combine_coverage(*parts: Coverage) -> Coverage | CombinedCoverage:
+    """One coverage for a run whose engines each reported their own."""
+    return parts[0] if len(parts) == 1 else CombinedCoverage(list(parts))
+
+
+@dataclass
 class Reconciliation:
     new: int = 0
     reopened: int = 0
@@ -262,12 +308,13 @@ def reconcile(
     target,
     run,
     findings: list[NormalizedFinding],
-    coverage: Coverage,
+    coverage: Coverage | CombinedCoverage,
     now: datetime,
     risk_config: dict[str, Any],
     sla_days: dict[str, int],
     context: AppContext | None = None,
     using: str | None = None,
+    branch: str = "",
 ) -> Reconciliation:
     """Apply one scan's findings to the target's stored findings.
 
@@ -284,6 +331,8 @@ def reconcile(
         sla_days: Days to fix by severity.
         context: Application facts for the score.
         using: Database alias.
+        branch: Extra branch the run scanned; empty for the main branch.
+            Only that branch's findings are compared.
 
     Returns:
         Counts per transition and the UID given to each fingerprint.
@@ -298,7 +347,7 @@ def reconcile(
     existing = {
         row.fingerprint: row
         for row in manager.filter(
-            tenant_id=tenant_id, target=target
+            tenant_id=tenant_id, target=target, branch=branch
         ).select_for_update()
     }
     reported = {finding.fingerprint: finding for finding in findings}
@@ -344,6 +393,7 @@ def reconcile(
             row = AppSecFinding(
                 tenant_id=tenant_id,
                 target=target,
+                branch=branch,
                 fingerprint=fingerprint,
                 uid=uid,
                 first_seen_at=now,

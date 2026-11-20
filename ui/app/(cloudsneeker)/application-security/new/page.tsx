@@ -8,7 +8,7 @@ import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
 import { APP_SECURITY_PROVIDER_PARAM } from "@/cloudsneeker/lib/app-security-dashboard";
 import { loadProfileOptions } from "@/cloudsneeker/lib/appsec-server";
 import { responseList } from "@/cloudsneeker/lib/findings-links";
-import { labelForProviderType } from "@/cloudsneeker/lib/trivy-modes";
+import { sourceOption } from "@/cloudsneeker/lib/source-options";
 import type {
   AppSecApplicationAttributes,
   AppSecResource,
@@ -37,16 +37,7 @@ export default async function NewTrivyTargetPage({
     value: application.id,
     label: application.attributes.name,
   }));
-  const providers = (providersResponse?.data ?? []).map((provider) => ({
-    id: provider.id,
-    providerType: provider.attributes.provider,
-    label: [
-      labelForProviderType(provider.attributes.provider),
-      provider.attributes.alias || provider.attributes.uid || provider.id,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-  }));
+  const providers = (providersResponse?.data ?? []).map(sourceOption);
 
   return (
     <ContentLayout

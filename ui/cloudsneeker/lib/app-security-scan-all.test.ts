@@ -44,7 +44,7 @@ describe("repositoryNameFromUrl", () => {
 });
 
 describe("planRepositoryScans", () => {
-  it("plans a code repository and a static analysis scan per repository", () => {
+  it("plans one code repository target per repository, with static analysis", () => {
     const plan = planRepositoryScans(
       [
         { id: "p1", uid: "git@bitbucket.org:acme/web.git", alias: "acme/web" },
@@ -59,29 +59,19 @@ describe("planRepositoryScans", () => {
         repositoryUrl: "git@bitbucket.org:acme/web.git",
         name: "acme/web",
         mode: TRIVY_MODE.REPO,
-      },
-      {
-        providerId: "p1",
-        repositoryUrl: "git@bitbucket.org:acme/web.git",
-        name: "acme/web (SAST)",
-        mode: TRIVY_MODE.SAST,
+        staticAnalysis: true,
       },
       {
         providerId: "p2",
         repositoryUrl: "git@bitbucket.org:acme/api.git",
         name: "acme/api",
         mode: TRIVY_MODE.REPO,
-      },
-      {
-        providerId: "p2",
-        repositoryUrl: "git@bitbucket.org:acme/api.git",
-        name: "acme/api (SAST)",
-        mode: TRIVY_MODE.SAST,
+        staticAnalysis: true,
       },
     ]);
   });
 
-  it("reuses existing targets of each type instead of creating them", () => {
+  it("rescans existing targets of each type instead of creating them", () => {
     const plan = planRepositoryScans(
       [{ id: "p1", uid: "git@bitbucket.org:acme/web.git", alias: "acme/web" }],
       [
@@ -96,13 +86,16 @@ describe("planRepositoryScans", () => {
     ]);
   });
 
-  it("creates only the missing type, with a name unique per tenant", () => {
+  it("leaves static analysis to an existing static analysis target", () => {
     const plan = planRepositoryScans(
       [{ id: "p1", uid: "git@bitbucket.org:acme/web.git", alias: "acme/web" }],
       [target("t1", "p1", "acme/web", TRIVY_MODE.SAST)],
     );
 
-    expect(plan[0]).toMatchObject({ mode: TRIVY_MODE.REPO });
+    expect(plan[0]).toMatchObject({
+      mode: TRIVY_MODE.REPO,
+      staticAnalysis: false,
+    });
     expect(plan[0].targetId).toBeUndefined();
     expect(plan[0].name).toBe("acme/web (2)");
     expect(plan[1]).toMatchObject({ mode: TRIVY_MODE.SAST, targetId: "t1" });
@@ -117,12 +110,7 @@ describe("planRepositoryScans", () => {
       [],
     );
 
-    expect(plan.map((item) => item.name)).toEqual([
-      "web",
-      "web (SAST)",
-      "web (2)",
-      "web (SAST) (2)",
-    ]);
+    expect(plan.map((item) => item.name)).toEqual(["web", "web (2)"]);
   });
 
   it("fits names into the 3 to 100 character limit", () => {
@@ -136,8 +124,7 @@ describe("planRepositoryScans", () => {
     );
 
     expect(plan[0].name).toBe("Repository ab");
-    expect(plan[2].name).toHaveLength(100);
-    expect(plan[3].name).toHaveLength(100);
+    expect(plan[1].name).toHaveLength(100);
   });
 });
 
@@ -152,6 +139,20 @@ describe("scanAllTargetConfig", () => {
     expect(scanAllTargetConfig({ ...base, mode: TRIVY_MODE.REPO })).toEqual({
       repository_url: "git@bitbucket.org:acme/web.git",
       profile: SCAN_ALL_REPO_PROFILE,
+    });
+  });
+
+  it("turns static analysis on in the same target", () => {
+    expect(
+      scanAllTargetConfig({
+        ...base,
+        mode: TRIVY_MODE.REPO,
+        staticAnalysis: true,
+      }),
+    ).toEqual({
+      repository_url: "git@bitbucket.org:acme/web.git",
+      profile: SCAN_ALL_REPO_PROFILE,
+      sast: { rulesets: ["auto"], exclude: [] },
     });
   });
 

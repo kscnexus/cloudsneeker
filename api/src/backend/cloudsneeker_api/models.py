@@ -657,6 +657,14 @@ class TrivyRun(CloudsneekerRLSModel):
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     scan_id = models.UUIDField(null=True, blank=True)
+    # Shared Scan holding the static analysis rows of a repository target
+    # that also runs static analysis (``config.sast``); ``scan_id`` holds the
+    # rest. Two scans keep each stream's ``scanner_args.mode``.
+    code_scan_id = models.UUIDField(null=True, blank=True)
+    # Branch this run scanned, when it is one of the target's extra branches
+    # (``config.branches``). Empty: the target's main branch (``config.branch``,
+    # or the repository default). Only main-branch runs write shared rows.
+    branch = models.CharField(max_length=255, blank=True, default="")
     summary = models.JSONField(default=dict, blank=True)
     output = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True, default="")

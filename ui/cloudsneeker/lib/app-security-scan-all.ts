@@ -18,16 +18,16 @@ export interface RepositorySource {
   alias?: string | null;
 }
 
-/** Target types "Scan all repositories" runs on every repository. */
+/**
+ * Target types "Scan all repositories" rescans. It creates only code
+ * repository targets; those run static analysis in the same scan.
+ */
 export const SCAN_ALL_MODES = [TRIVY_MODE.REPO, TRIVY_MODE.SAST] as const;
 
 export type ScanAllMode = (typeof SCAN_ALL_MODES)[number];
 
 /** Profile of new code repository targets: every scanner the type supports. */
 export const SCAN_ALL_REPO_PROFILE = "builtin:full";
-
-/** Name suffix of the static analysis target created for a repository. */
-const SAST_NAME_SUFFIX = " (SAST)";
 
 /** One scan to start; without `targetId` the target is created first. */
 export interface RepositoryScanItem {
@@ -36,6 +36,8 @@ export interface RepositoryScanItem {
   name: string;
   mode: ScanAllMode;
   targetId?: string;
+  /** New code repository target: also run static analysis. */
+  staticAnalysis?: boolean;
 }
 
 export interface RepositoryScanResult {
@@ -56,7 +58,13 @@ export const scanAllTargetConfig = (
         rulesets: [SAST_RULESET.AUTO],
         exclude: [],
       }
-    : { repository_url: item.repositoryUrl, profile: SCAN_ALL_REPO_PROFILE };
+    : {
+        repository_url: item.repositoryUrl,
+        profile: SCAN_ALL_REPO_PROFILE,
+        ...(item.staticAnalysis
+          ? { sast: { rulesets: [SAST_RULESET.AUTO], exclude: [] } }
+          : {}),
+      };
 
 /** `owner/repo` from an SSH or HTTPS clone URL; the input when it is neither. */
 export const repositoryNameFromUrl = (url: string): string => {
@@ -95,9 +103,11 @@ const uniqueName = (base: string, used: Set<string>): string => {
 
 /**
  * What "Scan all repositories" does for each connected repository: one code
- * repository scan (dependencies, misconfigurations, secrets, licenses) and
- * one static analysis scan (code weaknesses). An existing target of each
- * type is rescanned; a missing one is created, named after the repository.
+ * repository scan covering dependencies, misconfigurations, secrets,
+ * licenses and code weaknesses. An existing code repository target is
+ * rescanned; a missing one is created with static analysis on, named after
+ * the repository. A static analysis target saved earlier is rescanned too,
+ * and then the new target leaves static analysis to it (no duplicates).
  */
 export const planRepositoryScans = (
   repositories: RepositorySource[],
@@ -113,27 +123,28 @@ export const planRepositoryScans = (
   return repositories.flatMap((repository) => {
     const base =
       repository.alias?.trim() || repositoryNameFromUrl(repository.uid);
-    return SCAN_ALL_MODES.map((mode): RepositoryScanItem => {
-      const target = existing.get(`${mode}:${repository.id}`);
-      if (target) {
-        return {
-          providerId: repository.id,
-          repositoryUrl: repository.uid,
-          name: target.attributes.name,
-          mode,
-          targetId: target.id,
-        };
-      }
-      return {
-        providerId: repository.id,
-        repositoryUrl: repository.uid,
-        name: uniqueName(
-          mode === TRIVY_MODE.SAST ? `${base}${SAST_NAME_SUFFIX}` : base,
-          usedNames,
-        ),
-        mode,
-      };
+    const repo = existing.get(`${TRIVY_MODE.REPO}:${repository.id}`);
+    const sast = existing.get(`${TRIVY_MODE.SAST}:${repository.id}`);
+    const rescan = (target: TrivyTargetResource): RepositoryScanItem => ({
+      providerId: repository.id,
+      repositoryUrl: repository.uid,
+      name: target.attributes.name,
+      mode: target.attributes.mode as ScanAllMode,
+      targetId: target.id,
     });
+    const items: RepositoryScanItem[] = [
+      repo
+        ? rescan(repo)
+        : {
+            providerId: repository.id,
+            repositoryUrl: repository.uid,
+            name: uniqueName(base, usedNames),
+            mode: TRIVY_MODE.REPO,
+            staticAnalysis: !sast,
+          },
+    ];
+    if (sast) items.push(rescan(sast));
+    return items;
   });
 };
 

@@ -253,12 +253,15 @@ export const buildAppSecFilters = ({
   applications,
   targets,
   targetTypes = Object.values(TRIVY_MODE),
+  branches = [],
 }: {
   workspace: AppSecWorkspace;
   applications: FilterChoice[];
   targets: FilterChoice[];
   /** Asset types to offer; every type when not given. */
   targetTypes?: readonly string[];
+  /** Other branches with findings; none selected reads the main branch. */
+  branches?: readonly string[];
 }): StandardFilter[] => {
   const param = APPSEC_FINDING_PARAM;
   const filters: StandardFilter[] = [
@@ -319,6 +322,17 @@ export const buildAppSecFilters = ({
         value: mode,
         label: labelForTrivyMode(mode),
       })),
+    });
+  }
+  if (branches.length > 0) {
+    filters.push({
+      key: param.BRANCH,
+      label: "Branch (main by default)",
+      single: true,
+      options: [
+        { value: "*", label: "All branches" },
+        ...branches.map((branch) => ({ value: branch, label: branch })),
+      ],
     });
   }
   filters.push({
@@ -596,6 +610,7 @@ const SSRWorkspace = async ({
           applications: scopedApplications,
           targets: scopedTargets,
           targetTypes: scopedTargetTypes,
+          branches: summary?.branches ?? [],
         })}
       />
       <ScopeNotes workspace={workspace} filters={filters} />

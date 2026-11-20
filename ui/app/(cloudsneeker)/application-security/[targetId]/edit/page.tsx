@@ -8,14 +8,12 @@ import { PageHeader } from "@/cloudsneeker/components/page-header";
 import { TrivyTargetForm } from "@/cloudsneeker/components/trivy-target-form";
 import { loadProfileOptions } from "@/cloudsneeker/lib/appsec-server";
 import { responseList } from "@/cloudsneeker/lib/findings-links";
+import { sourceOption } from "@/cloudsneeker/lib/source-options";
 import {
   SAST_SOURCE,
   type TrivyTargetFormInput,
 } from "@/cloudsneeker/lib/trivy-form-schema";
-import {
-  labelForProviderType,
-  scannersForModeFrom,
-} from "@/cloudsneeker/lib/trivy-modes";
+import { scannersForModeFrom } from "@/cloudsneeker/lib/trivy-modes";
 import type {
   AppSecApplicationAttributes,
   AppSecResource,
@@ -54,6 +52,9 @@ export default async function EditTrivyTargetPage({
 
   const target = targetResponse.data as TrivyTargetResource;
   const config = target.attributes.config ?? {};
+  // Repository targets keep their static analysis settings under `sast`.
+  const rules =
+    target.attributes.mode === TRIVY_MODE.SAST ? config : (config.sast ?? {});
   const [providersResponse, profiles, applicationsResponse] = await Promise.all(
     [
       getProviders({ pageSize: 100 }),
@@ -67,16 +68,7 @@ export default async function EditTrivyTargetPage({
     value: application.id,
     label: application.attributes.name,
   }));
-  const providers = (providersResponse?.data ?? []).map((provider) => ({
-    id: provider.id,
-    providerType: provider.attributes.provider,
-    label: [
-      labelForProviderType(provider.attributes.provider),
-      provider.attributes.alias || provider.attributes.uid || provider.id,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-  }));
+  const providers = (providersResponse?.data ?? []).map(sourceOption);
 
   const initialValues: TrivyTargetFormInput = {
     name: target.attributes.name,
@@ -93,6 +85,10 @@ export default async function EditTrivyTargetPage({
       typeof config.repository_url === "string" ? config.repository_url : "",
     branches:
       typeof config.branch === "string" && config.branch ? [config.branch] : [],
+    extraBranches: Array.isArray(config.branches)
+      ? config.branches.join("\n")
+      : "",
+    staticAnalysis: Boolean(config.sast),
     archiveB64: "",
     sbom: typeof config.sbom === "string" ? config.sbom : "",
     namespace: typeof config.namespace === "string" ? config.namespace : "",
@@ -106,10 +102,11 @@ export default async function EditTrivyTargetPage({
         : target.attributes.mode === TRIVY_MODE.SAST
           ? SAST_SOURCE.ARCHIVE
           : SAST_SOURCE.REPOSITORY,
-    rulesets: Array.isArray(config.rulesets)
-      ? config.rulesets.filter(isSastRuleset)
-      : [SAST_RULESET.AUTO],
-    exclude: Array.isArray(config.exclude) ? config.exclude.join("\n") : "",
+    rulesets:
+      Array.isArray(rules.rulesets) && rules.rulesets.length > 0
+        ? rules.rulesets.filter(isSastRuleset)
+        : [SAST_RULESET.AUTO],
+    exclude: Array.isArray(rules.exclude) ? rules.exclude.join("\n") : "",
     scheduleEnabled: Boolean(target.attributes.schedule_enabled),
     scheduleCron: target.attributes.schedule_cron ?? "",
     scheduleTimezone: target.attributes.schedule_timezone ?? "UTC",

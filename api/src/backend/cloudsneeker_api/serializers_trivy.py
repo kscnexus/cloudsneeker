@@ -322,6 +322,8 @@ class TrivyRunSerializer(RLSSerializer):
             "has_artifact",
             "archived_at",
             "branch",
+            "extra_branch",
+            "code_scan_id",
         ]
 
     class JSONAPIMeta:
@@ -329,9 +331,11 @@ class TrivyRunSerializer(RLSSerializer):
 
     has_artifact = serializers.SerializerMethodField()
     branch = serializers.SerializerMethodField()
+    # Set when the run scanned one of the target's extra branches.
+    extra_branch = serializers.CharField(source="branch", read_only=True)
 
     def get_branch(self, obj: TrivyRun) -> str:
-        return run_branch(obj.summary, obj.output, obj.options)
+        return run_branch(obj.summary, obj.output, obj.options) or obj.branch
 
     def get_has_artifact(self, obj: TrivyRun) -> bool:
         return bool(obj.artifact_path)

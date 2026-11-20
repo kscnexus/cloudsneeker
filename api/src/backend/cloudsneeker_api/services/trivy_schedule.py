@@ -152,6 +152,7 @@ def enqueue_scheduled_trivy_run(
             tenant_id=tenant_id,
             target_id=target_id,
             status__in=[TrivyRun.Status.PENDING, TrivyRun.Status.RUNNING],
+            branch="",
         ).exists()
         if active:
             return None
