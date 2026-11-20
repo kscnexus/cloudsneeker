@@ -5,8 +5,10 @@
 * License categories come from license findings (``details.license_category``)
   and, when present, the SBOM summary (``summary.license_categories``).
 * Policy violations are open, unsuppressed ``AppSecFinding`` rows of category
-  ``license``: the scanner flags a license when the tenant's license policy
-  (or the scanner default) classifies it as restricted or forbidden.
+  ``license`` whose category is forbidden or restricted, by the tenant's
+  license policy or the scanner default. The scanner records every license it
+  sees, so notice, permissive, reciprocal, and unencumbered licenses are in
+  use but are not violations.
 """
 
 from __future__ import annotations
@@ -16,7 +18,10 @@ from typing import Any
 from cloudsneeker_api.appsec.queries import ACTIVE_STATES, findings_queryset
 from cloudsneeker_api.models_appsec import AppSecFinding
 from cloudsneeker_api.reports.catalog import LICENSES
-from cloudsneeker_api.reports.data.common import max_detail_rows
+from cloudsneeker_api.reports.data.common import (
+    ACTIONABLE_LICENSE_CATEGORIES,
+    max_detail_rows,
+)
 from cloudsneeker_api.reports.data.sbom import components_of, latest_sboms
 from cloudsneeker_api.reports.schema import (
     SEVERITY_ORDER,
@@ -127,7 +132,11 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     findings = findings_queryset(tenant_id, set(filters.provider_ids) or None).filter(
         category=AppSecFinding.Category.LICENSE
     )
-    violations = findings.filter(state__in=ACTIVE_STATES, suppressed=False)
+    violations = findings.filter(
+        state__in=ACTIVE_STATES,
+        suppressed=False,
+        details__license_category__in=ACTIONABLE_LICENSE_CATEGORIES,
+    )
     if filters.severity_floor:
         violations = violations.filter(severity__in=filters.severities())
     usage, component_total, without_license = license_usage(tenant_id, sboms)
@@ -230,8 +239,9 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
     if violation_total:
         worst = license_rows[0]["license"] if license_rows else ""
         actions.append(
-            f"Replace or get legal approval for components under restricted "
-            f"licenses ({violation_total} open violation(s), most under {worst})."
+            f"Replace or get legal approval for components under forbidden or "
+            f"restricted licenses ({violation_total} open violation(s), most "
+            f"under {worst})."
         )
     if without_license:
         actions.append(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from cloudsneeker_api.reports.catalog import CONTAINER
 from cloudsneeker_api.reports.data.common import (
+    LICENSE_Q,
     SECRET_Q,
     VULNERABILITY_Q,
     ScanScope,
@@ -62,10 +63,16 @@ def assemble(tenant_id: str, filters: ReportFilters) -> ReportData:
 
     vulns = _stats(VULNERABILITY_Q)
     secrets = _stats(SECRET_Q)
+    licenses = _stats(LICENSE_Q)
     data.kpis["vulnerabilities"] = vulns.status["fail"]
     data.kpis["secrets"] = secrets.status["fail"]
+    data.kpis["license_issues"] = licenses.status["fail"]
     data.kpis["misconfigurations"] = max(
-        0, data.status_totals["fail"] - vulns.status["fail"] - secrets.status["fail"]
+        0,
+        data.status_totals["fail"]
+        - vulns.status["fail"]
+        - secrets.status["fail"]
+        - licenses.status["fail"],
     )
     data.kpis["images_in_scope"] = len(scan_ids)
     return data

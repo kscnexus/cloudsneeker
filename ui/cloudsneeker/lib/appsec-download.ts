@@ -80,7 +80,11 @@ export const buildAppSecDownloadHeaders = (
   fallbackName: string,
 ): Headers => {
   const headers = new Headers({ "Cache-Control": "no-store" });
+  // fetch() decompresses a gzip/zstd body but keeps the compressed length;
+  // forwarding that length cuts the file short, so drop it then.
+  const compressed = Boolean(upstream.get("content-encoding"));
   for (const name of COPY_RESPONSE_HEADERS) {
+    if (name === "content-length" && compressed) continue;
     const value = upstream.get(name);
     if (value) headers.set(name, value);
   }

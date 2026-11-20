@@ -429,6 +429,30 @@ class TestRemediationReport:
         data = _assemble(tenant, "remediation", provider_ids=[str(first.id)])
         assert data.kpis["open_findings"] == 1
 
+    def test_notice_licenses_are_not_open_work(self, tenants_fixture, iac_provider):
+        tenant = tenants_fixture[0]
+        target = _target(iac_provider)
+        _appsec(target, severity="critical")
+        _appsec(
+            target,
+            category="license",
+            rule_id="MIT",
+            severity="low",
+            details={"license_category": "notice"},
+        )
+        _appsec(
+            target,
+            category="license",
+            rule_id="AGPL-3.0",
+            severity="high",
+            details={"license_category": "restricted"},
+        )
+
+        data = _assemble(tenant, "remediation")
+
+        assert data.kpis["open_findings"] == 2
+        assert data.severity_totals["low"] == 0
+
 
 @pytest.mark.django_db
 class TestLicensesReport:
@@ -473,6 +497,41 @@ class TestLicensesReport:
         violations = _table(data, "violations").rows
         assert [row["package"] for row in violations] == ["readline"]
         assert data.severity_totals["high"] == 1
+
+    def test_notice_licenses_are_in_use_but_not_violations(
+        self, tenants_fixture, iac_provider
+    ):
+        tenant = tenants_fixture[0]
+        target = _target(iac_provider)
+        latest = _sbom(target)
+        _component(latest, "lodash", licenses=["MIT"])
+        _component(latest, "fonts", licenses=["MPL-2.0"])
+        _appsec(
+            target,
+            category="license",
+            rule_id="MIT",
+            pkg_name="lodash",
+            severity="low",
+            details={"license_category": "notice"},
+        )
+        _appsec(
+            target,
+            category="license",
+            rule_id="MPL-2.0",
+            pkg_name="fonts",
+            severity="medium",
+            details={"license_category": "reciprocal"},
+        )
+
+        data = _assemble(tenant, "licenses")
+
+        assert data.kpis["licenses_in_use"] == 2
+        assert data.kpis["policy_violations"] == 0
+        assert _table(data, "violations").rows == []
+        rows = {row["license"]: row for row in _table(data, "licenses").rows}
+        assert rows["MIT"]["category"] == "notice"
+        assert rows["MIT"]["violations"] == 0
+        assert data.remediation == []
 
 
 @pytest.mark.django_db

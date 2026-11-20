@@ -54,6 +54,41 @@ describe("report download route", () => {
     expect(await response.text()).toBe("xlsx-bytes");
   });
 
+  it("drops the compressed length so a gzip JSON body is not cut short", async () => {
+    const body = JSON.stringify({
+      report_type: "sast",
+      headline: "x".repeat(900),
+    });
+    fetchMock.mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "content-encoding": "gzip",
+          "content-length": "524",
+        },
+      }),
+    );
+
+    const response = await callRoute(RUN_ID, "?format=json");
+
+    expect(response.headers.get("content-length")).toBeNull();
+    expect(await response.text()).toBe(body);
+  });
+
+  it("keeps the length of an uncompressed PDF", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("%PDF-1.4", {
+        status: 200,
+        headers: { "content-type": "application/pdf", "content-length": "8" },
+      }),
+    );
+
+    const response = await callRoute(RUN_ID, "?format=pdf");
+
+    expect(response.headers.get("content-length")).toBe("8");
+  });
+
   it("defaults to PDF and fills in missing headers", async () => {
     fetchMock.mockResolvedValue(new Response("pdf", { status: 200 }));
 

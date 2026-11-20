@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from cloudsneeker_api.reports.catalog import IAC
-from cloudsneeker_api.reports.data.common import SECRET_Q, VULNERABILITY_Q, ScanScope
+from cloudsneeker_api.reports.data.common import (
+    LICENSE_Q,
+    SECRET_Q,
+    VULNERABILITY_Q,
+    ScanScope,
+)
 from cloudsneeker_api.reports.data.findings_report import (
     FindingsReportSpec,
     assemble_findings_report,
@@ -24,8 +29,9 @@ SPEC = FindingsReportSpec(
         "No misconfiguration scans in scope. Connect a repository and run a "
         "scan with the misconfiguration scanner to populate this report."
     ),
-    # Misconfigurations only: vulnerabilities and secrets have their own reports.
-    exclude_q=(VULNERABILITY_Q, SECRET_Q),
+    # Misconfigurations only: vulnerabilities, secrets, and licenses have
+    # their own reports.
+    exclude_q=(VULNERABILITY_Q, SECRET_Q, LICENSE_Q),
     detail_title="Misconfigurations",
 )
 
