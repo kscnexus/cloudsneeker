@@ -34,6 +34,7 @@ from cloudsneeker.git_ssh import clone as git_clone
 from cloudsneeker_api.services.trivy import (
     MAX_ARCHIVE_BYTES,
     TRIVY_TIMEOUT_SECONDS,
+    RepositoryCloneError,
     TrivyHubError,
     _extract_archive,
     _has_embedded_credentials,
@@ -426,7 +427,9 @@ def checkout_repository(
     try:
         git_clone(clone_url, str(dest), *repo_ssh_args(provider), **options)
     except GitSshError as exc:
-        raise TrivyHubError(f"Repository clone failed: {exc}") from None
+        raise RepositoryCloneError(
+            f"Repository clone failed: {exc}", transient=exc.transient
+        ) from None
     except Exception as exc:  # noqa: BLE001 - never surface a token
         raise TrivyHubError(
             f"Repository clone failed: {redact(str(exc), *secrets)}"

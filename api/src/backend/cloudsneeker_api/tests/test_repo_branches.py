@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from cloudsneeker.git_ssh import GitSshError
-from cloudsneeker_api.appsec import engine
+from cloudsneeker_api.appsec import engine, failures
 from cloudsneeker_api.services import repo_branches
 from cloudsneeker_api.services.repo_branches import (
     RepositoryBranchError,
@@ -286,6 +286,23 @@ class TestEngineBranch:
                 limits=LIMITS,
             )
         assert unit.branch == "master"
+
+    @pytest.mark.parametrize(
+        ("transient", "kind"),
+        [(True, failures.FAILURE_NETWORK), (False, failures.FAILURE_AUTH)],
+    )
+    def test_ssh_clone_failure_kind(self, tmp_path, transient, kind):
+        error = GitSshError("SSH clone failed: x", transient=transient)
+        with patch("cloudsneeker_api.services.trivy.git_clone", side_effect=error):
+            with pytest.raises(engine.EngineError) as raised:
+                engine.prepare_units(
+                    mode="repo",
+                    config={"repository_url": SSH_URL},
+                    provider=_provider(uid=SSH_URL),
+                    work_dir=tmp_path,
+                    limits=LIMITS,
+                )
+        assert raised.value.failure.kind == kind
 
     def test_https_unit_carries_the_branch(self, tmp_path):
         (unit,) = engine.prepare_units(
