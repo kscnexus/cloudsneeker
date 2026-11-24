@@ -17,6 +17,9 @@ How a clone runs:
   nothing is trusted on first use.
 * Dulwich's subprocess SSH vendor needs the ``ssh`` client
   (``openssh-client`` in the API image).
+* A connection the server drops (Bitbucket closes SSH sessions when too many
+  arrive at once from one address) is retried with a short backoff before the
+  clone fails; a refused key or unknown host key fails at once.
 
 Nothing here logs. Error text never contains the key.
 """
@@ -24,10 +27,12 @@ Nothing here logs. Error text never contains the key.
 from __future__ import annotations
 
 import os
+import random
 import re
 import shlex
 import shutil
 import tempfile
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from urllib.parse import urlsplit
@@ -37,6 +42,24 @@ SSH_KNOWN_HOSTS = "ssh_known_hosts"
 SSH_KEY_PASSPHRASE = "ssh_key_passphrase"
 
 CONNECT_TIMEOUT_SECONDS = 20
+
+# Attempts for a connection the server dropped, and the pause before each
+# retry (plus up to RETRY_JITTER_SECONDS, so parallel clones spread out).
+TRANSIENT_ATTEMPTS = 3
+RETRY_DELAYS_SECONDS = (5, 15)
+RETRY_JITTER_SECONDS = 5
+
+# Text of failures a later attempt can get past: the server hung up, reset
+# or timed out the connection, or DNS failed for a moment.
+_TRANSIENT = re.compile(
+    r"(unexpectedly closed the connection|connection closed by|"
+    r"connection reset|kex_exchange_identification|ssh_exchange_identification|"
+    r"broken pipe|timed out|temporary failure in name resolution|"
+    r"connection refused)",
+    re.IGNORECASE,
+)
+
+_sleep = time.sleep
 
 # Fingerprints checked on 2026-11-01 against each host's published values
 # (GitHub: api.github.com/meta; GitLab, Bitbucket and Azure DevOps: their
@@ -72,7 +95,29 @@ _BASE64 = re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
 
 
 class GitSshError(ValueError):
-    """An SSH key, host key or SSH clone problem the user can fix."""
+    """An SSH key, host key or SSH clone problem.
+
+    Attributes:
+        transient: The server dropped the connection or could not be reached,
+            so the same clone can succeed later. ``False`` for problems the
+            user must fix (key, host key, repository access).
+    """
+
+    def __init__(self, message: str, *, transient: bool = False) -> None:
+        super().__init__(message)
+        self.transient = transient
+
+
+def is_transient_error(error: BaseException | str) -> bool:
+    """Whether an SSH clone failure can succeed when tried again.
+
+    Args:
+        error: Exception or text from Dulwich / ``ssh``.
+
+    Returns:
+        ``True`` for dropped, reset or timed-out connections.
+    """
+    return bool(_TRANSIENT.search(str(error)))
 
 
 def is_ssh_url(repository_url: str | None) -> bool:
@@ -150,7 +195,9 @@ def load_private_key(private_key: str, passphrase: str | None = None) -> bytes:
                 if not password
                 else "The SSH key is not encrypted: leave the passphrase empty."
             ) from error
-        except Exception:  # noqa: BLE001 - wrong format, bad passphrase, unsupported type
+        except (
+            Exception
+        ):  # noqa: BLE001 - wrong format, bad passphrase, unsupported type
             continue
         try:
             return key.private_bytes(
@@ -228,6 +275,13 @@ def clone_error_message(error: BaseException | str) -> str:
         )
     if "no such file or directory" in lowered and "ssh" in lowered:
         return "The SSH client is not installed on this server."
+    if "unexpectedly closed the connection" in lowered or (
+        "connection closed by" in lowered
+    ):
+        return (
+            "The Git server closed the SSH connection. This is usually a "
+            "temporary limit on the Git host; scan again in a few minutes."
+        )
     if "could not resolve" in lowered or "timed out" in lowered:
         return "The Git server could not be reached over SSH."
     return f"SSH clone failed: {text}"
@@ -332,10 +386,10 @@ def clone(
     ) as transport:
         if not transport:
             return porcelain.clone(repository_url, target, **kwargs)
-        try:
-            return porcelain.clone(repository_url, target, **kwargs, **transport)
-        except Exception as error:  # noqa: BLE001 - dulwich/ssh raise many types
-            raise GitSshError(clone_error_message(error)) from None
+        return _with_retries(
+            lambda: porcelain.clone(repository_url, target, **kwargs, **transport),
+            before_retry=lambda: _empty_directory(target),
+        )
 
 
 def ls_remote(
@@ -365,10 +419,51 @@ def ls_remote(
     ) as transport:
         if not transport:
             return porcelain.ls_remote(repository_url)
+        return _with_retries(lambda: porcelain.ls_remote(repository_url, **transport))
+
+
+def _with_retries(operation, before_retry=None):
+    """Run an SSH ``operation``, retrying when the server drops the connection.
+
+    Args:
+        operation: Callable doing the Dulwich call.
+        before_retry: Callable run before each retry (clears a partial clone).
+
+    Returns:
+        What ``operation`` returns.
+
+    Raises:
+        GitSshError: The operation failed; ``transient`` tells whether the
+            last failure was a dropped connection.
+    """
+    for attempt in range(1, TRANSIENT_ATTEMPTS + 1):
         try:
-            return porcelain.ls_remote(repository_url, **transport)
-        except Exception as error:  # noqa: BLE001
-            raise GitSshError(clone_error_message(error)) from None
+            return operation()
+        except Exception as error:  # noqa: BLE001 - dulwich/ssh raise many types
+            transient = is_transient_error(error)
+            if not transient or attempt == TRANSIENT_ATTEMPTS:
+                raise GitSshError(
+                    clone_error_message(error), transient=transient
+                ) from None
+        if before_retry is not None:
+            before_retry()
+        delay = RETRY_DELAYS_SECONDS[min(attempt, len(RETRY_DELAYS_SECONDS)) - 1]
+        _sleep(delay + random.uniform(0, RETRY_JITTER_SECONDS))  # noqa: S311
+    raise GitSshError("SSH clone failed.")  # unreachable: TRANSIENT_ATTEMPTS >= 1
+
+
+def _empty_directory(path: str) -> None:
+    """Remove what a failed clone left in ``path``, keeping ``path`` itself."""
+    if not os.path.isdir(path):
+        return
+    for entry in os.scandir(path):
+        if entry.is_dir(follow_symlinks=False):
+            shutil.rmtree(entry.path, ignore_errors=True)
+        else:
+            try:
+                os.unlink(entry.path)
+            except OSError:
+                pass
 
 
 def ssh_secret_args(secret: dict | None) -> tuple[str | None, str | None, str | None]:

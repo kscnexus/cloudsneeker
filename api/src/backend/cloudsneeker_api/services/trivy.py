@@ -121,6 +121,19 @@ class TrivyHubError(ValueError):
     """Raised when a Trivy Hub target or run is invalid."""
 
 
+class RepositoryCloneError(TrivyHubError):
+    """A repository clone failed.
+
+    Attributes:
+        transient: The Git server dropped or timed out the connection, so the
+            clone can succeed later; ``False`` for credential or access errors.
+    """
+
+    def __init__(self, message: str, *, transient: bool = False) -> None:
+        super().__init__(message)
+        self.transient = transient
+
+
 def effective_run_status(
     run_status: str, summary: dict | None, scan_state: str | None
 ) -> str:
@@ -671,7 +684,9 @@ def checkout_ssh_repository(
     try:
         git_clone(repository_url, str(dest), *repo_ssh_args(provider), **options)
     except GitSshError as error:
-        raise TrivyHubError(f"Repository clone failed: {error}") from None
+        raise RepositoryCloneError(
+            f"Repository clone failed: {error}", transient=error.transient
+        ) from None
     branch = head_branch(dest)
     shutil.rmtree(dest / ".git", ignore_errors=True)
     return branch

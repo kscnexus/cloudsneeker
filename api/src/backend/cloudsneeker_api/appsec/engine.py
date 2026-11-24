@@ -409,6 +409,18 @@ def _image_environment(provider) -> tuple[dict[str, str], tuple[str, ...]]:
     return env, tuple(secrets)
 
 
+def clone_failure_kind(error: Exception) -> str:
+    """Failure kind of an SSH repository clone error.
+
+    A dropped or timed-out connection is a network failure the user can
+    retry; anything else (refused key, unknown host key, no access) is
+    reported as a credential problem.
+    """
+    if getattr(error, "transient", False):
+        return failures.FAILURE_NETWORK
+    return failures.FAILURE_AUTH
+
+
 def prepare_units(
     *,
     mode: str,
@@ -452,7 +464,7 @@ def prepare_units(
                 )
             except hub.TrivyHubError as exc:
                 raise EngineError(
-                    failures.failure(failures.FAILURE_AUTH, str(exc))
+                    failures.failure(clone_failure_kind(exc), str(exc))
                 ) from None
             # A plain directory has no Git metadata to select a ref from.
             return [
@@ -1643,7 +1655,10 @@ def _execute_code_scan(run, target, provider, config, using):
     try:
         report = run_opengrep_scan(config=config, provider=provider)
     except hub.TrivyHubError as exc:
-        return _fail(run, using, failures.failure(failures.FAILURE_ENGINE, str(exc)))
+        kind = failures.FAILURE_ENGINE
+        if getattr(exc, "transient", False):
+            kind = failures.FAILURE_NETWORK
+        return _fail(run, using, failures.failure(kind, str(exc)))
     if not run.branch:
         _pin_branch(target, str(report.get("cloudsneeker_branch") or ""), using)
     rows = opengrep_results_to_finding_rows(report)

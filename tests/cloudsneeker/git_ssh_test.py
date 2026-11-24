@@ -8,6 +8,7 @@ import pytest
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
+from dulwich.errors import HangupException
 
 from cloudsneeker import git_ssh
 from cloudsneeker.git_ssh import (
@@ -245,6 +246,71 @@ class TestCloneAndLsRemote:
     def test_ssh_clone_error_is_actionable(self, _mock_clone):
         with pytest.raises(GitSshError, match="host key"):
             git_ssh.clone(SSH_URL, "/tmp/d", _openssh_key())
+
+    @mock.patch.object(git_ssh, "_sleep")
+    @mock.patch("dulwich.porcelain.clone")
+    def test_dropped_connection_is_retried(self, mock_clone, mock_sleep, tmp_path):
+        target = tmp_path / "repo"
+
+        def drop_then_clone(url, path, **kwargs):
+            if mock_clone.call_count == 1:
+                os.makedirs(os.path.join(path, ".git"))
+                raise HangupException()
+            return "repo"
+
+        mock_clone.side_effect = drop_then_clone
+        target.mkdir()
+        result = git_ssh.clone(SSH_URL, str(target), _openssh_key())
+        assert result == "repo"
+        assert mock_clone.call_count == 2
+        assert mock_sleep.call_count == 1
+        # The partial clone was cleared before the retry.
+        assert not (target / ".git").exists()
+
+    @mock.patch.object(git_ssh, "_sleep")
+    @mock.patch("dulwich.porcelain.clone", side_effect=HangupException())
+    def test_dropped_connection_gives_up_as_transient(self, mock_clone, _sleep):
+        with pytest.raises(GitSshError, match="closed the SSH connection") as raised:
+            git_ssh.clone(SSH_URL, "/tmp/d", _openssh_key())
+        assert raised.value.transient is True
+        assert mock_clone.call_count == git_ssh.TRANSIENT_ATTEMPTS
+
+    @mock.patch.object(git_ssh, "_sleep")
+    @mock.patch(
+        "dulwich.porcelain.clone",
+        side_effect=HangupException([b"Permission denied (publickey)."]),
+    )
+    def test_refused_key_is_not_retried(self, mock_clone, mock_sleep):
+        with pytest.raises(GitSshError, match="deploy key") as raised:
+            git_ssh.clone(SSH_URL, "/tmp/d", _openssh_key())
+        assert raised.value.transient is False
+        assert mock_clone.call_count == 1
+        mock_sleep.assert_not_called()
+
+    @mock.patch.object(git_ssh, "_sleep")
+    @mock.patch("dulwich.porcelain.ls_remote")
+    def test_ls_remote_retries_a_reset_connection(self, mock_ls_remote, _sleep):
+        mock_ls_remote.side_effect = [
+            OSError("Connection reset by peer"),
+            "refs",
+        ]
+        assert git_ssh.ls_remote(SSH_URL, _openssh_key()) == "refs"
+        assert mock_ls_remote.call_count == 2
+
+    @pytest.mark.parametrize(
+        ("message", "transient"),
+        [
+            ("The remote server unexpectedly closed the connection.", True),
+            ("kex_exchange_identification: read: Connection reset by peer", True),
+            ("Connection closed by 104.192.141.1 port 22", True),
+            ("ssh: connect to host x port 22: Connection timed out", True),
+            ("Permission denied (publickey).", False),
+            ("Host key verification failed.", False),
+            ("conq: repository access denied.", False),
+        ],
+    )
+    def test_is_transient_error(self, message, transient):
+        assert git_ssh.is_transient_error(message) is transient
 
     @mock.patch("dulwich.porcelain.ls_remote")
     def test_ls_remote_over_ssh(self, mock_ls_remote):
